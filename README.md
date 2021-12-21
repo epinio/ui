@@ -1,12 +1,10 @@
 # Epinio UI
 
-####################################################<br>
-Please note the UI is still in development and has not yet been released<br>
-####################################################<br>
+> Please note the UI is still in development and has not yet been fully released
 
 # Install
 
-For `beta2` the Epinio UI is built in to the Rancher Dashboard. A [build process](./docs/developer/build-install.md) automatically makes a version of the Dashboard that contains the new Epinio UI.
+The first distribution of the UI will be alongside the Rancher Dashboard. A [build process](./docs/developer/build-install.md) automatically makes a version of the Dashboard that contains the new Epinio UI.
 
 ## Pre-Requisites
 
