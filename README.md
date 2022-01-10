@@ -9,8 +9,15 @@ The first distribution of the UI will be alongside the Rancher Dashboard. A [bui
 ## Pre-Requisites
 
 ### Configure Epinio
-Epinio must be informed of the domain the UI is served on. This can either be set 
-* when installing epinio (`epinio install --access-control-allow-origin <domain>`)
+Epinio must be informed of the domain the UI is served on. This can be set by the access controll allow origin property  
+* when installing epinio (`helm install epinio-installer epinio/epinio-installer --values <filepath to below>.yaml`)
+  ```
+  domain: <see epinio docs>
+  user: <username of default user>
+  accessControlAllowOrigin: <domain>
+  server:
+    traceLevel: <0 low, 100 high>
+  ```
 * at run time (edit the `ACCESS_CONTROL_ALLOW_ORIGIN` env var of the `epinio/epinio-server` `deployment`)
 
 ## Run the Epinio UI
