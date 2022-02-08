@@ -4,15 +4,15 @@ Updated version from https://docs.epinio.io/installation/install_epinio_auto.htm
 
 1. Create a cluster without traefik
    ```
-   k3d cluster create epinio-v0-3-2 --k3s-server-arg '--no-deploy=traefik'
+   k3d cluster create epinio-v0-3-6 --k3s-server-arg '--no-deploy=traefik'
    ```
 2. Discover the ip address of k3d
 
    a. Mine only worked using the node ip (node name from `docker ps`)
       ```
-      docker inspect k3d-epinio-v0-3-2-server-0 | grep IPAddress
+      docker inspect k3d-epinio-v0-3-6-server-0 | grep IPAddress
       ```
-   b. Append this with one of the magic domains (used below)
+   b. The domain value is ip with one of the magic domains (examples below)
       ```
       <ip>.nip.io / <ip>.omg.howdoi.website
       ```
@@ -35,9 +35,14 @@ Updated version from https://docs.epinio.io/installation/install_epinio_auto.htm
    ```
    helm install epinio-installer epinio/epinio-installer -f epinio-values.yaml
    ```
-6. Update the local cli and test. If the ip from above doesn't work it will fail the second command
+6. Install the Epinio CLI (for fresh installs)
+
+   Follow the instructions at https://docs.epinio.io/installation/install_epinio_cli.html
+
+7. Update the Epinio CLI (for installs on existing envs) 
    ```
    epinio config update
    epinio app list
    ```
+   Note - If the ip from above doesn't work it will fail the second command
 
