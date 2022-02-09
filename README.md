@@ -22,7 +22,7 @@ Epinio must be informed of the domain the UI is served on. This can be set by th
 
 ## Run the Epinio UI
 
-The `head` of the UI is `epinio-dev`. To use the latest stable UI with the examples below replace `epinio-dev` with `epinio-v0.3.3`.
+The `head` of the UI is `epinio-dev`. To use the latest stable UI with the examples below replace `epinio-dev` with `epinio-v0.3.6`.
 
 The Epinio UI needs to be served from an existing Rancher Dashboard. This can be done in the usual way when bringing up a Rancher instance or to one already running. So either ...
 
