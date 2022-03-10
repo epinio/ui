@@ -1,16 +1,25 @@
 # k3d
 
-Updated version from https://docs.epinio.io/installation/install_epinio_auto.html
+Updated version from https://docs.epinio.io/installation/installation.html
 
 1. Create a cluster without traefik
    ```
-   k3d cluster create epinio-v0-3-6 --k3s-server-arg '--no-deploy=traefik'
+   k3d cluster create epinio-v0-6-0
    ```
-2. Discover the ip address of k3d
+1. Install cert manager
+   ```
+   helm repo add jetstack https://charts.jetstack.io
+   helm repo update
+   kubectl create namespace cert-manager
+   helm install cert-manager --namespace cert-manager jetstack/cert-manager \
+        --set installCRDs=true \
+        --set extraArgs[0]=--enable-certificate-owner-ref=true
+   ```   
+1. Discover the ip address of k3d
 
    a. Mine only worked using the node ip (node name from `docker ps`)
       ```
-      docker inspect k3d-epinio-v0-3-6-server-0 | grep IPAddress
+      docker inspect k3d-epinio-v0-6-0-server-0 | grep IPAddress
       ```
    b. The domain value is ip with one of the magic domains (examples below)
       ```
@@ -18,10 +27,13 @@ Updated version from https://docs.epinio.io/installation/install_epinio_auto.htm
       ```
 3. Populate a helm values file, call it `epinio-values.yaml`
    ```
-   domain: <ip>.nip.io
-   user: <username of default user, can be anything>
-   accessControlAllowOrigin: <url of the location that serves the dashboard, for dev this would be https://localhost:8005>
+   api:
+     password: <random password>
+     username: <username of default user, can be anything>
+   global:
+     domain: '<ip>.nip.io'
    server:
+     accessControlAllowOrigin: '<url of the location that serves the dashboard, for dev this would be https://localhost:8005>'
      traceLevel: 100
    ```
 4. Add the epinio helm repo to your local helm OR update if you already have it
@@ -33,7 +45,7 @@ Updated version from https://docs.epinio.io/installation/install_epinio_auto.htm
    ```
 5. Install epinio (this may take some time)
    ```
-   helm install epinio-installer epinio/epinio-installer -f epinio-values.yaml
+   helm install epinio -n epinio --create-namespace epinio/epinio -f epinio-values.yaml
    ```
 6. Install the Epinio CLI (for fresh installs)
 
