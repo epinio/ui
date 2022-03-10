@@ -41,7 +41,7 @@ Updated version from https://docs.epinio.io/installation/install_epinio_auto.htm
 
 7. Update the Epinio CLI (for installs on existing envs) 
    ```
-   epinio config update
+   epinio settings update
    epinio app list
    ```
    Note - If the ip from above doesn't work it will fail the second command
