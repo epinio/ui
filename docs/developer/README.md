@@ -16,6 +16,18 @@ As the code lives alongside the Dashboard follow it's guide to run in dev world.
 
 > Follow the Epinio docs or [this guide](install-epinio.md) to install an Epinio instance locally
 
+### Build-in / Embedded
+
+Code can be found in `rancher/dashboard` `epinio-dev`
+
+Run the dashboard as per instructions in `rancher/dashboard`
+
+### Standalone
+
+Code can be found in `rancher/dashboard` `epinio-standalone-dev`
+
+Follow instructions over at https://github.com/epinio/ui-backend/ (you will need to run the backend locally as well as supply additional env vars when running the dashboard.
+
 ## Build/Release
 
 ### Built-in / Embedded
@@ -41,7 +53,12 @@ The outputted build (`epinio-dev` or `<tag>`) can then be used in the `ui-dashbo
 2. Create a build of the backend which contains the updated frontend, tag with with something like `v0.6.1`. A github action will be kicked off which will build a ui container (https://github.com/epinio/ui-backend/pkgs/container/epinio-ui)
 
 #### Update the Charts
-1. In `epinio/helm-charts` a new PR should be automatically created when the new container from above is created (title prefixed with something like `[updatecli] Bump epinio ui version`). The PR will update charts that reference this container, specifically the epinio all in one chart. Once that's merged the standalone UI is available as part of those charts.
+In `epinio/helm-charts` a new PR should be automatically created when the new container from above is created (title prefixed with something like `[updatecli] Bump epinio ui version`). The PR will update charts that reference this container, specifically the epinio all in one chart. However also make the additional changes before merging.
+1. Update `/blob/main/chart/epinio-ui/values.yaml` `epinioVersion` to be something like `v0.6.1`
+2. Update `/charts-richard-cox/chart/epinio-ui/Chart.yaml` `appVersion` to be the same as `epinioVersion`
+3. Get the PR approved and merged
+
+Once that's merged the standalone UI is available as part of those charts.
 
 
 ## Install the UI (without running it locally)
