@@ -41,7 +41,7 @@ The outputted build (`epinio-dev` or `<tag>`) can then be used in the `ui-dashbo
 2. Create a build of the backend which contains the updated frontend, tag with with something like `v0.6.1`. A github action will be kicked off which will build a ui container (https://github.com/epinio/ui-backend/pkgs/container/epinio-ui)
 
 #### Update the Charts
-1. In `epinio/charts` a new PR should be automatically created when the new container from above is created. The PR will update charts that reference this container, specifically the epinio one chart. Once that's merged the standalone UI is available as part of those charts.
+1. In `epinio/helm-charts` a new PR should be automatically created when the new container from above is created (title prefixed with something like `[updatecli] Bump epinio ui version`). The PR will update charts that reference this container, specifically the epinio all in one chart. Once that's merged the standalone UI is available as part of those charts.
 
 
 ## Install the UI (without running it locally)
