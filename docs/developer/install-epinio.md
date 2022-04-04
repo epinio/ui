@@ -47,6 +47,8 @@ Updated version from https://docs.epinio.io/installation/installation.html
    ```
    helm install epinio -n epinio --create-namespace epinio/epinio -f epinio-values.yaml
    ```
+   
+   > Note - The Standalone UI is now bundled with the epinio installer and can be accessed by the API URL listed by `epinio settings show` (see below for instructions on installing the cli)
 6. Install the Epinio CLI (for fresh installs)
 
    Follow the instructions at https://docs.epinio.io/installation/install_epinio_cli.html
