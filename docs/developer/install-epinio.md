@@ -4,7 +4,7 @@ Updated version from https://docs.epinio.io/installation/installation.html
 
 1. Create a cluster without traefik
    ```
-   k3d cluster create epinio-v0-6-0
+   k3d cluster create epinio-v0-6-1
    ```
 1. Install cert manager
    ```
@@ -19,7 +19,7 @@ Updated version from https://docs.epinio.io/installation/installation.html
 
    a. Mine only worked using the node ip (node name from `docker ps`)
       ```
-      docker inspect k3d-epinio-v0-6-0-server-0 | grep IPAddress
+      docker inspect k3d-epinio-v0-6-1-server-0 | grep IPAddress
       ```
    b. The domain value is ip with one of the magic domains (examples below)
       ```
