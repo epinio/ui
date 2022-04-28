@@ -2,10 +2,15 @@
 
 Updated version from https://docs.epinio.io/installation/installation.html
 
-1. Create a cluster without traefik
+1. Create a cluster
    ```
-   k3d cluster create epinio-v0-6-1
+   k3d cluster create epinio-v0-7-1
    ```
+   > Note in DO create it with ports forwarded
+   ```
+   k3d cluster create epinio-0-7-1 -p 80:80@loadbalancer -p 443:443@loadbalancer
+   ```
+
 1. Install cert manager
    ```
    helm repo add jetstack https://charts.jetstack.io
@@ -19,7 +24,7 @@ Updated version from https://docs.epinio.io/installation/installation.html
 
    a. Mine only worked using the node ip (node name from `docker ps`)
       ```
-      docker inspect k3d-epinio-v0-6-1-server-0 | grep IPAddress
+      docker inspect k3d-epinio-v0-7-1-server-0 | grep IPAddress
       ```
    b. The domain value is ip with one of the magic domains (examples below)
       ```
