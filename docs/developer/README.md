@@ -16,7 +16,7 @@ As the code lives alongside the Dashboard follow it's guide to run in dev world.
 
 > Follow the Epinio docs or [this guide](install-epinio.md) to install an Epinio instance locally
 
-### Build-in / Embedded
+### Built-in / Embedded
 
 Code can be found in `rancher/dashboard` `epinio-dev`
 
@@ -39,7 +39,7 @@ Whilst the Epinio UI code lives in the `rancher/dashboard` repo builds are creat
 
 The outputted build (`epinio-dev` or `<tag>`) can then be used in the `ui-dashboard-index` value as described in the root [README](https://github.com/epinio/ui)
 
-To release tag with something like `epinio-v0.6.1`. The same process will run and will just be available with a release like tag
+So to make a release simply tag with something like `epinio-v0.6.1`.
 
 ### Standalone
 
@@ -60,7 +60,9 @@ In `epinio/helm-charts` a new PR should be automatically created when the new co
 2. Update `/charts-richard-cox/chart/epinio-ui/Chart.yaml` `appVersion` to be the same as `epinioVersion`
 3. Get the PR approved and merged
 
-Once that's merged the standalone UI is available as part of those charts.
+Once that's merged the standalone UI is available in chart form
+
+The backend are working on automatically including this is their all-in-one chart (https://github.com/epinio/helm-charts/issues/183). At the moment the is a manual request
 
 
 ## Install the UI (without running it locally)
