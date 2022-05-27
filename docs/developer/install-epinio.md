@@ -22,9 +22,13 @@ Updated version from https://docs.epinio.io/installation/installation.html
    ```   
 1. Discover the ip address of k3d
 
-   a. Mine only worked using the node ip (node name from `docker ps`)
+   a. (Locally) Mine only worked using the node ip (node name from `docker ps`)
       ```
       docker inspect k3d-epinio-v0-7-1-server-0 | grep IPAddress
+      ```
+      (DO) This needs to be the public ip 
+      ```
+      ip addr show eth0
       ```
    b. The domain value is ip with one of the magic domains (examples below)
       ```
