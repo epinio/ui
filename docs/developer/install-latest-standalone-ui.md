@@ -75,7 +75,7 @@ Ensure you have `node version 16.15.0` or lower. This may change over time.
 Execute:
 ```
 yarn install 
-API=https://localhost:5443 RANCHER_ENV=epinio yarn mem-dev 
+EXCLUDES_PKG=rancher-compnents API=https://localhost:5443 RANCHER_ENV=epinio yarn mem-dev 
 ``` 
 
 Rancher standalone UI should now working and listing port should be displayed on terminal (8005 in this example):
