@@ -32,7 +32,7 @@ Alterantively follow instructions at https://github.com/epinio/ui/blob/dev/docs/
 
 ### Built-in / Embedded
 
-While the Epinio UI code lives in the `rancher/dashboard` repo builds are created via the same Dashboard build process and are triggered on..
+While the Epinio UI code lives in the `rancher/dashboard` repo builds are created via the same Dashboard [build process](https://drone-publish.rancher.io/rancher/dashboard) and are triggered on..
 - Merging code to the `epinio-dev` branch (output served at `https://releases.rancher.com/dashboard/epinio-dev`)
 - Tagging one of the epinio branches (output available via `https://releases.rancher.com/dashboard/<tag name>`)
 
@@ -57,7 +57,7 @@ So to make a release simply tag with something like `epinio-v0.6.1-0.0.1`.
 
 2. Create a build of the backend by pushing a tag to `epinio/ui-backend`) 
   - It must start with `v`, for example `v0.6.1`.
-  - A github action will be kicked off which will build a container for the ui (output at https://github.com/epinio/ui-backend/pkgs/container/epinio-ui)
+  - A github [action](https://github.com/epinio/ui-backend/actions) will be kicked off which will build a container for the ui (output at https://github.com/epinio/ui-backend/pkgs/container/epinio-ui)
 
 #### Update the Charts
 In `epinio/helm-charts` a new PR should be automatically created when the new container from above is created (title prefixed with something like `[updatecli] Bump epinio ui version`). The PR will update charts that reference this container, specifically the epinio all in one chart. However also make the additional changes, so use that PRs branch as a basis and create a new PR with the following changes.
