@@ -68,7 +68,7 @@ Now the backend should be ok and we can start the rancher dashboard deployment:
 
 #### Step 3: Prepare the dashboard 
 
-Open new terminal poiting to `dev` branch on [rancher/dashboard](https://github.com/rancher/dashboard/tree/epinio-dev) repo
+Open new terminal poiting to `epinio-dev` branch on [rancher/dashboard](https://github.com/rancher/dashboard/tree/epinio-dev) repo
 
 Ensure you have `node version 16.15.0` or lower. This may change over time.
 
