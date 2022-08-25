@@ -69,3 +69,7 @@ Updated version from https://docs.epinio.io/installation/installation.html
    ```
    Note - If the ip from above doesn't work it will fail the second command
 
+# Update Epinio Instance with a local epinio dev build
+1. clone / fetch latest from the `epinio/epinio` repo
+2. run `make build && make patch-epinio-deployment`. 
+> This won't bring in any changes made to the epinio charts
