@@ -57,7 +57,7 @@ So to make a release simply tag with something like `epinio-v0.6.1-0.0.1`.
    - Make sure to push the changes to `epinio/ui-backend`
 
 2. Create a build of the backend by pushing a tag to `epinio/ui-backend`) 
-   - It must start with `v`, for example `v0.6.1.0.0.1`.
+   - It must start with `v`, for example `v0.6.1-0.0.1`.
    - A github [action](https://github.com/epinio/ui-backend/actions) will be kicked off which will build a container for the ui (output at https://github.com/epinio/ui-backend/pkgs/container/epinio-ui)
 
 #### Update the Charts
