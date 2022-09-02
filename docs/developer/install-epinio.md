@@ -36,9 +36,6 @@ Updated version from https://docs.epinio.io/installation/installation.html
       ```
 3. Populate a helm values file, call it `epinio-values.yaml`
    ```
-   api:
-     password: <random password>
-     username: <username of default user, can be anything>
    global:
      domain: '<ip>.nip.io'
    server:
@@ -64,10 +61,18 @@ Updated version from https://docs.epinio.io/installation/installation.html
 
    Install from local helm chart
 
-   a. Ensure the local epinio/epinio repo and it's submodules are up to date
-   b. helm install epinio -n epinio --create-namespace helm-charts/chart/epinio -f /root/epinio-values.yaml
+   a. Ensure the local epinio/epinio repo and it's submodules are up to date AND checked out on the required branch
    
-   > Note - The Standalone UI is now bundled with the epinio installer and can be accessed by the API URL listed by `epinio settings show` (see below for instructions on installing the cli)
+   b. Make sure the epinio/epinio and it's sui
+
+   c. Install via
+      ```
+      helm install epinio -n epinio --create-namespace helm-charts/chart/epinio -f /root/epinio-values.yaml
+      ```
+   
+
+> Note - The Standalone UI is now bundled with the epinio installer and can be accessed by the API URL listed by `epinio settings show` (see below for instructions on installing the cli)
+
 
 5. Install the Epinio CLI (for fresh installs)
 
