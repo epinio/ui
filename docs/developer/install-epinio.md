@@ -45,24 +45,35 @@ Updated version from https://docs.epinio.io/installation/installation.html
      accessControlAllowOrigin: '<url of the location that serves the dashboard, for dev this would be https://localhost:8005>'
      traceLevel: 100
    ```
-4. Add the epinio helm repo to your local helm OR update if you already have it
-   ```
-   helm repo add epinio https://epinio.github.io/helm-charts
-   ```
-   ```
-   helm repo update
-   ```
-5. Install epinio (this may take some time)
-   ```
-   helm install epinio -n epinio --create-namespace epinio/epinio -f epinio-values.yaml
-   ```
+4. Either
+
+   Install from Helm Repo
+
+   a. Add the epinio helm repo to your local helm OR update if you already have it
+      ```
+      helm repo add epinio https://epinio.github.io/helm-charts
+      ```
+      ```
+      helm repo update
+      ```
+   b. Install epinio (this may take some time)
+      ```
+      helm install epinio -n epinio --create-namespace epinio/epinio -f epinio-values.yaml
+      ```
+   OR
+
+   Install from local helm chart
+
+   a. Ensure the local epinio/epinio repo and it's submodules are up to date
+   b. helm install epinio -n epinio --create-namespace helm-charts/chart/epinio -f /root/epinio-values.yaml
    
    > Note - The Standalone UI is now bundled with the epinio installer and can be accessed by the API URL listed by `epinio settings show` (see below for instructions on installing the cli)
-6. Install the Epinio CLI (for fresh installs)
+
+5. Install the Epinio CLI (for fresh installs)
 
    Follow the instructions at https://docs.epinio.io/installation/install_epinio_cli.html
 
-7. Update the Epinio CLI (for installs on existing envs) 
+6. Update the Epinio CLI (for installs on existing envs) 
    ```
    epinio settings update
    epinio app list
