@@ -44,29 +44,26 @@ So to make a release simply tag with something like `epinio-v0.6.1-0.0.1`.
 
 #### Build the Frontend (UI)
 1. Create a build of the frontend files by a pushing a tag to `rancher/dashboard`.
-  - It must start with `epinio-standalone-v`, for example `epinio-standalone-v0.6.1.0.0.1`
-  - A custom github action (https://github.com/rancher/dashboard/actions/workflows/release-rancher-epinio-standalone.yml) will create a build and upload the bits to a new release (https://github.com/rancher/dashboard/releases)
+   - It must start with `epinio-standalone-v`, for example `epinio-standalone-v0.6.1.0.0.1`
+   - A custom github action (https://github.com/rancher/dashboard/actions/workflows/release-rancher-epinio-standalone.yml) will create a build and upload the bits to a new release (https://github.com/rancher/dashboard/releases)
 
 #### Build the Backend
 1. In `epinio/ui-backend` update the reference to the frontend files created from the frontend build above
    - the reference to the frontend files will be the `tar.gz` output by the tag's build at https://github.com/rancher/dashboard/releases. This can be found on the `rancher/dashboard` releases page. An example of the reference is
      ```
-     https://github.com/rancher/dashboard/archive/refs/tags/epinio-standalone-v0.7.1-0.0.1.tar.gz
+     https://github.com/rancher/dashboard/releases/download/epinio-standalone-v1.2.0-0.0.1/rancher-dashboard-epinio-standalone-embed.tar.gz
      ``` 
    - The file in `epinio/ui-backend` to update is `github/workflows/release.yml` and the value that needs to be set is `env.UI_BUNDLE_URL`
+   - Make sure to push the changes to `epinio/ui-backend`
 
 2. Create a build of the backend by pushing a tag to `epinio/ui-backend`) 
-  - It must start with `v`, for example `v0.6.1`.
-  - A github [action](https://github.com/epinio/ui-backend/actions) will be kicked off which will build a container for the ui (output at https://github.com/epinio/ui-backend/pkgs/container/epinio-ui)
+   - It must start with `v`, for example `v0.6.1.0.0.1`.
+   - A github [action](https://github.com/epinio/ui-backend/actions) will be kicked off which will build a container for the ui (output at https://github.com/epinio/ui-backend/pkgs/container/epinio-ui)
 
 #### Update the Charts
-In `epinio/helm-charts` a new PR should be automatically created when the new container from above is created (title prefixed with something like `[updatecli] Bump epinio ui version`). The PR will update charts that reference this container, specifically the epinio all in one chart. However also make the additional changes, so use that PRs branch as a basis and create a new PR with the following changes.
-1. Update `/blob/main/chart/epinio-ui/values.yaml` `epinioVersion` to be something like `v0.6.1`
-2. Update `/chart/epinio-ui/Chart.yaml` `appVersion` to be the same as `epinioVersion`
-3. Get the PR approved and merged
+In `epinio/helm-charts` a new PR should be automatically created when the new container from above is created (title prefixed with something like `[updatecli] Bump epinio ui version`). The PR will update charts that reference this container, specifically the epinio all in one chart.
 
-Once that's merged the standalone UI is available in chart form.
-
+Someone from the Epinio team will review and merge the PR. Once that's in the standalone UI is available in chart form.
 
 ## Install the UI (without running it locally)
 
