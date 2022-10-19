@@ -2,6 +2,17 @@
 
 Updated version from https://docs.epinio.io/installation/installation.html
 
+Pre-Reqs
+- docker - On DO - `snap install docker`
+- k3d - https://k3d.io/v5.4.6/#installation
+- helm cli - https://helm.sh/docs/intro/install/
+- kubectl - https://kubernetes.io/docs/tasks/tools/install-kubectl-linux/
+
+Nice to have pre-reqs
+- k9s
+  - ~https://k9scli.io/topics/install/ ~snap seems broken~
+  - https://github.com/derailed/k9s
+
 1. Create a cluster
    ```
    k3d cluster create epinio-v0-7-1
