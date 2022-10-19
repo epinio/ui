@@ -10,7 +10,7 @@ Pre-Reqs
 
 Nice to have pre-reqs
 - k9s
-  - ~https://k9scli.io/topics/install/ ~snap seems broken~
+  - ~https://k9scli.io/topics/install/~ snap seems broken
   - https://github.com/derailed/k9s
 
 1. Create a cluster
