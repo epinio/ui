@@ -12,6 +12,8 @@ Nice to have pre-reqs
 - k9s
   - ~https://k9scli.io/topics/install/~ snap seems broken
   - https://github.com/derailed/k9s
+- gimme (to install golang)
+  - https://github.com/travis-ci/gimme (if in root change location of file from ~/)
 
 1. Create a cluster
    ```
@@ -73,10 +75,17 @@ Nice to have pre-reqs
    Install from local helm chart
 
    a. Ensure the local epinio/epinio repo and it's submodules are up to date AND checked out on the required branch
+      
+      ```
+      git clone https://github.com/epinio/epinio.git
+      cd epinio
+      git submodule init
+      git submodule update
+      ```
    
-   b. Make sure the epinio/epinio and it's sui
+      If publickey denided, generate key and add to github
 
-   c. Install via
+   b. Install via
       ```
       helm install epinio -n epinio --create-namespace helm-charts/chart/epinio -f /root/epinio-values.yaml
       ```
