@@ -44,7 +44,7 @@ So to make a release simply tag with something like `epinio-v0.6.1-0.0.1`.
 
 #### Build the Frontend (UI)
 1. Create a build of the frontend files by a pushing a tag to `rancher/dashboard`.
-   - It must start with `epinio-standalone-v`, for example `epinio-standalone-v0.6.1.0.0.1`
+   - It must start with `epinio-standalone-v`, for example `epinio-standalone-v0.6.1-0.0.1`
    - A custom github action (https://github.com/rancher/dashboard/actions/workflows/release-rancher-epinio-standalone.yml) will create a build and upload the bits to a new release (https://github.com/rancher/dashboard/releases)
 
 #### Build the Backend
