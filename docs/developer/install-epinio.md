@@ -54,6 +54,9 @@ Nice to have pre-reqs
    server:
      accessControlAllowOrigin: '<url of the location that serves the dashboard, for dev this would be https://localhost:8005>'
      traceLevel: 100
+   dex:
+     ui:
+       redirectURI: '<the location that serves the dashboard + '/verify-auth', for dev this would be https://localhost:8005/verify-auth>'
    ```
 4. Either
 
