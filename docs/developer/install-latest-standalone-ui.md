@@ -48,9 +48,6 @@ Execute:
 cp src/jetstream/config.example src/jetstream/config.properties 
 ```
 
-Go to `/src/jetstream/` and ensure the following line is enabled in `config.properties` file:
-`AUTH_ENDPOINT_TYPE=epinio`
-
 Execute `epinio settings show` and copy the **API Url** displayed:
 Example:
 
@@ -58,9 +55,17 @@ Example:
 | API Url           | https://epinio.172.21.0.2.omg.howdoi.website |
 ```
 
-Execute the following with the copied ip:
+Go to `src/jetstream` and add the following lines to the top of `config.properties`:
 ```
-go build && EPINIO_API_URL=https://epinio.172.21.0.2.omg.howdoi.website EPINIO_WSS_URL=https://epinio.172.21.0.2.omg.howdoi.website EPINIO_API_SKIP_SSL=true EPINIO_VERSION=dev ./jetstream  
+AUTH_ENDPOINT_TYPE=epinio
+EPINIO_API_URL=https://epinio.172.21.0.2.omg.howdoi.website
+EPINIO_API_SKIP_SSL=true
+EPINIO_VERSION=dev
+```
+
+Execute the following:
+```
+npm run build-backend && ./jetstream 
 ```
 
 Now the backend should be ok and we can start the rancher dashboard deployment:
