@@ -61,6 +61,7 @@ AUTH_ENDPOINT_TYPE=epinio
 EPINIO_API_URL=https://epinio.172.21.0.2.omg.howdoi.website
 EPINIO_API_SKIP_SSL=true
 EPINIO_VERSION=dev
+EPINIO_UI_URL=https://localhost:8005
 ```
 
 Execute the following:
