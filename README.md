@@ -42,6 +42,9 @@ docker run -d --restart=unless-stopped \
 ```
 
 ### Apply build to a running Rancher
+
+> This process is currently unsupported due to https://github.com/epinio/ui/issues/129
+
 1. Open the Rancher UI, log in as an `admin` and go to `Global Settings`
 1. Set `ui-dashboard-index` to your build (plus `index.html`). For example `https://releases.rancher.com/dashboard/epinio-dev/index.html`
 1. Set `ui-offline-preferred` to `Remote` to ensure Rancher serves the files from `ui-dashboard-index`
