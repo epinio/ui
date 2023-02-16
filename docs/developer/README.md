@@ -62,9 +62,31 @@ So to make a release simply tag with something like `epinio-v0.6.1-0.0.1`.
    - A github [action](https://github.com/epinio/ui-backend/actions) will be kicked off which will build a container for the ui (output at https://github.com/epinio/ui-backend/pkgs/container/epinio-ui)
 
 #### Update the Charts
-In `epinio/helm-charts` a new PR should be automatically created when the new container from above is created (title prefixed with something like `[updatecli] Bump epinio ui version`). The PR will update charts that reference this container, specifically the epinio all in one chart.
 
-Someone from the Epinio team will review and merge the PR. Once that's in the standalone UI is available in chart form.
+These steps will get the image that was just built into the epinio-ui chart, and then those changes into the epinio chart
+
+- Semi-Automated Step - Update epinio-ui helm chart image and versions
+
+   https://github.com/epinio/helm-charts `.github/workflows/updatecli.yml` will, given triggers, run with config from `updatecli/updatecli.d/epinio-ui.yaml`. This will create a PR containing a bump to the epinio-ui chart's image to reference the one just built along with a bump to the chart's versions.
+
+   For example https://github.com/epinio/helm-charts/pull/352.
+
+   The manual step is to review and merge the PR
+
+- Manual Step - Publish epinio-ui helm chart
+
+   The new epinio-ui chart needs to be published to the public epinio repo (https://epinio.github.io/helm-charts). 
+
+   The manual step is to triggering the `release` (?) action in the `helm-chart` repo
+
+- Semi-Automated Step - Build epinio-ui helm chart tgx
+
+   The `.github/workflows/updatecli.yml` job should run again and create another PR containing the new `tgz` and reference it from the root epinio chart. 
+
+   For example https://github.com/epinio/helm-charts/pull/354
+
+   The manual step is to review and merge the PR
+
 
 ## Install the UI (without running it locally)
 
