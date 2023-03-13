@@ -10,7 +10,8 @@ The 'master' branch for the Epinio UI is [epinio-dev](https://github.com/rancher
 
 ## Developing the UI
 
-### Built-in / Embedded
+### Running the UI
+#### Built-in / Embedded
 
 > You will still need an instance of Rancher and the Epinio hosting cluster needs to be added/imported to it.
 
@@ -20,13 +21,17 @@ Code can be found in `rancher/dashboard` `epinio-dev`
 
 Run the dashboard as per instructions in `rancher/dashboard`
 
-### Standalone
+#### Standalone
 
 You will need to run the `rancher/dashboard` from the `epinio-dev`branch and the epinio ui backend.
 
 Follow instructions over at https://github.com/epinio/ui-backend/ (needs updating)
 
 Alterantively follow instructions at https://github.com/epinio/ui/blob/dev/docs/developer/install-latest-standalone-ui.md
+
+### Best Practises
+
+In order to assist Epinio UI end-to-end tests we should ensure that it's easy to locate html elements. The best way is via the `data-testid` attribute. In some places this is automatically provided via Dashboard components. We should ensure new, custom epinio components also have a way use this attribute.
 
 ## Release Epinio UI
 
