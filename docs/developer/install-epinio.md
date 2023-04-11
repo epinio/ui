@@ -54,9 +54,9 @@ Nice to have pre-reqs
    server:
      accessControlAllowOrigin: '<url of the location that serves the dashboard, for dev this would be https://localhost:8005>'
      traceLevel: 100
-   dex:
-     ui:
-       redirectURI: '<the location that serves the dashboard + '/verify-auth', for dev this would be https://localhost:8005/verify-auth>'
+   #dex:
+   #  ui:
+   #    redirectURI: '<the location that serves the dashboard + '/verify-auth', for dev this would be https://localhost:8005/verify-auth>'
    ```
 4. Either
 
@@ -111,6 +111,7 @@ Nice to have pre-reqs
 # Update Epinio Instance with a local epinio dev build
 1. clones OR fetch latest from `epinio/epinio`
 1. cd to the repo (`cd github/epinio`) (if not already there)
+2. `git fetch` and checkout the desired branch (most probably `main`)
 3. check go is installed `go`
   a. If not `~/bin/gimme 1.18` and apply the output
 4. run `make build && make patch-epinio-deployment`. 
