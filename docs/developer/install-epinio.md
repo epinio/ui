@@ -82,6 +82,7 @@ Nice to have pre-reqs
       ```
       git clone https://github.com/epinio/epinio.git
       cd epinio
+      git pull --rebase
       git submodule init
       git submodule update
       ```
