@@ -2,16 +2,12 @@
 
 The Epinio UI is currently served via the [Rancher Dashboard](https://github.com/rancher/dashboard) where both the code lives and the build occurs.
 
-
-## Code
-
-The 'master' branch for the Epinio UI is [epinio-dev](https://github.com/rancher/dashboard/tree/epinio-dev). Epinio specific code can be found in [pkg/epinio](https://github.com/rancher/dashboard/tree/epinio-dev/pkg/epinio).
-
-
 ## Developing the UI
 
 ### Running the UI
 #### Built-in / Embedded
+
+> The below instructions are obsolete and will be updated as part of https://github.com/epinio/ui/issues/247
 
 > You will still need an instance of Rancher and the Epinio hosting cluster needs to be added/imported to it.
 
@@ -23,11 +19,9 @@ Run the dashboard as per instructions in `rancher/dashboard`
 
 #### Standalone
 
-You will need to run the `rancher/dashboard` from the `epinio-dev`branch and the epinio ui backend.
+You will need to run the `epinio/ui` `dashboard` and the epinio ui backend.
 
-Follow instructions over at https://github.com/epinio/ui-backend/ (needs updating)
-
-Alterantively follow instructions at https://github.com/epinio/ui/blob/dev/docs/developer/install-latest-standalone-ui.md
+See instructions [here](../../dashboard/README.md).
 
 ### Best Practises
 
@@ -36,6 +30,8 @@ In order to assist Epinio UI end-to-end tests we should ensure that it's easy to
 ## Release Epinio UI
 
 ### Built-in / Embedded
+
+> The below instructions are obsolete and will be updated as part of https://github.com/epinio/ui/issues/247
 
 While the Epinio UI code lives in the `rancher/dashboard` repo builds are created via the same Dashboard [build process](https://drone-publish.rancher.io/rancher/dashboard) and are triggered on..
 - Merging code to the `epinio-dev` branch (output served at `https://releases.rancher.com/dashboard/epinio-dev`)
@@ -46,6 +42,8 @@ The outputted build (`epinio-dev` or `<tag>`) can then be used in the `ui-dashbo
 So to make a release simply tag with something like `epinio-v0.6.1-0.0.1`.
 
 ### Standalone
+
+> The below instructions are obsolete and will be updated as part of https://github.com/epinio/ui/issues/248
 
 #### Build the Frontend (UI)
 1. Create a build of the frontend files by a pushing a tag to `rancher/dashboard`
