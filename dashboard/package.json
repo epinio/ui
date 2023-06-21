@@ -19,6 +19,7 @@
   },
   "scripts": {
     "dev": "NODE_ENV=dev ./node_modules/.bin/vue-cli-service serve",
+    "mem-dev": "NODE_ENV=dev node --max-old-space-size=8192 ./node_modules/.bin/vue-cli-service serve",
     "build": "./node_modules/.bin/vue-cli-service build",
     "clean": "./node_modules/@rancher/shell/scripts/clean"
   }
