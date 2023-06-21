@@ -7,9 +7,8 @@ import {
   APPLICATION_ACTION_STATE, APPLICATION_SOURCE_TYPE, APPLICATION_PARTS, EPINIO_PRODUCT_NAME, EPINIO_TYPES
 } from '../types';
 import { createEpinioRoute } from '../utils/custom-routing';
-import EpinioNamespacedResource, { bulkRemove } from './epinio-namespaced-resource';
-import { isGitRepo } from '../utils/git';
 import { AppUtils } from '../utils/application';
+import EpinioNamespacedResource, { bulkRemove } from './epinio-namespaced-resource';
 
 // See https://github.com/epinio/epinio/blob/00684bc36780a37ab90091498e5c700337015a96/pkg/api/core/v1/models/app.go#L11
 const STATES = {
@@ -27,6 +26,10 @@ const STATES_MAPPED = {
   [STATES.ERROR]:    'error',
   unknown:           'unknown',
 };
+
+function isGitRepo(type) {
+  return type === APPLICATION_SOURCE_TYPE.GIT_HUB || type === APPLICATION_SOURCE_TYPE.GIT_LAB;
+}
 
 export default class EpinioApplicationModel extends EpinioNamespacedResource {
   buildCache = {};
