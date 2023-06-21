@@ -27,26 +27,11 @@
       "scripthost"
     ],
     "paths": {
-      "@shell/core/*": [
-        "../../shell/core/*"
-      ],
-      "@shell/config/*": [
-        "../../shell/config/*"
-      ],
-      "@shell/store/*": [
-        "../../shell/store/*"
-      ],
-      "@shell/plugins/*": [
-        "../../shell/plugins/*"
-      ],
-      "@shell/utils/*": [
-        "../../shell/utils/*"
-      ],
-      "@shell/models/*": [
-        "../../shell/models/*"
+      "@shell/*": [
+        "../../node_modules/@rancher/shell/*"
       ],
       "@components/*": [
-        "../../pkg/rancher-components/*"
+        "../../node_modules/@rancher/components/*"
       ],
       "@pkg/*": [
         "./*"
@@ -58,9 +43,9 @@
     "**/*.d.ts",
     "**/*.tsx",
     "**/*.vue",
-    "../../shell/types/*.d.ts",
-    "../../shell/core/*.ts",
-    "../../shell/config/**/*.js",
+    "@rancher/shell/types/*.d.ts",
+    "@rancher/shell/core/*.ts",
+    "@rancher/shell/config/**/*.js",
     "**/*.yaml",
     "../../vue-shim.d.ts",
   ],
