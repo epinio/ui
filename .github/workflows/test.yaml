@@ -1,0 +1,33 @@
+name: Tests
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+      branches:
+        - main
+  workflow_dispatch:
+    environment:
+      description: 'Environment to run tests against'
+      type: environment
+      required: true 
+      
+jobs:
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '14.x'
+      
+      - name: Install packages
+        run: yarn install:ci
+        working-directory: dashboard
+      
+      - name: Run linters
+        run: yarn lint
+        working-directory: dashboard

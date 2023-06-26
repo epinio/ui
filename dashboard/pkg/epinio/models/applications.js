@@ -32,7 +32,13 @@ function isGitRepo(type) {
 }
 
 export default class EpinioApplicationModel extends EpinioNamespacedResource {
-  buildCache = {};
+  constructor(...args) {
+    super(args);
+
+    // Props ---------------------------------------------------
+    this.buildCache = {};
+  }
+
   // ------------------------------------------------------------------
   // Dashboard plumbing
 
