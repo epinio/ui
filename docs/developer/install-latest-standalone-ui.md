@@ -74,15 +74,7 @@ Now the backend should be ok and we can start the rancher dashboard deployment:
 
 #### Step 3: Prepare the dashboard 
 
-Open new terminal poiting to `epinio-dev` branch on [rancher/dashboard](https://github.com/rancher/dashboard/tree/epinio-dev) repo
-
-Ensure you have `node version 16.15.0` or lower. This may change over time.
-
-Execute:
-```
-yarn install 
-EXCLUDES_PKG=harvester,rancher-components EXCLUDES_NUXT_PLUGINS=plugins/version,plugins/plugin RANCHER_ENV=epinio API=https://localhost:5443 yarn mem-dev
-``` 
+See [here](../../dashboard/README.md)
 
 Rancher standalone UI should now working and listing port should be displayed on terminal (8005 in this example):
 
