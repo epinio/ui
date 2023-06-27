@@ -14,16 +14,14 @@ Run the UI backend as per https://github.com/epinio/ui-backend#development
 Node 16.15.0 or lower, `yarn`
 
 #### Run
-1) ** Setup the Rancher Dashboard repo
+1) UI Dev Only Step - Setup the Rancher Dashboard repo
    - Clone https://github.com/rancher/dashboard and checkout `epinio-dev`
    - Run `cd shell && yarn link`
-2) Clone https://github.com/epinio/ui and checkout `main`
-3) ** Link in Rancher Dashboard packages
+1) Clone https://github.com/epinio/ui and checkout `main`
+1) UI Dev Only Step - Link in Rancher Dashboard packages
    - Run `cd <epini/ui root>/dashboard && yarn link @rancher/shell`
-4) Run `yarn install`
-5) Run `EXCLUDES_PKG=harvester,rancher-components EXCLUDE_OPERATOR_PKG=true RANCHER_ENV=epinio API=https://localhost:5443 yarn dev`
-
-> ** Denotes steps only required until https://github.com/epinio/ui/issues/204 and a new `shell` package created
+1) Run `yarn install`
+1) Run `EXCLUDES_PKG=harvester,rancher-components EXCLUDE_OPERATOR_PKG=true RANCHER_ENV=epinio API=https://localhost:5443 yarn dev`
 
 ## Getting Started - Run in embedded Mode
 Update to follow
