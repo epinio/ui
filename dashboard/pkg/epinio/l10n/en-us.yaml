@@ -154,10 +154,17 @@ epinio:
       manifest:
         title: Manifest
         description: Manifests contain basic application configuration like name, routes, number of instances, etc.
-      chart:
+      chartValuesImages:
         title: Chart and Images
         description: Helm chart and images can be used to `helm install` your application.
         banner: Container images can be large and take a long time to download.
+        stats:
+          title: Download in progress...
+          parts:
+            values: Values
+            chart: Chart
+            image: Image
+
     steps:
       basics:
         label: Details
