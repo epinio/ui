@@ -89,7 +89,9 @@ export default Vue.extend<Data, any, any, any>({
         }
       });
 
-      this.$store.dispatch('epinio/request', { opt: { url: `/ready` }, clusterId: c.id })
+      // this.$store.dispatch('epinio/request', { opt: { url: `/ready` }, clusterId: c.id }) // TODO: RC doesn't exist
+      //   .then(() => this.$store.dispatch(`epinio/request`, { opt: { url: `/api/v1/info` }, clusterId: c.id }))
+      this.$store.dispatch(`epinio/request`, { opt: { url: `/api/v1/info` }, clusterId: c.id })
         .then(() => this.$store.dispatch(`epinio/request`, { opt: { url: `/api/v1/info` }, clusterId: c.id }))
         .then((res: any) => {
           Vue.set(c, 'version', res?.version);
@@ -156,7 +158,7 @@ export default Vue.extend<Data, any, any, any>({
           <div class="epinio-row">
             <n-link
               v-if="row.state === 'available'"
-              :to="{name: 'epinio-c-cluster-applications', params: {cluster: row.id}}"
+              :to="{name: 'epinio-c-cluster-dashboard', params: {cluster: row.id}}"
             >
               {{ row.name }}
             </n-link>

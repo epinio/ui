@@ -21,8 +21,8 @@
       "@/*": [
         "./*"
       ],
-      "@shell/*": [
-        "./node_modules/@rancher/shell/*"
+      "@components/*": [
+        "./node_modules/@rancher/components/*"
       ]
     },
     "typeRoots": [
@@ -31,6 +31,7 @@
     ],    
     "types": [
       "@types/node",
+      "@nuxt/types",
       "cypress",
       "rancher",
       "shell"

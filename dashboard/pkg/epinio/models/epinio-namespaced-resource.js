@@ -50,7 +50,7 @@ export const bulkRemove = async(items, opt = {}) => {
 
 export default class EpinioMetaResource extends EpinioResource {
   constructor(...args) {
-    super(args);
+    super(...args);
     if (!this.meta) {
       this.meta = {
         name:              '',

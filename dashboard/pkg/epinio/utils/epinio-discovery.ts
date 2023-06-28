@@ -16,18 +16,30 @@ export default {
         const epinioIngress = await store.dispatch(`cluster/request`, { url: `/k8s/clusters/${ c.id }/v1/networking.k8s.io.ingresses/epinio/epinio` }, { root: true });
         const url = ingressFullPath(epinioIngress, epinioIngress.spec.rules?.[0]);
 
-        const epinio: any = await allHash({ authData: store.dispatch(`cluster/request`, { url: `/k8s/clusters/${ c.id }/v1/secrets/epinio/default-epinio-user` }, { root: true }) });
+        let username;
+        let password;
 
-        const username = epinio.authData.data.username;
-        const password = epinio.authData.data.password;
+        if (url) {
+          // TODO: RC hack
+          username = 'admin';
+          password = 'password';
+        } else {
+          // TODO: RC old
+          const epinio: any = await allHash({ authData: store.dispatch(`cluster/request`, { url: `/k8s/clusters/${ c.id }/v1/secrets/epinio/default-epinio-user` }, { root: true }) });
+
+          username = epinio.authData.data.username;
+          password = epinio.authData.data.password;
+        }
 
         epinioClusters.push({
           id:          c.id,
           name:        c.spec.displayName,
           api:         url,
           readyApi:    `${ url }/ready`,
-          username:    base64Decode(username),
-          password:    base64Decode(password),
+          // username:    base64Decode(username),
+          // password:    base64Decode(password),
+          username,
+          password,
           type:        EPINIO_TYPES.INSTANCE,
           mgmtCluster: c
         });

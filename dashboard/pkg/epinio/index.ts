@@ -6,7 +6,9 @@ import epinioStore from './store/epinio-store';
 
 const onEnter: OnNavToPackage = async(store, config) => {
   await store.dispatch(`${ epinioMgmtStore.config.namespace }/loadManagement`);
-  await store.dispatch(`${ epinioStore.config.namespace }/info`);
+
+  // TODO: RC no current cluster
+  // await store.dispatch(`${ epinioStore.config.namespace }/info`);
 };
 
 const onLeave: OnNavAwayFromPackage = async(store, config) => {

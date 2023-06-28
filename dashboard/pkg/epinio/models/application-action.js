@@ -17,7 +17,7 @@ export const APPLICATION_ACTION_TYPE = {
 
 export default class ApplicationActionResource extends Resource {
   constructor(...args) {
-    super(args);
+    super(...args);
 
     // Props ---------------------------------------------------
     this.run = true;
