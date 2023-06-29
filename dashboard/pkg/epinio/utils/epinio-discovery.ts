@@ -1,7 +1,6 @@
 import { EPINIO_TYPES } from '../types';
 
 import { MANAGEMENT } from '@shell/config/types';
-import { base64Decode } from '@shell/utils/crypto';
 import { ingressFullPath } from '@shell/models/networking.k8s.io.ingress';
 import { allHash } from '@shell/utils/promise';
 

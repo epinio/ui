@@ -89,10 +89,10 @@ export default Vue.extend<Data, any, any, any>({
         }
       });
 
-      // this.$store.dispatch('epinio/request', { opt: { url: `/ready` }, clusterId: c.id }) // TODO: RC doesn't exist
-      //   .then(() => this.$store.dispatch(`epinio/request`, { opt: { url: `/api/v1/info` }, clusterId: c.id }))
+      // Calls to `/ready` currently throw CORS error (but not `/api/v1`). This code block will probably change given auth stuff
+      // this.$store.dispatch('epinio/request', { opt: { url: `/ready` }, clusterId: c.id })
       this.$store.dispatch(`epinio/request`, { opt: { url: `/api/v1/info` }, clusterId: c.id })
-        .then(() => this.$store.dispatch(`epinio/request`, { opt: { url: `/api/v1/info` }, clusterId: c.id }))
+        // .then(() => this.$store.dispatch(`epinio/request`, { opt: { url: `/api/v1/info` }, clusterId: c.id }))
         .then((res: any) => {
           Vue.set(c, 'version', res?.version);
           this.setClusterState(c, 'available', { state: { transitioning: false } });
