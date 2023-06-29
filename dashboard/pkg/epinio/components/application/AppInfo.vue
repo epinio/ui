@@ -121,7 +121,7 @@ export default Vue.extend<Data, any, any, any>({
 
   computed: {
     namespaces() {
-      return sortBy(this.$store.getters['epinio/all'](EPINIO_TYPES.NAMESPACE), 'name');
+      return sortBy(this.$store.getters['epinio/all'](EPINIO_TYPES.NAMESPACE), 'name', false);
     },
 
     namespaceNames() {

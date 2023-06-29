@@ -63,7 +63,7 @@ export default Vue.extend<Data, EpinioCompRecord, EpinioCompRecord, EpinioCompRe
           value: s.metadata.name,
         }));
 
-      return sortBy(list, 'label');
+      return sortBy(list, 'label', false);
     },
 
     namespacedServices() {
@@ -82,7 +82,7 @@ export default Vue.extend<Data, EpinioCompRecord, EpinioCompRecord, EpinioCompRe
         value: s,
       }));
 
-      return sortBy(list, 'label');
+      return sortBy(list, 'label', false);
     },
 
     noConfigs() {

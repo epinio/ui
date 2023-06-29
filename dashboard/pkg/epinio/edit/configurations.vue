@@ -70,7 +70,7 @@ export default Vue.extend<Data, EpinioCompRecord, EpinioCompRecord, EpinioCompRe
     ...mapGetters({ t: 'i18n/t' }),
 
     namespaces() {
-      return sortBy(this.$store.getters['epinio/all'](EPINIO_TYPES.NAMESPACE), 'name');
+      return sortBy(this.$store.getters['epinio/all'](EPINIO_TYPES.NAMESPACE), 'name', false);
     },
 
     namespaceNames() {
