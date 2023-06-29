@@ -1,11 +1,11 @@
 <script lang="ts">
 import Vue, { PropType } from 'vue';
-import Application from '../../models/applications';
 
-import { EpinioCompRecord, EpinioConfiguration, EpinioService, EPINIO_TYPES } from '../../types';
 import { sortBy } from '@shell/utils/sort';
 import LabeledSelect from '@shell/components/form/LabeledSelect.vue';
 import { _VIEW } from '@shell/config/query-params';
+import { EpinioCompRecord, EpinioConfiguration, EpinioService, EPINIO_TYPES } from '../../types';
+import Application from '../../models/applications';
 import { EPINIO_APP_MANIFEST } from './AppSource.vue';
 
 export interface EpinioAppBindings {

@@ -1,6 +1,5 @@
 <script lang="ts">
 import Vue, { PropType } from 'vue';
-import Application from '../../models/applications';
 import NameNsDescription from '@shell/components/form/NameNsDescription.vue';
 import LabeledInput from '@components/Form/LabeledInput/LabeledInput.vue';
 import KeyValue from '@shell/components/form/KeyValue.vue';
@@ -12,9 +11,10 @@ import Checkbox from '@components/Form/Checkbox/Checkbox.vue';
 import LabeledSelect from '@shell/components/form/LabeledSelect.vue';
 import formRulesGenerator from '@shell/utils/validators/formRules';
 
-import { EPINIO_TYPES, EpinioNamespace } from '../../types';
 import { sortBy } from '@shell/utils/sort';
 import { validateKubernetesName } from '@shell/utils/validators/kubernetes-name';
+import { EPINIO_TYPES, EpinioNamespace } from '../../types';
+import Application from '../../models/applications';
 
 export interface EpinioAppInfo {
   meta: {

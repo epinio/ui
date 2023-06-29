@@ -16,9 +16,13 @@ export const APPLICATION_ACTION_TYPE = {
 };
 
 export default class ApplicationActionResource extends Resource {
-  // Props ---------------------------------------------------
-  run = true;
-  state = APPLICATION_ACTION_STATE.PENDING;
+  constructor(...args) {
+    super(args);
+
+    // Props ---------------------------------------------------
+    this.run = true;
+    this.state = APPLICATION_ACTION_STATE.PENDING;
+  }
 
   // application; // : EpinioApplication;
   // bindings; // : EpinioAppBindings;
