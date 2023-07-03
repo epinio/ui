@@ -584,7 +584,7 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
     });
   }
 
-  async fetchPart(part, options) {
+  async fetchPart(part, options = {}) {
     const responseType = part === 'values' || part === 'manifest' ? 'text/plain' : 'blob';
 
     const opt = {
