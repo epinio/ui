@@ -258,7 +258,7 @@ export default Vue.extend<Data, any, any, any>({
         return res;
       }, {} as { [key: string]: any});
 
-      generateZip(filesToZip).then((zip) => {
+      generateZip(filesToZip).then((zip: any) => {
         Vue.set(this.archive, 'tarball', zip);
         Vue.set(this.archive, 'fileName', folderName || 'folder');
 
@@ -370,11 +370,11 @@ export default Vue.extend<Data, any, any, any>({
     },
 
     namespaces() {
-      return sortBy(this.$store.getters['epinio/all'](EPINIO_TYPES.NAMESPACE), 'name');
+      return sortBy(this.$store.getters['epinio/all'](EPINIO_TYPES.NAMESPACE), 'name', false);
     },
 
     appCharts() {
-      return sortBy(this.$store.getters['epinio/all'](EPINIO_TYPES.APP_CHARTS), 'name').map((ap: EpinioApplicationChartResource) => ({
+      return sortBy(this.$store.getters['epinio/all'](EPINIO_TYPES.APP_CHARTS), 'name', false).map((ap: EpinioApplicationChartResource) => ({
         value: ap.meta.name,
         label: `${ ap.meta.name } (${ ap.short_description })`
       }));

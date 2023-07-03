@@ -4,9 +4,12 @@ import epinioRoutes from './routing/epinio-routing';
 import epinioMgmtStore from './store/epinio-mgmt-store';
 import epinioStore from './store/epinio-store';
 
-const onEnter: OnNavToPackage = async(store, config) => {
-  await store.dispatch(`${ epinioMgmtStore.config.namespace }/loadManagement`);
-  await store.dispatch(`${ epinioStore.config.namespace }/info`);
+const onEnter: OnNavToPackage = async({ getters, dispatch }, config) => {
+  await dispatch(`${ epinioMgmtStore.config.namespace }/loadManagement`);
+
+  if (getters['isSingleProduct']) {
+    dispatch(`${ epinioStore.config.namespace }/info`); // We can get this in the background
+  }
 };
 
 const onLeave: OnNavAwayFromPackage = async(store, config) => {

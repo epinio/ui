@@ -175,7 +175,7 @@ export default Vue.extend<Data, EpinioCompRecord, EpinioCompRecord, EpinioCompRe
     },
 
     updateSource(changes: EpinioAppSource) {
-      this.source = {};
+      this.source = {} as EpinioAppSource;
       const { appChart, ...cleanChanges } = changes;
 
       this.value.configuration = this.value.configuration || {};
