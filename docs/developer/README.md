@@ -45,24 +45,20 @@ So to make a release simply tag with something like `epinio-v0.6.1-0.0.1`.
 
 > The below instructions are obsolete and will be updated as part of https://github.com/epinio/ui/issues/248
 
-#### Build the Frontend (UI)
-1. Create a build of the frontend files by a pushing a tag to `rancher/dashboard`
-   - It should be on the `epinio-dev` branch
-   - It must start with `epinio-standalone-v`, for example `epinio-standalone-v0.6.1-0.0.1`
-   - A custom github action (https://github.com/rancher/dashboard/actions/workflows/release-rancher-epinio-standalone.yml) will create a build and upload the bits to a new release (https://github.com/rancher/dashboard/releases)
+#### Tag the Frontend (UI)
+1. Push a tag for the release to `epinio/ui`
+   - It should be from the `main` branch
+   - It should be in the same standard format used through out this process, for example `v0.6.1-0.0.1`
+   - The tag won't kick anything off. It's used to mark the ui files used in the associated build. This should eventually be automated as part of the backend build job
 
-#### Build the Backend
-1. In `epinio/ui-backend` update the reference to the frontend files created from the frontend build above
-   - the reference to the frontend files will be the `tar.gz` output by the tag's build at https://github.com/rancher/dashboard/releases. This can be found on the `rancher/dashboard` releases page. An example of the reference is
-     ```
-     https://github.com/rancher/dashboard/releases/download/epinio-standalone-v1.2.0-0.0.1/rancher-dashboard-epinio-standalone-embed.tar.gz
-     ``` 
-   - The file in `epinio/ui-backend` to update is `github/workflows/release.yml` and the value that needs to be set is `env.UI_BUNDLE_URL`
-   - Make sure to push the changes to `epinio/ui-backend`
-
-2. Create a build of the backend by pushing a tag to `epinio/ui-backend`) 
+#### Build the Frontend, Backend and image
+1. Create the builds by pushing a tag to `epinio/ui-backend`)
    - It must start with `v`, for example `v0.6.1-0.0.1`.
-   - A github [action](https://github.com/epinio/ui-backend/actions) will be kicked off which will build a container for the ui (output at https://github.com/epinio/ui-backend/pkgs/container/epinio-ui)
+   - A github [action](https://github.com/epinio/ui-backend/actions) will be kicked off which will..
+     - Fetch and build the ui frontend with the same tag
+     - Build the ui backend
+     - Build a container containing both ui front and backend (output at https://github.com/epinio/ui-backend/pkgs/container/epinio-ui)
+
 
 #### Update the Charts
 
