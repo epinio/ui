@@ -417,7 +417,7 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
 
       return res;
     }, {
-      min: 0, max: 0, total: 0
+      min: this.instances[0][prop], max: 0, total: 0
     });
 
     const avg = this.instances.length ? (stats.total / this.instances.length).toFixed(2) : 0;
