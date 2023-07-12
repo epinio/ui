@@ -15,7 +15,7 @@ env:
 defaults:
   run:
     shell: bash
-    working-directory: ./
+    working-directory: ./dashboard
 
 jobs:
   build:
@@ -56,6 +56,7 @@ jobs:
         with:
           node-version: '16'
           cache: yarn
+          cache-dependency-path: 'dashboard/yarn.lock'
 
       - name: Install dependencies
         run: yarn
@@ -71,7 +72,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: charts
-          path: tmp
+          path: dashboard/tmp
 
   release:
     name: Release Build
@@ -94,17 +95,20 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           name: charts
+          path: dashboard
 
       - name: Commit build
+        working-directory: ./
         run: |
-          git add ./{assets,charts,extensions,index.yaml}
+          cp -R ./dashboard/{assets,charts,extensions,index.yaml} ./
+          git add ./{assets,charts,extensions,index.yaml} --force
           git commit -a -m "${{ env.CI_COMMIT_MESSAGE }}"
           git push
 
       - name: Run chart-releaser
         uses: helm/chart-releaser-action@v1.4.1
         with:
-          charts_dir: ./charts/*
+          charts_dir: ./dashboard/charts/*
         env:
           CR_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
           CR_SKIP_EXISTING: true
