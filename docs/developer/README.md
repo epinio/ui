@@ -12,6 +12,12 @@ The Epinio UI is currently served via the [Rancher Dashboard](https://github.com
 > Follow the Epinio docs or [this guide](install-epinio.md) to install an Epinio instance locally
 
 ##### Developer Flow
+Option A - Run the extension 'built-in'
+1. `cd dashboard`
+2. `API=<your rancher url> yarn mem-dev`
+
+Option B - Run the extension in a local Rancher
+1. Build and run the rancher dashboard locally. This should be from the `rancher/dashboard` repo (see README there)
 1. Build and serve the epinio extension
    - `cd dashboard`
    - `yarn build-pkg epinio`
