@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - main
+    paths:
+      - dashboard/pkg/epinio/package.json
   pull_request:
     branches:
       - main
