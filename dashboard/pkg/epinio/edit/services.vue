@@ -6,9 +6,7 @@ import CruResource from '@shell/components/CruResource.vue';
 import Loading from '@shell/components/Loading.vue';
 import { epinioExceptionToErrorsArray } from '../utils/errors';
 import LabeledSelect from '@shell/components/form/LabeledSelect.vue';
-import {
-  EpinioCatalogServiceResource, EPINIO_TYPES, EpinioNamespace, EpinioCompRecord, EpinioCatalogService
-} from '../types';
+import { EPINIO_TYPES, EpinioNamespace, EpinioCompRecord, EpinioCatalogService } from '../types';
 import { validateKubernetesName } from '@shell/utils/validators/kubernetes-name';
 import NameNsDescription from '@shell/components/form/NameNsDescription.vue';
 import EpinioBindAppsMixin from './bind-apps-mixin.js';
