@@ -47,7 +47,7 @@ In order to assist Epinio UI end-to-end tests we should ensure that it's easy to
 
 ### Built-in / Embedded
 
-Any merge to `main` will kick off a build of the epinio extension with a version matching that from `dashboard/pkg/epinio/package.json. If there is an existing release with the same name it will overwrite it.
+Any merge to `main` that changes `dashboard/pkg/epinio/package.json` will kick off a build of the epinio extension with a version matching that from `dashboard/pkg/epinio/package.json`. If there is an existing release with the same name it will overwrite it. This is done via the `Build and Release Extension` gh action. Builds won't be available until the `pages-build-deployment` gh action completes as well.
 
 ### Standalone
 
