@@ -7,15 +7,31 @@ The Epinio UI is currently served via the [Rancher Dashboard](https://github.com
 ### Running the UI
 #### Built-in / Embedded
 
-> The below instructions are obsolete and will be updated as part of https://github.com/epinio/ui/issues/247
-
 > You will still need an instance of Rancher and the Epinio hosting cluster needs to be added/imported to it.
 
 > Follow the Epinio docs or [this guide](install-epinio.md) to install an Epinio instance locally
 
-Code can be found in `rancher/dashboard` `epinio-dev`
+##### Developer Flow
+1. Build and serve the epinio extension
+   - `cd dashboard`
+   - `yarn build-pkg epinio`
+   - `yarn serve-pkgs`
+2. Install the dev epinio extension in Rancher
+   - Nav to burger menu --> `Extensions`
+   - Click three dot menu top right --> `Developer Load`
+      - If this is not visible, go to user avatar top right --> Preferences. Check the `Advanced Features` / `Enable Extension developer features` option
+   - Extension URL: Copy & Paste the value output when running `yarn serve-pkgs` above
+   - Extension module name: This should auto populate after entering the url
+   - Check the `Persist extension by creating custom resource` option (otherwise after each page refresh you'll need to load the extension)
 
-Run the dashboard as per instructions in `rancher/dashboard`
+##### Production Flow
+> This isn't supported yet, but to use the pending bits...
+1. Create the pending epinio extension repo
+   - In Rancher nav to the `local` cluster --> `Apps` / `Repositories` --> `Create`
+   - Enter Name: `epinio`, Index URL: `https://epinio.github.io/ui`, click `Create`
+2. Install the pending epinio extension in Rancher
+   - Nav to burger menu --> `Extensions` --> `Available` tab
+   - Find `Epinio` and click `Install`
 
 #### Standalone
 
@@ -31,15 +47,7 @@ In order to assist Epinio UI end-to-end tests we should ensure that it's easy to
 
 ### Built-in / Embedded
 
-> The below instructions are obsolete and will be updated as part of https://github.com/epinio/ui/issues/247
-
-While the Epinio UI code lives in the `rancher/dashboard` repo builds are created via the same Dashboard [build process](https://drone-publish.rancher.io/rancher/dashboard) and are triggered on..
-- Merging code to the `epinio-dev` branch (output served at `https://releases.rancher.com/dashboard/epinio-dev`)
-- Tagging one of the epinio branches (output available via `https://releases.rancher.com/dashboard/<tag name>`)
-
-The outputted build (`epinio-dev` or `<tag>`) can then be used in the `ui-dashboard-index` value as described in the root [README](https://github.com/epinio/ui)
-
-So to make a release simply tag with something like `epinio-v0.6.1-0.0.1`.
+Any merge to `main` will kick off a build of the epinio extension with a version matching that from `dashboard/pkg/epinio/package.json. If there is an existing release with the same name it will overwrite it.
 
 ### Standalone
 
