@@ -3,26 +3,23 @@ name: Build and Release Extension
 on:
   push:
     branches:
-      # TODO: RC
-      - package-helm
+      - main
   pull_request:
     branches:
-      # TODO: RC
-      - package-helm
+      - main
   workflow_dispatch:
 
 
 defaults:
   run:
     shell: bash
-    # TODO: RC
     working-directory: ./dashboard
 
 env:
   ACTIONS_RUNNER_DEBUG: true
   CI_COMMIT_MESSAGE: CI Build Artifacts
   # should match branches from `on` triggers
-  DEFAULT_BRANCH: package-helm
+  DEFAULT_BRANCH: main
   # should match default `working-directory`
   APP_ROOT: ./dashboard
 
