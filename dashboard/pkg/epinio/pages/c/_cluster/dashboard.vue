@@ -63,7 +63,8 @@ export default Vue.extend<any, any, any, any>({
       colorStops: {
         0: '--info', 30: '--info', 70: '--info'
       },
-      version: null
+      version:   null,
+      aboutLink: !this.$store.getters['isSingleProduct'] ? createEpinioRoute('c-cluster-about', { cluster: this.$store.getters['clusterId'] }) : null
     };
   },
   created() {
@@ -189,6 +190,12 @@ export default Vue.extend<any, any, any, any>({
           target="_blank"
           rel="noopener noreferrer nofollow"
         >{{ t('epinio.intro.issues') }}</a>
+        <n-link
+          v-if="aboutLink"
+          :to="aboutLink"
+        >
+          {{ t('epinio.intro.about') }}
+        </n-link>
       </div>
     </div>
     <div class="get-started">
