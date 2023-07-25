@@ -3,12 +3,12 @@ name: Backend - CI
 on:
   push:
     branches: [ main ]
-    paths-ignore:
-    - 'backend/README.md'
+    paths:
+    - backend
   pull_request:
     branches: [ main ]
-    paths-ignore:
-    - 'backend/README.md'
+    paths:
+    - backend
   # nightly
   schedule:
     - cron:  '0 0 * * *'
