@@ -8,8 +8,8 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"github.com/epinio/ui-backend/src/jetstream/datastore"
-	"github.com/epinio/ui-backend/src/jetstream/repository/interfaces"
+	"github.com/epinio/ui/backend/src/jetstream/datastore"
+	"github.com/epinio/ui/backend/src/jetstream/repository/interfaces"
 )
 
 var getSessionDataValues = `SELECT name, value FROM session_data WHERE expired=false AND session=$1 AND groupName = $1`

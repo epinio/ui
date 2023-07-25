@@ -6,13 +6,13 @@ import (
 	"fmt"
 	"strings"
 
-	epinioDex "github.com/epinio/ui-backend/src/jetstream/plugins/epinio/dex"
-	eInterfaces "github.com/epinio/ui-backend/src/jetstream/plugins/epinio/interfaces"
-	normanProxy "github.com/epinio/ui-backend/src/jetstream/plugins/epinio/rancherproxy/norman"
-	steveProxy "github.com/epinio/ui-backend/src/jetstream/plugins/epinio/rancherproxy/steve"
-	epinio_utils "github.com/epinio/ui-backend/src/jetstream/plugins/epinio/utils"
+	epinioDex "github.com/epinio/ui/backend/src/jetstream/plugins/epinio/dex"
+	eInterfaces "github.com/epinio/ui/backend/src/jetstream/plugins/epinio/interfaces"
+	normanProxy "github.com/epinio/ui/backend/src/jetstream/plugins/epinio/rancherproxy/norman"
+	steveProxy "github.com/epinio/ui/backend/src/jetstream/plugins/epinio/rancherproxy/steve"
+	epinio_utils "github.com/epinio/ui/backend/src/jetstream/plugins/epinio/utils"
 
-	"github.com/epinio/ui-backend/src/jetstream/repository/interfaces"
+	"github.com/epinio/ui/backend/src/jetstream/repository/interfaces"
 
 	"github.com/labstack/echo/v4"
 	log "github.com/sirupsen/logrus"

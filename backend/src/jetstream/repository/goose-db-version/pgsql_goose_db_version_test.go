@@ -9,7 +9,7 @@ import (
 
 	. "github.com/smartystreets/goconvey/convey"
 
-	"github.com/epinio/ui-backend/src/jetstream/repository/interfaces"
+	"github.com/epinio/ui/backend/src/jetstream/repository/interfaces"
 )
 
 func TestPgSQLGooseDB(t *testing.T) {

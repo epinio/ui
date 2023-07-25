@@ -2,7 +2,7 @@ package main
 
 import (
 	// log "github.com/sirupsen/logrus"
-	"github.com/epinio/ui-backend/src/jetstream/repository/interfaces"
+	"github.com/epinio/ui/backend/src/jetstream/repository/interfaces"
 )
 
 // AddAuthProvider adds a new auth provider
@@ -18,4 +18,3 @@ func (p *portalProxy) HasAuthProvider(name string) bool {
 	_, ok := p.AuthProviders[name]
 	return ok
 }
-

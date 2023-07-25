@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	eInterfaces "github.com/epinio/ui-backend/src/jetstream/plugins/epinio/interfaces"
-	jInterfaces "github.com/epinio/ui-backend/src/jetstream/repository/interfaces"
+	eInterfaces "github.com/epinio/ui/backend/src/jetstream/plugins/epinio/interfaces"
+	jInterfaces "github.com/epinio/ui/backend/src/jetstream/repository/interfaces"
 
 	log "github.com/sirupsen/logrus"
 )

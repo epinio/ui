@@ -4,8 +4,8 @@ import (
 	"errors"
 	"net/http"
 
-	goosedbversion "github.com/epinio/ui-backend/src/jetstream/repository/goose-db-version"
-	"github.com/epinio/ui-backend/src/jetstream/repository/interfaces"
+	goosedbversion "github.com/epinio/ui/backend/src/jetstream/repository/goose-db-version"
+	"github.com/epinio/ui/backend/src/jetstream/repository/interfaces"
 	"github.com/labstack/echo/v4"
 	log "github.com/sirupsen/logrus"
 )

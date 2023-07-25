@@ -3,9 +3,9 @@ package epiniodex
 import (
 	"net/http"
 
-	"github.com/epinio/ui-backend/src/jetstream/plugins/epinio/rancherproxy/api"
+	"github.com/epinio/ui/backend/src/jetstream/plugins/epinio/rancherproxy/api"
 
-	jInterfaces "github.com/epinio/ui-backend/src/jetstream/repository/interfaces"
+	jInterfaces "github.com/epinio/ui/backend/src/jetstream/repository/interfaces"
 
 	"github.com/labstack/echo/v4"
 )

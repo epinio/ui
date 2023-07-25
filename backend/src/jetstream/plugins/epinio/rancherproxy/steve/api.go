@@ -1,7 +1,7 @@
 package steve
 
 import (
-	"github.com/epinio/ui-backend/src/jetstream/plugins/epinio/rancherproxy/api"
+	"github.com/epinio/ui/backend/src/jetstream/plugins/epinio/rancherproxy/api"
 
 	"github.com/labstack/echo/v4"
 )

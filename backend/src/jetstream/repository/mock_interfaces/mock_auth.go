@@ -5,7 +5,7 @@
 package mock_interfaces
 
 import (
-	interfaces "github.com/epinio/ui-backend/src/jetstream/repository/interfaces"
+	interfaces "github.com/epinio/ui/backend/src/jetstream/repository/interfaces"
 	gomock "github.com/golang/mock/gomock"
 	echo "github.com/labstack/echo/v4"
 	reflect "reflect"

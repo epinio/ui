@@ -6,7 +6,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 
-	"github.com/epinio/ui-backend/src/jetstream/plugins/epinio/rancherproxy/interfaces"
+	"github.com/epinio/ui/backend/src/jetstream/plugins/epinio/rancherproxy/interfaces"
 )
 
 func NewDefaultSchemas(ec echo.Context) *interfaces.Collection {

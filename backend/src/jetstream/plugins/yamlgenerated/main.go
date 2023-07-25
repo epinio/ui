@@ -10,7 +10,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/epinio/ui-backend/src/jetstream/repository/interfaces"
+	"github.com/epinio/ui/backend/src/jetstream/repository/interfaces"
 	"github.com/labstack/echo/v4"
 	"gopkg.in/yaml.v2"
 

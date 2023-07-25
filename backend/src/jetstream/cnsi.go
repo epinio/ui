@@ -15,8 +15,8 @@ import (
 	"crypto/sha1"
 	"encoding/base64"
 
-	"github.com/epinio/ui-backend/src/jetstream/plugins/userfavorites/userfavoritesendpoints"
-	"github.com/epinio/ui-backend/src/jetstream/repository/interfaces"
+	"github.com/epinio/ui/backend/src/jetstream/plugins/userfavorites/userfavoritesendpoints"
+	"github.com/epinio/ui/backend/src/jetstream/repository/interfaces"
 )
 
 const dbReferenceError = "Unable to establish a database reference: '%v'"

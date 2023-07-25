@@ -6,7 +6,7 @@ import (
 	"net/url"
 	"reflect"
 
-	"github.com/epinio/ui-backend/src/jetstream/repository/interfaces/config"
+	"github.com/epinio/ui/backend/src/jetstream/repository/interfaces/config"
 	"github.com/gorilla/sessions"
 	"github.com/labstack/echo/v4"
 )

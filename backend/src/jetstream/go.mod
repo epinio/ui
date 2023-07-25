@@ -1,4 +1,4 @@
-module github.com/epinio/ui-backend/src/jetstream
+module github.com/epinio/ui/backend/src/jetstream
 
 go 1.18
 

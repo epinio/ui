@@ -25,14 +25,14 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/epinio/ui-backend/src/jetstream/custombinder"
-	"github.com/epinio/ui-backend/src/jetstream/dex"
-	epinio_utils "github.com/epinio/ui-backend/src/jetstream/plugins/epinio/utils"
+	"github.com/epinio/ui/backend/src/jetstream/custombinder"
+	"github.com/epinio/ui/backend/src/jetstream/dex"
+	epinio_utils "github.com/epinio/ui/backend/src/jetstream/plugins/epinio/utils"
 
 	"bitbucket.org/liamstask/goose/lib/goose"
 	"github.com/antonlindstrom/pgstore"
 	"github.com/cf-stratos/mysqlstore"
-	"github.com/epinio/ui-backend/src/jetstream/cf-common/env"
+	"github.com/epinio/ui/backend/src/jetstream/cf-common/env"
 	"github.com/gorilla/sessions"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -40,17 +40,17 @@ import (
 	uuid "github.com/satori/go.uuid"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/epinio/ui-backend/src/jetstream/crypto"
-	"github.com/epinio/ui-backend/src/jetstream/datastore"
-	"github.com/epinio/ui-backend/src/jetstream/factory"
-	"github.com/epinio/ui-backend/src/jetstream/repository/apikeys"
-	"github.com/epinio/ui-backend/src/jetstream/repository/cnsis"
-	"github.com/epinio/ui-backend/src/jetstream/repository/console_config"
-	"github.com/epinio/ui-backend/src/jetstream/repository/interfaces"
-	"github.com/epinio/ui-backend/src/jetstream/repository/interfaces/config"
-	"github.com/epinio/ui-backend/src/jetstream/repository/localusers"
-	"github.com/epinio/ui-backend/src/jetstream/repository/sessiondata"
-	"github.com/epinio/ui-backend/src/jetstream/repository/tokens"
+	"github.com/epinio/ui/backend/src/jetstream/crypto"
+	"github.com/epinio/ui/backend/src/jetstream/datastore"
+	"github.com/epinio/ui/backend/src/jetstream/factory"
+	"github.com/epinio/ui/backend/src/jetstream/repository/apikeys"
+	"github.com/epinio/ui/backend/src/jetstream/repository/cnsis"
+	"github.com/epinio/ui/backend/src/jetstream/repository/console_config"
+	"github.com/epinio/ui/backend/src/jetstream/repository/interfaces"
+	"github.com/epinio/ui/backend/src/jetstream/repository/interfaces/config"
+	"github.com/epinio/ui/backend/src/jetstream/repository/localusers"
+	"github.com/epinio/ui/backend/src/jetstream/repository/sessiondata"
+	"github.com/epinio/ui/backend/src/jetstream/repository/tokens"
 )
 
 // @title Epinio API
@@ -58,7 +58,7 @@ import (
 // @description Epinio backend API.
 
 // @contact.name Epinio maintainers
-// @contact.url https://github.com/epinio/ui-backend/issues
+// @contact.url https://github.com/epinio/ui/backend/issues
 
 // @license.name Apache 2.0
 // @license.url http://www.apache.org/licenses/LICENSE-2.0.html

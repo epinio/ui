@@ -14,9 +14,9 @@ import (
 
 	"github.com/labstack/echo/v4"
 
-	"github.com/epinio/ui-backend/src/jetstream/crypto"
-	"github.com/epinio/ui-backend/src/jetstream/repository/interfaces"
-	"github.com/epinio/ui-backend/src/jetstream/repository/localusers"
+	"github.com/epinio/ui/backend/src/jetstream/crypto"
+	"github.com/epinio/ui/backend/src/jetstream/repository/interfaces"
+	"github.com/epinio/ui/backend/src/jetstream/repository/localusers"
 )
 
 //More fields will be moved into here as global portalProxy struct is phased out

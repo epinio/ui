@@ -1,8 +1,8 @@
 package userfavoritesendpoints
 
 import (
-	"github.com/epinio/ui-backend/src/jetstream/plugins/userfavorites/userfavoritesstore"
-	"github.com/epinio/ui-backend/src/jetstream/repository/interfaces"
+	"github.com/epinio/ui/backend/src/jetstream/plugins/userfavorites/userfavoritesstore"
+	"github.com/epinio/ui/backend/src/jetstream/repository/interfaces"
 )
 
 type userFavoriteEndpoints struct {

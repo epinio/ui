@@ -8,8 +8,8 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"github.com/epinio/ui-backend/src/jetstream/datastore"
-	"github.com/epinio/ui-backend/src/jetstream/repository/interfaces"
+	"github.com/epinio/ui/backend/src/jetstream/datastore"
+	"github.com/epinio/ui/backend/src/jetstream/repository/interfaces"
 )
 
 // Legacy

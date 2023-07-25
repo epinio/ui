@@ -1,7 +1,7 @@
 package goosedbversion
 
 import (
-	"github.com/epinio/ui-backend/src/jetstream/repository/interfaces"
+	"github.com/epinio/ui/backend/src/jetstream/repository/interfaces"
 )
 
 // Repository - the repository required to talk to this table of data

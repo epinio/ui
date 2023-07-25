@@ -11,8 +11,8 @@ import (
 	"github.com/labstack/echo/v4"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/epinio/ui-backend/src/jetstream/repository/interfaces"
-	"github.com/epinio/ui-backend/src/jetstream/repository/tokens"
+	"github.com/epinio/ui/backend/src/jetstream/repository/interfaces"
+	"github.com/epinio/ui/backend/src/jetstream/repository/tokens"
 )
 
 // CFAdminIdentifier - The scope that Cloud Foundry uses to convey administrative level perms

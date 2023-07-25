@@ -14,7 +14,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/epinio/ui-backend/src/jetstream/cf-common/env"
+	"github.com/epinio/ui/backend/src/jetstream/cf-common/env"
 	log "github.com/sirupsen/logrus"
 )
 

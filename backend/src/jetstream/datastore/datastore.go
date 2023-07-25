@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/epinio/ui-backend/src/jetstream/cf-common/env"
-	goosedbversion "github.com/epinio/ui-backend/src/jetstream/repository/goose-db-version"
+	"github.com/epinio/ui/backend/src/jetstream/cf-common/env"
+	goosedbversion "github.com/epinio/ui/backend/src/jetstream/repository/goose-db-version"
 	log "github.com/sirupsen/logrus"
 
 	// Mysql driver

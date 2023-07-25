@@ -11,8 +11,8 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/oauth2"
 
-	epinio_utils "github.com/epinio/ui-backend/src/jetstream/plugins/epinio/utils"
-	jInterfaces "github.com/epinio/ui-backend/src/jetstream/repository/interfaces"
+	epinio_utils "github.com/epinio/ui/backend/src/jetstream/plugins/epinio/utils"
+	jInterfaces "github.com/epinio/ui/backend/src/jetstream/repository/interfaces"
 )
 
 const (

@@ -3,10 +3,10 @@ package main
 import (
 	"testing"
 
-	"github.com/epinio/ui-backend/src/jetstream/cf-common/env"
+	"github.com/epinio/ui/backend/src/jetstream/cf-common/env"
 
-	"github.com/epinio/ui-backend/src/jetstream/datastore"
-	"github.com/epinio/ui-backend/src/jetstream/repository/interfaces"
+	"github.com/epinio/ui/backend/src/jetstream/datastore"
+	"github.com/epinio/ui/backend/src/jetstream/repository/interfaces"
 )
 
 // DO NOT DELETE - this is necessary for thr HTTP Client used during unit tests

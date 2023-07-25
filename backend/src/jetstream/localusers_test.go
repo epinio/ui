@@ -9,9 +9,9 @@ import (
 	log "github.com/sirupsen/logrus"
 	sqlmock "gopkg.in/DATA-DOG/go-sqlmock.v1"
 
-	"github.com/epinio/ui-backend/src/jetstream/crypto"
-	"github.com/epinio/ui-backend/src/jetstream/repository/interfaces"
-	"github.com/epinio/ui-backend/src/jetstream/repository/localusers"
+	"github.com/epinio/ui/backend/src/jetstream/crypto"
+	"github.com/epinio/ui/backend/src/jetstream/repository/interfaces"
+	"github.com/epinio/ui/backend/src/jetstream/repository/localusers"
 	. "github.com/smartystreets/goconvey/convey"
 )
 

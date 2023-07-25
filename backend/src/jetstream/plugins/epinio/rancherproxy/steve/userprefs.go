@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/epinio/ui-backend/src/jetstream/plugins/epinio/rancherproxy/interfaces"
+	"github.com/epinio/ui/backend/src/jetstream/plugins/epinio/rancherproxy/interfaces"
 
 	"github.com/labstack/echo/v4"
 )

@@ -1,7 +1,7 @@
 package console_config
 
 import (
-	"github.com/epinio/ui-backend/src/jetstream/repository/interfaces"
+	"github.com/epinio/ui/backend/src/jetstream/repository/interfaces"
 )
 
 type Repository interface {

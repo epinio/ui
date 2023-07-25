@@ -1,6 +1,6 @@
 package apikeys
 
-import "github.com/epinio/ui-backend/src/jetstream/repository/interfaces"
+import "github.com/epinio/ui/backend/src/jetstream/repository/interfaces"
 
 // Repository - API keys repository
 type Repository interface {

@@ -14,8 +14,8 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"github.com/epinio/ui-backend/src/jetstream/crypto"
-	"github.com/epinio/ui-backend/src/jetstream/repository/interfaces"
+	"github.com/epinio/ui/backend/src/jetstream/crypto"
+	"github.com/epinio/ui/backend/src/jetstream/repository/interfaces"
 	. "github.com/smartystreets/goconvey/convey"
 )
 

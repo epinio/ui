@@ -8,9 +8,9 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/epinio/ui-backend/src/jetstream/crypto"
-	"github.com/epinio/ui-backend/src/jetstream/datastore"
-	"github.com/epinio/ui-backend/src/jetstream/repository/interfaces"
+	"github.com/epinio/ui/backend/src/jetstream/crypto"
+	"github.com/epinio/ui/backend/src/jetstream/datastore"
+	"github.com/epinio/ui/backend/src/jetstream/repository/interfaces"
 	uuid "github.com/satori/go.uuid"
 	log "github.com/sirupsen/logrus"
 )

@@ -7,9 +7,9 @@ import (
 	uuid "github.com/satori/go.uuid"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/epinio/ui-backend/src/jetstream/crypto"
-	"github.com/epinio/ui-backend/src/jetstream/repository/interfaces"
-	"github.com/epinio/ui-backend/src/jetstream/repository/localusers"
+	"github.com/epinio/ui/backend/src/jetstream/crypto"
+	"github.com/epinio/ui/backend/src/jetstream/repository/interfaces"
+	"github.com/epinio/ui/backend/src/jetstream/repository/localusers"
 )
 
 func (p *portalProxy) FindUserGUID(c echo.Context) (string, error) {

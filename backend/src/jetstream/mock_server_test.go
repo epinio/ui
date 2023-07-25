@@ -11,18 +11,18 @@ import (
 	"testing"
 	"time"
 
-	"github.com/epinio/ui-backend/src/jetstream/cf-common/env"
+	"github.com/epinio/ui/backend/src/jetstream/cf-common/env"
 	"github.com/gorilla/securecookie"
 	"github.com/gorilla/sessions"
 	"github.com/labstack/echo/v4"
 	sqlmock "gopkg.in/DATA-DOG/go-sqlmock.v1"
 
-	"github.com/epinio/ui-backend/src/jetstream/crypto"
-	"github.com/epinio/ui-backend/src/jetstream/factory"
-	"github.com/epinio/ui-backend/src/jetstream/repository/interfaces"
-	"github.com/epinio/ui-backend/src/jetstream/repository/tokens"
+	"github.com/epinio/ui/backend/src/jetstream/crypto"
+	"github.com/epinio/ui/backend/src/jetstream/factory"
+	"github.com/epinio/ui/backend/src/jetstream/repository/interfaces"
+	"github.com/epinio/ui/backend/src/jetstream/repository/tokens"
 
-	"github.com/epinio/ui-backend/src/jetstream/plugins/epinio"
+	"github.com/epinio/ui/backend/src/jetstream/plugins/epinio"
 	log "github.com/sirupsen/logrus"
 )
 

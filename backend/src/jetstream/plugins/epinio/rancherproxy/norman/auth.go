@@ -5,8 +5,8 @@ import (
 
 	"github.com/labstack/echo/v4"
 
-	"github.com/epinio/ui-backend/src/jetstream/plugins/epinio/rancherproxy/interfaces"
-	jInterfaces "github.com/epinio/ui-backend/src/jetstream/repository/interfaces"
+	"github.com/epinio/ui/backend/src/jetstream/plugins/epinio/rancherproxy/interfaces"
+	jInterfaces "github.com/epinio/ui/backend/src/jetstream/repository/interfaces"
 )
 
 const (

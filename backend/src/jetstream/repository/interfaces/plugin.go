@@ -1,7 +1,7 @@
 package interfaces
 
 import (
-	"github.com/epinio/ui-backend/src/jetstream/cf-common/env"
+	"github.com/epinio/ui/backend/src/jetstream/cf-common/env"
 )
 
 // StratosPlugin is the interface for a Jetstream plugin

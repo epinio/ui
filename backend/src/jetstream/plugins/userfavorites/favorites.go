@@ -8,10 +8,10 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/epinio/ui-backend/src/jetstream/plugins/userfavorites/userfavoritesstore"
+	"github.com/epinio/ui/backend/src/jetstream/plugins/userfavorites/userfavoritesstore"
 	"github.com/labstack/echo/v4"
 
-	"github.com/epinio/ui-backend/src/jetstream/repository/interfaces"
+	"github.com/epinio/ui/backend/src/jetstream/repository/interfaces"
 )
 
 func (uf *UserFavorites) getAll(c echo.Context) error {

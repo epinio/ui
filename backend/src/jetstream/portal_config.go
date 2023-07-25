@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/epinio/ui-backend/src/jetstream/cf-common/env"
-	"github.com/epinio/ui-backend/src/jetstream/repository/interfaces"
+	"github.com/epinio/ui/backend/src/jetstream/cf-common/env"
+	"github.com/epinio/ui/backend/src/jetstream/repository/interfaces"
 )
 
 func (p *portalProxy) GetConfig() *interfaces.PortalConfig {

@@ -4,7 +4,7 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/epinio/ui-backend/src/jetstream/repository/interfaces/config"
+	"github.com/epinio/ui/backend/src/jetstream/repository/interfaces/config"
 	"github.com/labstack/echo/v4"
 	log "github.com/sirupsen/logrus"
 )

@@ -14,10 +14,10 @@ import (
 
 	"github.com/labstack/echo/v4"
 
-	"github.com/epinio/ui-backend/src/jetstream/plugins/epinio/rancherproxy"
-	epinio_utils "github.com/epinio/ui-backend/src/jetstream/plugins/epinio/utils"
+	"github.com/epinio/ui/backend/src/jetstream/plugins/epinio/rancherproxy"
+	epinio_utils "github.com/epinio/ui/backend/src/jetstream/plugins/epinio/utils"
 
-	"github.com/epinio/ui-backend/src/jetstream/repository/interfaces"
+	"github.com/epinio/ui/backend/src/jetstream/repository/interfaces"
 )
 
 // More fields will be moved into here as global portalProxy struct is phased out

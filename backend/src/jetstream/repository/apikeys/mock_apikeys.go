@@ -5,7 +5,7 @@
 package apikeys
 
 import (
-	interfaces "github.com/epinio/ui-backend/src/jetstream/repository/interfaces"
+	interfaces "github.com/epinio/ui/backend/src/jetstream/repository/interfaces"
 	gomock "github.com/golang/mock/gomock"
 	reflect "reflect"
 )
