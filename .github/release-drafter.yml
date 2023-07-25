@@ -1,0 +1,48 @@
+categories:
+  - title: '🚀 Features'
+    labels:
+      - 'kind/enhancement'
+  - title: '🐛 Bug Fixes'
+    labels:
+      - 'kind/bug'
+  - title: '🧰 Maintenance'
+
+exclude-labels:
+  - 'status/duplicate'
+  - 'status/invalid'
+  - 'status/wontfix'
+  - 'status/question'
+
+change-template: '- $TITLE (#$NUMBER)'
+change-title-escapes: '\<*_&' # You can add # and @ to disable mentions, and add ` to disable code blocks.
+tag-template: 'v$RESOLVED_VERSION'
+name-template: 'v$RESOLVED_VERSION 🌈'
+template: |
+
+  # What's Changed
+
+  $CHANGES
+
+  # Usage
+
+  More info can be found in the [installation instructions](https://docs.epinio.io/installation/install_epinio).
+
+version-resolver:
+  major:
+    labels:
+      - 'major'
+      - 'breaking'
+  minor:
+    labels:
+      - 'minor'
+      - 'feature'
+      - 'status/enhancement'
+      - 'dependencies'
+  patch:
+    labels:
+      - 'patch'
+      - 'fix'
+      - 'bugfix'
+      - 'status/bug'
+      - 'chore'
+  default: patch

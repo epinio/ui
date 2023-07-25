@@ -1,0 +1,12 @@
+{
+  "cluster": "local",
+  "test": "true",
+  "after-login-route": "{\"name\":\"c-cluster\",\"params\":{\"cluster\":\"local\"}}",
+  "dev": "true",
+  "hide-cluster-tools-tip": "true",
+  "home-page-cards": "{}",
+  "last-namespace": "default",
+  "menu-max-clusters": "10",
+  "ns": "[]",
+  "theme": "\"ui-light\""
+}

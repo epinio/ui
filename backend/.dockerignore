@@ -1,0 +1,12 @@
+# Files/Folders to ignore for Docker
+node_modules
+.git
+dev-ssl
+coverage
+dist
+.dist
+tmp
+outputs
+coverage
+e2e-reports
+vendor

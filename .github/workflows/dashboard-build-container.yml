@@ -1,10 +1,11 @@
-name: Build and release container to registry
+name: Dashboard - Build and release container to registry
 
 on:
   # This workflow won't work until the publish script `BASE_EXT=$(basename ${BASE_DIR})` is fixed (expects repo name, but out case gets `dashboard`)
   # push:
   #   branches:
   #     - main
+  workflow_dispatch:
 
 defaults:
   run:

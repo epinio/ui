@@ -71,3 +71,62 @@ jspm_packages/
 # System Files
 .DS_Store
 Thumbs.db
+
+
+# from backend
+#v1
+*.iml
+backend/tools/test-backend/config/mock.config.json
+backend/tools/.coverage-karma/
+backend/dev-certs/*
+backend/vendor/
+**/vendor
+**/*.so
+backend/tools/ssl
+backend/build/secrets.json
+backend/deploy/data/
+backend/deploy/hsc-upgrade-volume/
+backend/deploy/development.rc
+backend/deploy/ci/secrets.yml
+backend/deploy/kubernetes/values.yaml
+backend/deploy/kubernetes/helm-chart/
+backend/deploy/cloud-foundry/db-migration/goose
+backend/outputs/
+backend/deploy/kubernetes/console/charts/
+backend/deploy/stratos-ui-release/.dev_builds
+backend/deploy/stratos-ui-release/blobs
+backend/deploy/stratos-ui-release/.blobs
+backend/deploy/stratos-ui-release/dev_releases/
+backend/output/fissile
+backend/deploy/ci/travis/temp/
+
+# Helm Chart Image List
+backend/deploy/kubernetes/console/imagelist.txt
+
+backend/.dist/
+backend/deploy/uaa/tmp/
+backend/src/backend/*/vendor/
+.v8flags*
+
+*.bak
+backend//secrets.yaml
+backend/build/dev_config.json
+
+.stratos-git-metadata.json
+backend/src/jetstream/jetstream
+console-database.db
+backend/src/jetstream/config.properties
+backend/src/jetstream/db/dbconf.yml
+backend/src/jetstream/plugins/monocular/chart-repo/chartrepo
+backend/src/jetstream/plugins/analysis/container/analyzers
+backend/src/jetstream/.helm-cache
+backend/src/jetstream/coverage.txt
+
+# Backend file generated to include extra plugins
+backend/src/jetstream/extra_plugins.go
+
+# Prebuild package
+
+go-vendor-*.tgz
+
+/scan_tmp
