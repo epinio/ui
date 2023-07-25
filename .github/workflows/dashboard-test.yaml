@@ -1,4 +1,5 @@
-name: Tests
+# TODO: RC make dashboard github workflows dependent on changes to dashboard folder
+name: Dashboard - Tests
 on:
   push:
     branches:

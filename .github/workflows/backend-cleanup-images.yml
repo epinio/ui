@@ -1,4 +1,5 @@
-name: Delete old container images
+# TODO: RC make backend github workflows dependent on changes to backend folder
+name: Backend - Delete old container images
 
 on:
   workflow_dispatch:
