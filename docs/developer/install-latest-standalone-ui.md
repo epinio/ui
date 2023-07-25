@@ -1,4 +1,4 @@
-# Process to deploy latest standalone UI  synced with latest ui-backend and epinio
+# Process to deploy latest standalone UI synced with latest ui backend and epinio
 
 ### Step 1: get latest epinio update
 
@@ -39,9 +39,11 @@ Epinio Client Version: v0.8.0-124-g57f85060
 
 ## To run the latest version of the UI
 
-#### Step 2: prepare ui-backend
+#### Step 2: prepare ui backend
 
-Open another terminal pointing to [epinio/ui-backend](https://github.com/epinio/ui-backend) repo
+TODO: RC update all of this
+
+Open another terminal pointing to [epinio/ui/backend](https://github.com/epinio/ui/backend) repo
 Execute:
 
 ```

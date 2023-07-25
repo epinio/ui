@@ -51,6 +51,8 @@ Any merge to `main` that changes `dashboard/pkg/epinio/package.json` will kick o
 
 ### Standalone
 
+TODO: RC update all of this
+
 > The below instructions are obsolete and will be updated as part of https://github.com/epinio/ui/issues/248
 
 #### Tag the Frontend (UI)
@@ -60,12 +62,12 @@ Any merge to `main` that changes `dashboard/pkg/epinio/package.json` will kick o
    - The tag won't kick anything off. It's used to mark the ui files used in the associated build. This should eventually be automated as part of the backend build job
 
 #### Build the Frontend, Backend and image
-1. Create the builds by pushing a tag to `epinio/ui-backend`)
+1. Create the builds by pushing a tag to `epinio/ui/backend`)
    - It must start with `v`, for example `v0.6.1-0.0.1`.
-   - A github [action](https://github.com/epinio/ui-backend/actions) will be kicked off which will..
+   - A github [action](https://github.com/epinio/ui/backend/actions) will be kicked off which will..
      - Fetch and build the ui frontend with the same tag
      - Build the ui backend
-     - Build a container containing both ui front and backend (output at https://github.com/epinio/ui-backend/pkgs/container/epinio-ui)
+     - Build a container containing both ui front and backend (output at https://github.com/epinio/ui/backend/pkgs/container/epinio-ui)
 
 
 #### Update the Charts

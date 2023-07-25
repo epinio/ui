@@ -1,4 +1,4 @@
-[![Unit tests](https://github.com/epinio/ui-backend/actions/workflows/main.yml/badge.svg)](https://github.com/epinio/ui-backend/actions/workflows/main.yml)
+[![Unit tests](https://github.com/epinio/ui/actions/workflows/main.yml/badge.svg)](https://github.com/epinio/ui/actions/workflows/main.yml)
 
 # Development
 

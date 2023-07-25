@@ -6,7 +6,7 @@ The Epinio UI is an extension of Rancher and can be in `pkg/epinio`. This one ex
 ## Getting Started - Run in Standalone Mode
 
 ### UI Backend
-Run the UI backend as per https://github.com/epinio/ui-backend#development
+Run the UI backend as per https://github.com/epinio/ui/backend#development
 
 ### UI Frontend
 

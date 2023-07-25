@@ -4,16 +4,6 @@ on:
   push:
     tags:
       - "v*"
-  workflow_dispatch:
-    inputs:
-      ui_bundle_url:
-        description: "ui_bundle_url"
-        required: false
-        type: string
-
-defaults:
-  run:
-    working-directory: ./backend
 
 env:
   SETUP_GO_VERSION: '1.18'
@@ -65,35 +55,12 @@ jobs:
         name: Get current tag
         id: get_tag
         run: echo "TAG=${GITHUB_REF/refs\/tags\//}" >> $GITHUB_OUTPUT
-      # if the ui_bundle_url is defined download and unpack the dashboard
-      -
-        name: Download dashboard
-        if: ${{ github.event.inputs.ui_bundle_url != '' }}
-        run: |
-          mkdir ui
-          wget "${{ github.event.inputs.ui_bundle_url }}"
-          tar xfz *.tar.gz -C ui
-      # otherwise fetch and build the latest dashboard from the repository
-      -
-        name: Checkout Rancher Dashboard UI
-        if: ${{ github.event.inputs.ui_bundle_url == '' }}
-        uses: actions/checkout@v3
-        with:
-          repository: epinio/ui
-          ref: ${{ steps.get_tag.outputs.TAG }}
-          submodules: recursive
-          fetch-depth: 0
-          path: epinio-ui
       -
         name: Build Epinio dashboard
-        if: ${{ github.event.inputs.ui_bundle_url == '' }}
-        # go to the repo's directory, build the ui, move the build to `ui` in the workflow root (as per location when downloading from url)
+        # build the ui, move the build to `ui` in the workflow root (as per location when downloading from url)
         run: |
-          pushd epinio-ui
           ./.github/workflows/scripts/build-ui.sh
-          mv dashboard/$OUTPUT_DIR/$ARTIFACT_NAME ../ui
-          popd
-          rm -rf epinio-ui
+          mv dashboard/$OUTPUT_DIR/$ARTIFACT_NAME backend/ui
         env:
           RANCHER_ENV: epinio
           EXCLUDES_PKG: rancher-components,harvester
@@ -105,10 +72,9 @@ jobs:
           LOGIN_LOCALE_SELECTOR: false
       -
         name: Run GoReleaser Cross
-        run: ./build/bk-release.sh release --rm-dist
+        run: ./backend/build/bk-release.sh release --rm-dist
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          UI_BUNDLE_URL: "${{ github.event.inputs.ui_bundle_url }}"
           # The "id-token: write" permission for the OIDC will set the ACTIONS_ID_TOKEN_REQUEST_URL and ACTIONS_ID_TOKEN_REQUEST_TOKEN
           # environment variables. Since we are running goreleaser-cross from a Docker image we need to pass those to the script and the container.
           # See: https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/about-security-hardening-with-openid-connect#updating-your-actions-for-oidc
