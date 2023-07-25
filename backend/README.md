@@ -2,8 +2,9 @@
 
 # Development
 
+> Note - All commands should be executed from the `./backend` directory
+
 ## Build Backend
-In this repo, `main` branch
 
 When running locally execute `npm install`
 > Note - This doesn't do anything except runs a few things `postinstall`, the most import is a rejig of config files.. which is just `./build/dev-setup.js`
@@ -30,18 +31,7 @@ AUTH_ENDPOINT_TYPE=epinio \
 Alternatively create a `config.properties` file in `src/jetstream` with the ENVVARS above
 
 ## Run Frontend
-In `rancher/dashboard` repo, `epinio-dev` branch
-
-```
-git checkout epinio-dev
-yarn install
-EXCLUDES_PKG=harvester,rancher-components EXCLUDES_NUXT_PLUGINS=plugins/version,plugins/plugin RANCHER_ENV=epinio API=https://localhost:5443 yarn mem-dev
-```
-
-> Note - If switching between `RANCHER_ENV`s you will need to `yarn clean`
-
-> Note - The `API` value points at the backend which defaults to port `5443`
-
+See [./dashboard/README.md](../dashboard/README.md)
 
 
 # Template / Helm

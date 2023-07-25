@@ -41,13 +41,11 @@ Epinio Client Version: v0.8.0-124-g57f85060
 
 #### Step 2: prepare ui backend
 
-TODO: RC update all of this
-
-Open another terminal pointing to [epinio/ui/backend](https://github.com/epinio/ui/backend) repo
+Open another terminal pointing to [epinio/ui](https://github.com/epinio/ui) repo
 Execute:
 
 ```
-cp src/jetstream/config.example src/jetstream/config.properties 
+cp backend/src/jetstream/config.example backend/jetstream/config.properties 
 ```
 
 Execute `epinio settings show` and copy the **API Url** displayed:
@@ -57,7 +55,7 @@ Example:
 | API Url           | https://epinio.172.21.0.2.omg.howdoi.website |
 ```
 
-Go to `src/jetstream` and add the following lines to the top of `config.properties`:
+Go to `backend/src/jetstream` and add the following lines to the top of `config.properties`:
 ```
 AUTH_ENDPOINT_TYPE=epinio
 EPINIO_API_URL=https://epinio.172.21.0.2.omg.howdoi.website
@@ -68,6 +66,7 @@ EPINIO_UI_URL=https://localhost:8005
 
 Execute the following:
 ```
+cd backend
 npm run build-backend && ./jetstream 
 ```
 

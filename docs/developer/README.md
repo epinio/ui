@@ -7,6 +7,8 @@ The Epinio UI is currently served via the [Rancher Dashboard](https://github.com
 ### Running the UI
 #### Built-in / Embedded
 
+This runs the epinio ui within the Rancher Manager UI
+
 > You will still need an instance of Rancher and the Epinio hosting cluster needs to be added/imported to it.
 
 > Follow the Epinio docs or [this guide](install-epinio.md) to install an Epinio instance locally
@@ -35,7 +37,9 @@ The Epinio UI is currently served via the [Rancher Dashboard](https://github.com
 
 #### Standalone
 
-You will need to run the `epinio/ui` `dashboard` and the epinio ui backend.
+This runs the epinio ui without Rancher Manager
+
+You will need to run the `epinio/ui` `dashboard` and `backend`.
 
 See instructions [here](../../dashboard/README.md).
 
@@ -51,21 +55,11 @@ Any merge to `main` that changes `dashboard/pkg/epinio/package.json` will kick o
 
 ### Standalone
 
-TODO: RC update all of this
-
-> The below instructions are obsolete and will be updated as part of https://github.com/epinio/ui/issues/248
-
-#### Tag the Frontend (UI)
-1. Push a tag for the release to `epinio/ui`
-   - It should be from the `main` branch
-   - It should be in the same standard format used through out this process, for example `v0.6.1-0.0.1`
-   - The tag won't kick anything off. It's used to mark the ui files used in the associated build. This should eventually be automated as part of the backend build job
-
 #### Build the Frontend, Backend and image
-1. Create the builds by pushing a tag to `epinio/ui/backend`)
+1. Create the builds by pushing a tag to `epinio/ui`)
    - It must start with `v`, for example `v0.6.1-0.0.1`.
    - A github [action](https://github.com/epinio/ui/backend/actions) will be kicked off which will..
-     - Fetch and build the ui frontend with the same tag
+     - Build the ui frontend
      - Build the ui backend
      - Build a container containing both ui front and backend (output at https://github.com/epinio/ui/backend/pkgs/container/epinio-ui)
 
@@ -95,9 +89,3 @@ These steps will get the image that was just built into the epinio-ui chart, and
    For example https://github.com/epinio/helm-charts/pull/354
 
    The manual step is to review and merge the PR
-
-
-## Install the UI (without running it locally)
-
-See root [README](https://github.com/epinio/ui).
-
