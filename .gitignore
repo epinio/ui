@@ -100,6 +100,8 @@ backend/deploy/stratos-ui-release/dev_releases/
 backend/output/fissile
 backend/deploy/ci/travis/temp/
 
+backend/ui
+
 # Helm Chart Image List
 backend/deploy/kubernetes/console/imagelist.txt
 
