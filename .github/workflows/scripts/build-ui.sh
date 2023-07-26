@@ -3,6 +3,16 @@ set -e
 
 # This is pretty much rancher/dashboard .github/workflows/scripts/build-dashboard.sh. Ideally this should come with the app creator
 
+RANCHER_ENV=epinio
+EXCLUDES_PKG=rancher-components,harvester
+EXCLUDE_OPERATOR_PKG=true
+OUTPUT_DIR=dist
+RELEASE_DIR=release
+ARTIFACT_NAME=rancher-dashboard-epinio-standalone
+NODE_OPTIONS="--max-old-space-size=4096"
+LOGIN_LOCALE_SELECTOR=false
+
+
 echo "GITHUB_SHA: $GITHUB_SHA"
 echo "GITHUB_REF_NAME: $GITHUB_REF_NAME"
 echo "ROUTER_BASE: $ROUTER_BASE"
