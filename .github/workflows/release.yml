@@ -72,7 +72,7 @@ jobs:
           LOGIN_LOCALE_SELECTOR: false
       -
         name: Run GoReleaser Cross
-        run: ./backend/build/bk-release.sh release --rm-dist
+        run: ./backend/build/bk-release.sh release --rm-dist -f ./dashboard/goreleaser.yml
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # The "id-token: write" permission for the OIDC will set the ACTIONS_ID_TOKEN_REQUEST_URL and ACTIONS_ID_TOKEN_REQUEST_TOKEN
