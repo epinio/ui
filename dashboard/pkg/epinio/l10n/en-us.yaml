@@ -60,6 +60,7 @@ epinio:
     noNamespaces: Create a Namespace, then create your Applications
     getStarted: Get started
     issues: Issues
+    about: About
     cards:
       namespaces:
         linkText: Create Namespace

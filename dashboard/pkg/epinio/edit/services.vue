@@ -6,7 +6,7 @@ import CruResource from '@shell/components/CruResource.vue';
 import Loading from '@shell/components/Loading.vue';
 import { epinioExceptionToErrorsArray } from '../utils/errors';
 import LabeledSelect from '@shell/components/form/LabeledSelect.vue';
-import { EpinioCatalogServiceResource, EPINIO_TYPES, EpinioNamespace, EpinioCompRecord } from '../types';
+import { EPINIO_TYPES, EpinioNamespace, EpinioCompRecord, EpinioCatalogService } from '../types';
 import { validateKubernetesName } from '@shell/utils/validators/kubernetes-name';
 import NameNsDescription from '@shell/components/form/NameNsDescription.vue';
 import EpinioBindAppsMixin from './bind-apps-mixin.js';
@@ -94,7 +94,7 @@ export default Vue.extend<Data, EpinioCompRecord, EpinioCompRecord, EpinioCompRe
     },
 
     catalogServiceOpts() {
-      return this.$store.getters['epinio/all'](EPINIO_TYPES.CATALOG_SERVICE).map((cs: EpinioCatalogServiceResource) => ({
+      return this.$store.getters['epinio/all'](EPINIO_TYPES.CATALOG_SERVICE).map((cs: EpinioCatalogService) => ({
         label: `${ cs.name } (${ cs.short_description })`,
         value: cs.name
       }));

@@ -8,6 +8,13 @@ import Namespace from '@shell/models/namespace';
 import EpinioServiceModel from '../../../models/services';
 import isEqual from 'lodash/isEqual';
 import { sortBy } from 'lodash';
+import { Location } from 'vue-router';
+
+type ComponentService = {
+  name: string,
+  link: Location,
+  isEnabled: boolean
+}
 
 export default Vue.extend<any, any, any, any>({
   components: { DashboardCard, ConsumptionGauge },
@@ -56,7 +63,8 @@ export default Vue.extend<any, any, any, any>({
       colorStops: {
         0: '--info', 30: '--info', 70: '--info'
       },
-      version: null
+      version:   null,
+      aboutLink: !this.$store.getters['isSingleProduct'] ? createEpinioRoute('c-cluster-about', { cluster: this.$store.getters['clusterId'] }) : null
     };
   },
   created() {
@@ -113,21 +121,20 @@ export default Vue.extend<any, any, any, any>({
       const fetchServices: EpinioCatalogService[] = this.$store.getters['epinio/all'](EPINIO_TYPES.CATALOG_SERVICE);
 
       // Try to find the desired services
-      const findDesiredServices = fetchServices?.filter((service) => service?.shortId === 'mysql-dev' || service?.shortId === 'redis-dev');
+      const findDesiredServices = fetchServices?.filter((service) => service.id === 'mysql-dev' || service.id === 'redis-dev');
 
       //  if not found, return the first two services from the catalog
-      const services: EpinioCatalogService[] | any =
-      findDesiredServices.length ? findDesiredServices : fetchServices.slice(0, 2);
+      const services: EpinioCatalogService[] = findDesiredServices.length ? findDesiredServices : fetchServices.slice(0, 2);
 
-      const s = services.reduce((acc: any[], service: { shortId: string; }) => {
+      const s = services.reduce((acc: ComponentService[], service: EpinioCatalogService) => {
         acc.push({
-          link:      createEpinioRoute('c-cluster-resource-create', { resource: EPINIO_TYPES.SERVICE_INSTANCE, name: service?.shortId }, { query: { service: service?.shortId } }),
-          shortId:   service?.shortId,
+          link:      createEpinioRoute('c-cluster-resource-create', { resource: EPINIO_TYPES.SERVICE_INSTANCE, name: service.id }, { query: { service: service.id } }),
+          name:      service.name,
           isEnabled: true
         });
 
         return acc;
-      }, []);
+      }, [] as ComponentService[]);
 
       return {
         servicesInstances: fetchServicesInstances.length,
@@ -183,6 +190,12 @@ export default Vue.extend<any, any, any, any>({
           target="_blank"
           rel="noopener noreferrer nofollow"
         >{{ t('epinio.intro.issues') }}</a>
+        <n-link
+          v-if="aboutLink"
+          :to="aboutLink"
+        >
+          {{ t('epinio.intro.about') }}
+        </n-link>
       </div>
     </div>
     <div class="get-started">
@@ -239,7 +252,7 @@ export default Vue.extend<any, any, any, any>({
                     :to="service.link"
                     class="link"
                   >
-                    {{ service.shortId }}
+                    {{ service.name }}
                     <span>+</span>
                   </n-link>
 
@@ -247,7 +260,7 @@ export default Vue.extend<any, any, any, any>({
                     v-if="!service.isEnabled"
                     class="link disabled"
                   >
-                    {{ service.shortId }}
+                    {{ service.name }}
                     <span>+</span>
                   </span>
                 </li>
@@ -288,7 +301,7 @@ export default Vue.extend<any, any, any, any>({
 
       span {
         background: var(--primary);
-        color: var(--default);
+        color: var(--body-text);
         border-radius: var(--border-radius);
         padding: 4px 8px;
       }
