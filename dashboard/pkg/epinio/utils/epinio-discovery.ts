@@ -5,6 +5,10 @@ import { ingressFullPath } from '@shell/models/networking.k8s.io.ingress';
 import { allHash } from '@shell/utils/promise';
 
 export default {
+  ingressUrl(clusterId: string) {
+    return `/k8s/clusters/${ clusterId }/v1/networking.k8s.io.ingresses/epinio/epinio`;
+  },
+
   async discover(store: any) {
     const allClusters = await store.dispatch('management/findAll', { type: MANAGEMENT.CLUSTER }, { root: true });
     const epinioClusters = [];
@@ -12,7 +16,7 @@ export default {
     for (const c of allClusters.filter((c: any) => c.isReady)) {
       try {
         // Get the url first, if it has this it's highly likely it's an epinio cluster
-        const epinioIngress = await store.dispatch(`cluster/request`, { url: `/k8s/clusters/${ c.id }/v1/networking.k8s.io.ingresses/epinio/epinio` }, { root: true });
+        const epinioIngress = await store.dispatch(`cluster/request`, { url: this.ingressUrl(c.id) }, { root: true });
         const url = ingressFullPath(epinioIngress, epinioIngress.spec.rules?.[0]);
 
         let username;

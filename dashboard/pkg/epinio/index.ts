@@ -1,8 +1,19 @@
 import { importTypes } from '@rancher/auto-import';
-import { IPlugin, OnNavAwayFromPackage, OnNavToPackage } from '@shell/core/types';
+import {
+  ActionLocation, ActionOpts, IPlugin, OnNavAwayFromPackage, OnNavToPackage
+} from '@shell/core/types';
+import { EPINIO_TYPES } from './types';
 import epinioRoutes from './routing/epinio-routing';
 import epinioMgmtStore from './store/epinio-mgmt-store';
 import epinioStore from './store/epinio-store';
+import { createEpinioRoute } from './utils/custom-routing';
+
+const epinioObjAnnotations = [
+  'epinio.io/app-container',
+  'epinio.io/created-by'
+];
+
+const isPodFromEpinio = (a: string) => epinioObjAnnotations.includes(a);
 
 const onEnter: OnNavToPackage = async({ getters, dispatch }, config) => {
   await dispatch(`${ epinioMgmtStore.config.namespace }/loadManagement`);
@@ -41,4 +52,40 @@ export default function(plugin: IPlugin) {
 
   // Add hooks to Vue navigation world
   plugin.addNavHooks(onEnter, onLeave);
+
+  // Add action button in the menu of each object belonging to Epinio's applications
+  plugin.addAction(
+    ActionLocation.TABLE,
+    {
+      resource: [
+        'apps.deployment',
+        'batch.job',
+        'pod',
+        // 'service',
+        'workload'
+      ]
+    },
+    {
+      labelKey: 'epinio.applications.actions.goToEpinio.label',
+      icon:     'icon-epinio',
+      enabled(ctx: any) {
+        const isUserNamespace = ctx.metadata.namespace !== 'epinio';
+
+        return isUserNamespace && !!Object.keys(ctx.metadata.annotations || []).find((annotation) => isPodFromEpinio(annotation));
+      },
+      invoke(_: ActionOpts, values: any[]) {
+        const obj = values[0];
+        const $router = obj.$rootState.$router;
+
+        const epinioNamespace = obj.labels['app.kubernetes.io/part-of'];
+        const epinioAppName = obj.labels['app.kubernetes.io/name'];
+
+        $router.replace(createEpinioRoute(`c-cluster-resource-id`, {
+          cluster:  obj.$rootGetters['clusterId'],
+          resource: EPINIO_TYPES.APP,
+          id:       `${ epinioNamespace }/${ epinioAppName }`
+        }));
+      }
+    }
+  );
 }
