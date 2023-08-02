@@ -1,6 +1,4 @@
 <script>
-import Vue from 'vue';
-
 import GenericPrompt from '@shell/dialog/GenericPrompt';
 import Banner from '@components/Banner/Banner.vue';
 import Tabbed from '@shell/components/Tabbed/index.vue';
@@ -9,6 +7,12 @@ import JSZip from 'jszip';
 import { downloadFile } from '@shell/utils/download';
 import PercentageBar from '@shell/components/PercentageBar';
 import { APPLICATION_PARTS } from '../types';
+
+const partsWeight = {
+  [APPLICATION_PARTS.VALUES]: 0.15,
+  [APPLICATION_PARTS.CHART]:  0.15,
+  [APPLICATION_PARTS.IMAGE]:  0.7,
+};
 
 export default {
   name:       'ExportAppDialog',
@@ -29,16 +33,17 @@ export default {
         applyMode:   'export',
         applyAction: this.exportApplicationManifest,
       },
-      zipParts:         this.resources[0].applicationParts.filter((part) => part !== APPLICATION_PARTS.MANIFEST),
-      showProgressBars: false,
-      progressBars:     {},
-      colorStops:       { 0: '--success', 100: '--success' },
+      zipParts:        this.resources[0].applicationParts.filter((part) => part !== APPLICATION_PARTS.MANIFEST),
+      showProgressBar: false,
+      downloadingPart: null,
+      progressBar:     0,
+      colorStops:      { 0: '--success', 100: '--success' },
     };
   },
 
   methods: {
     async exportApplicationManifest() {
-      this.showProgressBars = true;
+      this.showProgressBar = true;
       const resource = this.resources[0];
 
       const chartZip = async(files) => {
@@ -67,11 +72,14 @@ export default {
           [part]: await this.fetchPart(resource, part),
         }), Promise.resolve({}));
 
+        this.progressBar = 100;
         await chartZip(partsData);
       }
     },
 
     async fetchPart(resource, part) {
+      this.downloadingPart = part;
+
       return await resource.fetchPart(
         part,
         {
@@ -83,9 +91,7 @@ export default {
               progressEvent.srcElement.getResponseHeader('content-length');
 
             if (total) {
-              const percentage = Math.round((progressEvent.loaded * 100) / total);
-
-              Vue.set(this.progressBars, part, percentage);
+              this.progressBar += Math.round((progressEvent.loaded * 100) / total) * partsWeight[part];
             }
           }
         });
@@ -135,32 +141,24 @@ export default {
           </Banner>
 
           <div
-            v-if="showProgressBars"
+            v-if="showProgressBar"
             class="zip-parts text info mb-10 mt-20"
           >
-            <span class="title">
-              {{ t('epinio.applications.export.chartValuesImages.stats.title') }}
-            </span>
-            <div
-              v-for="part in zipParts"
-              :key="part"
-              class="parts"
+            <span
+              v-if="progressBar !== 100"
             >
-              <span class="label">
-                {{ t(`epinio.applications.export.chartValuesImages.stats.parts.${ part }`) }}
-              </span>
-              <PercentageBar
-                v-if="progressBars[part] !== 100"
-                class="progress-bar"
-                :value="progressBars[part] || 0"
-                :color-stops="colorStops"
-                preferred-direction="MORE"
-              />
-              <i
-                v-if="progressBars[part] === 100"
-                class="icon icon-checkmark"
-              />
-            </div>
+              {{ t('epinio.applications.export.chartValuesImages.stats.downloadFiles') }}: {{ t(`epinio.applications.export.chartValuesImages.stats.parts.${ downloadingPart }`) }}
+            </span>
+            <PercentageBar
+              v-if="progressBar !== 100"
+              class="progress-bar"
+              :value="progressBar"
+              :color-stops="colorStops"
+              preferred-direction="MORE"
+            />
+            <span v-if="progressBar === 100">
+              {{ t('epinio.applications.export.chartValuesImages.stats.zipFiles') }}
+            </span>
           </div>
         </Tab>
       </Tabbed>
@@ -178,20 +176,9 @@ export default {
 }
 
 .zip-parts {
-  .title {
+  span {
     display: block;
     margin-bottom: 10px;
-  }
-  .parts {
-    display: flex;
-    align-items: center;
-    width: 100%;
-    .label {
-      width: 60px;
-    }
-    .progress-bar {
-      width: 150px;
-    }
   }
 }
 </style>
