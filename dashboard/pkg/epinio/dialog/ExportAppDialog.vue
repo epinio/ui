@@ -29,10 +29,10 @@ export default {
         applyMode:   'export',
         applyAction: this.exportApplicationManifest,
       },
-      zipParts:             this.resources[0].applicationParts.filter(part => part !== APPLICATION_PARTS.MANIFEST),
-      showProgressBars:     false,
-      progressBars:         {},
-      colorStops:           { 0: '--info', 100: '--info' },
+      zipParts:         this.resources[0].applicationParts.filter((part) => part !== APPLICATION_PARTS.MANIFEST),
+      showProgressBars: false,
+      progressBars:     {},
+      colorStops:       { 0: '--success', 100: '--success' },
     };
   },
 
@@ -156,7 +156,10 @@ export default {
                 :color-stops="colorStops"
                 preferred-direction="MORE"
               />
-              <i v-if="progressBars[part] === 100" class="icon icon-checkmark" />
+              <i
+                v-if="progressBars[part] === 100"
+                class="icon icon-checkmark"
+              />
             </div>
           </div>
         </Tab>
