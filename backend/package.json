@@ -1,0 +1,20 @@
+{
+  "name": "epinio-ui-backend",
+  "version": "0.7.1",
+  "description": "Stratos Console",
+  "main": "index.js",
+  "scripts": {
+    "build-backend": "./build/bk-build.sh",
+    "fetch-backend-deps": "./build/bk-fetch-deps.sh",
+    "test-backend": "./build/bk-build.sh test",
+    "store-git-metadata": "node build/store-git-metadata.js",
+    "postinstall": "npm run dev-setup && npm run store-git-metadata",
+    "dev-setup": "node build/dev-setup.js"
+  },
+  "author": "",
+  "license": "Apache-2.0",
+  "dependencies": {},
+  "engines": {
+    "node": "16.13.1"
+  }
+}

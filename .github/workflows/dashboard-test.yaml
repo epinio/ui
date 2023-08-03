@@ -1,11 +1,15 @@
-name: Tests
+name: Dashboard - Tests
 on:
   push:
     branches:
       - main
+    paths:
+      - dashboard/**
   pull_request:
-      branches:
-        - main
+    branches:
+      - main
+    paths:
+      - dashboard/**
   workflow_dispatch:
     environment:
       description: 'Environment to run tests against'
