@@ -6,7 +6,7 @@ on:
       - "v*"
 
 env:
-  SETUP_GO_VERSION: '1.18'
+  SETUP_GO_VERSION: '1.20'
   SETUP_NODE_VERSION: '16'
 
 jobs:

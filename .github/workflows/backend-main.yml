@@ -20,7 +20,7 @@ defaults:
     working-directory: ./backend
 
 env:
-  SETUP_GO_VERSION: '1.18'
+  SETUP_GO_VERSION: '1.20'
 
 jobs:
   tests:
