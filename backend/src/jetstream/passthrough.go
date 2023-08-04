@@ -525,6 +525,7 @@ func (p *portalProxy) doRequest(cnsiRequest *interfaces.CNSIRequest, done chan<-
 	} else if res.Body != nil {
 		cnsiRequest.StatusCode = res.StatusCode
 		cnsiRequest.Status = res.Status
+		cnsiRequest.ResponseHeader = res.Header
 		cnsiRequest.Response, cnsiRequest.Error = ioutil.ReadAll(res.Body)
 		defer res.Body.Close()
 	}
@@ -592,6 +593,9 @@ func (p *portalProxy) ProxySingleRequest(c echo.Context) error {
 
 	go p.doRequest(&cnsiRequest, done)
 	res := <-done
+
+	// Copy content-length header from original response header
+	c.Response().Header().Set("proxy-content-length", res.ResponseHeader.Get("content-length"))
 
 	// FIXME: cnsiRequest.Status info is lost for failures, only get a status code
 	c.Response().WriteHeader(res.StatusCode)
