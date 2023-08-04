@@ -84,10 +84,7 @@ export default {
         part,
         {
           onDownloadProgress: (progressEvent) => {
-            /**
-             * X-Content-Length is a custom header from ui-backend service
-             */
-            const total = progressEvent.srcElement.getResponseHeader('X-Content-Length') ||
+            const total = progressEvent.srcElement.getResponseHeader('proxy-content-length') ||
               progressEvent.srcElement.getResponseHeader('content-length');
 
             if (total) {
