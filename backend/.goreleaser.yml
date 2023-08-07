@@ -75,6 +75,7 @@ dockers:
     goos: linux
     goarch: amd64
     use: buildx
+    dockerfile: backend/Dockerfile
 
     # IDs to filter the binaries/packages.
     ids:
@@ -110,13 +111,14 @@ dockers:
     # This field does not support wildcards, you can add an entire folder here
     # and use wildcards when you `COPY`/`ADD` in your Dockerfile.
     extra_files:
-    - ui/
+    - backend/ui/
 
   # arm64
   - id: epinio-ui-arm64
     goos: linux
     goarch: arm64
     use: buildx
+    dockerfile: backend/Dockerfile
 
     # IDs to filter the binaries/packages.
     ids:
@@ -152,13 +154,14 @@ dockers:
     # This field does not support wildcards, you can add an entire folder here
     # and use wildcards when you `COPY`/`ADD` in your Dockerfile.
     extra_files:
-    - ui/
+    - backend/ui/
 
   # s390x
   - id: epinio-ui-s390x
     goos: linux
     goarch: s390x
     use: buildx
+    dockerfile: backend/Dockerfile
 
     # IDs to filter the binaries/packages.
     ids:
@@ -194,7 +197,7 @@ dockers:
     # This field does not support wildcards, you can add an entire folder here
     # and use wildcards when you `COPY`/`ADD` in your Dockerfile.
     extra_files:
-    - ui/
+    - backend/ui/
 
 docker_manifests:
   -
