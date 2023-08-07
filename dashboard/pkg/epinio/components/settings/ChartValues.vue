@@ -34,6 +34,10 @@ export default Vue.extend<Data, any, any, any>({
       type:     String,
       required: true
     },
+    disabled: {
+      type:    Boolean,
+      default: false
+    },
   },
 
   data() {
@@ -108,6 +112,7 @@ export default Vue.extend<Data, any, any, any>({
         :rules="[rules(key, setting.minimum, setting.maximum)]"
         :tooltip="numericPlaceholder(setting)"
         :mode="mode"
+        :disabled="disabled"
       />
       <Checkbox
         v-else-if="setting.type === 'bool'"
@@ -115,6 +120,7 @@ export default Vue.extend<Data, any, any, any>({
         :value="value[key] === 'true'"
         :label="key"
         :mode="mode"
+        :disabled="disabled"
         @input="value[key] = $event ? 'true' : 'false'"
       />
       <LabeledSelect
@@ -124,6 +130,7 @@ export default Vue.extend<Data, any, any, any>({
         :label="key"
         :options="setting.enum"
         :mode="mode"
+        :disabled="disabled"
       />
       <LabeledInput
         v-else-if="setting.type === 'string'"
@@ -131,6 +138,7 @@ export default Vue.extend<Data, any, any, any>({
         v-model="value[key]"
         :label="key"
         :mode="mode"
+        :disabled="disabled"
       />
     </div>
   </div>

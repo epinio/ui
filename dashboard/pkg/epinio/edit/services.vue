@@ -248,11 +248,13 @@ export default Vue.extend<Data, EpinioCompRecord, EpinioCompRecord, EpinioCompRe
     >
       <div class="col span-6">
         <div class="spacer" />
+        <!-- EDIT mode is not supported -->
         <ChartValues
           v-model="chartValues"
           :chart="selectedCatalogService.settings"
           :title="t('epinio.services.chartValues.title')"
           :mode="mode"
+          :disabled="mode === 'edit'"
           @valid="validChartValues = $event"
         />
       </div>
