@@ -3,6 +3,9 @@
 /tmp
 /out-tsc
 
+# Needed after migrating ui-backend
+/dashboard/release
+
 # Runtime data
 pids
 *.pid
