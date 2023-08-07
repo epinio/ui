@@ -51,7 +51,7 @@ export default Vue.extend<Data, EpinioCompRecord, EpinioCompRecord, EpinioCompRe
       this.mixinFetch()
     ]);
 
-    Vue.set(this.value, 'catalog_service', this.$route.query[EPINIO_SERVICE_PARAM]);
+    Vue.set(this.value, 'catalog_service', this.selectedCatalogService?.meta.name || null);
     Vue.set(this.value.meta, 'namespace', this.initialValue.meta.namespace || this.namespaces[0]?.meta.name);
   },
 
