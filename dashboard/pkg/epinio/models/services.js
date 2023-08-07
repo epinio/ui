@@ -56,7 +56,8 @@ export default class EpinioServiceModel extends EpinioNamespacedResource {
       },
       data: {
         name:            this.name,
-        catalog_service: this.catalog_service
+        catalog_service: this.catalog_service,
+        settings:        this.settings
       }
     });
   }
@@ -93,5 +94,12 @@ export default class EpinioServiceModel extends EpinioNamespacedResource {
 
   bulkRemove(items, opt) {
     return bulkRemove(items, opt);
+  }
+
+  async details() {
+    return await this.followLink('self', {
+      method:  'get',
+      headers: { accept: 'application/json' }
+    });
   }
 }
