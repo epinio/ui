@@ -64,6 +64,7 @@ jobs:
         run: |
           ./.github/workflows/scripts/build-ui.sh
           mv dashboard/$OUTPUT_DIR/$ARTIFACT_NAME backend/ui
+          git status
         env:
           RANCHER_ENV: epinio
           EXCLUDES_PKG: rancher-components,harvester
@@ -78,7 +79,10 @@ jobs:
 
       -
         name: Run GoReleaser Cross
-        run: ./backend/build/bk-release.sh release --rm-dist -f ./backend/.goreleaser-next.yml
+        run: |
+          ls -al
+          git status
+          ./backend/build/bk-release.sh release --rm-dist -f ./backend/.goreleaser-next.yml
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           UI_BUNDLE_URL: "dev"
