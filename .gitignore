@@ -132,3 +132,7 @@ backend/src/jetstream/extra_plugins.go
 go-vendor-*.tgz
 
 /scan_tmp
+
+# Build
+# Ensure goreleaser works by ignoring anything created in build process - https://goreleaser.com/errors/dirty/
+dashboard/release
