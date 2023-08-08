@@ -170,6 +170,11 @@ export default Vue.extend<Data, EpinioCompRecord, EpinioCompRecord, EpinioCompRe
         saveCb(false);
       }
     },
+    resetChartValues() {
+      this.chartValues = {};
+      this.value.settings = null;
+      this.validChartValues = {};
+    }
   },
 
   watch: {
@@ -223,6 +228,7 @@ export default Vue.extend<Data, EpinioCompRecord, EpinioCompRecord, EpinioCompRe
           :label-key="'epinio.serviceInstance.create.catalogService.label'"
           :placeholder="$fetchState.pending || noCatalogServices ? t('epinio.serviceInstance.create.catalogService.placeholderNoOptions') : t('epinio.serviceInstance.create.catalogService.placeholderWithOptions')"
           required
+          @option:selected="resetChartValues"
         />
       </div>
     </div>
