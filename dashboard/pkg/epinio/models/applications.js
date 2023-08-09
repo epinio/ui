@@ -503,7 +503,7 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
     return res.blobuid;
   }
 
-  async update() {
+  async update(options) {
     this.trace('Update the application resource');
     await this.followLink('update', {
       method:  'patch',
@@ -512,6 +512,7 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
         accept:         'application/json'
       },
       data: {
+        restart:        options?.restart ?? true,
         appchart:       this.configuration.appchart,
         instances:      this.configuration.instances,
         configurations: this.configuration.configurations,

@@ -140,7 +140,7 @@ export default class ApplicationActionResource extends Resource {
   }
 
   async updateSource() {
-    await this.application.update();
+    await this.application.update({ restart: false });
   }
 
   async deploy({ source }) {
