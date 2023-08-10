@@ -89,6 +89,10 @@ export default Vue.extend<Data, any, any, any>({
         return '';
       }
     },
+
+    onInputCheckbox(key: string, value: boolean) {
+      Vue.set(this.value, key, value ? 'true' : 'false');
+    }
   },
 });
 </script>
@@ -121,7 +125,7 @@ export default Vue.extend<Data, any, any, any>({
         :label="key"
         :mode="mode"
         :disabled="disabled"
-        @input="value[key] = $event ? 'true' : 'false'"
+        @input="onInputCheckbox(key, $event)"
       />
       <LabeledSelect
         v-else-if="setting.type === 'string' && setting.enum"
