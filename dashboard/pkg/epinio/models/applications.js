@@ -580,8 +580,9 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
   exportApp(resources = this) {
     this.$dispatch('promptModal', {
       resources,
-      component:  'ExportAppDialog',
-      modalWidth: '450px',
+      component:           'ExportAppDialog',
+      modalWidth:          '450px',
+      closeOnClickOutside: false,
     });
   }
 
