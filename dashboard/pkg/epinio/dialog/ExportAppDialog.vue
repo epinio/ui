@@ -33,11 +33,12 @@ export default {
         applyMode:   'export',
         applyAction: this.exportApplicationManifest,
       },
-      zipParts:        this.resources[0].applicationParts.filter((part) => part !== APPLICATION_PARTS.MANIFEST),
-      showProgressBar: false,
-      downloadingPart: null,
-      progressBar:     0,
-      colorStops:      { 0: '--primary', 100: '--primary' },
+      zipParts:           this.resources[0].applicationParts.filter((part) => part !== APPLICATION_PARTS.MANIFEST),
+      showProgressBar:    false,
+      downloadingPart:    null,
+      cancelTokenSources: {},
+      progressBar:        0,
+      colorStops:         { 0: '--primary', 100: '--primary' },
     };
   },
 
@@ -77,7 +78,12 @@ export default {
       }
     },
 
+    getCancelToken() {
+      return this.$store.$axios.CancelToken;
+    },
+
     async fetchPart(resource, part) {
+      this.cancelTokenSources[part] = this.getCancelToken().source();
       this.downloadingPart = part;
 
       return await resource.fetchPart(
@@ -90,9 +96,22 @@ export default {
             if (total) {
               this.progressBar += Math.round((progressEvent.loaded * 100) / total) * partsWeight[part];
             }
-          }
+          },
+          cancelToken: this.cancelTokenSources[part].token
         });
     },
+
+    fetchCancel() {
+      // Cancel pending api requests, see https://axios-http.com/docs/cancellation
+      Object.keys(this.cancelTokenSources).forEach((part) => this.cancelTokenSources[part].cancel(`${ part } part: download cancelled.`));
+    },
+
+    close() {
+      if (this.$route.hash !== '#manifest') {
+        this.fetchCancel();
+      }
+      this.$emit('close');
+    }
   }
 };
 </script>
@@ -100,7 +119,7 @@ export default {
 <template>
   <GenericPrompt
     v-bind="config"
-    @close="$emit('close')"
+    @close="close"
   >
     <h4
       slot="title"
