@@ -11,6 +11,8 @@ export const EPINIO_MGMT_STORE = 'epiniomgmt';
 // // An endpoint with this name is automatically created by the standalone backend
 export const EPINIO_STANDALONE_CLUSTER_NAME = 'default';
 
+export const METRIC = { NODE: 'metrics.k8s.io.nodemetrics' };
+
 export const EPINIO_TYPES = {
   // From API
   APP:              'applications',

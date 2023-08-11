@@ -7,7 +7,7 @@ import { base64Encode } from '@shell/utils/crypto';
 import { createNamespaceFilterKeyWithId } from '@shell/utils/namespace-filter';
 import { parse as parseUrl, stringify as unParseUrl } from '@shell/utils/url';
 import {
-  EpinioInfo, EpinioVersion, EPINIO_MGMT_STORE, EPINIO_PRODUCT_NAME, EPINIO_STANDALONE_CLUSTER_NAME, EPINIO_TYPES
+  EpinioInfo, EpinioVersion, EPINIO_MGMT_STORE, EPINIO_PRODUCT_NAME, EPINIO_STANDALONE_CLUSTER_NAME, EPINIO_TYPES, METRIC
 } from '../../types';
 
 const createId = (schema: any, resource: any) => {
@@ -170,8 +170,10 @@ export default {
     await commit('reset');
   },
 
-  loadSchemas: ( ctx: any ) => {
-    const { commit, rootGetters } = ctx;
+  loadSchemas: async( ctx: any ) => {
+    const { commit, dispatch, rootGetters } = ctx;
+
+    const clusterId = rootGetters['clusterId'];
 
     const res = {
       data: [{
@@ -228,9 +230,22 @@ export default {
     const spoofedSchemas = rootGetters['type-map/spoofedSchemas'](EPINIO_PRODUCT_NAME);
     const excludeInstances = spoofedSchemas.filter((schema: any) => schema.id !== EPINIO_TYPES.INSTANCE);
 
-    res.data = res.data.concat(excludeInstances);
+    const data = [
+      ...res.data,
+      ...excludeInstances,
+    ];
 
-    res.data.forEach((schema: any) => {
+    try {
+      const nodeMetricsSchema = await dispatch(`cluster/request`, { url: `/k8s/clusters/${ clusterId }/v1/schemas/${ METRIC.NODE }` }, { root: true });
+
+      if (nodeMetricsSchema) {
+        data.push(nodeMetricsSchema);
+      }
+    } catch (e) {
+      console.warn(`Unable to fetch Node metrics schema for epinio cluster: ${ clusterId }`);// eslint-disable-line no-console
+    }
+
+    data.forEach((schema: any) => {
       schema._id = normalizeType(schema.id);
       schema._group = normalizeType(schema.attributes?.group);
     });
@@ -238,7 +253,7 @@ export default {
     commit('loadAll', {
       ctx,
       type: SCHEMA,
-      data: res.data
+      data
     });
   },
 

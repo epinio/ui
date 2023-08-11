@@ -2,13 +2,17 @@
 import Vue from 'vue';
 import DashboardCard from '../../../components/dashboard/Cards.vue';
 import { createEpinioRoute } from '../../../utils/custom-routing';
-import { EpinioApplicationResource, EpinioCatalogService, EPINIO_TYPES } from '../../../types';
+import {
+  EpinioApplicationResource, EpinioCatalogService, EPINIO_MGMT_STORE, EPINIO_TYPES, METRIC
+} from '../../../types';
 import ConsumptionGauge from '@shell/components/ConsumptionGauge.vue';
 import Namespace from '@shell/models/namespace';
+import { parseSi, createMemoryValues } from '@shell/utils/units';
 import EpinioServiceModel from '../../../models/services';
 import isEqual from 'lodash/isEqual';
 import { sortBy } from 'lodash';
 import { Location } from 'vue-router';
+import Banner from '@components/Banner/Banner.vue';
 
 type ComponentService = {
   name: string,
@@ -16,16 +20,29 @@ type ComponentService = {
   isEnabled: boolean
 }
 
+const threshold = {
+  cpu:    5,
+  memory: 5,
+};
+
 export default Vue.extend<any, any, any, any>({
-  components: { DashboardCard, ConsumptionGauge },
+  components: {
+    Banner,
+    DashboardCard,
+    ConsumptionGauge
+  },
   async fetch() {
     await Promise.all([
       this.$store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.CATALOG_SERVICE }),
       this.$store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.NAMESPACE }),
       this.$store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.SERVICE_INSTANCE })
     ]);
-
     this.version = await this.$store.dispatch('epinio/version');
+    const nodeMetricsSchema = this.$store.getters[`epinio/schemaFor`](METRIC.NODE);
+
+    if (nodeMetricsSchema && !this.$store.getters['isSingleProduct']) {
+      await this.calcAvailableResources();
+    }
   },
   data() {
     return {
@@ -63,8 +80,11 @@ export default Vue.extend<any, any, any, any>({
       colorStops: {
         0: '--info', 30: '--info', 70: '--info'
       },
-      version:   null,
-      aboutLink: !this.$store.getters['isSingleProduct'] ? createEpinioRoute('c-cluster-about', { cluster: this.$store.getters['clusterId'] }) : null
+      version:         null,
+      aboutLink:       !this.$store.getters['isSingleProduct'] ? createEpinioRoute('c-cluster-about', { cluster: this.$store.getters['clusterId'] }) : null,
+      availableCpu:    100,
+      availableMemory: 100,
+      threshold,
     };
   },
   created() {
@@ -94,6 +114,24 @@ export default Vue.extend<any, any, any, any>({
     }
   },
   methods: {
+    async calcAvailableResources() {
+      const id = this.$store.getters['clusterId'];
+
+      const nodeMetrics = await this.$store.dispatch(`cluster/request`, { url: `/k8s/clusters/${ id }/v1/metrics.k8s.io.nodemetrics` }, { root: true });
+
+      const currentCluster = this.$store.getters[`${ EPINIO_MGMT_STORE }/byId`](EPINIO_TYPES.INSTANCE, id);
+
+      const cpu = {
+        total:  parseSi(currentCluster.mgmtCluster?.status?.capacity?.cpu, null),
+        useful: parseSi(nodeMetrics.data[0].usage.cpu, null)
+      };
+
+      const memory = createMemoryValues(currentCluster.mgmtCluster?.status?.capacity?.memory, nodeMetrics.data[0].usage.memory);
+
+      this.availableCpu = Math.floor(100 - cpu.useful / cpu.total * 100);
+      this.availableMemory = Math.floor(100 - memory.useful / memory.total * 100);
+    },
+
     redoCards() {
       // Handles titles
       this.sectionContent[0].title = this.t('typeLabel.withCount.namespaces', { n: this.namespaces.totalNamespaces });
@@ -113,6 +151,11 @@ export default Vue.extend<any, any, any, any>({
         this.sectionContent[2].isLoaded = true;
         this.sectionContent[2].isEnable = true;
       }
+    },
+    openMetricsDetails() {
+      const clusterMetricsLink = `${ window.location.origin }/c/${ this.$store.getters['clusterId'] }/explorer#cluster-events`;
+
+      window.open(clusterMetricsLink, '_blank');
     }
   },
   computed: {
@@ -165,6 +208,24 @@ export default Vue.extend<any, any, any, any>({
 
 <template>
   <div class="dashboard">
+    <Banner
+      v-if="availableCpu < threshold.cpu || availableMemory < threshold.memory"
+      class="warning"
+      color="warning"
+    >
+      <span>
+        {{ t('epinio.intro.warning.lowResources', {
+          availability: ''
+            + (availableCpu < threshold.cpu ? t('epinio.intro.warning.availability', { resource: 'cpu', percentage: availableCpu }) : '')
+            + (availableCpu < threshold.cpu && availableMemory < threshold.memory ? ', ' : '')
+            + (availableMemory < threshold.memory ? t('epinio.intro.warning.availability', { resource: 'memory', percentage: availableMemory }) : '')
+        }) }}
+      </span>
+      <a
+        class="cluster-link"
+        @click="openMetricsDetails"
+      >{{ t('epinio.intro.warning.link.label') }}</a>
+    </Banner>
     <div class="head">
       <div class="head-title">
         <h1>{{ t('epinio.intro.welcome') }}</h1>
@@ -325,4 +386,12 @@ export default Vue.extend<any, any, any, any>({
     grid-gap: 20px;
   }
 }
+</style>
+
+<style lang="scss">
+  .warning .banner__content {
+    .cluster-link {
+      cursor: pointer;
+    }
+  }
 </style>

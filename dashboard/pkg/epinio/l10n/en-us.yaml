@@ -73,6 +73,11 @@ epinio:
         description: Create instances of your services. Instances can be bound to your Applications to provide data.
         linkText: Create Instance
         slotTitle: Quick start with
+    warning:
+      lowResources: 'Warning, available node resources are low: { availability } left; please check resources consumption.'
+      availability:  '{ percentage }% { resource }'
+      link:
+        label: Show Metrics on Rancher Dashboard
   tableHeaders:
     namespace: Namespace
   instances:
