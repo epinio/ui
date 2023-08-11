@@ -37,7 +37,7 @@ export default {
       showProgressBar: false,
       downloadingPart: null,
       progressBar:     0,
-      colorStops:      { 0: '--success', 100: '--success' },
+      colorStops:      { 0: '--primary', 100: '--primary' },
     };
   },
 
