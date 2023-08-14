@@ -1,3 +1,4 @@
+import { UserManager } from 'oidc-client-ts';
 import { EpinioInfo, EpinioVersion } from '../../types';
 
 export default {
@@ -12,5 +13,9 @@ export default {
 
   version(state: any, version: EpinioVersion) {
     state.version = version;
+  },
+
+  setOidcClient(state: any, oidcClient: UserManager) {
+    state.oidcClient = oidcClient;
   }
 };

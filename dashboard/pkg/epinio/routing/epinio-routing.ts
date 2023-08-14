@@ -12,6 +12,7 @@ import ListEpinioResource from '../pages/c/_cluster/_resource/index.vue';
 import CreateEpinioResource from '../pages/c/_cluster/_resource/create.vue';
 import ViewEpinioResource from '../pages/c/_cluster/_resource/_id.vue';
 import ViewEpinioNsResource from '../pages/c/_cluster/_resource/_namespace/_id.vue';
+import AuthVerify from '../pages/auth/verify.vue';
 
 const meta = {
   product: EPINIO_PRODUCT_NAME,
@@ -19,6 +20,11 @@ const meta = {
 };
 
 const routes: RouteConfig[] = [{
+  name:      `${ EPINIO_PRODUCT_NAME }-auth-verify`,
+  path:      `/:product/auth/verify`,
+  component: AuthVerify,
+  meta
+}, {
   name:      `${ EPINIO_PRODUCT_NAME }-c-cluster-dashboard`,
   path:      `/:product/c/:cluster/dashboard`,
   component: Dashboard,

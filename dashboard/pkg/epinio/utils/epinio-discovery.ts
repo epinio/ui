@@ -23,11 +23,11 @@ export default {
         let password;
 
         if (url) {
-          // TODO: RC hack
+          // TODO: RC hack. remove once dex is in
           username = 'admin';
           password = 'password';
         } else {
-          // TODO: RC old
+          // TODO: RC old. to remove
           const epinio: any = await allHash({ authData: store.dispatch(`cluster/request`, { url: `/k8s/clusters/${ c.id }/v1/secrets/epinio/default-epinio-user` }, { root: true }) });
 
           username = epinio.authData.data.username;

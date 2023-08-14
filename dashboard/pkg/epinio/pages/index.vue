@@ -8,10 +8,13 @@ import { EPINIO_MGMT_STORE, EPINIO_TYPES } from '../types';
 import Resource from '@shell/plugins/dashboard-store/resource-class';
 import AsyncButton from '@shell/components/AsyncButton.vue';
 import { _MERGE } from '@shell/plugins/dashboard-store/actions';
+import { createDexRedirectOpts } from '../login/epinio.vue';
+import { UserManager } from 'oidc-client-ts';
 
-interface Cluster extends Resource{
+interface Cluster extends Resource {
   id: string,
   state: string,
+  api: string,
 }
 
 interface Data {
@@ -114,6 +117,24 @@ export default Vue.extend<Data, any, any, any>({
             });
           }
         });
+    },
+
+    async dexLogin(c: Cluster) {
+      // TODO: RC tidy up UX for click. tie in error handling?
+      // TODO: RC wire in logout when leave cluster, log out of dashboard
+      // TODO: RC what happens on refresh, is it still there... avoid sign in if we have a user?
+
+      this.$store.dispatch('epinio/initialiseOidcClient');
+      const oidcUserManager: UserManager = this.$store.getters['epinio/oidcClient']();
+
+      oidcUserManager.signinRedirect()
+        .then(() => {
+          // TODO: RC don't think this fires in this mode
+          console.warn('Success1!');
+        })
+        .catch((err) => {
+          console.warn('ERROR1!', err);
+        });
     }
   }
 
@@ -153,8 +174,16 @@ export default Vue.extend<Data, any, any, any>({
             @click="rediscover"
           />
         </template>
-
         <template #cell:name="{row}">
+          <div class="epinio-row">
+            <a
+              v-if="row.state === 'available'"
+              @click="dexLogin(row)"
+            >{{ row.name }}</a>
+            <template v-else />
+          </div>
+        </template>
+        <!-- <template #cell:name="{row}">
           <div class="epinio-row">
             <n-link
               v-if="row.state === 'available'"
@@ -166,7 +195,7 @@ export default Vue.extend<Data, any, any, any>({
               {{ row.name }}
             </template>
           </div>
-        </template>
+        </template> -->
         <template #cell:api="{row}">
           <div class="epinio-row">
             <Link
