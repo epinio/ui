@@ -15,7 +15,7 @@ export default {
     state.version = version;
   },
 
-  setOidcClient(state: any, oidcClient: UserManager) {
-    state.oidcClient = oidcClient;
-  }
+  // setOidcClient(state: any, oidcClient: UserManager) {
+  //   state.oidcClient = oidcClient;
+  // }
 };

@@ -5,17 +5,11 @@ import Loading from '@shell/components/Loading.vue';
 import Link from '@shell/components/formatter/Link.vue';
 import ResourceTable from '@shell/components/ResourceTable.vue';
 import { EPINIO_MGMT_STORE, EPINIO_TYPES } from '../types';
-import Resource from '@shell/plugins/dashboard-store/resource-class';
+
 import AsyncButton from '@shell/components/AsyncButton.vue';
 import { _MERGE } from '@shell/plugins/dashboard-store/actions';
-import { createDexRedirectOpts } from '../login/epinio.vue';
-import { UserManager } from 'oidc-client-ts';
-
-interface Cluster extends Resource {
-  id: string,
-  state: string,
-  api: string,
-}
+import epinioAuth, { EpinioAuthTypes } from '../utils/auth';
+import { EpinioCluster } from '../utils/epinio-discovery';
 
 interface Data {
   clustersSchema: any;
@@ -32,7 +26,7 @@ export default Vue.extend<Data, any, any, any>({
   async fetch() {
     await this.$store.dispatch(`${ EPINIO_MGMT_STORE }/findAll`, { type: EPINIO_TYPES.INSTANCE });
 
-    this.clusters.forEach((c: Cluster) => this.testCluster(c));
+    this.clusters.forEach((c: EpinioCluster) => this.testCluster(c));
   },
 
   data() {
@@ -57,7 +51,7 @@ export default Vue.extend<Data, any, any, any>({
     },
 
     canRediscover() {
-      return !this.clusters.find((c: Cluster) => c.state === 'updating');
+      return !this.clusters.find((c: EpinioCluster) => c.state === 'updating');
     },
 
     clusters() {
@@ -68,7 +62,7 @@ export default Vue.extend<Data, any, any, any>({
   methods: {
     async rediscover(buttonCb: (success: boolean) => void) {
       await this.$store.dispatch(`${ EPINIO_MGMT_STORE }/findAll`, { type: EPINIO_TYPES.INSTANCE, opt: { force: true, load: _MERGE } });
-      this.clusters.forEach((c: Cluster) => this.testCluster(c));
+      this.clusters.forEach((c: EpinioCluster) => this.testCluster(c));
       buttonCb(true);
     },
 
@@ -78,12 +72,12 @@ export default Vue.extend<Data, any, any, any>({
       }
     },
 
-    setClusterState(cluster: Cluster, state: string, metadataStateObj: { transitioning: boolean, error: boolean, message: string }) {
+    setClusterState(cluster: EpinioCluster, state: string, metadataStateObj: { transitioning: boolean, error: boolean, message: string }) {
       Vue.set(cluster, 'state', state);
       Vue.set(cluster, 'metadata', metadataStateObj);
     },
 
-    testCluster(c: Cluster) {
+    testCluster(c: EpinioCluster) {
       // Call '/ready' on each cluster. If there's a network error there's a good chance the user has to permit an invalid cert
       this.setClusterState(c, 'updating', {
         state: {
@@ -92,12 +86,12 @@ export default Vue.extend<Data, any, any, any>({
         }
       });
 
-      // Calls to `/ready` currently throw CORS error (but not `/api/v1`). This code block will probably change given auth stuff
-      // this.$store.dispatch('epinio/request', { opt: { url: `/ready` }, clusterId: c.id })
-      this.$store.dispatch(`epinio/request`, { opt: { url: `/api/v1/info` }, clusterId: c.id })
+      //  This code block will probably change given auth stuff
+      this.$store.dispatch(`epinio/request`, { opt: { url: c.readyApi }, clusterId: c.id })
         // .then(() => this.$store.dispatch(`epinio/request`, { opt: { url: `/api/v1/info` }, clusterId: c.id }))
         .then((res: any) => {
-          Vue.set(c, 'version', res?.version);
+          // debugger;
+          Vue.set(c, 'version', res?.version); // TODO: RC readyApi needs to be info
           this.setClusterState(c, 'available', { state: { transitioning: false } });
         })
         .catch((e: Error) => {
@@ -119,22 +113,22 @@ export default Vue.extend<Data, any, any, any>({
         });
     },
 
-    async dexLogin(c: Cluster) {
+    async dexLogin(c: EpinioCluster) {
+      await epinioAuth.login({
+        type:         EpinioAuthTypes.DEX,
+        dashboardUrl: 'https://localhost:8005', // TODO: RC get current url
+        epinioUrl:    c.api,
+        dexUrl:       `https://auth.46.101.17.26.nip.io`, // TODO: RC from config
+
+      }); // TODO: RC error handling
       // TODO: RC tidy up UX for click. tie in error handling?
       // TODO: RC wire in logout when leave cluster, log out of dashboard
       // TODO: RC what happens on refresh, is it still there... avoid sign in if we have a user?
-
-      this.$store.dispatch('epinio/initialiseOidcClient');
-      const oidcUserManager: UserManager = this.$store.getters['epinio/oidcClient']();
-
-      oidcUserManager.signinRedirect()
-        .then(() => {
-          // TODO: RC don't think this fires in this mode
-          console.warn('Success1!');
-        })
-        .catch((err) => {
-          console.warn('ERROR1!', err);
-        });
+      this.$router.push({
+        name:   'epinio-c-cluster-dashboard',
+        params: { cluster: c.id }
+      }
+      );
     }
   }
 

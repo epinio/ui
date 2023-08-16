@@ -3,6 +3,18 @@ import { EPINIO_TYPES } from '../types';
 import { MANAGEMENT } from '@shell/config/types';
 import { ingressFullPath } from '@shell/models/networking.k8s.io.ingress';
 import { allHash } from '@shell/utils/promise';
+// import { allHash } from '@shell/utils/promise';
+import Resource from '@shell/plugins/dashboard-store/resource-class';
+
+export interface EpinioCluster extends Resource {
+  id: string,
+  name: string,
+  state: string,
+  api: string,
+  readyApi: string,
+  type: string,
+  mgmtCluster: any
+}
 
 export default {
   ingressUrl(clusterId: string) {
@@ -24,6 +36,7 @@ export default {
 
         if (url) {
           // TODO: RC hack. remove once dex is in
+
           username = 'admin';
           password = 'password';
         } else {
@@ -38,7 +51,8 @@ export default {
           id:          c.id,
           name:        c.spec.displayName,
           api:         url,
-          readyApi:    `${ url }/ready`,
+          // readyApi:    `${ url }/ready`, // Calls to `/ready` currently throw CORS error (but not `/api/v1`).
+          readyApi:    `/api/v1/info`, // Calls to `/api/v1/info` currently need auth
           // username:    base64Decode(username),
           // password:    base64Decode(password),
           username,

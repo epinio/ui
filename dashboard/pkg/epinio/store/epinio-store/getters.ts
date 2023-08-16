@@ -67,5 +67,5 @@ export default {
 
   version: (state: any) => () => state.version,
 
-  oidcClient: (state: any) => () => state.oidcClient,
+  // oidcClient: (state: any) => () => state.oidcClient,
 };

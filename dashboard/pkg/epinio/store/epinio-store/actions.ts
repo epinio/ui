@@ -7,6 +7,8 @@ import { base64Encode } from '@shell/utils/crypto';
 import { createNamespaceFilterKeyWithId } from '@shell/utils/namespace-filter';
 import { parse as parseUrl, stringify as unParseUrl } from '@shell/utils/url';
 import { UserManager } from 'oidc-client-ts';
+import epinioAuth, { EpinioAuthTypes } from '../../utils/auth';
+
 import {
   EpinioInfo, EpinioVersion, EPINIO_MGMT_STORE, EPINIO_PRODUCT_NAME, EPINIO_STANDALONE_CLUSTER_NAME, EPINIO_TYPES
 } from '../../types';
@@ -64,8 +66,10 @@ export default {
 
     // opt.httpsAgent = new https.Agent({ rejectUnauthorized: false });
 
+    // TODO: RC if not single product... don't log user out of dashboard on 401
+
     return await ps
-      .then((prependPath = opt?.prependPath) => {
+      .then(async(prependPath = opt?.prependPath) => {
         if (isSingleProduct) {
           if (opt.url.startsWith('/')) {
             opt.url = prependPath + opt.url;
@@ -83,7 +87,7 @@ export default {
 
           opt.headers = {
             ...opt.headers,
-            Authorization: `Basic ${ base64Encode(`${ currentCluster.username }:${ currentCluster.password }`) }`
+            Authorization: await epinioAuth.authHeader()
           };
 
           opt.url = `${ currentCluster.api }${ opt.url }`;
@@ -337,26 +341,4 @@ export default {
     return info;
   },
 
-  initialiseOidcClient({ dispatch, commit, getters }: any) {
-    const dex = ``; // TODO: RC from config
-
-    // TODO: RC switch between epinio clusters
-    // TODO: RC move to epinio mgt store? if auth context is singleton.
-
-    const oidcUserManager = new UserManager({
-      authority: dex,
-      metadata:  {
-        issuer:                 dex,
-        authorization_endpoint: `${ dex }/auth`,
-        userinfo_endpoint:      dex,
-        end_session_endpoint:   dex,
-        token_endpoint:         `${ dex }/token`,
-      },
-      client_id:    'rancher-dashboard',
-      redirect_uri: 'https://localhost:8005/epinio/auth/verify/', // TODO: RC get current url
-      scope:        'openid offline_access profile email groups audience:server:client_id:epinio-api federated:id'
-    });
-
-    commit('setOidcClient', oidcUserManager);
-  }
 };
