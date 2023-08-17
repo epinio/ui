@@ -77,7 +77,7 @@ epinio:
       lowResources: 'Warning, available node resources are low: { availability } left; please check resources consumption.'
       availability:  '{ percentage }% { resource }'
       link:
-        label: Show Metrics on Rancher Dashboard
+        label: Show Metrics in Cluster Explorer
   tableHeaders:
     namespace: Namespace
   instances:
