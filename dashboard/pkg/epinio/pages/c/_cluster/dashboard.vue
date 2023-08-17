@@ -19,11 +19,6 @@ type ComponentService = {
   isEnabled: boolean
 }
 
-const threshold = {
-  cpu:    5,
-  memory: 5,
-};
-
 export default Vue.extend<any, any, any, any>({
   components: {
     Banner,
@@ -83,7 +78,7 @@ export default Vue.extend<any, any, any, any>({
       aboutLink:       !this.$store.getters['isSingleProduct'] ? createEpinioRoute('c-cluster-about', { cluster: this.$store.getters['clusterId'] }) : null,
       availableCpu:    100,
       availableMemory: 100,
-      threshold,
+      showMetricsInfo: false
     };
   },
   created() {
@@ -129,6 +124,8 @@ export default Vue.extend<any, any, any, any>({
 
       this.availableCpu = Math.floor(100 - cpu.useful / cpu.total * 100);
       this.availableMemory = Math.floor(100 - memory.useful / memory.total * 100);
+
+      this.showMetricsInfo = true;
     },
 
     redoCards() {
@@ -242,22 +239,17 @@ export default Vue.extend<any, any, any, any>({
     </div>
 
     <Banner
-      v-if="availableCpu < threshold.cpu || availableMemory < threshold.memory"
-      class="warning"
-      color="warning"
+      v-if="showMetricsInfo"
+      class="metrics"
+      color="info"
     >
       <span>
-        {{ t('epinio.intro.warning.lowResources', {
-          availability: ''
-            + (availableCpu < threshold.cpu ? t('epinio.intro.warning.availability', { resource: 'cpu', percentage: availableCpu }) : '')
-            + (availableCpu < threshold.cpu && availableMemory < threshold.memory ? ', ' : '')
-            + (availableMemory < threshold.memory ? t('epinio.intro.warning.availability', { resource: 'memory', percentage: availableMemory }) : '')
-        }) }}
+        {{ t('epinio.intro.metrics.availability', { availableCpu, availableMemory }) }}
       </span>
       <a
         class="cluster-link"
         @click="openMetricsDetails"
-      >{{ t('epinio.intro.warning.link.label') }}</a>
+      >{{ t('epinio.intro.metrics.link.label') }}</a>
     </Banner>
 
     <div class="get-started">
@@ -390,16 +382,16 @@ export default Vue.extend<any, any, any, any>({
 </style>
 
 <style lang="scss">
-  .warning {
+  .metrics {
 
     &.banner {
       margin-top: 0;
       margin-bottom: 20px;
     }
 
-    &.banner__content {
-    .cluster-link {
-      cursor: pointer;
+    .banner__content {
+      .cluster-link {
+        cursor: pointer;
       }
     }
   }
