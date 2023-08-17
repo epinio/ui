@@ -2,9 +2,7 @@
 import Vue from 'vue';
 import DashboardCard from '../../../components/dashboard/Cards.vue';
 import { createEpinioRoute } from '../../../utils/custom-routing';
-import {
-  EpinioApplicationResource, EpinioCatalogService, EPINIO_MGMT_STORE, EPINIO_TYPES, METRIC
-} from '../../../types';
+import { EpinioApplicationResource, EpinioCatalogService, EPINIO_MGMT_STORE, EPINIO_TYPES } from '../../../types';
 import ConsumptionGauge from '@shell/components/ConsumptionGauge.vue';
 import Namespace from '@shell/models/namespace';
 import { parseSi, createMemoryValues } from '@shell/utils/units';
@@ -13,6 +11,7 @@ import isEqual from 'lodash/isEqual';
 import { sortBy } from 'lodash';
 import { Location } from 'vue-router';
 import Banner from '@components/Banner/Banner.vue';
+import { METRIC } from '@shell/config/types';
 
 type ComponentService = {
   name: string,
