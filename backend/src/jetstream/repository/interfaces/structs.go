@@ -39,7 +39,7 @@ type V2Info struct {
 
 type InfoFunc func(apiEndpoint string, skipSSLValidation bool) (CNSIRecord, interface{}, error)
 
-//TODO this could be moved back to cnsis subpackage, and extensions could import it?
+// TODO this could be moved back to cnsis subpackage, and extensions could import it?
 type CNSIRecord struct {
 	GUID                   string   `json:"guid"`
 	Name                   string   `json:"name"`
@@ -260,7 +260,7 @@ type Versions struct {
 	DatabaseVersion int64  `json:"database_version"`
 }
 
-//AuthEndpointType - Restrict the possible values of the configured
+// AuthEndpointType - Restrict the possible values of the configured
 type AuthEndpointType string
 
 const (
@@ -274,8 +274,8 @@ const (
 	AuthNone AuthEndpointType = "none"
 )
 
-//AuthEndpointTypes - Allows lookup of internal string representation by the
-//value of the AUTH_ENDPOINT_TYPE env variable
+// AuthEndpointTypes - Allows lookup of internal string representation by the
+// value of the AUTH_ENDPOINT_TYPE env variable
 var AuthEndpointTypes = map[string]AuthEndpointType{
 	"remote": Remote,
 	"local":  Local,
@@ -352,20 +352,21 @@ func (consoleConfig *ConsoleConfig) IsSetupComplete() bool {
 
 // CNSIRequest
 type CNSIRequest struct {
-	GUID         string       `json:"-"`
-	UserGUID     string       `json:"-"`
-	Method       string       `json:"-"`
-	Body         []byte       `json:"-"`
-	Header       http.Header  `json:"-"`
-	URL          *url.URL     `json:"-"`
-	StatusCode   int          `json:"statusCode"`
-	Status       string       `json:"status"`
-	PassThrough  bool         `json:"-"`
-	LongRunning  bool         `json:"-"`
-	Response     []byte       `json:"-"`
-	Error        error        `json:"-"`
-	ResponseGUID string       `json:"-"`
-	Token        *TokenRecord `json:"-"` // Optional Token record to use instead of looking up
+	GUID           string       `json:"-"`
+	UserGUID       string       `json:"-"`
+	Method         string       `json:"-"`
+	Body           []byte       `json:"-"`
+	Header         http.Header  `json:"-"`
+	URL            *url.URL     `json:"-"`
+	StatusCode     int          `json:"statusCode"`
+	Status         string       `json:"status"`
+	PassThrough    bool         `json:"-"`
+	LongRunning    bool         `json:"-"`
+	ResponseHeader http.Header  `json:"-"`
+	Response       []byte       `json:"-"`
+	Error          error        `json:"-"`
+	ResponseGUID   string       `json:"-"`
+	Token          *TokenRecord `json:"-"` // Optional Token record to use instead of looking up
 }
 
 type PortalConfig struct {
