@@ -153,9 +153,9 @@ export default Vue.extend<any, any, any, any>({
       }
     },
     openMetricsDetails() {
-      const clusterMetricsLink = `${ window.location.origin }/c/${ this.$store.getters['clusterId'] }/explorer#cluster-events`;
+      const clusterMetricsLink = `/c/${ this.$store.getters['clusterId'] }/explorer#cluster-events`;
 
-      window.open(clusterMetricsLink, '_blank');
+      this.$router.replace(clusterMetricsLink);
     }
   },
   computed: {
