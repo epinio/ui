@@ -71,9 +71,13 @@ export default Vue.extend<Data, EpinioCompRecord, EpinioCompRecord, EpinioCompRe
 
   mounted() {
     if (this.mode !== 'create') {
-      this.value.details().then((details: any) => {
-        this.chartValues = details?.settings || {};
+      const serviceDetails = this.$store.dispatch('epinio/find', {
+        type: EPINIO_TYPES.SERVICE_INSTANCE,
+        id:   `${ this.value.metadata?.namespace }/${ this.value.metadata?.name }`,
+        opt:  { force: true }
       });
+
+      this.chartValues = serviceDetails?.settings || {};
     }
   },
 
