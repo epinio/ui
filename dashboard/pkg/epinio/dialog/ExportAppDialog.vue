@@ -26,6 +26,7 @@ export default {
       required: true
     }
   },
+
   data() {
     return {
       config: {
@@ -40,6 +41,14 @@ export default {
       progressBar:        0,
       colorStops:         { 0: '--primary', 100: '--primary' },
     };
+  },
+
+  mounted() {
+    document.addEventListener('keyup', this.escapeHandler);
+  },
+
+  beforeDestroy() {
+    document.removeEventListener('keyup', this.escapeHandler);
   },
 
   methods: {
@@ -111,6 +120,12 @@ export default {
         this.fetchCancel();
       }
       this.$emit('close');
+    },
+
+    escapeHandler(e) {
+      if (e.key === 'Escape') {
+        this.close();
+      }
     }
   }
 };
