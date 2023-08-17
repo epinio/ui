@@ -208,24 +208,6 @@ export default Vue.extend<any, any, any, any>({
 
 <template>
   <div class="dashboard">
-    <Banner
-      v-if="availableCpu < threshold.cpu || availableMemory < threshold.memory"
-      class="warning"
-      color="warning"
-    >
-      <span>
-        {{ t('epinio.intro.warning.lowResources', {
-          availability: ''
-            + (availableCpu < threshold.cpu ? t('epinio.intro.warning.availability', { resource: 'cpu', percentage: availableCpu }) : '')
-            + (availableCpu < threshold.cpu && availableMemory < threshold.memory ? ', ' : '')
-            + (availableMemory < threshold.memory ? t('epinio.intro.warning.availability', { resource: 'memory', percentage: availableMemory }) : '')
-        }) }}
-      </span>
-      <a
-        class="cluster-link"
-        @click="openMetricsDetails"
-      >{{ t('epinio.intro.warning.link.label') }}</a>
-    </Banner>
     <div class="head">
       <div class="head-title">
         <h1>{{ t('epinio.intro.welcome') }}</h1>
@@ -259,6 +241,26 @@ export default Vue.extend<any, any, any, any>({
         </n-link>
       </div>
     </div>
+
+    <Banner
+      v-if="availableCpu < threshold.cpu || availableMemory < threshold.memory"
+      class="warning"
+      color="warning"
+    >
+      <span>
+        {{ t('epinio.intro.warning.lowResources', {
+          availability: ''
+            + (availableCpu < threshold.cpu ? t('epinio.intro.warning.availability', { resource: 'cpu', percentage: availableCpu }) : '')
+            + (availableCpu < threshold.cpu && availableMemory < threshold.memory ? ', ' : '')
+            + (availableMemory < threshold.memory ? t('epinio.intro.warning.availability', { resource: 'memory', percentage: availableMemory }) : '')
+        }) }}
+      </span>
+      <a
+        class="cluster-link"
+        @click="openMetricsDetails"
+      >{{ t('epinio.intro.warning.link.label') }}</a>
+    </Banner>
+
     <div class="get-started">
       <div
         v-for="(card, index) in sectionContent"
@@ -389,9 +391,17 @@ export default Vue.extend<any, any, any, any>({
 </style>
 
 <style lang="scss">
-  .warning .banner__content {
+  .warning {
+
+    &.banner {
+      margin-top: 0;
+      margin-bottom: 20px;
+    }
+
+    &.banner__content {
     .cluster-link {
       cursor: pointer;
+      }
     }
   }
 </style>
