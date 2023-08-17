@@ -285,7 +285,7 @@ epinio:
       editFromCommit:
         label: Redeploy
       goToEpinio:
-        label: App Details
+        label: Epinio App
     wm:
       containerName: 'Instance: {label}'
       noData: There are no log entries to show.

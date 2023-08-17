@@ -59,7 +59,7 @@ export default function(plugin: IPlugin) {
     {
       resource: [
         'apps.deployment',
-        'batch.job',
+        // 'batch.job',
         'pod',
         // 'service',
         'workload'
