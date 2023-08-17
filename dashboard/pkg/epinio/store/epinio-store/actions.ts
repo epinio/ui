@@ -3,7 +3,6 @@ import { handleSpoofedRequest } from '@shell/plugins/dashboard-store/actions';
 import { classify } from '@shell/plugins/dashboard-store/classify';
 import { normalizeType } from '@shell/plugins/dashboard-store/normalize';
 import { NAMESPACE_FILTERS } from '@shell/store/prefs';
-import { base64Encode } from '@shell/utils/crypto';
 import { createNamespaceFilterKeyWithId } from '@shell/utils/namespace-filter';
 import { parse as parseUrl, stringify as unParseUrl } from '@shell/utils/url';
 import { UserManager } from 'oidc-client-ts';
@@ -12,6 +11,7 @@ import epinioAuth, { EpinioAuthTypes } from '../../utils/auth';
 import {
   EpinioInfo, EpinioVersion, EPINIO_MGMT_STORE, EPINIO_PRODUCT_NAME, EPINIO_STANDALONE_CLUSTER_NAME, EPINIO_TYPES
 } from '../../types';
+import { EpinioCluster } from '../../utils/epinio-discovery';
 
 const createId = (schema: any, resource: any) => {
   const name = resource.meta?.name || resource.name;
@@ -83,11 +83,18 @@ export default {
           }
         } else {
           const currentClusterId = clusterId || rootGetters['clusterId'];
-          const currentCluster = rootGetters[`${ EPINIO_MGMT_STORE }/byId`](EPINIO_TYPES.INSTANCE, currentClusterId);
+          const currentCluster: EpinioCluster = rootGetters[`${ EPINIO_MGMT_STORE }/byId`](EPINIO_TYPES.INSTANCE, currentClusterId);
 
           opt.headers = {
             ...opt.headers,
-            Authorization: await epinioAuth.authHeader()
+            Authorization: await epinioAuth.authHeader({
+              type:      EpinioAuthTypes.AGNOSTIC,
+              epinioUrl: currentCluster.api,
+              dexConfig: {
+                dashboardUrl: window.origin,
+                dexUrl:       currentCluster.api.replace('epinio', 'auth') // TODO: RC
+              },
+            })
           };
 
           opt.url = `${ currentCluster.api }${ opt.url }`;

@@ -115,11 +115,12 @@ export default Vue.extend<Data, any, any, any>({
 
     async dexLogin(c: EpinioCluster) {
       await epinioAuth.login({
-        type:         EpinioAuthTypes.DEX,
-        dashboardUrl: 'https://localhost:8005', // TODO: RC get current url
-        epinioUrl:    c.api,
-        dexUrl:       `https://auth.46.101.17.26.nip.io`, // TODO: RC from config
-
+        type:      EpinioAuthTypes.DEX,
+        epinioUrl: c.api,
+        dexConfig: {
+          dashboardUrl: window.origin, // 'https://localhost:8005', // TODO: RC get current url
+          dexUrl:       `https://auth.46.101.17.26.nip.io`, // TODO: RC from config
+        },
       }); // TODO: RC error handling
       // TODO: RC tidy up UX for click. tie in error handling?
       // TODO: RC wire in logout when leave cluster, log out of dashboard

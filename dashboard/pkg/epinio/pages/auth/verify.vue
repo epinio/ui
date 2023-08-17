@@ -4,20 +4,29 @@ import epinioAuth from '../../utils/auth';
 export default {
   layout: 'unauthenticated',
 
-  async fetch({ store, route, redirect }) {
-    debugger;
+  async fetch({ store, route }) {
     try {
-      await epinioAuth.dexRedirect(route, {
-        dexUrl:       `https://auth.46.101.17.26.nip.io`, // TODO: RC from config
-        dashboardUrl: 'https://localhost:8005' // TODO: RC get current url
-      });
-      // await oidcUserManager.signinRedirectCallback(route.url);
-    } catch (e) {
-      console.error('token warning', e); // TODO: RC handle. in theory should be rejected promise in calling code?
-      // reply(e, 500); // TODO: RC
-    }
+      const {
+        error, error_description: errorDescription, errorCode, errorMsg
+      } = route.query;
 
-    // reply(null, 200);
+      if (error || errorDescription || errorCode || errorMsg) {
+        let out = errorDescription || error || errorCode;
+
+        if (errorMsg) {
+          out = store.getters['i18n/withFallback'](`login.serverError.${ errorMsg }`, null, errorMsg);
+        }
+
+        throw new Error(out);
+      }
+
+      await epinioAuth.dexRedirect(route, {
+        dexUrl:       document.referrer,
+        dashboardUrl: window.origin
+      });
+    } catch (e) {
+      console.error('token warning', e); // TODO: RC display out in error bar
+    }
   },
 
 };

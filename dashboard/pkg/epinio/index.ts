@@ -20,6 +20,8 @@ const onEnter: OnNavToPackage = async({ getters, dispatch }, config) => {
 
   if (getters['isSingleProduct']) {
     dispatch(`${ epinioStore.config.namespace }/info`); // We can get this in the background
+  } else {
+    // TODO:RC move initialisation here?
   }
 };
 
