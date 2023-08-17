@@ -12,6 +12,7 @@ import { sortBy } from 'lodash';
 import { Location } from 'vue-router';
 import Banner from '@components/Banner/Banner.vue';
 import { METRIC } from '@shell/config/types';
+import { allHash } from '@shell/utils/promise';
 
 type ComponentService = {
   name: string,
@@ -26,17 +27,15 @@ export default Vue.extend<any, any, any, any>({
     ConsumptionGauge
   },
   async fetch() {
-    await Promise.all([
-      this.$store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.CATALOG_SERVICE }),
-      this.$store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.NAMESPACE }),
-      this.$store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.SERVICE_INSTANCE })
-    ]);
-    this.version = await this.$store.dispatch('epinio/version');
-    const nodeMetricsSchema = this.$store.getters[`epinio/schemaFor`](METRIC.NODE);
+    const hash: { [key:string]: any } = await allHash({
+      ns:          this.$store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.NAMESPACE }),
+      svc:         this.$store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.SERVICE_INSTANCE }),
+      catalogSvc:  this.$store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.CATALOG_SERVICE }),
+      version:     this.$store.dispatch('epinio/version'),
+      showMetrics: this.calcAvailableResources()
+    });
 
-    if (nodeMetricsSchema && !this.$store.getters['isSingleProduct']) {
-      await this.calcAvailableResources();
-    }
+    this.version = hash.version;
   },
   data() {
     return {
@@ -109,23 +108,27 @@ export default Vue.extend<any, any, any, any>({
   },
   methods: {
     async calcAvailableResources() {
-      const id = this.$store.getters['clusterId'];
+      const nodeMetricsSchema = this.$store.getters[`epinio/schemaFor`](METRIC.NODE);
 
-      const nodeMetrics = await this.$store.dispatch(`cluster/request`, { url: `/k8s/clusters/${ id }/v1/metrics.k8s.io.nodemetrics` }, { root: true });
+      if (!this.$store.getters['isSingleProduct'] && nodeMetricsSchema) {
+        const id = this.$store.getters['clusterId'];
 
-      const currentCluster = this.$store.getters[`${ EPINIO_MGMT_STORE }/byId`](EPINIO_TYPES.INSTANCE, id);
+        const nodeMetrics = await this.$store.dispatch(`cluster/request`, { url: `/k8s/clusters/${ id }/v1/metrics.k8s.io.nodemetrics` }, { root: true });
 
-      const cpu = {
-        total:  parseSi(currentCluster.mgmtCluster?.status?.capacity?.cpu, null),
-        useful: parseSi(nodeMetrics.data[0].usage.cpu, null)
-      };
+        const currentCluster = this.$store.getters[`${ EPINIO_MGMT_STORE }/byId`](EPINIO_TYPES.INSTANCE, id);
 
-      const memory = createMemoryValues(currentCluster.mgmtCluster?.status?.capacity?.memory, nodeMetrics.data[0].usage.memory);
+        const cpu = {
+          total:  parseSi(currentCluster.mgmtCluster?.status?.capacity?.cpu, null),
+          useful: parseSi(nodeMetrics.data[0].usage.cpu, null)
+        };
 
-      this.availableCpu = Math.floor(100 - cpu.useful / cpu.total * 100);
-      this.availableMemory = Math.floor(100 - memory.useful / memory.total * 100);
+        const memory = createMemoryValues(currentCluster.mgmtCluster?.status?.capacity?.memory, nodeMetrics.data[0].usage.memory);
 
-      this.showMetricsInfo = true;
+        this.availableCpu = Math.floor(100 - cpu.useful / cpu.total * 100);
+        this.availableMemory = Math.floor(100 - memory.useful / memory.total * 100);
+
+        this.showMetricsInfo = true;
+      }
     },
 
     redoCards() {
