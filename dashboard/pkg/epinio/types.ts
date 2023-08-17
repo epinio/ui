@@ -184,6 +184,7 @@ export interface EpinioHelmRepoResource {
 export interface EpinioCatalogServiceResource {
   id: string,
   description: string,
+  shortId: string,
   short_description: string, // eslint-disable-line camelcase
   chart: string,
   chartVersion: string,
