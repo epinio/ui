@@ -1,4 +1,4 @@
-import { SCHEMA } from '@shell/config/types';
+import { METRIC, SCHEMA } from '@shell/config/types';
 import { handleSpoofedRequest } from '@shell/plugins/dashboard-store/actions';
 import { classify } from '@shell/plugins/dashboard-store/classify';
 import { normalizeType } from '@shell/plugins/dashboard-store/normalize';
@@ -9,7 +9,6 @@ import { parse as parseUrl, stringify as unParseUrl } from '@shell/utils/url';
 import {
   EpinioInfo, EpinioVersion, EPINIO_MGMT_STORE, EPINIO_PRODUCT_NAME, EPINIO_STANDALONE_CLUSTER_NAME, EPINIO_TYPES
 } from '../../types';
-import { METRIC } from '@shell/config/types';
 
 const createId = (schema: any, resource: any) => {
   const name = resource.meta?.name || resource.name;
