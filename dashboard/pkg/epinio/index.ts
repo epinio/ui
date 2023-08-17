@@ -20,8 +20,6 @@ const onEnter: OnNavToPackage = async({ getters, dispatch }, config) => {
 
   if (getters['isSingleProduct']) {
     dispatch(`${ epinioStore.config.namespace }/info`); // We can get this in the background
-  } else {
-    // TODO:RC move initialisation here?
   }
 };
 
@@ -33,6 +31,18 @@ const onLeave: OnNavAwayFromPackage = async(store, config) => {
   await store.dispatch(`${ epinioStore.config.namespace }/unsubscribe`);
   await store.commit(`${ epinioStore.config.namespace }/reset`);
 };
+
+// const onLogOut: OnLogOut = async({ getters, rootGetters }) => {
+//   if (!getters['isSingleProduct']) {
+//     const currentClusterId =  rootGetters['clusterId'];
+//     const currentCluster: EpinioCluster = rootGetters[`${ EPINIO_MGMT_STORE }/byId`](EPINIO_TYPES.INSTANCE, currentClusterId);
+
+//     await epinioAuth.logout({
+//       type: EpinioAuthTypes.AGNOSTIC,
+//       epinioUrl:
+//     }); // TODO: RC Discuss. if the user logs out of dashboard... should the user also log out of dex epinios?
+//   }
+// };
 
 // Init the package
 export default function(plugin: IPlugin) {

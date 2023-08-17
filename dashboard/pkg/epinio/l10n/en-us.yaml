@@ -45,6 +45,10 @@ asyncButton:
     action: Export
     success: Exported
     waiting: Exporting&hellip;
+  login:
+    action: Log In
+    success: Log In
+    waiting: Log In
 epinio:
   label: Epinio
   about:

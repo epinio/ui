@@ -10,6 +10,7 @@ import AsyncButton from '@shell/components/AsyncButton.vue';
 import { _MERGE } from '@shell/plugins/dashboard-store/actions';
 import epinioAuth, { EpinioAuthTypes } from '../utils/auth';
 import { EpinioCluster } from '../utils/epinio-discovery';
+import PromptModal from '@shell/components/PromptModal';
 
 interface Data {
   clustersSchema: any;
@@ -18,7 +19,7 @@ interface Data {
 // Data, Methods, Computed, Props
 export default Vue.extend<Data, any, any, any>({
   components: {
-    AsyncButton, Loading, Link, ResourceTable
+    AsyncButton, Loading, Link, ResourceTable, PromptModal
   },
 
   layout: 'plain',
@@ -87,7 +88,7 @@ export default Vue.extend<Data, any, any, any>({
       });
 
       //  This code block will probably change given auth stuff
-      this.$store.dispatch(`epinio/request`, { opt: { url: c.readyApi }, clusterId: c.id })
+      this.$store.dispatch(`epinio/request`, { opt: { url: c.readyApi, redirectUnauthorized: false }, clusterId: c.id })
         // .then(() => this.$store.dispatch(`epinio/request`, { opt: { url: `/api/v1/info` }, clusterId: c.id }))
         .then((res: any) => {
           // debugger;
@@ -113,24 +114,53 @@ export default Vue.extend<Data, any, any, any>({
         });
     },
 
-    async dexLogin(c: EpinioCluster) {
-      await epinioAuth.login({
-        type:      EpinioAuthTypes.DEX,
+    async login(c: EpinioCluster) {
+      const isLoggedIn = await epinioAuth.isLoggedIn({
+        type:      EpinioAuthTypes.AGNOSTIC,
         epinioUrl: c.api,
         dexConfig: {
           dashboardUrl: window.origin, // 'https://localhost:8005', // TODO: RC get current url
           dexUrl:       `https://auth.46.101.17.26.nip.io`, // TODO: RC from config
         },
-      }); // TODO: RC error handling
-      // TODO: RC tidy up UX for click. tie in error handling?
-      // TODO: RC wire in logout when leave cluster, log out of dashboard
-      // TODO: RC what happens on refresh, is it still there... avoid sign in if we have a user?
-      this.$router.push({
-        name:   'epinio-c-cluster-dashboard',
-        params: { cluster: c.id }
+      });
+
+      if (isLoggedIn) {
+        this.$router.push({
+          name:   'epinio-c-cluster-dashboard',
+          params: { cluster: c.id }
+        });
+      } else {
+        debugger;
+        try {
+          await this.$store.dispatch('epinio/promptModal', {
+            resources:  c,
+            component:  'LoginDialog',
+            modalWidth: '450px',
+          }, { root: true });
+        } catch (e) {
+          console.error(e);
+        }
       }
-      );
-    }
+    },
+
+    // async dexLogin(c: EpinioCluster) {
+    //   await epinioAuth.login({
+    //     type:      EpinioAuthTypes.DEX,
+    //     epinioUrl: c.api,
+    //     dexConfig: {
+    //       dashboardUrl: window.origin, // 'https://localhost:8005', // TODO: RC get current url
+    //       dexUrl:       `https://auth.46.101.17.26.nip.io`, // TODO: RC from config
+    //     },
+    //   }); // TODO: RC error handling. if popup closed this doesn't throw error
+
+    //   // TODO: RC tidy up UX for click. tie in error handling?
+    //   // TODO: RC wire in logout when leave cluster, log out of dashboard
+    //   // TODO: RC what happens on refresh, is it still there... avoid sign in if we have a user?
+    //   this.$router.push({
+    //     name:   'epinio-c-cluster-dashboard',
+    //     params: { cluster: c.id }
+    //   });
+    // }
   }
 
 });
@@ -154,11 +184,12 @@ export default Vue.extend<Data, any, any, any>({
   >
     <div class="epinios-table">
       <h2>{{ t('epinio.instances.header') }}</h2>
+      <!--
+        :row-actions="false" -->
       <ResourceTable
         :rows="clusters"
         :schema="clustersSchema"
         :table-actions="false"
-        :row-actions="false"
       >
         <template #header-left>
           <AsyncButton
@@ -173,7 +204,7 @@ export default Vue.extend<Data, any, any, any>({
           <div class="epinio-row">
             <a
               v-if="row.state === 'available'"
-              @click="dexLogin(row)"
+              @click="login(row)"
             >{{ row.name }}</a>
             <template v-else />
           </div>
@@ -205,6 +236,7 @@ export default Vue.extend<Data, any, any, any>({
         </template>
       </ResourceTable>
     </div>
+    <PromptModal />
   </div>
 </template>
 

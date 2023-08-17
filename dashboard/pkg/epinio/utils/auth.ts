@@ -46,19 +46,19 @@ class EpinioAuth {
   }
 
   async isLoggedIn(config: EpinioAuthConfig) {
-    switch (config.type) {
-    case EpinioAuthTypes.DEX:
-      try {
-        if (!this.dexUserManager) {
-          await this.initialiseDex(config.dexConfig);
-        }
-        const dexUser = await this.dexUserManager?.getUser();
+    if (!config || (config.type === EpinioAuthTypes.LOCAL || config.type === EpinioAuthTypes.AGNOSTIC)) {
+      if (this.isLocal()) {
+        return;
+      }
+    }
 
-        return dexUser?.profile.iss === config.dexConfig?.dexUrl;
-      } catch {}
-      break;
-    case EpinioAuthTypes.LOCAL:
-      return this.isLocal();
+    if (!config || (config.type === EpinioAuthTypes.DEX || config.type === EpinioAuthTypes.AGNOSTIC)) {
+      if (!this.dexUserManager && config?.dexConfig) {
+        await this.initialiseDex(config.dexConfig);
+      }
+      const dexUser = await this.dexUserManager?.getUser();
+
+      return dexUser && dexUser?.profile.iss === config?.dexConfig?.dexUrl;
     }
 
     return false;
@@ -90,6 +90,8 @@ class EpinioAuth {
         throw new Error('localConfig required');
       }
       await this.logout();
+
+      // TODO: RC validate
       this.localUserManager = {
         epinioUrl: config.epinioUrl,
         config:    config.localConfig
@@ -145,6 +147,8 @@ class EpinioAuth {
       }
     }
 
+    debugger;
+
     if (config.type === EpinioAuthTypes.AGNOSTIC) {
       // TODO: RC HACK FOR NOW
       return `Basic ${ base64Encode(`admin:password`) }`;
@@ -152,16 +156,12 @@ class EpinioAuth {
   }
 
   async logout(config?: EpinioAuthConfig) {
-    if (!config || config.type === EpinioAuthTypes.LOCAL) {
+    if (!config || (config.type === EpinioAuthTypes.AGNOSTIC || config.type === EpinioAuthTypes.LOCAL)) {
       delete this.localUserManager;
     }
 
-    if (this.dexUserManager) {
-
-    }
-
-    if (config && config.type === EpinioAuthTypes.DEX ) {
-      if (!this.dexUserManager) {
+    if (!config || (config.type === EpinioAuthTypes.AGNOSTIC || config.type === EpinioAuthTypes.DEX )) {
+      if (!this.dexUserManager && config?.dexConfig) {
         await this.initialiseDex(config.dexConfig);
       }
 
@@ -170,6 +170,8 @@ class EpinioAuth {
       await this.dexUserManager?.clearStaleState();
     }
   }
+
+  // TODO: RC determine if dex is installed
 
   async dexRedirect(route: { url: string, query: Record<string, any>}, config: EpinioAuthDexConfig) {
     if (!this.dexUserManager) {

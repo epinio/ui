@@ -39,9 +39,14 @@ export default {
     commit('remove', obj);
   },
 
-  async request({ rootGetters, dispatch, getters }: any, {
+  async request(context: any, {
     opt, type, clusterId, growlOnError = false
   }: any) {
+    const {
+      rootGetters, dispatch, getters, state
+    } = context;
+
+    debugger;
     const spoofedRes = await handleSpoofedRequest(rootGetters, EPINIO_PRODUCT_NAME, opt, EPINIO_PRODUCT_NAME);
 
     if (spoofedRes) {
@@ -141,8 +146,11 @@ export default {
 
         // Go to the logout page for 401s, unless redirectUnauthorized specifically disables (for the login page)
         if ( opt.redirectUnauthorized !== false && (process as any).client && res.status === 401 ) {
-          // return Promise.reject(err);
-          dispatch('auth/logout', opt.logoutOnError, { root: true });
+          if (isSingleProduct) {
+            dispatch('auth/logout', opt.logoutOnError, { root: true });
+          } else {
+            setTimeout(() => dispatch('redirect', { name: 'epinio' }), 500); // TODO: RC facepalm
+          }
         } else if (growlOnError) {
           dispatch('growl/fromError', { title: `Epinio Request to ${ opt.url }`, err }, { root: true });
         }
@@ -175,6 +183,12 @@ export default {
 
       return out;
     }
+  },
+
+  redirect(ctx: any, location: any) {
+    const router = (this as any).$router;
+
+    router.replace(location);
   },
 
   async onLogout({ dispatch, commit }: any) {
