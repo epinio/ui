@@ -1,4 +1,5 @@
 <script>
+import Vue from 'vue';
 import GenericPrompt from '@shell/dialog/GenericPrompt';
 import Banner from '@components/Banner/Banner.vue';
 import Tabbed from '@shell/components/Tabbed/index.vue';
@@ -9,9 +10,9 @@ import PercentageBar from '@shell/components/PercentageBar';
 import { APPLICATION_PARTS } from '../types';
 
 const partsWeight = {
-  [APPLICATION_PARTS.VALUES]: 0.15,
-  [APPLICATION_PARTS.CHART]:  0.15,
-  [APPLICATION_PARTS.IMAGE]:  0.7,
+  [APPLICATION_PARTS.VALUES]: 0.1,
+  [APPLICATION_PARTS.CHART]:  0.1,
+  [APPLICATION_PARTS.IMAGE]:  0.7
 };
 
 export default {
@@ -36,9 +37,9 @@ export default {
       },
       zipParts:           this.resources[0].applicationParts.filter((part) => part !== APPLICATION_PARTS.MANIFEST),
       showProgressBar:    false,
-      downloadingPart:    null,
+      percentages:        {},
+      downloadStep:       null,
       cancelTokenSources: {},
-      progressBar:        0,
       colorStops:         { 0: '--primary', 100: '--primary' },
     };
   },
@@ -49,6 +50,17 @@ export default {
 
   beforeDestroy() {
     document.removeEventListener('keyup', this.escapeHandler);
+  },
+
+  computed: {
+    progressBar: {
+      get() {
+        return Object.keys(this.percentages).reduce((acc, part) => acc + (this.percentages[part] * (partsWeight[part] || 1)), 0);
+      },
+      set(value) {
+        this.percentages = { value };
+      }
+    }
   },
 
   methods: {
@@ -86,8 +98,9 @@ export default {
           return;
         }
 
-        this.progressBar = 100;
+        this.downloadStep = 'zip';
         await chartZip(partsData);
+        this.progressBar = 100;
       }
     },
 
@@ -96,18 +109,17 @@ export default {
     },
 
     async fetchPart(resource, part) {
+      this.downloadStep = part;
       this.cancelTokenSources[part] = this.getCancelToken().source();
-      this.downloadingPart = part;
 
       return await resource.fetchPart(
         part,
         {
           onDownloadProgress: (progressEvent) => {
-            const total = progressEvent.srcElement.getResponseHeader('proxy-content-length') ||
-              progressEvent.srcElement.getResponseHeader('content-length');
+            const total = progressEvent.srcElement.getResponseHeader('content-length');
 
             if (total) {
-              this.progressBar += Math.round((progressEvent.loaded * 100) / total) * partsWeight[part];
+              Vue.set(this.percentages, part, Math.round(progressEvent.loaded * 100 / total));
             }
           },
           cancelToken: this.cancelTokenSources[part].token
@@ -204,23 +216,17 @@ export default {
 
           <div
             v-if="showProgressBar"
-            class="zip-parts text info mb-10 mt-20"
+            class="progress-info text info mb-10 mt-20"
           >
-            <span
-              v-if="progressBar !== 100"
-            >
-              {{ t('epinio.applications.export.chartValuesImages.stats.downloadFiles') }}: {{ t(`epinio.applications.export.chartValuesImages.stats.parts.${ downloadingPart }`) }}
+            <span>
+              {{ t(`epinio.applications.export.chartValuesImages.steps.${ downloadStep }`) }}
             </span>
             <PercentageBar
-              v-if="progressBar !== 100"
               class="progress-bar"
               :value="progressBar"
               :color-stops="colorStops"
               preferred-direction="MORE"
             />
-            <span v-if="progressBar === 100">
-              {{ t('epinio.applications.export.chartValuesImages.stats.zipFiles') }}
-            </span>
           </div>
         </Tab>
       </Tabbed>
@@ -237,7 +243,7 @@ export default {
   }
 }
 
-.zip-parts {
+.progress-info {
   span {
     display: block;
     margin-bottom: 10px;
