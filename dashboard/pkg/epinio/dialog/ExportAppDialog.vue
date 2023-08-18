@@ -53,7 +53,7 @@ export default {
 
   methods: {
     async exportApplicationManifest() {
-      this.showProgressBar = true;
+      this.enableDownload();
       const resource = this.resources[0];
 
       const chartZip = async(files) => {
@@ -107,7 +107,16 @@ export default {
             }
           },
           cancelToken: this.cancelTokenSources[part].token
-        });
+        }).catch((thrown) => {
+        if (!this.$store.$axios.isCancel(thrown)) {
+          this.disableDownload();
+
+          // Override only messages of server errors
+          const message = thrown.message ?? this.t('epinio.applications.export.chartValuesImages.error', { part });
+
+          throw new Error(message);
+        }
+      });
     },
 
     fetchCancel() {
@@ -126,6 +135,23 @@ export default {
       if (e.key === 'Escape') {
         this.close();
       }
+    },
+
+    resetErrors() {
+      if (this.$refs.genericPrompt) {
+        this.$refs.genericPrompt.errors = [];
+      }
+    },
+
+    enableDownload() {
+      this.resetErrors();
+      this.showProgressBar = true;
+    },
+
+    disableDownload() {
+      this.fetchCancel();
+      this.showProgressBar = false;
+      this.progressBar = 0;
     }
   }
 };
@@ -133,6 +159,7 @@ export default {
 
 <template>
   <GenericPrompt
+    ref="genericPrompt"
     v-bind="config"
     @close="close"
   >
@@ -144,7 +171,7 @@ export default {
     </h4>
 
     <template slot="body">
-      <Tabbed>
+      <Tabbed @changed="resetErrors">
         <Tab
           label-key="epinio.applications.export.manifest.title"
           name="manifest"
