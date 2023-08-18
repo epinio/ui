@@ -73,7 +73,7 @@ export default Vue.extend<Data, any, any, any>({
       }
     },
 
-    setClusterState(cluster: EpinioCluster, state: string, metadataStateObj: { transitioning: boolean, error: boolean, message: string }) {
+    setClusterState(cluster: EpinioCluster, state: string, metadataStateObj: { state: { transitioning: boolean, error: boolean, message: string }}) {
       Vue.set(cluster, 'state', state);
       Vue.set(cluster, 'metadata', metadataStateObj);
     },
@@ -87,12 +87,12 @@ export default Vue.extend<Data, any, any, any>({
         }
       });
 
-      //  This code block will probably change given auth stuff
+      // TODO: RC create issue epinio /endpoint to determine enabled auth endpoints (aka show dex) and also to get epinio version
+      //  Calls to `/ready` currently throw CORS error (but not `/api/v1`).
       this.$store.dispatch(`epinio/request`, { opt: { url: c.readyApi, redirectUnauthorized: false }, clusterId: c.id })
         // .then(() => this.$store.dispatch(`epinio/request`, { opt: { url: `/api/v1/info` }, clusterId: c.id }))
         .then((res: any) => {
-          // debugger;
-          Vue.set(c, 'version', res?.version); // TODO: RC readyApi needs to be info
+          Vue.set(c, 'version', res?.version);
           this.setClusterState(c, 'available', { state: { transitioning: false } });
         })
         .catch((e: Error) => {
@@ -115,14 +115,7 @@ export default Vue.extend<Data, any, any, any>({
     },
 
     async login(c: EpinioCluster) {
-      const isLoggedIn = await epinioAuth.isLoggedIn({
-        type:      EpinioAuthTypes.AGNOSTIC,
-        epinioUrl: c.api,
-        dexConfig: {
-          dashboardUrl: window.origin, // 'https://localhost:8005', // TODO: RC get current url
-          dexUrl:       `https://auth.46.101.17.26.nip.io`, // TODO: RC from config
-        },
-      });
+      const isLoggedIn = await epinioAuth.isLoggedIn(c.createAuthConfig(EpinioAuthTypes.AGNOSTIC));
 
       if (isLoggedIn) {
         this.$router.push({
@@ -130,37 +123,13 @@ export default Vue.extend<Data, any, any, any>({
           params: { cluster: c.id }
         });
       } else {
-        debugger;
-        try {
-          await this.$store.dispatch('epinio/promptModal', {
-            resources:  c,
-            component:  'LoginDialog',
-            modalWidth: '450px',
-          }, { root: true });
-        } catch (e) {
-          console.error(e);
-        }
+        await this.$store.dispatch('epinio/promptModal', {
+          resources:  c,
+          component:  'LoginDialog',
+          modalWidth: '450px',
+        }, { root: true });
       }
     },
-
-    // async dexLogin(c: EpinioCluster) {
-    //   await epinioAuth.login({
-    //     type:      EpinioAuthTypes.DEX,
-    //     epinioUrl: c.api,
-    //     dexConfig: {
-    //       dashboardUrl: window.origin, // 'https://localhost:8005', // TODO: RC get current url
-    //       dexUrl:       `https://auth.46.101.17.26.nip.io`, // TODO: RC from config
-    //     },
-    //   }); // TODO: RC error handling. if popup closed this doesn't throw error
-
-    //   // TODO: RC tidy up UX for click. tie in error handling?
-    //   // TODO: RC wire in logout when leave cluster, log out of dashboard
-    //   // TODO: RC what happens on refresh, is it still there... avoid sign in if we have a user?
-    //   this.$router.push({
-    //     name:   'epinio-c-cluster-dashboard',
-    //     params: { cluster: c.id }
-    //   });
-    // }
   }
 
 });
@@ -258,6 +227,10 @@ div.root {
       height: 40px;
       display: flex;
       align-items: center;
+
+      a {
+        cursor: pointer;
+      }
     }
   }
 }

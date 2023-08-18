@@ -5,7 +5,6 @@ import { normalizeType } from '@shell/plugins/dashboard-store/normalize';
 import { NAMESPACE_FILTERS } from '@shell/store/prefs';
 import { createNamespaceFilterKeyWithId } from '@shell/utils/namespace-filter';
 import { parse as parseUrl, stringify as unParseUrl } from '@shell/utils/url';
-import { UserManager } from 'oidc-client-ts';
 import epinioAuth, { EpinioAuthTypes } from '../../utils/auth';
 
 import {
@@ -42,11 +41,8 @@ export default {
   async request(context: any, {
     opt, type, clusterId, growlOnError = false
   }: any) {
-    const {
-      rootGetters, dispatch, getters, state
-    } = context;
+    const { rootGetters, dispatch, getters } = context;
 
-    debugger;
     const spoofedRes = await handleSpoofedRequest(rootGetters, EPINIO_PRODUCT_NAME, opt, EPINIO_PRODUCT_NAME);
 
     if (spoofedRes) {
@@ -71,8 +67,6 @@ export default {
 
     // opt.httpsAgent = new https.Agent({ rejectUnauthorized: false });
 
-    // TODO: RC if not single product... don't log user out of dashboard on 401
-
     return await ps
       .then(async(prependPath = opt?.prependPath) => {
         if (isSingleProduct) {
@@ -92,14 +86,7 @@ export default {
 
           opt.headers = {
             ...opt.headers,
-            Authorization: await epinioAuth.authHeader({
-              type:      EpinioAuthTypes.AGNOSTIC,
-              epinioUrl: currentCluster.api,
-              dexConfig: {
-                dashboardUrl: window.origin,
-                dexUrl:       currentCluster.api.replace('epinio', 'auth') // TODO: RC
-              },
-            })
+            Authorization: await epinioAuth.authHeader(currentCluster.createAuthConfig(EpinioAuthTypes.AGNOSTIC))
           };
 
           opt.url = `${ currentCluster.api }${ opt.url }`;

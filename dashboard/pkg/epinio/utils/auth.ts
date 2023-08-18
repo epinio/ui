@@ -1,6 +1,5 @@
 import { User, UserManager } from 'oidc-client-ts';
-import { base64Encode, base64Decode } from '@shell/utils/crypto';
-import { randomStr } from '@shell/utils/string';
+import { base64Encode } from '@shell/utils/crypto';
 
 export enum EpinioAuthTypes {
   LOCAL = 'local',
@@ -21,6 +20,7 @@ export interface EpinioAuthDexConfig {
 export interface EpinioAuthLocalConfig {
   username: string,
   password: string,
+  $axios?: any,
 }
 
 export interface EpinioAuthConfig {
@@ -78,8 +78,6 @@ class EpinioAuth {
         this.initialiseDex(config.dexConfig);
       }
 
-      // TODO: RC auto refresh token on expirer? silent refresh?
-
       await this.dexUserManager?.signinPopup();
 
       delete this.localUserManager;
@@ -89,9 +87,29 @@ class EpinioAuth {
       if (!config.localConfig) {
         throw new Error('localConfig required');
       }
+
+      // Validate
+      try {
+        await config.localConfig.$axios({
+          url:     `${ config.epinioUrl }/api/v1/info`,
+          headers: { Authorization: `Basic ${ base64Encode(`${ config.localConfig?.username }:${ config.localConfig?.password }`) }` }
+        });
+      } catch (err: any) {
+        if ( !err || !err.response ) {
+          return Promise.reject(err);
+        }
+
+        const res = err.response;
+
+        if (res.status === 401) {
+          return Promise.reject(new Error('Invalid Credentials'));
+        }
+
+        return Promise.reject(res);
+      }
+
       await this.logout();
 
-      // TODO: RC validate
       this.localUserManager = {
         epinioUrl: config.epinioUrl,
         config:    config.localConfig
@@ -147,10 +165,8 @@ class EpinioAuth {
       }
     }
 
-    debugger;
-
     if (config.type === EpinioAuthTypes.AGNOSTIC) {
-      // TODO: RC HACK FOR NOW
+      // TODO: RC HACK FOR NOW. Reference new epinio issue
       return `Basic ${ base64Encode(`admin:password`) }`;
     }
   }
@@ -165,13 +181,11 @@ class EpinioAuth {
         await this.initialiseDex(config.dexConfig);
       }
 
-      await this.dexUserManager?.revokeTokens(['access_token', 'refresh_token']);
+      // await this.dexUserManager?.revokeTokens(['access_token', 'refresh_token']); // Metadata does not contain property revocation_endpoint
       await this.dexUserManager?.removeUser();
       await this.dexUserManager?.clearStaleState();
     }
   }
-
-  // TODO: RC determine if dex is installed
 
   async dexRedirect(route: { url: string, query: Record<string, any>}, config: EpinioAuthDexConfig) {
     if (!this.dexUserManager) {
@@ -199,7 +213,7 @@ class EpinioAuth {
 
     this.dexUserManager = new UserManager({
       authority: dexUrl,
-      metadata:  {
+      metadata:  { // Supplying the metadata skips a network request to well-known/openid-configuration
         issuer:                 dexUrl,
         authorization_endpoint: `${ dexUrl }/auth`,
         userinfo_endpoint:      dexUrl,
@@ -209,12 +223,8 @@ class EpinioAuth {
       client_id:     'rancher-dashboard',
       redirect_uri:  `${ config.dashboardUrl }/epinio/auth/verify/`, // Note - must contain trailing forward slash
       scope:         'openid offline_access profile email groups audience:server:client_id:epinio-api federated:id',
-      // automaticSilentRenew: true,
-      //   silent_redirect_uri: `${window.location.origin}/assets/silent-callback.html`
       response_type: 'code',
     });
-    // this.dexUserManager.events.addSilentRenewError // TODO: RC
-    // this.manager.events.addAccessTokenExpiring(() => { console.log('token expiring'); this.manager.signinSilent({ extraTokenParams: { appId: 123, domain: 'abc.com' } }).then(user => { }).catch(e => { }); });
   }
 }
 

@@ -1,16 +1,19 @@
 import Resource from '@shell/plugins/dashboard-store/resource-class';
 import { EPINIO_TYPES } from '../types';
-import epinioAuth, { EpinioAuthTypes } from '../utils/auth';
+import epinioAuth, { EpinioAuthConfig, EpinioAuthLocalConfig, EpinioAuthTypes } from '../utils/auth';
+import Vue from 'vue';
 
 export default class EpinioCluster extends Resource {
   type = EPINIO_TYPES.INSTANCE;
 
   id: string;
   name: string;
-  state: string;
+  state?: string;
+  metadata?: { state: { transitioning: boolean, error: boolean, message: string }};
+  loggedIn: boolean;
   api: string;
   readyApi: string;
-  mgmtCluster?: any
+  mgmtCluster: any
 
   /**
    *
@@ -18,50 +21,61 @@ export default class EpinioCluster extends Resource {
   constructor(data: {
     id: string,
     name: string,
-    state: string,
+    loggedIn: boolean,
     api: string,
     readyApi: string,
+    mgmtCluster: any,
   }) {
     super(data, null);
     this.id = data.id;
     this.name = data.name;
-    this.state = data.state;
     this.api = data.api;
     this.readyApi = data.readyApi;
+    this.loggedIn = data.loggedIn;
+    this.mgmtCluster = data.mgmtCluster;
   }
 
   get availableActions() {
-    // TODO: RC this isn't async! might have to put the log in state in the object
-    // const isLoggedIn = await epinioAuth.isLoggedIn({
-    //   type:      EpinioAuthTypes.AGNOSTIC,
-    //   epinioUrl: c.api,
-    //   dexConfig: {
-    //     dashboardUrl: window.origin, // 'https://localhost:8005', // TODO: RC get current url
-    //     dexUrl:       `https://auth.46.101.17.26.nip.io`, // TODO: RC from config
-    //   },
-    // });
-
-    // TODO: RC
-
     return [
       {
         action:   'logOut',
-        enabled:  true,
-        icon:     'icon icon-fw icon-spinner',
-        label:    'Log Out', // this.t('harvester.action.createVM'),
+        enabled:  this.loggedIn,
+        icon:     'icon icon-fw icon-spinner', // TODO: RC
+        label:    'Log Out', // TODO: RC
         disabled: false,
       },
     ];
   }
 
   async logOut() {
-    await epinioAuth.logout({
-      type:      EpinioAuthTypes.AGNOSTIC,
+    try {
+      await epinioAuth.logout(this.createAuthConfig(EpinioAuthTypes.AGNOSTIC));
+
+      this.loggedIn = false;
+    } catch (err) {
+      console.error(`Failed to log out: ${ err }`);// eslint-disable-line no-console
+
+      this.metadata = {
+        state: {
+          transitioning: false,
+          error:         true,
+          message:       'Failed to log out'
+        }
+      };
+    }
+  }
+
+  createAuthConfig(type: EpinioAuthTypes, localConfig?: EpinioAuthLocalConfig): EpinioAuthConfig {
+    const config: EpinioAuthConfig = {
+      type,
       epinioUrl: this.api,
       dexConfig: {
-        dashboardUrl: window.origin, // 'https://localhost:8005', // TODO: RC get current url
-        dexUrl:       `https://auth.46.101.17.26.nip.io`, // TODO: RC from config
+        dashboardUrl: window.origin,
+        dexUrl:       this.api.replace('epinio', 'auth')
       },
-    });
+      localConfig
+    };
+
+    return config;
   }
 }

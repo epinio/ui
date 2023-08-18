@@ -1,11 +1,7 @@
 <script>
 import GenericPrompt from '@shell/dialog/GenericPrompt';
-import Banner from '@components/Banner/Banner.vue';
 import Tabbed from '@shell/components/Tabbed/index.vue';
 import Tab from '@shell/components/Tabbed/Tab.vue';
-import { APPLICATION_PARTS } from '../types';
-import JSZip from 'jszip';
-import { downloadFile } from '@shell/utils/download';
 import epinioAuth, { EpinioAuthTypes } from '../utils/auth';
 import Password from '@shell/components/form/Password';
 import { LabeledInput } from '@components/Form/LabeledInput';
@@ -14,7 +10,7 @@ import { LabeledInput } from '@components/Form/LabeledInput';
 export default {
   name:       'LoginDialog',
   components: {
-    GenericPrompt, Banner, Tabbed, Tab, LabeledInput, Password
+    GenericPrompt, Tabbed, Tab, LabeledInput, Password
   },
 
   props: {
@@ -29,7 +25,6 @@ export default {
       username:    '',
       password:    '',
       config:      {
-        title:       'TODO: RC', // this.t('promptRemove.title'),
         applyMode:   'login',
         applyAction: this.login,
       }
@@ -37,52 +32,68 @@ export default {
   },
 
   methods: {
+    // async loginWrapper(buttonDone) {
+    //   try {
+    //     await this.login(buttonDone);
+    //     this.close();
+    //   } catch (err) {
+    //     console.error(err); // eslint-disable-line
+    //     this.errors = epinioExceptionToErrorsArray(err);
+    //     buttonDone(false);
+    //   }
+    // },
+
     async login() {
       const cluster = this.resources[0];
+      const errors = [];
 
-      try {
-        switch (this.selectedTab) {
-        case 'local':
-          await epinioAuth.login({
-            type:        EpinioAuthTypes.LOCAL,
-            epinioUrl:   cluster.api,
-            localConfig: {
-              username: this.username,
-              password: this.password
-            }
-          }); // TODO: RC error handling. if popup closed this doesn't throw error
-          break;
-        case 'dex':
-          await epinioAuth.login({
-            type:      EpinioAuthTypes.DEX,
-            epinioUrl: cluster.api,
-            dexConfig: {
-              dashboardUrl: window.origin, // 'https://localhost:8005', // TODO: RC get current url
-              dexUrl:       `https://auth.46.101.17.26.nip.io`, // TODO: RC from config
-            },
-          }); // TODO: RC error handling. if popup closed this doesn't throw error
-          break;
+      switch (this.selectedTab) {
+      case 'local':
+        if (!this.username) {
+          errors.push('Username');
         }
-      } catch (e) {
-        // TODO: RC
-        return;
+        if (!this.password) {
+          errors.push('Password');
+        }
+        if (errors.length) {
+          return Promise.reject(new Error(`${ errors.join('/') } Required`));
+        }
+
+        await epinioAuth.login(cluster.createAuthConfig(EpinioAuthTypes.LOCAL, {
+          username: this.username,
+          password: this.password,
+          $axios:   this.$axios,
+        }));
+        break;
+      case 'dex':
+        await epinioAuth.login(cluster.createAuthConfig(EpinioAuthTypes.DEX));
+
+        break;
       }
 
-      // TODO: RC tidy up UX for click. tie in error handling?
-      // TODO: RC wire in logout when leave cluster, log out of dashboard
-      // TODO: RC what happens on refresh, is it still there... avoid sign in if we have a user?
+      // TODO: RC test refresh on cluster when dex, local user
+      // TODO: RC test switching between clustes
+      // TODO: RC auto refresh token on expirer? silent refresh?
+      // this.dexUserManager.events.addSilentRenewError
+      // this.manager.events.addAccessTokenExpiring(() => { console.log('token expiring'); this.manager.signinSilent({ extraTokenParams: { appId: 123, domain: 'abc.com' } }).then(user => { }).catch(e => { }); });
+      // automaticSilentRenew: true,
+      // silent_redirect_uri: `${window.location.origin}/assets/silent-callback.html`
+      // TODO: RC document epinio setup
+
+      cluster.loggedIn = true;
+
       this.$router.push({
         name:   'epinio-c-cluster-dashboard',
         params: { cluster: cluster.id }
       });
     },
 
-    async dexLogin(c) {
-
+    tabChanged({ selectedName }) {
+      this.selectedTab = selectedName;
     },
 
-    tabChanged({ tab, selectedName }) {
-      this.selectedTab = selectedName;
+    close() {
+      this.$emit('close', false);
     }
   }
 };
@@ -91,23 +102,21 @@ export default {
 <template>
   <GenericPrompt
     v-bind="config"
-    @close="$emit('close')"
+    @close="close"
   >
     <h4
       slot="title"
       class="text-default-text login-dialog__title"
     >
-      Log in
-      <!-- {{ t('epinio.applications.export.label') }} -->
+      {{ t('epinio.login.modal.title') }}
     </h4>
 
     <template slot="body">
       <Tabbed
         @changed="tabChanged"
       >
-        <!-- label-key="epinio.applications.export.manifest.title" -->
         <Tab
-          label="Local"
+          label-key="epinio.login.modal.local.tabLabel"
           name="local"
           :weight="3"
           class="login-dialog__tab"
@@ -122,6 +131,7 @@ export default {
                   data-testid="local-login-username"
                   :label="t('login.username')"
                   autocomplete="epinio-username"
+                  :required="true"
                 />
               </div>
               <div class="">
@@ -132,27 +142,49 @@ export default {
                   data-testid="local-login-password"
                   :label="t('login.password')"
                   autocomplete="epinio-password"
+                  :required="true"
                 />
               </div>
             </div>
           </form>
         </Tab>
-
-        <!-- label-key="epinio.applications.export.chart.title" -->
         <Tab
-
-          label="Auth Provider"
+          label-key="epinio.login.modal.dex.tabLabel"
           name="dex"
           :weight="2"
           class="login-dialog__tab"
         >
           <p>
-            <!-- {{ t('epinio.applications.export.chart.description') }} -->
-            Login via Auth Provider
+            {{ t('epinio.login.modal.dex.prompt') }}
           </p>
         </Tab>
       </Tabbed>
     </template>
+
+    <!-- <div
+      slot="actions"
+      class="bottom"
+    >
+      <Banner
+        v-for="(err, i) in errors"
+        :key="i"
+        color="error"
+        :label="err"
+      />
+      <div class="buttons">
+        <button
+          class="btn role-secondary mr-10"
+          @click="close"
+        >
+          {{ t('generic.cancel') }}
+        </button>
+
+        <AsyncButton
+          :mode="'login'"
+          @click="login"
+        />
+      </div>
+    </div> -->
   </GenericPrompt>
 </template>
 <style lang='scss' scoped>
