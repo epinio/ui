@@ -152,8 +152,6 @@ export default Vue.extend<Data, any, any, any>({
   >
     <div class="epinios-table">
       <h2>{{ t('epinio.instances.header') }}</h2>
-      <!--
-        :row-actions="false" -->
       <ResourceTable
         :rows="clusters"
         :schema="clustersSchema"
@@ -177,19 +175,6 @@ export default Vue.extend<Data, any, any, any>({
             <template v-else />
           </div>
         </template>
-        <!-- <template #cell:name="{row}">
-          <div class="epinio-row">
-            <n-link
-              v-if="row.state === 'available'"
-              :to="{name: 'epinio-c-cluster-dashboard', params: {cluster: row.id}}"
-            >
-              {{ row.name }}
-            </n-link>
-            <template v-else>
-              {{ row.name }}
-            </template>
-          </div>
-        </template> -->
         <template #cell:api="{row}">
           <div class="epinio-row">
             <Link

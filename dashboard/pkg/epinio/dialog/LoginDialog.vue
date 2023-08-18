@@ -5,7 +5,6 @@ import Tab from '@shell/components/Tabbed/Tab.vue';
 import epinioAuth, { EpinioAuthTypes } from '../utils/auth';
 import Password from '@shell/components/form/Password';
 import { LabeledInput } from '@components/Form/LabeledInput';
-// import { EpinioCluster } from '../utils/epinio-discovery';
 
 export default {
   name:       'LoginDialog',
@@ -32,17 +31,6 @@ export default {
   },
 
   methods: {
-    // async loginWrapper(buttonDone) {
-    //   try {
-    //     await this.login(buttonDone);
-    //     this.close();
-    //   } catch (err) {
-    //     console.error(err); // eslint-disable-line
-    //     this.errors = epinioExceptionToErrorsArray(err);
-    //     buttonDone(false);
-    //   }
-    // },
-
     async login() {
       const cluster = this.resources[0];
       const errors = [];
@@ -70,22 +58,6 @@ export default {
 
         break;
       }
-
-      // TODO: RC behaviour
-      // Local User credentials do not persist over refresh. Refreshing on an epinio page will redirect the user to the epinio list
-      // Dex User credentials are stored in sessions storage so do persist over refresh
-      // If the user wants to log out, either to remove the current visits local user or the session storage dex credentials, they can log out in the epinio list
-      // Discussion - If the user logs out of Rancher should they also be logged out of all epinio clusters?
-
-      // TODO: RC test refresh on cluster when dex, local user
-      // TODO: RC test switching between clustes
-      // TODO: RC auto refresh token on expirer? silent refresh?
-      // this.dexUserManager.events.addSilentRenewError
-      // this.manager.events.addAccessTokenExpiring(() => { console.log('token expiring'); this.manager.signinSilent({ extraTokenParams: { appId: 123, domain: 'abc.com' } }).then(user => { }).catch(e => { }); });
-      // automaticSilentRenew: true,
-      // silent_redirect_uri: `${window.location.origin}/assets/silent-callback.html`
-      // TODO: RC document epinio setup
-      // TODO: RC create issue epinio /endpoint to determine enabled auth endpoints (aka show dex) and also to get epinio version
 
       cluster.loggedIn = true;
 
@@ -167,31 +139,6 @@ export default {
         </Tab>
       </Tabbed>
     </template>
-
-    <!-- <div
-      slot="actions"
-      class="bottom"
-    >
-      <Banner
-        v-for="(err, i) in errors"
-        :key="i"
-        color="error"
-        :label="err"
-      />
-      <div class="buttons">
-        <button
-          class="btn role-secondary mr-10"
-          @click="close"
-        >
-          {{ t('generic.cancel') }}
-        </button>
-
-        <AsyncButton
-          :mode="'login'"
-          @click="login"
-        />
-      </div>
-    </div> -->
   </GenericPrompt>
 </template>
 <style lang='scss' scoped>

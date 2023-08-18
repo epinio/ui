@@ -14,9 +14,6 @@ export default class EpinioCluster extends Resource {
   readyApi: string;
   mgmtCluster: any
 
-  /**
-   *
-   */
   constructor(data: {
     id: string,
     name: string,

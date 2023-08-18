@@ -91,7 +91,7 @@ export default {
           };
 
           if (opt.url === '/api/v1/info') {
-            // TODO: RC HACK FOR NOW. Reference new epinio issue
+            // TODO: RC Hack for now, see https://github.com/epinio/epinio/issues/2515
             opt.headers.Authorization = `Basic ${ base64Encode(`admin:password`) }`;
           }
 

@@ -30,16 +30,12 @@ export interface EpinioAuthConfig {
   localConfig?: EpinioAuthLocalConfig
 }
 
-/**
- *
- */
 class EpinioAuth {
   private dexUserManager?: UserManager;
   private localUserManager?: {
     epinioUrl: string,
     config: EpinioAuthLocalConfig
   };
-  // private config?: EpinioAuthConfig;
 
   private isLocal() {
     return this.localUserManager?.config.username && this.localUserManager?.config.password;
