@@ -87,8 +87,7 @@ export default Vue.extend<Data, any, any, any>({
         }
       });
 
-      // TODO: RC create issue epinio /endpoint to determine enabled auth endpoints (aka show dex) and also to get epinio version
-      //  Calls to `/ready` currently throw CORS error (but not `/api/v1`).
+      // Note - Calls to `/ready` currently throw CORS error (but not `/api/v1`).
       this.$store.dispatch(`epinio/request`, { opt: { url: c.readyApi, redirectUnauthorized: false }, clusterId: c.id })
         // .then(() => this.$store.dispatch(`epinio/request`, { opt: { url: `/api/v1/info` }, clusterId: c.id }))
         .then((res: any) => {

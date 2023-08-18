@@ -164,11 +164,6 @@ class EpinioAuth {
         return `${ dexUser.token_type[0].toUpperCase() + type.slice(1) } ${ dexUser?.access_token }`;
       }
     }
-
-    if (config.type === EpinioAuthTypes.AGNOSTIC) {
-      // TODO: RC HACK FOR NOW. Reference new epinio issue
-      return `Basic ${ base64Encode(`admin:password`) }`;
-    }
   }
 
   async logout(config?: EpinioAuthConfig) {

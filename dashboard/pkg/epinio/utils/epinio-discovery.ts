@@ -33,7 +33,7 @@ export default {
           loggedIn:    !!loggedIn,
           readyApi:    `/api/v1/info`, // Calls to `/api/v1/info` currently need auth
           mgmtCluster: c
-        }));
+        }, store));
       } catch (err) {
         console.info(`Skipping epinio discovery for ${ c.spec.displayName }`, err); // eslint-disable-line no-console
       }

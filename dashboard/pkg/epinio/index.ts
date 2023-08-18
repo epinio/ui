@@ -32,18 +32,6 @@ const onLeave: OnNavAwayFromPackage = async(store, config) => {
   await store.commit(`${ epinioStore.config.namespace }/reset`);
 };
 
-// const onLogOut: OnLogOut = async({ getters, rootGetters }) => {
-//   if (!getters['isSingleProduct']) {
-//     const currentClusterId =  rootGetters['clusterId'];
-//     const currentCluster: EpinioCluster = rootGetters[`${ EPINIO_MGMT_STORE }/byId`](EPINIO_TYPES.INSTANCE, currentClusterId);
-
-//     await epinioAuth.logout({
-//       type: EpinioAuthTypes.AGNOSTIC,
-//       epinioUrl:
-//     }); // TODO: RC Discuss. if the user logs out of dashboard... should the user also log out of dex epinios?
-//   }
-// };
-
 // Init the package
 export default function(plugin: IPlugin) {
   // Auto-import model, detail, edit from the folders

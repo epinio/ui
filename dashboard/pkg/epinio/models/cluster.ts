@@ -1,7 +1,6 @@
 import Resource from '@shell/plugins/dashboard-store/resource-class';
 import { EPINIO_TYPES } from '../types';
 import epinioAuth, { EpinioAuthConfig, EpinioAuthLocalConfig, EpinioAuthTypes } from '../utils/auth';
-import Vue from 'vue';
 
 export default class EpinioCluster extends Resource {
   type = EPINIO_TYPES.INSTANCE;
@@ -25,7 +24,7 @@ export default class EpinioCluster extends Resource {
     api: string,
     readyApi: string,
     mgmtCluster: any,
-  }) {
+  }, private store: any) {
     super(data, null);
     this.id = data.id;
     this.name = data.name;
@@ -35,13 +34,17 @@ export default class EpinioCluster extends Resource {
     this.mgmtCluster = data.mgmtCluster;
   }
 
+  get '$rootGetters'() {
+    return this.store.getters;
+  }
+
   get availableActions() {
     return [
       {
         action:   'logOut',
         enabled:  this.loggedIn,
-        icon:     'icon icon-fw icon-spinner', // TODO: RC
-        label:    'Log Out', // TODO: RC
+        icon:     'icon icon-fw icon-chevron-right',
+        label:    this.t('nav.userMenu.logOut'),
         disabled: false,
       },
     ];

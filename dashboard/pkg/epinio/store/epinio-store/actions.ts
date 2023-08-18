@@ -6,11 +6,12 @@ import { NAMESPACE_FILTERS } from '@shell/store/prefs';
 import { createNamespaceFilterKeyWithId } from '@shell/utils/namespace-filter';
 import { parse as parseUrl, stringify as unParseUrl } from '@shell/utils/url';
 import epinioAuth, { EpinioAuthTypes } from '../../utils/auth';
+import { base64Encode } from '@shell/utils/crypto';
 
 import {
   EpinioInfo, EpinioVersion, EPINIO_MGMT_STORE, EPINIO_PRODUCT_NAME, EPINIO_STANDALONE_CLUSTER_NAME, EPINIO_TYPES
 } from '../../types';
-import { EpinioCluster } from '../../utils/epinio-discovery';
+import EpinioCluster from '../../models/cluster';
 
 const createId = (schema: any, resource: any) => {
   const name = resource.meta?.name || resource.name;
@@ -89,6 +90,11 @@ export default {
             Authorization: await epinioAuth.authHeader(currentCluster.createAuthConfig(EpinioAuthTypes.AGNOSTIC))
           };
 
+          if (opt.url === '/api/v1/info') {
+            // TODO: RC HACK FOR NOW. Reference new epinio issue
+            opt.headers.Authorization = `Basic ${ base64Encode(`admin:password`) }`;
+          }
+
           opt.url = `${ currentCluster.api }${ opt.url }`;
         }
 
@@ -136,7 +142,8 @@ export default {
           if (isSingleProduct) {
             dispatch('auth/logout', opt.logoutOnError, { root: true });
           } else {
-            setTimeout(() => dispatch('redirect', { name: 'epinio' }), 500); // TODO: RC facepalm
+            // TODO: RC this is very ugly
+            setTimeout(() => dispatch('redirect', { name: 'epinio' }), 100);
           }
         } else if (growlOnError) {
           dispatch('growl/fromError', { title: `Epinio Request to ${ opt.url }`, err }, { root: true });
