@@ -82,6 +82,10 @@ export default {
           [part]: await this.fetchPart(resource, part),
         }), Promise.resolve({}));
 
+        if (Object.values(partsData).some((part) => !part)) {
+          return;
+        }
+
         this.progressBar = 100;
         await chartZip(partsData);
       }
