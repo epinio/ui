@@ -156,9 +156,10 @@ export default Vue.extend<any, any, any, any>({
       }
     },
     openMetricsDetails() {
-      const clusterMetricsLink = `/c/${ this.$store.getters['clusterId'] }/explorer#cluster-events`;
-
-      this.$router.replace(clusterMetricsLink);
+      this.$router.replace({
+        name:   'c-cluster-explorer',
+        params: { cluster: this.$store.getters['clusterId'] }
+      });
     }
   },
   computed: {

@@ -235,14 +235,18 @@ export default {
       ...excludeInstances,
     ];
 
-    try {
-      const nodeMetricsSchema = await dispatch(`cluster/request`, { url: `/k8s/clusters/${ clusterId }/v1/schemas/${ METRIC.NODE }` }, { root: true });
+    const isSingleProduct = ctx.getters['isSingleProduct'];
 
-      if (nodeMetricsSchema) {
-        data.push(nodeMetricsSchema);
+    if (!isSingleProduct) {
+      try {
+        const nodeMetricsSchema = await dispatch(`cluster/request`, { url: `/k8s/clusters/${ clusterId }/v1/schemas/${ METRIC.NODE }` }, { root: true });
+
+        if (nodeMetricsSchema) {
+          data.push(nodeMetricsSchema);
+        }
+      } catch (e) {
+        console.warn(`Unable to fetch Node metrics schema for epinio cluster: ${ clusterId }`);// eslint-disable-line no-console
       }
-    } catch (e) {
-      console.warn(`Unable to fetch Node metrics schema for epinio cluster: ${ clusterId }`);// eslint-disable-line no-console
     }
 
     data.forEach((schema: any) => {
