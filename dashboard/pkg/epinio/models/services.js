@@ -56,7 +56,8 @@ export default class EpinioServiceModel extends EpinioNamespacedResource {
       },
       data: {
         name:            this.name,
-        catalog_service: this.catalog_service
+        catalog_service: this.catalog_service,
+        settings:        this.settings
       }
     });
   }

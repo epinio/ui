@@ -7,14 +7,13 @@ import ArrayList from '@shell/components/form/ArrayList.vue';
 import Loading from '@shell/components/Loading.vue';
 import Banner from '@components/Banner/Banner.vue';
 import { _EDIT } from '@shell/config/query-params';
-import Checkbox from '@components/Form/Checkbox/Checkbox.vue';
-import LabeledSelect from '@shell/components/form/LabeledSelect.vue';
-import formRulesGenerator from '@shell/utils/validators/formRules';
+import ChartValues from '../settings/ChartValues.vue';
 
 import { sortBy } from '@shell/utils/sort';
 import { validateKubernetesName } from '@shell/utils/validators/kubernetes-name';
 import { EPINIO_TYPES, EpinioNamespace } from '../../types';
 import Application from '../../models/applications';
+import { objValuesToString } from '../../utils/settings';
 
 export interface EpinioAppInfo {
   meta: {
@@ -46,8 +45,7 @@ export default Vue.extend<Data, any, any, any>({
     KeyValue,
     Loading,
     Banner,
-    Checkbox,
-    LabeledSelect
+    ChartValues,
   },
 
   props: {
@@ -138,7 +136,7 @@ export default Vue.extend<Data, any, any, any>({
       const validNamespace = nsErrors.length === 0;
       const validInstances = typeof this.values.configuration?.instances !== 'string' && this.values.configuration?.instances >= 0;
 
-      return validName && validNamespace && validInstances && Object.values(this.validSettings).every((v) => !!v) ;
+      return validName && validNamespace && validInstances && Object.values(this.validSettings).every((v) => !!v);
     },
 
     showApplicationVariables() {
@@ -156,7 +154,7 @@ export default Vue.extend<Data, any, any, any>({
         meta:          this.values.meta,
         configuration: {
           ...this.values.configuration,
-          settings: this.objValuesToString(this.values.configuration.settings)
+          settings: objValuesToString(this.values.configuration.settings)
         },
       });
     },
@@ -196,57 +194,6 @@ export default Vue.extend<Data, any, any, any>({
       });
 
       return Object.fromEntries(entries);
-    },
-
-    objValuesToString(obj: any) {
-      const copy = { ...obj };
-
-      for (const key in copy) {
-        if (typeof copy[key] !== 'string') {
-          copy[key] = String(copy[key]);
-        }
-      }
-
-      return copy;
-    },
-
-    validSettingsRule(key: string, min: any, max: any) {
-      const frg = formRulesGenerator(this.$store.getters['i18n/t'], { key });
-      const minRule = frg.minValue(min);
-      const maxRule = frg.maxValue(max);
-
-      return (value: string) => {
-        const messages = [];
-
-        if (value) {
-          const minRes = minRule(value);
-
-          if (minRes) {
-            messages.push(minRes);
-          }
-
-          const maxRes = maxRule(value);
-
-          if (maxRes) {
-            messages.push(maxRes);
-          }
-        }
-        Vue.set(this.validSettings, key, !messages.length);
-
-        return messages.join(',');
-      };
-    },
-
-    numericPlaceholder(setting: any) {
-      if (setting.maximum && setting.minimum) {
-        return `${ setting.minimum } to ${ setting.maximum }`;
-      } else if (setting.maximum) {
-        return `<= ${ setting.maximum }`;
-      } else if (setting.minimum) {
-        return `>= ${ setting.minimum }`;
-      } else {
-        return '';
-      }
     },
   },
 
@@ -305,50 +252,15 @@ export default Vue.extend<Data, any, any, any>({
     </div>
     <div
       v-if="showApplicationVariables"
-      class="col span-6 settings"
+      class="col span-6"
     >
-      <h3>{{ t('epinio.applications.create.settingsVars.title') }}</h3>
-      <div
-        v-for="(setting, key) in values.chart"
-        :key="key"
-        class="settings-item"
-      >
-        <LabeledInput
-          v-if="setting.type === 'number' || setting.type === 'integer'"
-          :id="key"
-          v-model="values.configuration.settings[key]"
-          :label="key"
-          type="number"
-          :min="setting.minimum"
-          :max="setting.maximum"
-          :rules="[validSettingsRule(key, setting.minimum, setting.maximum)]"
-          :tooltip="numericPlaceholder(setting)"
-          :mode="mode"
-        />
-        <Checkbox
-          v-else-if="setting.type === 'bool'"
-          :id="key"
-          :value="values.configuration.settings[key] === 'true'"
-          :label="key"
-          :mode="mode"
-          @input="values.configuration.settings[key] = $event ? 'true' : 'false'"
-        />
-        <LabeledSelect
-          v-else-if="setting.type === 'string' && setting.enum"
-          :id="key"
-          v-model="values.configuration.settings[key]"
-          :label="key"
-          :options="setting.enum"
-          :mode="mode"
-        />
-        <LabeledInput
-          v-else-if="setting.type === 'string'"
-          :id="key"
-          v-model="values.configuration.settings[key]"
-          :label="key"
-          :mode="mode"
-        />
-      </div>
+      <ChartValues
+        v-model="values.configuration.settings"
+        :chart="values.chart"
+        :title="t('epinio.applications.create.settingsVars.title')"
+        :mode="mode"
+        @valid="validSettings = $event"
+      />
       <div class="spacer" />
     </div>
     <div class="col span-8">
@@ -365,14 +277,3 @@ export default Vue.extend<Data, any, any, any>({
     </div>
   </div>
 </template>
-
-<style lang="scss" scoped>
-.settings {
-  display: flex;
-  flex-direction: column;
-
-  &-item:not(:last-of-type) {
-    margin-bottom: 20px;
-  }
-}
-</style>

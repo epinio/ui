@@ -9,10 +9,13 @@ import LabeledSelect from '@shell/components/form/LabeledSelect.vue';
 import { EPINIO_TYPES, EpinioNamespace, EpinioCompRecord, EpinioCatalogService } from '../types';
 import { validateKubernetesName } from '@shell/utils/validators/kubernetes-name';
 import NameNsDescription from '@shell/components/form/NameNsDescription.vue';
+import ChartValues from '../components/settings/ChartValues.vue';
 import EpinioBindAppsMixin from './bind-apps-mixin.js';
 import { mapGetters } from 'vuex';
 import isEqual from 'lodash/isEqual';
 import sortBy from 'lodash/sortBy';
+import EpinioCatalogServiceModel from '../models/catalogservices';
+import { objValuesToString } from '../utils/settings';
 
 export const EPINIO_SERVICE_PARAM = 'service';
 
@@ -23,6 +26,7 @@ interface Data {
 export default Vue.extend<Data, EpinioCompRecord, EpinioCompRecord, EpinioCompRecord>({
   components: {
     Loading,
+    ChartValues,
     CruResource,
     LabeledSelect,
     NameNsDescription,
@@ -51,7 +55,7 @@ export default Vue.extend<Data, EpinioCompRecord, EpinioCompRecord, EpinioCompRe
       this.mixinFetch()
     ]);
 
-    Vue.set(this.value, 'catalog_service', this.$route.query[EPINIO_SERVICE_PARAM]);
+    Vue.set(this.value, 'catalog_service', this.selectedCatalogService?.meta.name || this.$route.query[EPINIO_SERVICE_PARAM] || null);
     Vue.set(this.value.meta, 'namespace', this.initialValue.meta.namespace || this.namespaces[0]?.meta.name);
   },
 
@@ -60,6 +64,8 @@ export default Vue.extend<Data, EpinioCompRecord, EpinioCompRecord, EpinioCompRe
       errors:                 [],
       failedWaitingForDeploy: false,
       selectedApps:           this.value.boundapps || [],
+      chartValues:            this.value.settings || {},
+      validChartValues:       {}
     };
   },
 
@@ -72,6 +78,10 @@ export default Vue.extend<Data, EpinioCompRecord, EpinioCompRecord, EpinioCompRe
       }
 
       if (!this.value.catalog_service) {
+        return false;
+      }
+
+      if (!Object.values(this.validChartValues).every((v) => !!v)) {
         return false;
       }
 
@@ -93,19 +103,31 @@ export default Vue.extend<Data, EpinioCompRecord, EpinioCompRecord, EpinioCompRe
       return this.namespaces.map((n: EpinioNamespace) => n.metadata.name);
     },
 
+    catalogServices(): EpinioCatalogServiceModel[] {
+      return this.$store.getters['epinio/all'](EPINIO_TYPES.CATALOG_SERVICE);
+    },
+
     catalogServiceOpts() {
-      return this.$store.getters['epinio/all'](EPINIO_TYPES.CATALOG_SERVICE).map((cs: EpinioCatalogService) => ({
+      return this.catalogServices.map((cs: EpinioCatalogService) => ({
         label: `${ cs.name } (${ cs.short_description })`,
         value: cs.name
       }));
     },
 
     noCatalogServices() {
-      return this.catalogServiceOpts.length === 0;
+      return this.catalogServices.length === 0;
+    },
+
+    selectedCatalogService() {
+      return this.catalogServices?.find(({ name }: EpinioCatalogServiceModel) => name === this.value.catalog_service);
     },
 
     newBinds() {
       return !isEqual(sortBy(this.selectedApps), sortBy(this.value.boundapps));
+    },
+
+    showChartValues() {
+      return Object.keys(this.selectedCatalogService?.settings || {}).length !== 0;
     }
   },
 
@@ -140,12 +162,23 @@ export default Vue.extend<Data, EpinioCompRecord, EpinioCompRecord, EpinioCompRe
         saveCb(false);
       }
     },
+    resetChartValues() {
+      this.chartValues = {};
+      this.value.settings = null;
+      this.validChartValues = {};
+    }
   },
 
   watch: {
     'value.meta.namespace'() {
       Vue.set(this, 'selectedApps', []);
     },
+    chartValues: {
+      handler(neu) {
+        this.value.settings = objValuesToString(neu);
+      },
+      deep: true
+    }
   }
 
 });
@@ -187,6 +220,7 @@ export default Vue.extend<Data, EpinioCompRecord, EpinioCompRecord, EpinioCompRe
           :label-key="'epinio.serviceInstance.create.catalogService.label'"
           :placeholder="$fetchState.pending || noCatalogServices ? t('epinio.serviceInstance.create.catalogService.placeholderNoOptions') : t('epinio.serviceInstance.create.catalogService.placeholderWithOptions')"
           required
+          @option:selected="resetChartValues"
         />
       </div>
     </div>
@@ -203,6 +237,23 @@ export default Vue.extend<Data, EpinioCompRecord, EpinioCompRecord, EpinioCompRe
           :multiple="true"
           :label-key="'epinio.configurations.bindApps.label'"
           :placeholder="$fetchState.pending || noApps ? t('epinio.configurations.bindApps.placeholderNoOptions') : t('epinio.configurations.bindApps.placeholderWithOptions')"
+        />
+      </div>
+    </div>
+    <div
+      v-if="showChartValues"
+      class="row"
+    >
+      <div class="col span-6">
+        <div class="spacer" />
+        <!-- EDIT mode is not supported -->
+        <ChartValues
+          v-model="chartValues"
+          :chart="selectedCatalogService.settings"
+          :title="t('epinio.services.chartValues.title')"
+          :mode="mode"
+          :disabled="mode === 'edit'"
+          @valid="validChartValues = $event"
         />
       </div>
     </div>

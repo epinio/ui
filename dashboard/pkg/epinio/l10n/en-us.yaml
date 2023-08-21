@@ -320,6 +320,8 @@ epinio:
       }
     promptRemove:
       attemptingToRemove: You are attempting to delete the Service Instance
+    chartValues:
+      title: Service Variables
   configurations:
     pairs:
       label: Config Data
