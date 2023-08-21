@@ -73,6 +73,10 @@ epinio:
         description: Create instances of your services. Instances can be bound to your Applications to provide data.
         linkText: Create Instance
         slotTitle: Quick start with
+    metrics:
+      availability: 'Available node resources: { availableCpu }% cpu, { availableMemory }% memory. '
+      link:
+        label: Show Metrics in Cluster Explorer
   tableHeaders:
     namespace: Namespace
   instances:

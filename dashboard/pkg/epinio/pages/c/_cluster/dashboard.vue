@@ -2,13 +2,17 @@
 import Vue from 'vue';
 import DashboardCard from '../../../components/dashboard/Cards.vue';
 import { createEpinioRoute } from '../../../utils/custom-routing';
-import { EpinioApplicationResource, EpinioCatalogService, EPINIO_TYPES } from '../../../types';
+import { EpinioApplicationResource, EpinioCatalogService, EPINIO_MGMT_STORE, EPINIO_TYPES } from '../../../types';
 import ConsumptionGauge from '@shell/components/ConsumptionGauge.vue';
 import Namespace from '@shell/models/namespace';
+import { parseSi, createMemoryValues } from '@shell/utils/units';
 import EpinioServiceModel from '../../../models/services';
 import isEqual from 'lodash/isEqual';
 import { sortBy } from 'lodash';
 import { Location } from 'vue-router';
+import Banner from '@components/Banner/Banner.vue';
+import { METRIC } from '@shell/config/types';
+import { allHash } from '@shell/utils/promise';
 
 type ComponentService = {
   name: string,
@@ -17,15 +21,21 @@ type ComponentService = {
 }
 
 export default Vue.extend<any, any, any, any>({
-  components: { DashboardCard, ConsumptionGauge },
+  components: {
+    Banner,
+    DashboardCard,
+    ConsumptionGauge
+  },
   async fetch() {
-    await Promise.all([
-      this.$store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.CATALOG_SERVICE }),
-      this.$store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.NAMESPACE }),
-      this.$store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.SERVICE_INSTANCE })
-    ]);
+    const hash: { [key:string]: any } = await allHash({
+      ns:          this.$store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.NAMESPACE }),
+      svc:         this.$store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.SERVICE_INSTANCE }),
+      catalogSvc:  this.$store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.CATALOG_SERVICE }),
+      version:     this.$store.dispatch('epinio/version'),
+      showMetrics: this.calcAvailableResources()
+    });
 
-    this.version = await this.$store.dispatch('epinio/version');
+    this.version = hash.version;
   },
   data() {
     return {
@@ -63,8 +73,11 @@ export default Vue.extend<any, any, any, any>({
       colorStops: {
         0: '--info', 30: '--info', 70: '--info'
       },
-      version:   null,
-      aboutLink: !this.$store.getters['isSingleProduct'] ? createEpinioRoute('c-cluster-about', { cluster: this.$store.getters['clusterId'] }) : null
+      version:         null,
+      aboutLink:       !this.$store.getters['isSingleProduct'] ? createEpinioRoute('c-cluster-about', { cluster: this.$store.getters['clusterId'] }) : null,
+      availableCpu:    100,
+      availableMemory: 100,
+      showMetricsInfo: false
     };
   },
   created() {
@@ -94,6 +107,34 @@ export default Vue.extend<any, any, any, any>({
     }
   },
   methods: {
+    async calcAvailableResources() {
+      if (this.$store.getters['isSingleProduct']) {
+        return;
+      }
+
+      const nodeMetricsSchema = this.$store.getters[`epinio/schemaFor`](METRIC.NODE);
+
+      if (nodeMetricsSchema) {
+        const id = this.$store.getters['clusterId'];
+
+        const nodeMetrics = await this.$store.dispatch(`cluster/request`, { url: `/k8s/clusters/${ id }/v1/metrics.k8s.io.nodemetrics` }, { root: true });
+
+        const currentCluster = this.$store.getters[`${ EPINIO_MGMT_STORE }/byId`](EPINIO_TYPES.INSTANCE, id);
+
+        const cpu = {
+          total:  parseSi(currentCluster.mgmtCluster?.status?.capacity?.cpu, null),
+          useful: parseSi(nodeMetrics.data[0].usage.cpu, null)
+        };
+
+        const memory = createMemoryValues(currentCluster.mgmtCluster?.status?.capacity?.memory, nodeMetrics.data[0].usage.memory);
+
+        this.availableCpu = Math.floor(100 - cpu.useful / cpu.total * 100);
+        this.availableMemory = Math.floor(100 - memory.useful / memory.total * 100);
+
+        this.showMetricsInfo = true;
+      }
+    },
+
     redoCards() {
       // Handles titles
       this.sectionContent[0].title = this.t('typeLabel.withCount.namespaces', { n: this.namespaces.totalNamespaces });
@@ -113,6 +154,12 @@ export default Vue.extend<any, any, any, any>({
         this.sectionContent[2].isLoaded = true;
         this.sectionContent[2].isEnable = true;
       }
+    },
+    openMetricsDetails() {
+      this.$router.replace({
+        name:   'c-cluster-explorer',
+        params: { cluster: this.$store.getters['clusterId'] }
+      });
     }
   },
   computed: {
@@ -198,6 +245,21 @@ export default Vue.extend<any, any, any, any>({
         </n-link>
       </div>
     </div>
+
+    <Banner
+      v-if="showMetricsInfo"
+      class="metrics"
+      color="info"
+    >
+      <span>
+        {{ t('epinio.intro.metrics.availability', { availableCpu, availableMemory }) }}
+      </span>
+      <a
+        class="cluster-link"
+        @click="openMetricsDetails"
+      >{{ t('epinio.intro.metrics.link.label') }}</a>
+    </Banner>
+
     <div class="get-started">
       <div
         v-for="(card, index) in sectionContent"
@@ -325,4 +387,20 @@ export default Vue.extend<any, any, any, any>({
     grid-gap: 20px;
   }
 }
+</style>
+
+<style lang="scss">
+  .metrics {
+
+    &.banner {
+      margin-top: 0;
+      margin-bottom: 20px;
+    }
+
+    .banner__content {
+      .cluster-link {
+        cursor: pointer;
+      }
+    }
+  }
 </style>

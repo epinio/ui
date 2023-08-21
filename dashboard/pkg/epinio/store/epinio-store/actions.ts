@@ -1,4 +1,4 @@
-import { SCHEMA } from '@shell/config/types';
+import { METRIC, SCHEMA } from '@shell/config/types';
 import { handleSpoofedRequest } from '@shell/plugins/dashboard-store/actions';
 import { classify } from '@shell/plugins/dashboard-store/classify';
 import { normalizeType } from '@shell/plugins/dashboard-store/normalize';
@@ -170,8 +170,10 @@ export default {
     await commit('reset');
   },
 
-  loadSchemas: ( ctx: any ) => {
-    const { commit, rootGetters } = ctx;
+  loadSchemas: async( ctx: any ) => {
+    const { commit, dispatch, rootGetters } = ctx;
+
+    const clusterId = rootGetters['clusterId'];
 
     const res = {
       data: [{
@@ -228,9 +230,26 @@ export default {
     const spoofedSchemas = rootGetters['type-map/spoofedSchemas'](EPINIO_PRODUCT_NAME);
     const excludeInstances = spoofedSchemas.filter((schema: any) => schema.id !== EPINIO_TYPES.INSTANCE);
 
-    res.data = res.data.concat(excludeInstances);
+    const data = [
+      ...res.data,
+      ...excludeInstances,
+    ];
 
-    res.data.forEach((schema: any) => {
+    const isSingleProduct = ctx.getters['isSingleProduct'];
+
+    if (!isSingleProduct) {
+      try {
+        const nodeMetricsSchema = await dispatch(`cluster/request`, { url: `/k8s/clusters/${ clusterId }/v1/schemas/${ METRIC.NODE }` }, { root: true });
+
+        if (nodeMetricsSchema) {
+          data.push(nodeMetricsSchema);
+        }
+      } catch (e) {
+        console.warn(`Unable to fetch Node metrics schema for epinio cluster: ${ clusterId }`);// eslint-disable-line no-console
+      }
+    }
+
+    data.forEach((schema: any) => {
       schema._id = normalizeType(schema.id);
       schema._group = normalizeType(schema.attributes?.group);
     });
@@ -238,7 +257,7 @@ export default {
     commit('loadAll', {
       ctx,
       type: SCHEMA,
-      data: res.data
+      data
     });
   },
 
