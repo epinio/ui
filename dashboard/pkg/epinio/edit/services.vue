@@ -64,21 +64,9 @@ export default Vue.extend<Data, EpinioCompRecord, EpinioCompRecord, EpinioCompRe
       errors:                 [],
       failedWaitingForDeploy: false,
       selectedApps:           this.value.boundapps || [],
-      chartValues:            {},
+      chartValues:            this.value.settings || {},
       validChartValues:       {}
     };
-  },
-
-  mounted() {
-    if (this.mode !== 'create') {
-      const serviceDetails = this.$store.dispatch('epinio/find', {
-        type: EPINIO_TYPES.SERVICE_INSTANCE,
-        id:   `${ this.value.metadata?.namespace }/${ this.value.metadata?.name }`,
-        opt:  { force: true }
-      });
-
-      this.chartValues = serviceDetails?.settings || {};
-    }
   },
 
   computed: {
