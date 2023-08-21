@@ -108,9 +108,13 @@ export default Vue.extend<any, any, any, any>({
   },
   methods: {
     async calcAvailableResources() {
+      if (this.$store.getters['isSingleProduct']) {
+        return;
+      }
+
       const nodeMetricsSchema = this.$store.getters[`epinio/schemaFor`](METRIC.NODE);
 
-      if (!this.$store.getters['isSingleProduct'] && nodeMetricsSchema) {
+      if (nodeMetricsSchema) {
         const id = this.$store.getters['clusterId'];
 
         const nodeMetrics = await this.$store.dispatch(`cluster/request`, { url: `/k8s/clusters/${ id }/v1/metrics.k8s.io.nodemetrics` }, { root: true });
