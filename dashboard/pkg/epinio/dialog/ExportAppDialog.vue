@@ -26,6 +26,7 @@ export default {
       required: true
     }
   },
+
   data() {
     return {
       config: {
@@ -33,17 +34,26 @@ export default {
         applyMode:   'export',
         applyAction: this.exportApplicationManifest,
       },
-      zipParts:        this.resources[0].applicationParts.filter((part) => part !== APPLICATION_PARTS.MANIFEST),
-      showProgressBar: false,
-      downloadingPart: null,
-      progressBar:     0,
-      colorStops:      { 0: '--primary', 100: '--primary' },
+      zipParts:           this.resources[0].applicationParts.filter((part) => part !== APPLICATION_PARTS.MANIFEST),
+      showProgressBar:    false,
+      downloadingPart:    null,
+      cancelTokenSources: {},
+      progressBar:        0,
+      colorStops:         { 0: '--primary', 100: '--primary' },
     };
+  },
+
+  mounted() {
+    document.addEventListener('keyup', this.escapeHandler);
+  },
+
+  beforeDestroy() {
+    document.removeEventListener('keyup', this.escapeHandler);
   },
 
   methods: {
     async exportApplicationManifest() {
-      this.showProgressBar = true;
+      this.enableDownload();
       const resource = this.resources[0];
 
       const chartZip = async(files) => {
@@ -72,12 +82,21 @@ export default {
           [part]: await this.fetchPart(resource, part),
         }), Promise.resolve({}));
 
+        if (Object.values(partsData).some((part) => !part)) {
+          return;
+        }
+
         this.progressBar = 100;
         await chartZip(partsData);
       }
     },
 
+    getCancelToken() {
+      return this.$store.$axios.CancelToken;
+    },
+
     async fetchPart(resource, part) {
+      this.cancelTokenSources[part] = this.getCancelToken().source();
       this.downloadingPart = part;
 
       return await resource.fetchPart(
@@ -90,17 +109,63 @@ export default {
             if (total) {
               this.progressBar += Math.round((progressEvent.loaded * 100) / total) * partsWeight[part];
             }
-          }
-        });
+          },
+          cancelToken: this.cancelTokenSources[part].token
+        }).catch((thrown) => {
+        if (!this.$store.$axios.isCancel(thrown)) {
+          this.disableDownload();
+
+          // Override only messages of server errors
+          const message = thrown.message ?? this.t('epinio.applications.export.chartValuesImages.error', { part });
+
+          throw new Error(message);
+        }
+      });
     },
+
+    fetchCancel() {
+      // Cancel pending api requests, see https://axios-http.com/docs/cancellation
+      Object.keys(this.cancelTokenSources).forEach((part) => this.cancelTokenSources[part].cancel(`${ part } part: download cancelled.`));
+    },
+
+    close() {
+      if (this.$route.hash !== '#manifest') {
+        this.fetchCancel();
+      }
+      this.$emit('close');
+    },
+
+    escapeHandler(e) {
+      if (e.key === 'Escape') {
+        this.close();
+      }
+    },
+
+    resetErrors() {
+      if (this.$refs.genericPrompt) {
+        this.$refs.genericPrompt.errors = [];
+      }
+    },
+
+    enableDownload() {
+      this.resetErrors();
+      this.showProgressBar = true;
+    },
+
+    disableDownload() {
+      this.fetchCancel();
+      this.showProgressBar = false;
+      this.progressBar = 0;
+    }
   }
 };
 </script>
 
 <template>
   <GenericPrompt
+    ref="genericPrompt"
     v-bind="config"
-    @close="$emit('close')"
+    @close="close"
   >
     <h4
       slot="title"
@@ -110,7 +175,7 @@ export default {
     </h4>
 
     <template slot="body">
-      <Tabbed>
+      <Tabbed @changed="resetErrors">
         <Tab
           label-key="epinio.applications.export.manifest.title"
           name="manifest"

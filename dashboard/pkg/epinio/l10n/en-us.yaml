@@ -165,6 +165,7 @@ epinio:
             values: Values
             chart: Chart
             image: Image
+        error: Server Error, download of { part } part failed.
 
     steps:
       basics:
