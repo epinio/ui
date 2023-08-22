@@ -3,6 +3,12 @@ import { EPINIO_TYPES } from '../types';
 import EpinioNamespacedResource, { bulkRemove } from './epinio-namespaced-resource';
 
 export default class EpinioServiceModel extends EpinioNamespacedResource {
+  constructor(...args) {
+    super(...args);
+
+    this.serviceDetails = {};
+  }
+
   get links() {
     return {
       update: this.getUrl(),
@@ -34,6 +40,14 @@ export default class EpinioServiceModel extends EpinioNamespacedResource {
   }
 
   // ------------------------------------------------------------------
+
+  get details() {
+    return this.serviceDetails;
+  }
+
+  set details(v) {
+    this.serviceDetails = v;
+  }
 
   get state() {
     return this.status;
