@@ -33,8 +33,25 @@ export default class EpinioServiceModel extends EpinioNamespacedResource {
       .filter((a) => !!a);
   }
 
-  // ------------------------------------------------------------------
+  get serviceDetails() {
+    return this._serviceDetails;
+  }
 
+  /**
+   * Return the dashboard reserved getter for `details` (shown in MastHead)
+   */
+  get details() {
+    return super.details;
+  }
+
+  /**
+   * When assigning Epinio details property ensure it goes to a temp value (instead of colliding with dashboard reserved `details` getter)
+   */
+  set details(v) {
+    this._serviceDetails = v;
+  }
+
+  // ------------------------------------------------------------------
   get state() {
     return this.status;
   }
@@ -94,5 +111,20 @@ export default class EpinioServiceModel extends EpinioNamespacedResource {
 
   bulkRemove(items, opt) {
     return bulkRemove(items, opt);
+  }
+
+  // Ensure when we clone that we preserve the description
+  toJSON() {
+    const data = super.toJSON();
+
+    // Ensure the epinio detail gets persisted in the right property
+    data.details = this._serviceDetails;
+    delete data._serviceDetails;
+
+    return data;
+  }
+
+  toSave() {
+    return this.toJSON();
   }
 }

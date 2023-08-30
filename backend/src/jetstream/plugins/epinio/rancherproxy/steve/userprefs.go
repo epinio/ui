@@ -38,11 +38,11 @@ func NewUserPref(userId string) *interfaces.UserPref {
 func GetUserPrefs(c echo.Context) error {
 	col := NewUserPrefCollection()
 	col.Data = make([]interface{}, 1)
-	pref := createPref(c)
+	pref := createPref(c, true)
 	col.Data[0] = pref
 
 	host := interfaces.GetBaseURL(c)
-	base := fmt.Sprintf("https://%s%s", host, c.Request().URL.String())
+	base := fmt.Sprintf("https://%s%s%s", host, c.Request().URL.Host, c.Request().URL.Path)
 
 	col.Links["self"] = base
 
@@ -51,10 +51,10 @@ func GetUserPrefs(c echo.Context) error {
 
 // Get user profile
 func GetSpecificUserPrefs(c echo.Context) error {
-	return c.JSON(http.StatusOK, createPref(c))
+	return c.JSON(http.StatusOK, createPref(c, false))
 }
 
-func createPref(c echo.Context) *interfaces.UserPref {
+func createPref(c echo.Context, isList bool) *interfaces.UserPref {
 	userID := c.Get("user_id").(string)
 
 	data := json.RawMessage(DefaultUserPreferences)
@@ -62,7 +62,14 @@ func createPref(c echo.Context) *interfaces.UserPref {
 	pref.Data = data
 
 	host := interfaces.GetBaseURL(c)
-	user := fmt.Sprintf("https://%s%s/%s", host, c.Request().URL.String(), userID)
+
+	var user string
+	if isList {
+		user = fmt.Sprintf("https://%s%s%s/%s", host, c.Request().URL.Host, c.Request().URL.Path, userID)
+	} else {
+		// Already contains user id in url
+		user = fmt.Sprintf("https://%s%s%s", host, c.Request().URL.Host, c.Request().URL.Path)
+	}
 
 	pref.Links["self"] = user
 	pref.Links["remove"] = user

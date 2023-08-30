@@ -23,7 +23,7 @@ func GetAuthProviders(ec echo.Context, p jInterfaces.PortalProxy) error {
 
 // /v3/users
 func GetUser(ec echo.Context) error {
-	user := NewUser(interfaces.GetBaseURL(ec), ec.Get("user_id").(string))
+	user := NewUser(interfaces.GetSelfLink(ec), ec.Get("user_id").(string))
 
 	return api.SendResponse(ec, user)
 }
@@ -36,7 +36,7 @@ func TokenLogout(ec echo.Context, p jInterfaces.PortalProxy) error {
 
 // /v3/principals
 func GetPrincipals(ec echo.Context) error {
-	principal := NewPrincipal(interfaces.GetBaseURL(ec), ec.Get("user_id").(string))
+	principal := NewPrincipal(interfaces.GetSelfLink(ec), ec.Get("user_id").(string))
 
 	return api.SendResponse(ec, principal)
 }

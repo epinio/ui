@@ -38,14 +38,15 @@ func GetBaseURL(ec echo.Context) string {
 	return host
 }
 
-func GetSelfLink(ec echo.Context, paths ...string) string {
+func GetSelfLink(ec echo.Context, additionalPaths ...string) string {
 	host := GetBaseURL(ec)
-	path := strings.Join(paths, "/")
+	path := strings.Join(additionalPaths, "/")
+
 	if len(path) > 0 {
 		path = fmt.Sprintf("/%s", path)
 	}
 
-	return fmt.Sprintf("https://%s%s%s", host, ec.Request().URL.String(), path)
+	return fmt.Sprintf("https://%s%s%s%s", host, ec.Request().URL.Host, ec.Request().URL.Path, path)
 }
 
 type AuthProvider struct {
