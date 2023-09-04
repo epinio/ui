@@ -11,10 +11,44 @@ categories:
       - 'kind/dependencies'
       - 'kind/project'
 
+# Needs to contain all labels from above
+include-labels:
+  - 'kind/enhancement'
+  - 'kind/bug'
+  - 'kind/chore'
+  - 'kind/dependencies'
+  - 'kind/project'
+
 change-template: '- $TITLE (#$NUMBER)'
 change-title-escapes: '\<*_&' # You can add # and @ to disable mentions, and add ` to disable code blocks.
 tag-template: 'v$RESOLVED_VERSION'
 name-template: 'v$RESOLVED_VERSION 🌈'
+autolabeler:
+  - label: 'kind/chore'
+    branch:
+      - '/chore\/.+/'
+    title:
+      - '/\[chore\]/i'
+  - label: 'kind/dependencies'
+    branch:
+      - '/dependencies\/.+/'
+    title:
+      - '/\[dependencies\]/i'
+  - label: 'kind/project'
+    branch:
+      - '/project\/.+/'
+    title:
+      - '/\[project\]/i'
+  - label: 'kind/bug'
+    branch:
+      - '/fix\/.+/'
+    title:
+      - '/\[fix\]/i'
+  - label: 'kind/enhancement'
+    branch:
+      - '/feature\/.+/'
+    title:
+      - '/\[feature\]/i'
 template: |
 
   # What's Changed
