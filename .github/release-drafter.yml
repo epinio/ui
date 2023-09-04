@@ -6,13 +6,10 @@ categories:
     labels:
       - 'kind/bug'
   - title: '🧰 Maintenance'
-
-exclude-labels:
-  - 'status/duplicate'
-  - 'status/invalid'
-  - 'status/wontfix'
-  - 'status/question'
-  - 'area/embedded'
+    labels:
+      - 'kind/chore'
+      - 'kind/dependencies'
+      - 'kind/project'
 
 change-template: '- $TITLE (#$NUMBER)'
 change-title-escapes: '\<*_&' # You can add # and @ to disable mentions, and add ` to disable code blocks.
