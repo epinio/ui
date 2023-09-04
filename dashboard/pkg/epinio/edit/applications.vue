@@ -112,6 +112,9 @@ export default Vue.extend<Data, EpinioCompRecord, EpinioCompRecord, EpinioCompRe
     showSourceTab() {
       return this.mode === _EDIT;
     },
+    validationPassed() {
+      return !Object.values(this.tabErrors).find((error) => error);
+    }
   },
 
   methods: {
@@ -197,6 +200,7 @@ export default Vue.extend<Data, EpinioCompRecord, EpinioCompRecord, EpinioCompRe
         this.tabErrors[tab] = !value;
       }
 
+      // UpdateSource wizard will save settings as well, needs to disable the button in case of errors
       this.steps[0].ready = value;
     }
   },
@@ -212,7 +216,7 @@ export default Vue.extend<Data, EpinioCompRecord, EpinioCompRecord, EpinioCompRe
     :mode="mode"
     :resource="value"
     :errors="errors"
-    :validation-passed="steps[0].ready"
+    :validation-passed="validationPassed"
     @error="e=>errors = e"
     @finish="save"
   >
