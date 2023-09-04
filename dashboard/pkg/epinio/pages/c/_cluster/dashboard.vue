@@ -363,7 +363,7 @@ export default Vue.extend<any, any, any, any>({
 
       span {
         background: var(--primary);
-        color: var(--body-text);
+        color: var(--primary-text);
         border-radius: var(--border-radius);
         padding: 4px 8px;
       }
