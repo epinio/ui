@@ -12,6 +12,7 @@ exclude-labels:
   - 'status/invalid'
   - 'status/wontfix'
   - 'status/question'
+  - 'area/embedded'
 
 change-template: '- $TITLE (#$NUMBER)'
 change-title-escapes: '\<*_&' # You can add # and @ to disable mentions, and add ` to disable code blocks.
