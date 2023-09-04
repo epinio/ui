@@ -192,7 +192,7 @@ export default Vue.extend<Data, EpinioCompRecord, EpinioCompRecord, EpinioCompRe
     updateManifestConfigurations(changes: string[]) {
       this.set(this.value.configuration, { configurations: changes });
     },
-    validate(value, tab) {
+    validate(value: boolean, tab: string) {
       if (tab) {
         this.tabErrors[tab] = !value;
       }
