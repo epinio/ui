@@ -23,6 +23,7 @@ change-template: '- $TITLE (#$NUMBER)'
 change-title-escapes: '\<*_&' # You can add # and @ to disable mentions, and add ` to disable code blocks.
 tag-template: 'v$RESOLVED_VERSION'
 name-template: 'v$RESOLVED_VERSION 🌈'
+version-template: '$MAJOR.$MINOR'
 autolabeler:
   - label: 'kind/chore'
     branch:
@@ -62,19 +63,15 @@ template: |
 version-resolver:
   major:
     labels:
-      - 'major'
-      - 'breaking'
+      - 'disabled'
   minor:
     labels:
-      - 'minor'
-      - 'feature'
-      - 'status/enhancement'
-      - 'dependencies'
+      - 'kind/enhancement'
+      - 'kind/bug'
+      - 'kind/chore'
+      - 'kind/dependencies'
+      - 'kind/project'
   patch:
     labels:
-      - 'patch'
-      - 'fix'
-      - 'bugfix'
-      - 'status/bug'
-      - 'chore'
+      - 'disabled'
   default: patch
