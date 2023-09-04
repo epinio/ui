@@ -73,7 +73,8 @@ export default Vue.extend<Data, EpinioCompRecord, EpinioCompRecord, EpinioCompRe
           previousButton: { disable: true }
         },
       ],
-      epinioInfo: undefined
+      epinioInfo: undefined,
+      tabErrors:  { appInfo: false }
     };
   },
 
@@ -111,6 +112,9 @@ export default Vue.extend<Data, EpinioCompRecord, EpinioCompRecord, EpinioCompRe
     showSourceTab() {
       return this.mode === _EDIT;
     },
+    validationPassed() {
+      return !Object.values(this.tabErrors).find((error) => error);
+    }
   },
 
   methods: {
@@ -191,6 +195,14 @@ export default Vue.extend<Data, EpinioCompRecord, EpinioCompRecord, EpinioCompRe
     updateManifestConfigurations(changes: string[]) {
       this.set(this.value.configuration, { configurations: changes });
     },
+    validate(value: boolean, tab: string) {
+      if (tab) {
+        this.tabErrors[tab] = !value;
+      }
+
+      // UpdateSource wizard will save settings as well, needs to disable the button in case of errors
+      this.steps[0].ready = value;
+    }
   },
 });
 </script>
@@ -204,6 +216,7 @@ export default Vue.extend<Data, EpinioCompRecord, EpinioCompRecord, EpinioCompRe
     :mode="mode"
     :resource="value"
     :errors="errors"
+    :validation-passed="validationPassed"
     @error="e=>errors = e"
     @finish="save"
   >
@@ -258,11 +271,13 @@ export default Vue.extend<Data, EpinioCompRecord, EpinioCompRecord, EpinioCompRe
         label-key="epinio.applications.steps.basics.label"
         name="info"
         :weight="20"
+        :error="tabErrors.appInfo"
       >
         <AppInfo
           :application="value"
           :mode="mode"
           @change="updateInfo"
+          @valid="validate($event, 'appInfo')"
         />
       </Tab>
       <Tab
