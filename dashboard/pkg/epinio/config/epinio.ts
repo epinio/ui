@@ -29,7 +29,7 @@ export function init($plugin: any, store: any) {
       logoRoute:           createEpinioRoute('c-cluster-dashboard', { cluster: EPINIO_STANDALONE_CLUSTER_NAME }),
       disableSteveSockets: true,
       getVersionInfo:      (store:any) => {
-        const { displayVersion } = store.getters[`${ EPINIO_PRODUCT_NAME }/version`]();
+        const { displayVersion } = store.getters[`${ EPINIO_PRODUCT_NAME }/version`]() || { };
 
         return displayVersion || 'unknown';
       },
