@@ -2975,10 +2975,10 @@
   dependencies:
     lodash.debounce "4.0.8"
 
-"@rancher/shell@^0.3.20":
-  version "0.3.20"
-  resolved "https://registry.yarnpkg.com/@rancher/shell/-/shell-0.3.20.tgz#6e9d30d5b6b6788fe3b3b029180f2fdefcb45c6c"
-  integrity sha512-Ux7vKtHohQ96DwK18gR0DZgmEfUEsMo4WrojTFzubVk9XRSOpnm2WOZJEH6SeYB0dTo6XbfhhpsVhfJGGrrBOg==
+"@rancher/shell@^0.3.23":
+  version "0.3.23"
+  resolved "https://registry.yarnpkg.com/@rancher/shell/-/shell-0.3.23.tgz#9f334f2e9034e27d7edf6f8a12af597790e31d14"
+  integrity sha512-nnfrpEBR/JMCS2MGRhgAygr9hIOsO1cVB+1jvbo/q8VVLZQTlNmVNcl2YyOuCvo+tE6J/svD4rQmPwyIeJ6EQA==
   dependencies:
     "@aws-sdk/client-ec2" "3.1.0"
     "@aws-sdk/client-eks" "3.1.0"
