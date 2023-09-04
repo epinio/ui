@@ -151,6 +151,7 @@ export default {
       :groupable="false"
       :schema="schema"
       key-field="_key"
+      :useQueryParamsForSimpleFiltering="true"
       v-on="$listeners"
     />
     <div
