@@ -1,3 +1,4 @@
+import { EPINIO_TYPES } from '../types';
 import { createEpinioRoute } from '../utils/custom-routing';
 import EpinioResource from './epinio-resource';
 
@@ -75,11 +76,14 @@ export default class EpinioMetaResource extends EpinioResource {
   }
 
   get namespaceLocation() {
-    return createEpinioRoute(`c-cluster-resource-id`, {
+    // This should normally redirect the user to the namespace details page.
+    // However none exists in epinio, so go to the list view with a filter for the name.
+    // This could result in false positives (namespaces: a, aa, aaa would all show up if user when to view namespace with name `a`)
+    // but is better than a dead end
+    return createEpinioRoute(`c-cluster-resource`, {
       cluster:  this.$rootGetters['clusterId'],
-      resource: this.schema?.id,
-      id:       this.meta.namespace,
-    });
+      resource: EPINIO_TYPES.NAMESPACE,
+    }, { query: { q: this.meta.namespace } });
   }
 
   async forceFetch() {
