@@ -100,7 +100,9 @@ export default {
 
         this.downloadStep = 'zip';
         await chartZip(partsData);
+
         this.progressBar = 100;
+        await this.delayBeforeClose(1500);
       }
     },
 
@@ -168,6 +170,11 @@ export default {
       this.fetchCancel();
       this.showProgressBar = false;
       this.progressBar = 0;
+    },
+
+    async delayBeforeClose(seconds) {
+      return await new Promise((resolve) => setTimeout(resolve, seconds));
+    },
     }
   }
 };
