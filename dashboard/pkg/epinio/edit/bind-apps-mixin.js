@@ -33,15 +33,18 @@ export default {
       await serviceInstance.waitForTestFn(() => {
         const freshServiceInstance = this.$store.getters['epinio/byId'](EPINIO_TYPES.SERVICE_INSTANCE, `${ serviceInstance.meta.namespace }/${ serviceInstance.meta.name }`);
 
-        if (freshServiceInstance?.state === 'deployed') {
+        if (freshServiceInstance?.state === 'not-ready') {
           return true;
         }
         // This is an async fn, but we're in a sync fn. It might create a backlog if previous requests don't complete in time
         serviceInstance.forceFetch();
-      }, `service instance state = "deployed"`, 30000, 2000).catch((err) => {
+      }, `service instance state = "not-ready"`, 30000, 2000).catch((err) => {
         console.warn(err); // eslint-disable-line no-console
         throw new Error('waitingForDeploy');
       });
+
+      // Wait, because `not-ready` does not indicate service is ready to bind to. See https://github.com/epinio/ui/issues/289
+      await new Promise((res) => setTimeout(res, 2000), () => {});
     },
 
     async updateConfigurationAppBindings() {
