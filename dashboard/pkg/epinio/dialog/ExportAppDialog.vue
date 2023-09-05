@@ -38,7 +38,7 @@ export default {
       zipParts:           this.resources[0].applicationParts.filter((part) => part !== APPLICATION_PARTS.MANIFEST),
       showProgressBar:    false,
       percentages:        {},
-      downloadStep:       null,
+      step:               null,
       cancelTokenSources: {},
       colorStops:         { 0: '--primary', 100: '--primary' },
     };
@@ -98,7 +98,8 @@ export default {
           return;
         }
 
-        this.downloadStep = 'zip';
+        this.toggleStep('zip');
+
         await chartZip(partsData);
 
         this.progressBar = 100;
@@ -111,17 +112,22 @@ export default {
     },
 
     async fetchPart(resource, part) {
-      this.downloadStep = part;
+      this.toggleStep(part, true);
       this.cancelTokenSources[part] = this.getCancelToken().source();
 
       return await resource.fetchPart(
         part,
         {
           onDownloadProgress: (progressEvent) => {
-            const total = progressEvent.srcElement.getResponseHeader('content-length');
+            const total = progressEvent.srcElement.getResponseHeader('content-length') ||
+              progressEvent.srcElement.getResponseHeader('proxy-content-length');
 
             if (total) {
               Vue.set(this.percentages, part, Math.round(progressEvent.loaded * 100 / total));
+            }
+
+            if (progressEvent.loaded > 0) {
+              this.toggleStep(part);
             }
           },
           cancelToken: this.cancelTokenSources[part].token
@@ -170,11 +176,15 @@ export default {
       this.fetchCancel();
       this.showProgressBar = false;
       this.progressBar = 0;
+      this.toggleStep(null);
     },
 
     async delayBeforeClose(seconds) {
       return await new Promise((resolve) => setTimeout(resolve, seconds));
     },
+
+    toggleStep(part, isPreparing = false) {
+      this.step = part ? `${ isPreparing ? 'preparing' : 'download' }.${ part }` : null;
     }
   }
 };
@@ -225,8 +235,8 @@ export default {
             v-if="showProgressBar"
             class="progress-info text info mb-10 mt-20"
           >
-            <span>
-              {{ t(`epinio.applications.export.chartValuesImages.steps.${ downloadStep }`) }}
+            <span v-if="step">
+              {{ t(`epinio.applications.export.chartValuesImages.steps.${ step }`) }}
             </span>
             <PercentageBar
               class="progress-bar"

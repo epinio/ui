@@ -163,10 +163,15 @@ epinio:
         description: Helm chart and images can be used to `helm install` your application.
         banner: Container images can be large and take a long time to download.
         steps:
-          values: "Downloading: Values"
-          chart: "Downloading: Chart"
-          image: "Downloading: Image"
-          zip:   Compressing Files
+          preparing:
+            values: "Preparing download: Values"
+            chart: "Preparing download: Chart"
+            image: "Preparing download: Image"
+          download:
+            values: "Downloading: Values"
+            chart: "Downloading: Chart"
+            image: "Downloading: Image"
+            zip:   Compressing Files
         error: Server Error, download of { part } part failed.
     steps:
       basics:
