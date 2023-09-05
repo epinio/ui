@@ -61,11 +61,11 @@ export default Vue.extend<Data, EpinioCompRecord, EpinioCompRecord, EpinioCompRe
 
   data() {
     return {
-      errors:                 [],
-      failedWaitingForDeploy: false,
-      selectedApps:           this.value.boundapps || [],
-      chartValues:            this.value.settings || {},
-      validChartValues:       {}
+      errors:                          [],
+      failedWaitingForServiceInstance: false,
+      selectedApps:                    this.value.boundapps || [],
+      chartValues:                     this.value.settings || {},
+      validChartValues:                {}
     };
   },
 
@@ -89,7 +89,7 @@ export default Vue.extend<Data, EpinioCompRecord, EpinioCompRecord, EpinioCompRe
       const nsErrors = validateKubernetesName(this.value?.meta.namespace || '', '', this.$store.getters, undefined, []);
 
       if (nameErrors.length === 0 && nsErrors.length === 0) {
-        return !this.failedWaitingForDeploy;
+        return !this.failedWaitingForServiceInstance;
       }
 
       return false;
@@ -153,9 +153,9 @@ export default Vue.extend<Data, EpinioCompRecord, EpinioCompRecord, EpinioCompRe
           this.done();
         }
       } catch (err: Error | any) {
-        if (err.message === 'waitingForDeploy') {
-          Vue.set(this, 'failedWaitingForDeploy', true);
-          this.errors = [this.t('epinio.serviceInstance.create.catalogService.failedWaitingForDeploy')];
+        if (err.message === 'waitingForServiceInstance') {
+          Vue.set(this, 'failedWaitingForServiceInstance', true);
+          this.errors = [this.t('epinio.serviceInstance.create.catalogService.failedWaitingForServiceInstance')];
         } else {
           this.errors = epinioExceptionToErrorsArray(err);
         }

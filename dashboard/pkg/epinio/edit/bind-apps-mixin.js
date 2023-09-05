@@ -14,8 +14,8 @@ export default {
     },
 
     async updateServiceInstanceAppBindings(serviceInstance) {
-      // Service instance must be `deployed` before they can be bound to apps
-      await this.waitForServiceInstanceDeployed(serviceInstance);
+      // Service instance must be ready before they can be bound to apps
+      await this.waitForServiceInstanceReady(serviceInstance);
 
       const bindApps = this.selectedApps;
       const unbindApps = (this.initialValue.boundapps || []).filter((bA) => !bindApps.includes(bA));
@@ -28,19 +28,19 @@ export default {
       await Promise.all(promises);
     },
 
-    async waitForServiceInstanceDeployed(serviceInstance) {
+    async waitForServiceInstanceReady(serviceInstance) {
       // It would be nice to use waitForState here, but we need to manually update until Epinio pumps out updates via socket
       await serviceInstance.waitForTestFn(() => {
         const freshServiceInstance = this.$store.getters['epinio/byId'](EPINIO_TYPES.SERVICE_INSTANCE, `${ serviceInstance.meta.namespace }/${ serviceInstance.meta.name }`);
 
-        if (freshServiceInstance?.state === 'not-ready') {
+        if (freshServiceInstance) {
           return true;
         }
         // This is an async fn, but we're in a sync fn. It might create a backlog if previous requests don't complete in time
         serviceInstance.forceFetch();
-      }, `service instance state = "not-ready"`, 30000, 2000).catch((err) => {
+      }, `service instance exists`, 30000, 2000).catch((err) => {
         console.warn(err); // eslint-disable-line no-console
-        throw new Error('waitingForDeploy');
+        throw new Error('waitingForServiceInstance');
       });
 
       // Wait, because `not-ready` does not indicate service is ready to bind to. See https://github.com/epinio/ui/issues/289
