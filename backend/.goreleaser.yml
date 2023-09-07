@@ -12,7 +12,7 @@ archives:
 
 before:
   hooks:
-    - sh -c "cd src/jetstream && go mod download"
+    - sh -c "cd backend/src/jetstream && go mod download"
 
 dist: /tmp/_dist
 
@@ -21,7 +21,7 @@ builds:
 
   # amd64
   - id: epinio-ui-amd64
-    dir: src/jetstream
+    dir: backend/src/jetstream
     binary: epinio-ui
     ldflags:
       - -w -s -X "main.appVersion={{ .Tag }}"
@@ -35,7 +35,7 @@ builds:
 
   # arm64
   - id: epinio-ui-arm64
-    dir: src/jetstream
+    dir: backend/src/jetstream
     binary: epinio-ui
     ldflags:
       - -w -s -X "main.appVersion={{ .Tag }}"
@@ -49,7 +49,7 @@ builds:
 
   # s390x
   - id: epinio-ui-s390x
-    dir: src/jetstream
+    dir: backend/src/jetstream
     binary: epinio-ui
     ldflags:
       - -w -s -X "main.appVersion={{ .Tag }}"
