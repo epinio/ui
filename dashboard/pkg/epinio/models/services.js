@@ -79,6 +79,17 @@ export default class EpinioServiceModel extends EpinioNamespacedResource {
     });
   }
 
+  async update() {
+    await this.followLink('update', {
+      method:  'put',
+      headers: {
+        'content-type': 'application/json',
+        accept:         'application/json'
+      },
+      data: { settings: this.settings }
+    });
+  }
+
   async bindApp(appName) {
     await this.followLink('bind', {
       method:  'post',
