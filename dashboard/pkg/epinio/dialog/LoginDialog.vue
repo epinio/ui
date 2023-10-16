@@ -7,7 +7,8 @@ import Password from '@shell/components/form/Password';
 import { LabeledInput } from '@components/Form/LabeledInput';
 
 export default {
-  name:       'LoginDialog',
+  name: 'LoginDialog',
+
   components: {
     GenericPrompt, Tabbed, Tab, LabeledInput, Password
   },
@@ -18,6 +19,7 @@ export default {
       required: true
     }
   },
+
   data() {
     return {
       selectedTab: '',
@@ -26,17 +28,34 @@ export default {
       config:      {
         applyMode:   'login',
         applyAction: this.login,
+      },
+      tab: {
+        local: 'local',
+        dex:   'dex'
       }
     };
   },
 
+  computed: {
+    cluster() {
+      return this.resources[0];
+    }
+  },
+
+  mounted() {
+    console.warn(this.cluster.oidcEnabled);
+
+    if (!this.cluster.oidcEnabled) {
+      this.selectedTab = this.tab.local;
+    }
+  },
+
   methods: {
     async login() {
-      const cluster = this.resources[0];
       const errors = [];
 
       switch (this.selectedTab) {
-      case 'local':
+      case this.tab.local:
         if (!this.username) {
           errors.push('Username');
         }
@@ -47,23 +66,25 @@ export default {
           return Promise.reject(new Error(`${ errors.join('/') } Required`));
         }
 
-        await epinioAuth.login(cluster.createAuthConfig(EpinioAuthTypes.LOCAL, {
+        await epinioAuth.login(this.cluster.createAuthConfig(EpinioAuthTypes.LOCAL, {
           username: this.username,
           password: this.password,
           $axios:   this.$axios,
         }));
         break;
-      case 'dex':
-        await epinioAuth.login(cluster.createAuthConfig(EpinioAuthTypes.DEX));
+      case this.tab.dex:
+        await epinioAuth.login(this.cluster.createAuthConfig(EpinioAuthTypes.DEX));
 
         break;
+      default:
+        throw new Error(`Unknown log in type: ${ this.selectedTab }`);
       }
 
-      cluster.loggedIn = true;
+      this.cluster.loggedIn = true;
 
       this.$router.push({
         name:   'epinio-c-cluster-dashboard',
-        params: { cluster: cluster.id }
+        params: { cluster: this.cluster.id }
       });
     },
 
@@ -92,11 +113,12 @@ export default {
 
     <template slot="body">
       <Tabbed
+        v-if="cluster.oidcEnabled"
         @changed="tabChanged"
       >
         <Tab
           label-key="epinio.login.modal.local.tabLabel"
-          name="local"
+          :name="tab.local"
           :weight="3"
           class="login-dialog__tab"
         >
@@ -129,7 +151,7 @@ export default {
         </Tab>
         <Tab
           label-key="epinio.login.modal.dex.tabLabel"
-          name="dex"
+          :name="tab.dex"
           :weight="2"
           class="login-dialog__tab"
         >
@@ -138,6 +160,32 @@ export default {
           </p>
         </Tab>
       </Tabbed>
+      <form v-else>
+        <div class="span-10 offset-1 mt-15">
+          <div class="mb-20">
+            <LabeledInput
+              id="username"
+              ref="username"
+              v-model.trim="username"
+              data-testid="local-login-username"
+              :label="t('login.username')"
+              autocomplete="epinio-username"
+              :required="true"
+            />
+          </div>
+          <div class="">
+            <Password
+              id="password"
+              ref="password"
+              v-model="password"
+              data-testid="local-login-password"
+              :label="t('login.password')"
+              autocomplete="epinio-password"
+              :required="true"
+            />
+          </div>
+        </div>
+      </form>
     </template>
   </GenericPrompt>
 </template>

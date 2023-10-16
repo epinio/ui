@@ -11,22 +11,20 @@ export default class EpinioCluster extends Resource {
   metadata?: { state: { transitioning: boolean, error: boolean, message: string }};
   loggedIn: boolean;
   api: string;
-  readyApi: string;
-  mgmtCluster: any
+  mgmtCluster: any;
+  oidcEnabled: boolean = false;
 
   constructor(data: {
     id: string,
     name: string,
     loggedIn: boolean,
     api: string,
-    readyApi: string,
     mgmtCluster: any,
   }, private store: any) {
     super(data, null);
     this.id = data.id;
     this.name = data.name;
     this.api = data.api;
-    this.readyApi = data.readyApi;
     this.loggedIn = data.loggedIn;
     this.mgmtCluster = data.mgmtCluster;
   }

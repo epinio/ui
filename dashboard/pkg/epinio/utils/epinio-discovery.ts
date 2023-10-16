@@ -31,7 +31,6 @@ export default {
           name:        c.spec.displayName,
           api:         url,
           loggedIn:    !!loggedIn,
-          readyApi:    `/api/v1/info`, // Calls to `/api/v1/info` currently need auth
           mgmtCluster: c
         }, store));
       } catch (err) {

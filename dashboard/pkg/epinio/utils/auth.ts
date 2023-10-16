@@ -87,7 +87,7 @@ class EpinioAuth {
       // Validate
       try {
         await config.localConfig.$axios({
-          url:     `${ config.epinioUrl }/api/v1/info`,
+          url:     `${ config.epinioUrl }/api/v1/me`,
           headers: { Authorization: `Basic ${ base64Encode(`${ config.localConfig?.username }:${ config.localConfig?.password }`) }` }
         });
       } catch (err: any) {

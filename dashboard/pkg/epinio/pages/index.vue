@@ -9,12 +9,14 @@ import { EPINIO_MGMT_STORE, EPINIO_TYPES } from '../types';
 import AsyncButton from '@shell/components/AsyncButton.vue';
 import { _MERGE } from '@shell/plugins/dashboard-store/actions';
 import epinioAuth, { EpinioAuthTypes } from '../utils/auth';
-import { EpinioCluster } from '../utils/epinio-discovery';
+import EpinioCluster from '../models/cluster';
 import PromptModal from '@shell/components/PromptModal';
 
 interface Data {
   clustersSchema: any;
 }
+
+const infoUrl = `/api/v1/info`;
 
 // Data, Methods, Computed, Props
 export default Vue.extend<Data, any, any, any>({
@@ -31,7 +33,11 @@ export default Vue.extend<Data, any, any, any>({
   },
 
   data() {
-    return { clustersSchema: this.$store.getters[`${ EPINIO_MGMT_STORE }/schemaFor`](EPINIO_TYPES.INSTANCE) };
+    return {
+      clustersSchema: this.$store.getters[`${ EPINIO_MGMT_STORE }/schemaFor`](EPINIO_TYPES.INSTANCE),
+      version:        null,
+      infoUrl
+    };
   },
 
   mounted() {
@@ -87,11 +93,10 @@ export default Vue.extend<Data, any, any, any>({
         }
       });
 
-      // Note - Calls to `/ready` currently throw CORS error (but not `/api/v1`).
-      this.$store.dispatch(`epinio/request`, { opt: { url: c.readyApi, redirectUnauthorized: false }, clusterId: c.id })
-        // .then(() => this.$store.dispatch(`epinio/request`, { opt: { url: `/api/v1/info` }, clusterId: c.id }))
+      this.$store.dispatch(`epinio/request`, { opt: { url: infoUrl, redirectUnauthorized: false }, clusterId: c.id })
         .then((res: any) => {
           Vue.set(c, 'version', res?.version);
+          Vue.set(c, 'oidcEnabled', res?.oidc_enabled);
           this.setClusterState(c, 'available', { state: { transitioning: false } });
         })
         .catch((e: Error) => {
@@ -180,7 +185,7 @@ export default Vue.extend<Data, any, any, any>({
             <Link
               v-if="row.state !== 'available'"
               :row="row"
-              :value="{ text: row.api, url: row.readyApi }"
+              :value="{ text: row.api, url: infoUrl }"
             />
             <template v-else>
               {{ row.api }}

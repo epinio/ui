@@ -90,11 +90,6 @@ export default {
             Authorization: await epinioAuth.authHeader(currentCluster.createAuthConfig(EpinioAuthTypes.AGNOSTIC))
           };
 
-          if (opt.url === '/api/v1/info') {
-            // TODO: RC Hack for now, see https://github.com/epinio/epinio/issues/2515
-            opt.headers.Authorization = `Basic ${ base64Encode(`admin:password`) }`;
-          }
-
           opt.url = `${ currentCluster.api }${ opt.url }`;
         }
 
