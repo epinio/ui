@@ -182,7 +182,7 @@ func (a *epinioAuth) verifyLocalLoginCreds(username, password string) error {
 	}
 
 	// Make a request to the epinio endpoint that requires auth
-	credsUrl := fmt.Sprintf("%s/api/v1/info", epinioEndpoint.APIEndpoint.String())
+	credsUrl := fmt.Sprintf("%s/api/v1/me", epinioEndpoint.APIEndpoint.String())
 
 	req, err := http.NewRequest("GET", credsUrl, nil)
 	if err != nil {

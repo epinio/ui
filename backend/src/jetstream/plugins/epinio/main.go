@@ -143,7 +143,7 @@ func (epinio *Epinio) Register(echoContext echo.Context) error {
 func (epinio *Epinio) Validate(userGUID string, cnsiRecord interfaces.CNSIRecord, tokenRecord interfaces.TokenRecord) error {
 	// Validate is used to confirm the user's creds after the user connects
 	// For this flow we don't need to do this, it was done when the user logs in in authepinio
-	// (makes a request to `/api/v1/info`)
+	// (makes a request to `/api/v1/me`)
 	return nil
 }
 
