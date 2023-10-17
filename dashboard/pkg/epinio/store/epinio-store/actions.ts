@@ -11,6 +11,7 @@ import {
   EpinioInfo, EpinioVersion, EPINIO_MGMT_STORE, EPINIO_PRODUCT_NAME, EPINIO_STANDALONE_CLUSTER_NAME, EPINIO_TYPES
 } from '../../types';
 import EpinioCluster from '../../models/cluster';
+import { RedirectToError } from '@shell/utils/error';
 
 const createId = (schema: any, resource: any) => {
   const name = resource.meta?.name || resource.name;
@@ -49,8 +50,6 @@ export default {
       return spoofedRes;
     }
 
-    // @TODO queue/defer duplicate requests
-    opt.depaginate = opt.depaginate !== false;
     opt.url = opt.url.replace(/\/*$/g, '');
 
     const isSingleProduct = rootGetters['isSingleProduct'];
@@ -98,17 +97,7 @@ export default {
       })
       .then((res) => {
         if ( opt.depaginate ) {
-        // @TODO but API never sends it
-        /*
-        return new Promise((resolve, reject) => {
-          const next = res.pagination.next;
-          if (!next ) [
-            return resolve();
-          }
-
-          dispatch('request')
-        });
-        */
+          throw Error('depaginate not supported');
         }
 
         if ( opt.responseType ) {
@@ -134,11 +123,11 @@ export default {
         const res = err.response;
 
         // Go to the logout page for 401s, unless redirectUnauthorized specifically disables (for the login page)
-        if ( opt.redirectUnauthorized !== false && (process as any).client && res.status === 401 ) {
+        if ( opt.redirectUnauthorized !== false && res.status === 401 ) {
           if (isSingleProduct) {
             dispatch('auth/logout', opt.logoutOnError, { root: true });
           } else {
-            setTimeout(() => dispatch('redirect', { name: 'epinio' }), 100);
+            return Promise.reject(new RedirectToError('Auth failed, return user to epinio cluster list', `/epinio`));
           }
         } else if (growlOnError) {
           dispatch('growl/fromError', { title: `Epinio Request to ${ opt.url }`, err }, { root: true });
