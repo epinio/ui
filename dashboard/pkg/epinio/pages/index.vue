@@ -10,7 +10,7 @@ import AsyncButton from '@shell/components/AsyncButton.vue';
 import { _MERGE } from '@shell/plugins/dashboard-store/actions';
 import epinioAuth, { EpinioAuthTypes } from '../utils/auth';
 import EpinioCluster from '../models/cluster';
-import PromptModal from '@shell/components/PromptModal';
+import PromptModal from '@shell/components/PromptModal.vue';
 
 interface Data {
   clustersSchema: any;
@@ -27,14 +27,14 @@ export default Vue.extend<Data, any, any, any>({
   layout: 'plain',
 
   async fetch() {
-    await this.$store.dispatch(`${ EPINIO_MGMT_STORE }/findAll`, { type: EPINIO_TYPES.INSTANCE });
+    await this.$store.dispatch(`${ EPINIO_MGMT_STORE }/findAll`, { type: EPINIO_TYPES.CLUSTER });
 
     this.clusters.forEach((c: EpinioCluster) => this.testCluster(c));
   },
 
   data() {
     return {
-      clustersSchema: this.$store.getters[`${ EPINIO_MGMT_STORE }/schemaFor`](EPINIO_TYPES.INSTANCE),
+      clustersSchema: this.$store.getters[`${ EPINIO_MGMT_STORE }/schemaFor`](EPINIO_TYPES.CLUSTER),
       version:        null,
       infoUrl
     };
@@ -62,13 +62,13 @@ export default Vue.extend<Data, any, any, any>({
     },
 
     clusters() {
-      return this.$store.getters[`${ EPINIO_MGMT_STORE }/all`](EPINIO_TYPES.INSTANCE);
+      return this.$store.getters[`${ EPINIO_MGMT_STORE }/all`](EPINIO_TYPES.CLUSTER);
     }
   },
 
   methods: {
     async rediscover(buttonCb: (success: boolean) => void) {
-      await this.$store.dispatch(`${ EPINIO_MGMT_STORE }/findAll`, { type: EPINIO_TYPES.INSTANCE, opt: { force: true, load: _MERGE } });
+      await this.$store.dispatch(`${ EPINIO_MGMT_STORE }/findAll`, { type: EPINIO_TYPES.CLUSTER, opt: { force: true, load: _MERGE } });
       this.clusters.forEach((c: EpinioCluster) => this.testCluster(c));
       buttonCb(true);
     },

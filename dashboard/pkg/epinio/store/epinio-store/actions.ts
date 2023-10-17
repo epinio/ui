@@ -63,7 +63,7 @@ export default {
         ps = dispatch('findSingleProductCNSI').then((cnsi: any) => `/pp/v1/direct/r/${ cnsi?.guid }`);
       }
     } else {
-      ps = dispatch(`${ EPINIO_MGMT_STORE }/findAll`, { type: EPINIO_TYPES.INSTANCE }, { root: true }).then(() => '');
+      ps = dispatch(`${ EPINIO_MGMT_STORE }/findAll`, { type: EPINIO_TYPES.CLUSTER }, { root: true }).then(() => '');
     }
 
     // opt.httpsAgent = new https.Agent({ rejectUnauthorized: false });
@@ -83,12 +83,14 @@ export default {
           }
         } else {
           const currentClusterId = clusterId || rootGetters['clusterId'];
-          const currentCluster: EpinioCluster = rootGetters[`${ EPINIO_MGMT_STORE }/byId`](EPINIO_TYPES.INSTANCE, currentClusterId);
+          const currentCluster: EpinioCluster = rootGetters[`${ EPINIO_MGMT_STORE }/byId`](EPINIO_TYPES.CLUSTER, currentClusterId);
 
-          opt.headers = {
-            ...opt.headers,
-            Authorization: await epinioAuth.authHeader(currentCluster.createAuthConfig(EpinioAuthTypes.AGNOSTIC))
-          };
+          if (currentCluster.createAuthConfig) {
+            opt.headers = {
+              ...opt.headers,
+              Authorization: await epinioAuth.authHeader(currentCluster.createAuthConfig(EpinioAuthTypes.AGNOSTIC))
+            };
+          }
 
           opt.url = `${ currentCluster.api }${ opt.url }`;
         }
@@ -137,7 +139,6 @@ export default {
           if (isSingleProduct) {
             dispatch('auth/logout', opt.logoutOnError, { root: true });
           } else {
-            // TODO: RC this is very ugly
             setTimeout(() => dispatch('redirect', { name: 'epinio' }), 100);
           }
         } else if (growlOnError) {
@@ -243,7 +244,7 @@ export default {
     };
 
     const spoofedSchemas = rootGetters['type-map/spoofedSchemas'](EPINIO_PRODUCT_NAME);
-    const excludeInstances = spoofedSchemas.filter((schema: any) => schema.id !== EPINIO_TYPES.INSTANCE);
+    const excludeInstances = spoofedSchemas.filter((schema: any) => schema.id !== EPINIO_TYPES.CLUSTER);
 
     const data = [
       ...res.data,

@@ -53,19 +53,19 @@ export function init($plugin: any, store: any) {
 
   // Internal Types
   spoofedType({
-    label:             store.getters['type-map/labelFor']({ id: EPINIO_TYPES.INSTANCE }, 2),
-    type:              EPINIO_TYPES.INSTANCE,
+    label:             store.getters['type-map/labelFor']({ id: EPINIO_TYPES.CLUSTER }, 2),
+    type:              EPINIO_TYPES.CLUSTER,
     product:           EPINIO_PRODUCT_NAME,
     collectionMethods: [],
     schemas:           [{
-      id:                EPINIO_TYPES.INSTANCE,
+      id:                EPINIO_TYPES.CLUSTER,
       type:              'schema',
       collectionMethods: [],
       resourceFields:    {},
     }],
     getInstances: async() => await EpinioDiscovery.discover(store),
   });
-  configureType(EPINIO_TYPES.INSTANCE, {
+  configureType(EPINIO_TYPES.CLUSTER, {
     isCreatable: false,
     isEditable:  false,
     isRemovable: false,
@@ -73,7 +73,7 @@ export function init($plugin: any, store: any) {
     showAge:     false,
     canYaml:     false,
   });
-  configureType(EPINIO_TYPES.INSTANCE, { customRoute: createEpinioRoute('c-cluster-resource', { resource: EPINIO_TYPES.INSTANCE }) });
+  configureType(EPINIO_TYPES.CLUSTER, { customRoute: createEpinioRoute('c-cluster-resource', { resource: EPINIO_TYPES.CLUSTER }) });
 
   // App resource
   configureType(EPINIO_TYPES.APP, {
@@ -266,7 +266,7 @@ export function init($plugin: any, store: any) {
     AGE
   ]);
 
-  headers(EPINIO_TYPES.INSTANCE, [
+  headers(EPINIO_TYPES.CLUSTER, [
     STATE,
     {
       name:     'name',

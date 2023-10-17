@@ -1,9 +1,13 @@
 <script lang="ts">
+import Vue from 'vue';
 import epinioAuth from '../../utils/auth';
-import { Banner } from '@components/Banner';
+import Banner from '@components/Banner/Banner.vue';
 
-export default {
-  layout: 'unauthenticated',
+interface Data {
+  error: string,
+}
+
+export default Vue.extend<Data, any, any, any>({
 
   components: { Banner },
 
@@ -11,7 +15,7 @@ export default {
     return { error: '' };
   },
 
-  async fetch({ store, route }) {
+  async fetch({ store, route }: { store: any, route: any}) {
     const {
       error, error_description: errorDescription, errorCode, errorMsg
     } = route.query;
@@ -31,8 +35,8 @@ export default {
       });
     }
   },
+});
 
-};
 </script>
 
 <template>

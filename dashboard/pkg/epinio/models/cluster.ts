@@ -3,7 +3,7 @@ import { EPINIO_TYPES } from '../types';
 import epinioAuth, { EpinioAuthConfig, EpinioAuthLocalConfig, EpinioAuthTypes } from '../utils/auth';
 
 export default class EpinioCluster extends Resource {
-  type = EPINIO_TYPES.INSTANCE;
+  type = EPINIO_TYPES.CLUSTER;
 
   id: string;
   name: string;
@@ -21,7 +21,7 @@ export default class EpinioCluster extends Resource {
     api: string,
     mgmtCluster: any,
   }, private store: any) {
-    super(data, null);
+    super(data, store);
     this.id = data.id;
     this.name = data.name;
     this.api = data.api;
@@ -29,9 +29,9 @@ export default class EpinioCluster extends Resource {
     this.mgmtCluster = data.mgmtCluster;
   }
 
-  get '$rootGetters'() {
-    return this.store.getters;
-  }
+  // get '$rootGetters'() {
+  //   return this.store.getters;
+  // }
 
   get availableActions() {
     return [
