@@ -20,8 +20,8 @@ export default class EpinioCluster extends Resource {
     loggedIn: boolean,
     api: string,
     mgmtCluster: any,
-  }, private store: any) {
-    super(data, store);
+  }, ctx: any) {
+    super(data, ctx);
     this.id = data.id;
     this.name = data.name;
     this.api = data.api;

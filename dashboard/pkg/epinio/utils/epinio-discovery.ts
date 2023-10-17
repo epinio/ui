@@ -32,7 +32,7 @@ export default {
           api:         url,
           loggedIn:    !!loggedIn,
           mgmtCluster: c
-        }, store));
+        }, { rootGetters: store.getters }));
       } catch (err) {
         console.info(`Skipping epinio discovery for ${ c.spec.displayName }`, err); // eslint-disable-line no-console
       }

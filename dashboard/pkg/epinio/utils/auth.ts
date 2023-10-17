@@ -44,7 +44,7 @@ class EpinioAuth {
   async isLoggedIn(config: EpinioAuthConfig) {
     if (!config || (config.type === EpinioAuthTypes.LOCAL || config.type === EpinioAuthTypes.AGNOSTIC)) {
       if (this.isLocal()) {
-        return;
+        return true;
       }
     }
 
