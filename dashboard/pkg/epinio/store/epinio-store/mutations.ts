@@ -12,5 +12,5 @@ export default {
 
   version(state: any, version: EpinioVersion) {
     state.version = version;
-  },
+  }
 };

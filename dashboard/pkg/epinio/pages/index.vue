@@ -177,7 +177,9 @@ export default Vue.extend<Data, any, any, any>({
               v-if="row.state === 'available'"
               @click="login(row)"
             >{{ row.name }}</a>
-            <template v-else />
+            <template v-else>
+              {{ row.name }}
+            </template>
           </div>
         </template>
         <template #cell:api="{row}">

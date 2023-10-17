@@ -29,10 +29,6 @@ export default class EpinioCluster extends Resource {
     this.mgmtCluster = data.mgmtCluster;
   }
 
-  // get '$rootGetters'() {
-  //   return this.store.getters;
-  // }
-
   get availableActions() {
     return [
       {

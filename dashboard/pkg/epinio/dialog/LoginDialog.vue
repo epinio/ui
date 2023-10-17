@@ -43,8 +43,6 @@ export default {
   },
 
   mounted() {
-    console.warn(this.cluster.oidcEnabled);
-
     if (!this.cluster.oidcEnabled) {
       this.selectedTab = this.tab.local;
     }

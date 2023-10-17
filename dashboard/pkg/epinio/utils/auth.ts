@@ -1,11 +1,13 @@
 import { User, UserManager } from 'oidc-client-ts';
 import { base64Encode } from '@shell/utils/crypto';
 
+/* eslint-disable no-unused-vars */
 export enum EpinioAuthTypes {
   LOCAL = 'local',
   DEX = 'dex',
   AGNOSTIC = 'agnostic'
 }
+/* eslint-enable no-unused-vars */
 
 export interface EpinioAuthUser {
   email: string,
@@ -172,7 +174,6 @@ class EpinioAuth {
         await this.initialiseDex(config.dexConfig);
       }
 
-      // await this.dexUserManager?.revokeTokens(['access_token', 'refresh_token']); // Metadata does not contain property revocation_endpoint
       await this.dexUserManager?.removeUser();
       await this.dexUserManager?.clearStaleState();
     }
