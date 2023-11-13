@@ -16,17 +16,11 @@ export default Vue.extend<Data, any, any, any>({
   },
 
   async fetch({ store, route }: { store: any, route: any}) {
-    const {
-      error, error_description: errorDescription, errorCode, errorMsg
-    } = route.query;
+    const { error, error_description: errorDescription } = route.query;
 
-    if (error || errorDescription || errorCode || errorMsg) {
-      this.error = errorDescription || error || errorCode;
+    this.error = errorDescription || error;
 
-      if (errorMsg) {
-        this.error = store.getters['i18n/withFallback'](`login.serverError.${ errorMsg }`, null, errorMsg);
-      }
-
+    if (this.error) {
       console.error('Dex indicates failure', error); // eslint-disable-line no-console
     } else {
       await epinioAuth.dexRedirect(route, {
