@@ -2,6 +2,8 @@ import Resource from '@shell/plugins/dashboard-store/resource-class';
 import { EPINIO_TYPES } from '../types';
 import epinioAuth, { EpinioAuthConfig, EpinioAuthLocalConfig, EpinioAuthTypes } from '../utils/auth';
 
+export const EpinioInfoPath = `/api/v1/info`;
+
 export default class EpinioCluster extends Resource {
   type = EPINIO_TYPES.CLUSTER;
 
@@ -39,6 +41,10 @@ export default class EpinioCluster extends Resource {
         disabled: false,
       },
     ];
+  }
+
+  get infoUrl() {
+    return this.api + EpinioInfoPath;
   }
 
   async logOut() {

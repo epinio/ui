@@ -9,14 +9,12 @@ import { EPINIO_MGMT_STORE, EPINIO_TYPES } from '../types';
 import AsyncButton from '@shell/components/AsyncButton.vue';
 import { _MERGE } from '@shell/plugins/dashboard-store/actions';
 import epinioAuth, { EpinioAuthTypes } from '../utils/auth';
-import EpinioCluster from '../models/cluster';
+import EpinioCluster, { EpinioInfoPath } from '../models/cluster';
 import PromptModal from '@shell/components/PromptModal.vue';
 
 interface Data {
   clustersSchema: any;
 }
-
-const infoUrl = `/api/v1/info`;
 
 // Data, Methods, Computed, Props
 export default Vue.extend<Data, any, any, any>({
@@ -36,7 +34,7 @@ export default Vue.extend<Data, any, any, any>({
     return {
       clustersSchema: this.$store.getters[`${ EPINIO_MGMT_STORE }/schemaFor`](EPINIO_TYPES.CLUSTER),
       version:        null,
-      infoUrl
+      infoUrl:        EpinioInfoPath
     };
   },
 
@@ -93,7 +91,7 @@ export default Vue.extend<Data, any, any, any>({
         }
       });
 
-      this.$store.dispatch(`epinio/request`, { opt: { url: infoUrl, redirectUnauthorized: false }, clusterId: c.id })
+      this.$store.dispatch(`epinio/request`, { opt: { url: this.infoUrl, redirectUnauthorized: false }, clusterId: c.id })
         .then((res: any) => {
           Vue.set(c, 'version', res?.version);
           Vue.set(c, 'oidcEnabled', res?.oidc_enabled);
@@ -187,7 +185,7 @@ export default Vue.extend<Data, any, any, any>({
             <Link
               v-if="row.state !== 'available'"
               :row="row"
-              :value="{ text: row.api, url: infoUrl }"
+              :value="{ text: row.api, url: row.infoUrl }"
             />
             <template v-else>
               {{ row.api }}
