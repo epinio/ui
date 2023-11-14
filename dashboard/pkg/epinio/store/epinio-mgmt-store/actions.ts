@@ -31,7 +31,7 @@ export default {
 
     // Load management style schemas
     const spoofedSchemas = rootGetters['type-map/spoofedSchemas'](EPINIO_PRODUCT_NAME);
-    const instances = spoofedSchemas.find((schema: any) => schema.id === EPINIO_TYPES.INSTANCE);
+    const instances = spoofedSchemas.find((schema: any) => schema.id === EPINIO_TYPES.CLUSTER);
 
     const res = { data: [instances] };
 

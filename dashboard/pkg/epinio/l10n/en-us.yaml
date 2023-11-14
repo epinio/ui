@@ -45,6 +45,10 @@ asyncButton:
     action: Export
     success: Exported
     waiting: Exporting&hellip;
+  login:
+    action: Log In
+    success: Log In
+    waiting: Log In
 epinio:
   label: Epinio
   about:
@@ -362,6 +366,14 @@ epinio:
       helmChart: Helm Chart
   warnings:
     noNamespace: There are no namespaces. Please create one before proceeding
+  login:
+    modal:
+      title: Log In
+      local:
+        tabLabel: Local
+      dex:
+        tabLabel: Auth Provider
+        prompt: Login via Auth Provider
 model:
   authConfig:
     provider:

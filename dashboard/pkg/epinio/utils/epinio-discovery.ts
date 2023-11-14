@@ -1,8 +1,7 @@
-import { EPINIO_TYPES } from '../types';
-
 import { MANAGEMENT } from '@shell/config/types';
 import { ingressFullPath } from '@shell/models/networking.k8s.io.ingress';
-import { allHash } from '@shell/utils/promise';
+import epinioAuth, { EpinioAuthTypes } from '../utils/auth';
+import EpinioCluster from '../models/cluster';
 
 export default {
   ingressUrl(clusterId: string) {
@@ -18,34 +17,22 @@ export default {
         // Get the url first, if it has this it's highly likely it's an epinio cluster
         const epinioIngress = await store.dispatch(`cluster/request`, { url: this.ingressUrl(c.id) }, { root: true });
         const url = ingressFullPath(epinioIngress, epinioIngress.spec.rules?.[0]);
+        const loggedIn = await epinioAuth.isLoggedIn({
+          type:      EpinioAuthTypes.AGNOSTIC,
+          epinioUrl: url,
+          dexConfig: {
+            dashboardUrl: window.origin,
+            dexUrl:       url.replace('epinio', 'auth')
+          },
+        });
 
-        let username;
-        let password;
-
-        if (url) {
-          // TODO: RC hack
-          username = 'admin';
-          password = 'password';
-        } else {
-          // TODO: RC old
-          const epinio: any = await allHash({ authData: store.dispatch(`cluster/request`, { url: `/k8s/clusters/${ c.id }/v1/secrets/epinio/default-epinio-user` }, { root: true }) });
-
-          username = epinio.authData.data.username;
-          password = epinio.authData.data.password;
-        }
-
-        epinioClusters.push({
+        epinioClusters.push(new EpinioCluster({
           id:          c.id,
           name:        c.spec.displayName,
           api:         url,
-          readyApi:    `${ url }/ready`,
-          // username:    base64Decode(username),
-          // password:    base64Decode(password),
-          username,
-          password,
-          type:        EPINIO_TYPES.INSTANCE,
+          loggedIn:    !!loggedIn,
           mgmtCluster: c
-        });
+        }, { rootGetters: store.getters }));
       } catch (err) {
         console.info(`Skipping epinio discovery for ${ c.spec.displayName }`, err); // eslint-disable-line no-console
       }

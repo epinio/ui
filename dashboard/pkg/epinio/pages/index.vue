@@ -5,14 +5,12 @@ import Loading from '@shell/components/Loading.vue';
 import Link from '@shell/components/formatter/Link.vue';
 import ResourceTable from '@shell/components/ResourceTable.vue';
 import { EPINIO_MGMT_STORE, EPINIO_TYPES } from '../types';
-import Resource from '@shell/plugins/dashboard-store/resource-class';
+
 import AsyncButton from '@shell/components/AsyncButton.vue';
 import { _MERGE } from '@shell/plugins/dashboard-store/actions';
-
-interface Cluster extends Resource{
-  id: string,
-  state: string,
-}
+import epinioAuth, { EpinioAuthTypes } from '../utils/auth';
+import EpinioCluster, { EpinioInfoPath } from '../models/cluster';
+import PromptModal from '@shell/components/PromptModal.vue';
 
 interface Data {
   clustersSchema: any;
@@ -21,19 +19,23 @@ interface Data {
 // Data, Methods, Computed, Props
 export default Vue.extend<Data, any, any, any>({
   components: {
-    AsyncButton, Loading, Link, ResourceTable
+    AsyncButton, Loading, Link, ResourceTable, PromptModal
   },
 
   layout: 'plain',
 
   async fetch() {
-    await this.$store.dispatch(`${ EPINIO_MGMT_STORE }/findAll`, { type: EPINIO_TYPES.INSTANCE });
+    await this.$store.dispatch(`${ EPINIO_MGMT_STORE }/findAll`, { type: EPINIO_TYPES.CLUSTER });
 
-    this.clusters.forEach((c: Cluster) => this.testCluster(c));
+    this.clusters.forEach((c: EpinioCluster) => this.testCluster(c));
   },
 
   data() {
-    return { clustersSchema: this.$store.getters[`${ EPINIO_MGMT_STORE }/schemaFor`](EPINIO_TYPES.INSTANCE) };
+    return {
+      clustersSchema: this.$store.getters[`${ EPINIO_MGMT_STORE }/schemaFor`](EPINIO_TYPES.CLUSTER),
+      version:        null,
+      infoUrl:        EpinioInfoPath
+    };
   },
 
   mounted() {
@@ -54,18 +56,18 @@ export default Vue.extend<Data, any, any, any>({
     },
 
     canRediscover() {
-      return !this.clusters.find((c: Cluster) => c.state === 'updating');
+      return !this.clusters.find((c: EpinioCluster) => c.state === 'updating');
     },
 
     clusters() {
-      return this.$store.getters[`${ EPINIO_MGMT_STORE }/all`](EPINIO_TYPES.INSTANCE);
+      return this.$store.getters[`${ EPINIO_MGMT_STORE }/all`](EPINIO_TYPES.CLUSTER);
     }
   },
 
   methods: {
     async rediscover(buttonCb: (success: boolean) => void) {
-      await this.$store.dispatch(`${ EPINIO_MGMT_STORE }/findAll`, { type: EPINIO_TYPES.INSTANCE, opt: { force: true, load: _MERGE } });
-      this.clusters.forEach((c: Cluster) => this.testCluster(c));
+      await this.$store.dispatch(`${ EPINIO_MGMT_STORE }/findAll`, { type: EPINIO_TYPES.CLUSTER, opt: { force: true, load: _MERGE } });
+      this.clusters.forEach((c: EpinioCluster) => this.testCluster(c));
       buttonCb(true);
     },
 
@@ -75,12 +77,12 @@ export default Vue.extend<Data, any, any, any>({
       }
     },
 
-    setClusterState(cluster: Cluster, state: string, metadataStateObj: { transitioning: boolean, error: boolean, message: string }) {
+    setClusterState(cluster: EpinioCluster, state: string, metadataStateObj: { state: { transitioning: boolean, error: boolean, message: string }}) {
       Vue.set(cluster, 'state', state);
       Vue.set(cluster, 'metadata', metadataStateObj);
     },
 
-    testCluster(c: Cluster) {
+    testCluster(c: EpinioCluster) {
       // Call '/ready' on each cluster. If there's a network error there's a good chance the user has to permit an invalid cert
       this.setClusterState(c, 'updating', {
         state: {
@@ -89,12 +91,10 @@ export default Vue.extend<Data, any, any, any>({
         }
       });
 
-      // Calls to `/ready` currently throw CORS error (but not `/api/v1`). This code block will probably change given auth stuff
-      // this.$store.dispatch('epinio/request', { opt: { url: `/ready` }, clusterId: c.id })
-      this.$store.dispatch(`epinio/request`, { opt: { url: `/api/v1/info` }, clusterId: c.id })
-        // .then(() => this.$store.dispatch(`epinio/request`, { opt: { url: `/api/v1/info` }, clusterId: c.id }))
+      this.$store.dispatch(`epinio/request`, { opt: { url: this.infoUrl, redirectUnauthorized: false }, clusterId: c.id })
         .then((res: any) => {
           Vue.set(c, 'version', res?.version);
+          Vue.set(c, 'oidcEnabled', res?.oidc_enabled);
           this.setClusterState(c, 'available', { state: { transitioning: false } });
         })
         .catch((e: Error) => {
@@ -114,7 +114,24 @@ export default Vue.extend<Data, any, any, any>({
             });
           }
         });
-    }
+    },
+
+    async login(c: EpinioCluster) {
+      const isLoggedIn = await epinioAuth.isLoggedIn(c.createAuthConfig(EpinioAuthTypes.AGNOSTIC));
+
+      if (isLoggedIn) {
+        this.$router.push({
+          name:   'epinio-c-cluster-dashboard',
+          params: { cluster: c.id }
+        });
+      } else {
+        await this.$store.dispatch('epinio/promptModal', {
+          resources:  c,
+          component:  'LoginDialog',
+          modalWidth: '450px',
+        }, { root: true });
+      }
+    },
   }
 
 });
@@ -142,7 +159,6 @@ export default Vue.extend<Data, any, any, any>({
         :rows="clusters"
         :schema="clustersSchema"
         :table-actions="false"
-        :row-actions="false"
       >
         <template #header-left>
           <AsyncButton
@@ -153,15 +169,12 @@ export default Vue.extend<Data, any, any, any>({
             @click="rediscover"
           />
         </template>
-
         <template #cell:name="{row}">
           <div class="epinio-row">
-            <n-link
+            <a
               v-if="row.state === 'available'"
-              :to="{name: 'epinio-c-cluster-dashboard', params: {cluster: row.id}}"
-            >
-              {{ row.name }}
-            </n-link>
+              @click="login(row)"
+            >{{ row.name }}</a>
             <template v-else>
               {{ row.name }}
             </template>
@@ -172,7 +185,7 @@ export default Vue.extend<Data, any, any, any>({
             <Link
               v-if="row.state !== 'available'"
               :row="row"
-              :value="{ text: row.api, url: row.readyApi }"
+              :value="{ text: row.api, url: row.infoUrl }"
             />
             <template v-else>
               {{ row.api }}
@@ -181,6 +194,7 @@ export default Vue.extend<Data, any, any, any>({
         </template>
       </ResourceTable>
     </div>
+    <PromptModal />
   </div>
 </template>
 
@@ -202,6 +216,10 @@ div.root {
       height: 40px;
       display: flex;
       align-items: center;
+
+      a {
+        cursor: pointer;
+      }
     }
   }
 }

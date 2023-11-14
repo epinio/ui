@@ -119,7 +119,7 @@ export default Vue.extend<any, any, any, any>({
 
         const nodeMetrics = await this.$store.dispatch(`cluster/request`, { url: `/k8s/clusters/${ id }/v1/metrics.k8s.io.nodemetrics` }, { root: true });
 
-        const currentCluster = this.$store.getters[`${ EPINIO_MGMT_STORE }/byId`](EPINIO_TYPES.INSTANCE, id);
+        const currentCluster = this.$store.getters[`${ EPINIO_MGMT_STORE }/byId`](EPINIO_TYPES.CLUSTER, id);
 
         const cpu = {
           total:  parseSi(currentCluster.mgmtCluster?.status?.capacity?.cpu, null),

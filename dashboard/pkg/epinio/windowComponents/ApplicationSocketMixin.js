@@ -61,7 +61,7 @@ export default {
         prependPath = `/pp/v1/direct/ws/${ cnsi?.guid }`;
       } else {
         const currentClusterId = this.$store.getters['clusterId'];
-        const currentCluster = this.$store.getters[`${ EPINIO_MGMT_STORE }/byId`](EPINIO_TYPES.INSTANCE, currentClusterId);
+        const currentCluster = this.$store.getters[`${ EPINIO_MGMT_STORE }/byId`](EPINIO_TYPES.CLUSTER, currentClusterId);
 
         api = currentCluster.api;
       }
