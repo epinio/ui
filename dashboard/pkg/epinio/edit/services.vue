@@ -64,7 +64,7 @@ export default Vue.extend<Data, EpinioCompRecord, EpinioCompRecord, EpinioCompRe
       errors:                          [],
       failedWaitingForServiceInstance: false,
       selectedApps:                    this.value.boundapps || [],
-      chartValues:                     this.value.settings || {},
+      chartValues:                     objValuesToString(this.value.settings) || {},
       validChartValues:                {}
     };
   },
@@ -134,6 +134,13 @@ export default Vue.extend<Data, EpinioCompRecord, EpinioCompRecord, EpinioCompRe
   methods: {
     async save(saveCb: (success: boolean) => void) {
       this.errors = [];
+
+      const newSettings = !isEqual(objValuesToString(this.chartValues), objValuesToString(this.value.settings));
+
+      if (newSettings) {
+        this.value.settings = objValuesToString(this.chartValues);
+      }
+
       try {
         if (this.isCreate) {
           await this.value.create();
@@ -144,6 +151,9 @@ export default Vue.extend<Data, EpinioCompRecord, EpinioCompRecord, EpinioCompRe
         }
 
         if (this.isEdit) {
+          if (newSettings) {
+            await this.value.update();
+          }
           await this.updateServiceInstanceAppBindings(this.value);
           await this.value.forceFetch();
         }
@@ -164,7 +174,6 @@ export default Vue.extend<Data, EpinioCompRecord, EpinioCompRecord, EpinioCompRe
     },
     resetChartValues() {
       this.chartValues = {};
-      this.value.settings = null;
       this.validChartValues = {};
     }
   },
@@ -173,12 +182,6 @@ export default Vue.extend<Data, EpinioCompRecord, EpinioCompRecord, EpinioCompRe
     'value.meta.namespace'() {
       Vue.set(this, 'selectedApps', []);
     },
-    chartValues: {
-      handler(neu) {
-        this.value.settings = objValuesToString(neu);
-      },
-      deep: true
-    }
   }
 
 });
@@ -246,13 +249,11 @@ export default Vue.extend<Data, EpinioCompRecord, EpinioCompRecord, EpinioCompRe
     >
       <div class="col span-6">
         <div class="spacer" />
-        <!-- EDIT mode is not supported -->
         <ChartValues
           v-model="chartValues"
           :chart="selectedCatalogService.settings"
           :title="t('epinio.services.chartValues.title')"
           :mode="mode"
-          :disabled="mode === 'edit'"
           @valid="validChartValues = $event"
         />
       </div>
