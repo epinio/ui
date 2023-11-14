@@ -60,7 +60,7 @@ export default {
       :disabled="$fetchState.pending"
       @click="login"
     >
-      {{ t('login.genericProvider') }}
+      {{ t('epinio.login.genericProvider') }}
     </button>
   </div>
 </template>

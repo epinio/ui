@@ -10,7 +10,8 @@ import AsyncButton from '@shell/components/AsyncButton.vue';
 import { _MERGE } from '@shell/plugins/dashboard-store/actions';
 import epinioAuth, { EpinioAuthTypes } from '../utils/auth';
 import EpinioCluster, { EpinioInfoPath } from '../models/cluster';
-import PromptModal from '@shell/components/PromptModal.vue';
+import LoginDialog from '../components/LoginDialog.vue';
+import Dialog from '@shell/components/Dialog.vue';
 
 interface Data {
   clustersSchema: any;
@@ -19,7 +20,7 @@ interface Data {
 // Data, Methods, Computed, Props
 export default Vue.extend<Data, any, any, any>({
   components: {
-    AsyncButton, Loading, Link, ResourceTable, PromptModal
+    AsyncButton, Loading, Link, ResourceTable, LoginDialog, Dialog
   },
 
   layout: 'plain',
@@ -34,7 +35,8 @@ export default Vue.extend<Data, any, any, any>({
     return {
       clustersSchema: this.$store.getters[`${ EPINIO_MGMT_STORE }/schemaFor`](EPINIO_TYPES.CLUSTER),
       version:        null,
-      infoUrl:        EpinioInfoPath
+      infoUrl:        EpinioInfoPath,
+      currentCluster: {},
     };
   },
 
@@ -125,13 +127,14 @@ export default Vue.extend<Data, any, any, any>({
           params: { cluster: c.id }
         });
       } else {
-        await this.$store.dispatch('epinio/promptModal', {
-          resources:  c,
-          component:  'LoginDialog',
-          modalWidth: '450px',
-        }, { root: true });
+        this.currentCluster = c;
+        this.$modal.show('epinio-login-dialog');
       }
     },
+
+    closeDialog() {
+      this.$modal.hide('epinio-login-dialog');
+    }
   }
 
 });
@@ -194,7 +197,23 @@ export default Vue.extend<Data, any, any, any>({
         </template>
       </ResourceTable>
     </div>
-    <PromptModal />
+    <Dialog
+      name="epinio-login-dialog"
+      :title="''"
+      style="width:'340px'"
+    >
+      <template #buttons>
+        <button
+          class="btn role-secondary"
+          @click="closeDialog(false)"
+        >
+          {{ t('generic.cancel') }}
+        </button>
+      </template>
+      <template>
+        <LoginDialog :cluster="currentCluster" />
+      </template>
+    </Dialog>
   </div>
 </template>
 
