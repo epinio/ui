@@ -2,6 +2,7 @@ import { MANAGEMENT } from '@shell/config/types';
 import { ingressFullPath } from '@shell/models/networking.k8s.io.ingress';
 import epinioAuth, { EpinioAuthTypes } from '../utils/auth';
 import EpinioCluster from '../models/cluster';
+import { dashboardUrl } from './embedded-helpers';
 
 export default {
   ingressUrl(clusterId: string) {
@@ -21,7 +22,7 @@ export default {
           type:      EpinioAuthTypes.AGNOSTIC,
           epinioUrl: url,
           dexConfig: {
-            dashboardUrl: window.origin,
+            dashboardUrl: dashboardUrl(),
             dexUrl:       url.replace('epinio', 'auth')
           },
         });
