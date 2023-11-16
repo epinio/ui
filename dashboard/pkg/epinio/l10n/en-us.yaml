@@ -49,6 +49,15 @@ asyncButton:
     action: Log In
     success: Log In
     waiting: Log In
+  refresh:
+    action: 'Refresh'
+    actionIcon: refresh
+    error: 'Refresh'
+    errorIcon: error
+    success: 'Refreshed'
+    successIcon: checkmark
+    waiting: 'Refreshing'
+    waitingIcon: refresh
 epinio:
   label: Epinio
   about:
@@ -367,16 +376,10 @@ epinio:
   warnings:
     noNamespace: There are no namespaces. Please create one before proceeding
   login:
-    modal:
-      title: Log In
-      local:
-        tabLabel: Local
-      dex:
-        tabLabel: Auth Provider
-        prompt: Login via Auth Provider
+    login: Log in
+    genericProvider: Log in with Auth Provider
+    useGenericProvider: Use Auth Provider
 model:
   authConfig:
     provider:
       epinio: Auth Provider
-login:
-  genericProvider: Log in with Auth Provider
