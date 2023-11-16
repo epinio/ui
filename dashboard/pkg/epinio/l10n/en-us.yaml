@@ -376,6 +376,7 @@ epinio:
   warnings:
     noNamespace: There are no namespaces. Please create one before proceeding
   login:
+    login: Log in
     genericProvider: Log in with Auth Provider
     useGenericProvider: Use Auth Provider
 model:

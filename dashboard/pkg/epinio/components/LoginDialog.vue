@@ -157,7 +157,7 @@ export default {
         style="font-size: 18px;"
         @click="!busy && login(PROVIDER_TYPES.LOCAL)"
       >
-        {{ t('login.loginWithLocal') }}
+        {{ t(cluster.oidcEnabled ? 'login.loginWithLocal' : 'epinio.login.login') }}
       </button>
     </div>
 
