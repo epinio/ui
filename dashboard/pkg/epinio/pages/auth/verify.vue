@@ -2,6 +2,7 @@
 import Vue from 'vue';
 import epinioAuth from '../../utils/auth';
 import Banner from '@components/Banner/Banner.vue';
+import { dashboardUrl } from '../../utils/embedded-helpers';
 
 interface Data {
   error: string,
@@ -25,7 +26,7 @@ export default Vue.extend<Data, any, any, any>({
     } else {
       await epinioAuth.dexRedirect(route, {
         dexUrl:       document.referrer,
-        dashboardUrl: window.origin
+        dashboardUrl: dashboardUrl()
       });
     }
   },

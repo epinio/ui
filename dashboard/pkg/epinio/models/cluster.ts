@@ -1,6 +1,7 @@
 import Resource from '@shell/plugins/dashboard-store/resource-class';
 import { EPINIO_TYPES } from '../types';
 import epinioAuth, { EpinioAuthConfig, EpinioAuthLocalConfig, EpinioAuthTypes } from '../utils/auth';
+import { dashboardUrl } from '../utils/embedded-helpers';
 
 export const EpinioInfoPath = `/api/v1/info`;
 
@@ -70,7 +71,7 @@ export default class EpinioCluster extends Resource {
       type,
       epinioUrl: this.api,
       dexConfig: {
-        dashboardUrl: window.origin,
+        dashboardUrl: dashboardUrl(),
         dexUrl:       this.api.replace('epinio', 'auth')
       },
       localConfig
