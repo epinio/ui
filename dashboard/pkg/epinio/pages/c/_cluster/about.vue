@@ -1,14 +1,10 @@
 <script>
 import { MANAGEMENT } from '@shell/config/types';
 import { getVendor } from '@shell/config/private-label';
-import BackLink from '@shell/components/BackLink';
-import BackRoute from '@shell/mixins/back-link';
 
 export default {
-  layout:     'plain',
-  components: { BackLink },
-  mixins:     [BackRoute],
   async fetch() {
+    debugger;
     this.settings = await this.$store.dispatch(`management/findAll`, { type: MANAGEMENT.SETTING });
 
     this.version = await this.$store.dispatch('epinio/version');
@@ -19,7 +15,9 @@ export default {
   },
   computed: {
     appName() {
-      return getVendor();
+      const isSingleProduct = !!this.$store.getters['isSingleProduct'];
+
+      return isSingleProduct ? getVendor() : this.t('epinio.label');
     },
 
     downloads() {
@@ -60,7 +58,6 @@ export default {
 <template>
   <div class="about">
     <template>
-      <BackLink :link="backLink" />
       <h1 v-t="'about.title'">
         {{ appName }}
       </h1>
