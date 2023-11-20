@@ -1,4 +1,4 @@
-import { METRIC, SCHEMA, WORKLOAD, WORKLOAD_TYPES } from '@shell/config/types';
+import { METRIC, SCHEMA, WORKLOAD_TYPES } from '@shell/config/types';
 import { handleSpoofedRequest } from '@shell/plugins/dashboard-store/actions';
 import { classify } from '@shell/plugins/dashboard-store/classify';
 import { normalizeType } from '@shell/plugins/dashboard-store/normalize';
@@ -12,7 +12,7 @@ import {
 } from '../../types';
 import EpinioCluster from '../../models/cluster';
 import { RedirectToError } from '@shell/utils/error';
-import { allHash, allHashSettled } from '@shell/utils/promise';
+import { allHashSettled } from '@shell/utils/promise';
 
 const createId = (schema: any, resource: any) => {
   const name = resource.meta?.name || resource.name;
