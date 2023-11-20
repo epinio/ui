@@ -12,6 +12,8 @@ import epinioAuth, { EpinioAuthTypes } from '../utils/auth';
 import EpinioCluster, { EpinioInfoPath } from '../models/cluster';
 import LoginDialog from '../components/LoginDialog.vue';
 import Dialog from '@shell/components/Dialog.vue';
+import { STATES_ENUM } from '@shell/plugins/dashboard-store/resource-class';
+import { Banner } from '@components/Banner';
 
 interface Data {
   clustersSchema: any;
@@ -20,7 +22,7 @@ interface Data {
 // Data, Methods, Computed, Props
 export default Vue.extend<Data, any, any, any>({
   components: {
-    AsyncButton, Loading, Link, ResourceTable, LoginDialog, Dialog
+    AsyncButton, Loading, Link, ResourceTable, LoginDialog, Dialog, Banner
   },
 
   layout: 'plain',
@@ -37,6 +39,7 @@ export default Vue.extend<Data, any, any, any>({
       version:        null,
       infoUrl:        EpinioInfoPath,
       currentCluster: {},
+      UNINSTALLED:    STATES_ENUM.UNINSTALLED,
     };
   },
 
@@ -63,6 +66,10 @@ export default Vue.extend<Data, any, any, any>({
 
     clusters() {
       return this.$store.getters[`${ EPINIO_MGMT_STORE }/all`](EPINIO_TYPES.CLUSTER);
+    },
+
+    installedClusters() {
+      return this.clusters.find((c: EpinioCluster) => c.installed);
     }
   },
 
@@ -85,6 +92,11 @@ export default Vue.extend<Data, any, any, any>({
     },
 
     testCluster(c: EpinioCluster) {
+      if (!c.installed) {
+        this.setClusterState(c, STATES_ENUM.UNINSTALLED, { state: { transitioning: false } });
+
+        return;
+      }
       // Call '/ready' on each cluster. If there's a network error there's a good chance the user has to permit an invalid cert
       this.setClusterState(c, 'updating', {
         state: {
@@ -146,18 +158,18 @@ export default Vue.extend<Data, any, any, any>({
     mode="main"
   />
   <div
-    v-else-if="clusters.length === 0"
-    class="root"
-  >
-    <h2>{{ t('epinio.instances.none.header') }}</h2>
-    <p>{{ t('epinio.instances.none.description') }}</p>
-  </div>
-  <div
     v-else
     class="root"
   >
     <div class="epinios-table">
       <h2>{{ t('epinio.instances.header') }}</h2>
+      <div v-if="installedClusters.length === 0">
+        <Banner
+          class="none"
+          color="info"
+          :labelKey="'epinio.instances.none.description'"
+        />
+      </div>
       <ResourceTable
         :rows="clusters"
         :schema="clustersSchema"
@@ -185,8 +197,9 @@ export default Vue.extend<Data, any, any, any>({
         </template>
         <template #cell:api="{row}">
           <div class="epinio-row">
+            <template v-if="row.state === UNINSTALLED" />
             <Link
-              v-if="row.state !== 'available'"
+              v-else-if="row.state !== 'available'"
               :row="row"
               :value="{ text: row.api, url: row.infoUrl }"
             />
@@ -216,6 +229,20 @@ export default Vue.extend<Data, any, any, any>({
     </Dialog>
   </div>
 </template>
+
+<style lang="scss">
+div.root .epinios-table {
+  .banner__content  {
+    span {
+      text-align: center;
+    }
+
+    align-items: center;
+    display: flex;
+    flex-direction: column;
+  }
+}
+</style>
 
 <style lang="scss" scoped>
 

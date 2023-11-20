@@ -95,8 +95,7 @@ epinio:
   instances:
     header: Epinio instances
     none:
-      header: No instances of Epinio were found
-      description: To view an Epinio cluster be sure to import a Cluster where one is installed
+      description: No instances were found<br><br>Epinio can be installed to known clusters using the action menu to the right of the cluster
     tableHeaders:
       api: URL
       version: Version

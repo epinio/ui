@@ -300,12 +300,6 @@ export function init($plugin: any, store: any) {
       labelKey: 'epinio.instances.tableHeaders.api',
       sort:     ['api'],
     },
-    {
-      name:     'rancherCluster',
-      labelKey: 'epinio.instances.tableHeaders.cluster',
-      sort:     ['mgmtCluster.nameDisplay'],
-      value:    'mgmtCluster.nameDisplay'
-    },
   ]);
 
   headers(EPINIO_TYPES.CONFIGURATION, [

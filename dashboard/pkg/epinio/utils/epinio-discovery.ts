@@ -37,10 +37,19 @@ class EpinioDiscovery {
           namespace,
           api:         url,
           loggedIn:    !!loggedIn,
-          mgmtCluster: c
-        }, { rootGetters: store.getters }));
+          mgmtCluster: c,
+          installed:   true,
+        }, { rootGetters: store.getters, $dispatch: store.dispatch }));
       } catch (err) {
-        console.debug(`Skipping epinio discovery for ${ c.spec.displayName }:`, err); // eslint-disable-line no-console
+        epinioClusters.push(new EpinioCluster({
+          id:          c.id,
+          name:        c.spec.displayName,
+          namespace:   '',
+          api:         '',
+          loggedIn:    false,
+          mgmtCluster: c,
+          installed:   false,
+        }, { rootGetters: store.getters, $dispatch: store.dispatch }));
       }
     }
 
