@@ -4,7 +4,6 @@ import { getVendor } from '@shell/config/private-label';
 
 export default {
   async fetch() {
-    debugger;
     this.settings = await this.$store.dispatch(`management/findAll`, { type: MANAGEMENT.SETTING });
 
     this.version = await this.$store.dispatch('epinio/version');
