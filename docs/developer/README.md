@@ -33,6 +33,14 @@ Option B - Run the extension in a local Rancher
    - Check the `Persist extension by creating custom resource` option (otherwise after each page refresh you'll need to load the extension)
 
 ##### Production Flow
+
+> Requires
+> - Epinio 1.11 (or latest build from 2023-11-20)
+> - Requires Rancher 2.7.7 or greater
+>    - There is a bug where refreshing when logged in as a local user will result in an error page
+>    - This will be fixed in 2.8next1
+>    - To avoid this, in non-production, change `Global Settings --> Settings` `ui-dashboard-index` to `https://releases.rancher.com/dashboard/latest/index.html` and `ui-offline-preferred` to `Remote`
+
 1. Create the Rancher Helm Repo for the Epinio UI Extension
    - In Rancher nav to the `local` cluster --> `Apps` / `Repositories` --> `Create`
    - Enter Name: `epinio`, Index URL: `https://epinio.github.io/ui`, click `Create`
