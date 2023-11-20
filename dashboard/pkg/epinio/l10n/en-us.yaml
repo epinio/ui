@@ -314,6 +314,8 @@ epinio:
         label: Redeploy
       goToEpinio:
         label: Epinio App
+      viewDeployment:
+        label: View In Kube Cluster
     wm:
       containerName: 'Instance: {label}'
       noData: There are no log entries to show.
