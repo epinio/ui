@@ -5,9 +5,9 @@ The Epinio UI is currently served via the [Rancher Dashboard](https://github.com
 ## Developing the UI
 
 ### Running the UI
-#### Built-in / Embedded
+#### Built-in / Embedded / UI Extension
 
-This runs the epinio ui within the Rancher Manager UI
+This runs the Epinio UI Extension within the Rancher Manager UI
 
 > You will still need an instance of Rancher and the Epinio hosting cluster needs to be added/imported to it.
 
@@ -33,13 +33,14 @@ Option B - Run the extension in a local Rancher
    - Check the `Persist extension by creating custom resource` option (otherwise after each page refresh you'll need to load the extension)
 
 ##### Production Flow
-> This isn't supported yet, but to use the pending bits...
-1. Create the pending epinio extension repo
+1. Create the Rancher Helm Repo for the Epinio UI Extension
    - In Rancher nav to the `local` cluster --> `Apps` / `Repositories` --> `Create`
    - Enter Name: `epinio`, Index URL: `https://epinio.github.io/ui`, click `Create`
-2. Install the pending epinio extension in Rancher
+2. Install the Epinio UI Extension in Rancher
    - Nav to burger menu --> `Extensions` --> `Available` tab
    - Find `Epinio` and click `Install`
+   - Note - If there is a newer version of the UI Extension it can be upgraded to from this page
+
 
 #### Standalone
 
