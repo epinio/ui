@@ -51,8 +51,9 @@ Nice to have pre-reqs
    ```
    global:
      domain: '<ip>.nip.io'
+   rancher:
+     url: '<url of the location that serves the dashboard, for dev this would be https://localhost:8005>'
    server:
-     accessControlAllowOrigin: '<url of the location that serves the dashboard, for dev this would be https://localhost:8005>'
      traceLevel: 100
    #dex:
    #  ui:
