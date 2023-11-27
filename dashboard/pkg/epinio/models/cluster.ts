@@ -51,7 +51,6 @@ export default class EpinioCluster extends Resource {
       // Can they uninstall?
       // Try to find the installed helm app and check permissions on it
 
-      debugger;
       const url = `/k8s/clusters/${ data.mgmtCluster.id }/v1/catalog.cattle.io.apps/${ data.namespace }/${ defaultEpinioChart.name }?exclude=metadata.managedFields`;
 
       ctx.$dispatch(`cluster/request`, { url }, { root: true })
