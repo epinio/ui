@@ -2,7 +2,7 @@ import {
   AGE, NAME, RAM, SIMPLE_NAME, STATE
 } from '@shell/config/table-headers';
 import { createEpinioRoute, rootEpinioRoute } from '../utils/custom-routing';
-import { EPINIO_PRODUCT_NAME, EPINIO_STANDALONE_CLUSTER_NAME, EPINIO_TYPES } from '../types';
+import { EpinioGitConfig, EPINIO_PRODUCT_NAME, EPINIO_STANDALONE_CLUSTER_NAME, EPINIO_TYPES } from '../types';
 import EpinioDiscovery from '../utils/epinio-discovery';
 import { MULTI_CLUSTER } from '@shell/store/features';
 
@@ -150,6 +150,16 @@ export function init($plugin: any, store: any) {
     showListMasthead: false // Disable default masthead because we provide a custom one.
   });
 
+  // Catalog Service
+  configureType(EPINIO_TYPES.GIT_CONFIG, {
+    isCreatable: true,
+    isEditable:  false,
+    isRemovable: true,
+    showState:   false,
+    canYaml:     false,
+    customRoute: createEpinioRoute('c-cluster-resource', { resource: EPINIO_TYPES.GIT_CONFIG }),
+  });
+
   virtualType({
     label:      store.getters['i18n/t']('epinio.intro.about'),
     icon:       'dashboard',
@@ -188,6 +198,7 @@ export function init($plugin: any, store: any) {
     EPINIO_TYPES.DASHBOARD,
     EPINIO_TYPES.APP,
     EPINIO_TYPES.NAMESPACE,
+    EPINIO_TYPES.GIT_CONFIG,
     SERVICE_GROUP,
     ADVANCED_GROUP,
     ABOUT
@@ -405,6 +416,54 @@ export function init($plugin: any, store: any) {
       label: 'Helm Chart',
       value: 'helm_chart',
       sort:  ['helm_chart'],
+    },
+    AGE
+  ]);
+
+  headers(EPINIO_TYPES.GIT_CONFIG, [
+    NAME,
+    {
+      name:     'provider',
+      labelKey: 'epinio.gitconfigs.tableHeaders.provider.label',
+      tooltip:  'epinio.gitconfigs.tableHeaders.provider.tooltip',
+      value:    'provider',
+      sort:     ['provider'],
+    },
+    {
+      name:     'url',
+      labelKey: 'epinio.gitconfigs.tableHeaders.url.label',
+      tooltip:  'epinio.gitconfigs.tableHeaders.url.tooltip',
+      value:    'url',
+      sort:     ['url'],
+    },
+    {
+      name:     'userorg',
+      labelKey: 'epinio.gitconfigs.tableHeaders.userorg.label',
+      tooltip:  'epinio.gitconfigs.tableHeaders.userorg.tooltip',
+      value:    'userorg',
+      sort:     ['userorg'],
+    },
+    {
+      name:     'repository',
+      labelKey: 'epinio.gitconfigs.tableHeaders.repository.label',
+      tooltip:  'epinio.gitconfigs.tableHeaders.repository.tooltip',
+      value:    'repository',
+      sort:     ['repository'],
+    },
+    {
+      name:      'skipssl',
+      labelKey:  'epinio.gitconfigs.tableHeaders.skipssl.label',
+      tooltip:   'epinio.gitconfigs.tableHeaders.skipssl.tooltip',
+      getValue:  (row: EpinioGitConfig) => !!row.skipssl,
+      sort:      ['skipssl'],
+      formatter: 'Checked' // TODO: RC test
+    },
+    {
+      name:     'username',
+      labelKey: 'epinio.gitconfigs.tableHeaders.username.label',
+      tooltip:  'epinio.gitconfigs.tableHeaders.username.tooltip',
+      value:    'username',
+      sort:     ['username'],
     },
     AGE
   ]);

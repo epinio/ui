@@ -33,6 +33,11 @@ typeLabel:
       one { Catalog }
       other { Catalog }
     }
+  "gitconfigs": |-
+    {count, plural,
+      one { Git Configs }
+      other { Git Configs }
+    }
 typeDescription:
   namespaces: Namespaces group your applications, services and other resources. Deleting a namespace will delete all of it's resources.
   applications: Epinio uses Applications to transition your code, through build, to being deployed.
@@ -40,6 +45,7 @@ typeDescription:
   configurations: Configurations are a way to provide data to applications. The data becomes available once the configuration is bound to them.
   appcharts: Application Charts define kube resources created by your application. Templates for active applications cannot be changed
   catalogservices: Catalog Services provide additional, common functionality to applications. For example an instance of a database Catalog Service can be bound to an application.
+  gitconfigs: Git Configs provide a way for Epinio to access private and enterprise Github/Gitlab repositories
 asyncButton:
   export:
     action: Export
@@ -381,6 +387,38 @@ epinio:
     login: Log in
     genericProvider: Log in with Auth Provider
     useGenericProvider: Use Auth Provider
+  gitconfigs:
+    providers:
+      GIT: 'Git'
+      GITHUB: 'Github'
+      GITHUB_ENTERPRISE: 'Github Enterprise'
+      GITLAB: 'Gitlab'
+      GITLAB_ENTERPRISE: 'Gitlab Enterprise'
+    tableHeaders:
+      provider:
+        label: Provider
+        tooltip: '# TODO: RC'
+      url:
+        label: Git URL
+        tooltip: '# TODO: RC'
+      userorg:
+        label: User/Org # TODO: RC gitlab
+        tooltip: '# TODO: RC'
+      repository:
+        label: Repository
+        tooltip: '# TODO: RC'
+      skipssl:
+        label: Skip SSL
+        tooltip: '# TODO: RC'
+      username:
+        label: Username
+        tooltip: '# TODO: RC'
+    password:
+        label: Password / API Key
+        tooltip: '# TODO: RC'
+    sections:
+      git: Git Details
+      credentials: Credentials
 model:
   authConfig:
     provider:

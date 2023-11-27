@@ -19,6 +19,7 @@ export const EPINIO_TYPES = {
   CONFIGURATION:    'configurations',
   CATALOG_SERVICE:  'catalogservices',
   SERVICE_INSTANCE: 'services',
+  GIT_CONFIG:       'gitconfigs',
   // Internal
   DASHBOARD:        'dashboard',
   ABOUT:            'about',
@@ -235,3 +236,21 @@ export interface EpinioNamespace extends EpinioMetaProperty {
 }
 
 export type EpinioCompRecord = Record<string, any>
+
+export interface EpinioGitConfig extends EpinioMetaProperty {
+  // Get & Post
+  provider?: string,
+  url: string,
+  skipssl?: boolean,
+
+  username?: string,
+
+  repository?: string,
+  userorg?: string,
+
+  // Post
+  password?: string,
+  // "certs": [
+  //   0
+  // ], TODO: RC
+}
