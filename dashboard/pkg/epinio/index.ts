@@ -8,6 +8,7 @@ import epinioMgmtStore from './store/epinio-mgmt-store';
 import epinioStore from './store/epinio-store';
 import { createEpinioRoute } from './utils/custom-routing';
 import { isStandalone } from './utils/utils';
+import epinioL10n from './epinio-l10n/en-us.yaml';
 
 const epinioObjAnnotations = [
   'epinio.io/app-container',
@@ -53,6 +54,10 @@ export default function(plugin: IPlugin) {
 
   // Add hooks to Vue navigation world
   plugin.addNavHooks(onEnter, onLeave);
+
+  // FIXME: should be done per file in epinio-l10n
+  epinioL10n.product.epinio = isStandalone() ? epinioL10n.epinio.label.standalone : epinioL10n.epinio.label.embedded;
+  plugin.addL10n('en-us', epinioL10n);
 
   // Add action button in the menu of each object belonging to Epinio's applications
   plugin.addAction(

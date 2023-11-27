@@ -59,7 +59,9 @@ asyncButton:
     waiting: 'Refreshing'
     waitingIcon: refresh
 epinio:
-  label: Epinio
+  label:
+    standalone: Epinio
+    embedded: Application Engine
   about:
     allPackages: See all packages
     getBinaries: Get binaries
@@ -388,4 +390,4 @@ model:
       epinio: Auth Provider
 product:
   # Note one other usage of this string above
-  epinio: Application Engine
+  epinio: This is dynamically replaced in code

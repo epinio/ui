@@ -8,11 +8,7 @@ export const isStandalone = (): boolean => {
  * In standalone world it's Epinio, in embedded world Application Engine
  */
 export function getProductNameLabel(): string {
-  if (isStandalone()) {
-    return 'epinio.label';
-  }
-
-  return 'product.epinio';
+  return isStandalone() ? 'epinio.label.standalone' : 'epinio.label.embedded';
 }
 
 /**

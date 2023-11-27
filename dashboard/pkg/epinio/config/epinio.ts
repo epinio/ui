@@ -24,7 +24,7 @@ export function init($plugin: any, store: any) {
   if (isEpinioSingleProduct) {
     store.dispatch('setIsSingleProduct', {
       logo:                require(`../assets/logo-epinio.svg`),
-      productNameKey:      'epinio.label',
+      productNameKey:      'epinio.label.standalone',
       aboutPage:           createEpinioRoute('c-cluster-about', { cluster: EPINIO_STANDALONE_CLUSTER_NAME }),
       afterLoginRoute:     createEpinioRoute('c-cluster-dashboard', { cluster: EPINIO_STANDALONE_CLUSTER_NAME }),
       logoRoute:           createEpinioRoute('c-cluster-dashboard', { cluster: EPINIO_STANDALONE_CLUSTER_NAME }),
