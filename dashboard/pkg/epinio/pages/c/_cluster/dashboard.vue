@@ -14,6 +14,7 @@ import Banner from '@components/Banner/Banner.vue';
 import { METRIC } from '@shell/config/types';
 import { allHash } from '@shell/utils/promise';
 import ProductName from '../../../mixins/product-name';
+import { isStandalone } from '../../../utils/utils';
 
 type ComponentService = {
   name: string,
@@ -82,7 +83,8 @@ export default Vue.extend<any, any, any, any>({
       aboutLink:       !this.$store.getters['isSingleProduct'] ? createEpinioRoute('c-cluster-about', { cluster: this.$store.getters['clusterId'] }) : null,
       availableCpu:    100,
       availableMemory: 100,
-      showMetricsInfo: false
+      showMetricsInfo: false,
+      isStandalone:    isStandalone(),
     };
   },
 
@@ -228,7 +230,7 @@ export default Vue.extend<any, any, any, any>({
       </div>
 
       <p class="head-subheader">
-        {{ t('epinio.intro.blurb') }}
+        {{ isStandalone ? t('epinio.intro.blurb.standalone') : t('epinio.intro.blurb.embedded') }}
       </p>
 
       <p>

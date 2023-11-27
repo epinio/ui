@@ -66,7 +66,9 @@ epinio:
   intro:
     dashboard: Dashboard
     welcome: Welcome to {epinio}
-    blurb: The Application Development Engine for Kubernetes #TODO: RC
+    blurb:
+      standalone: The Application Development Engine for Kubernetes
+      embedded: The Development Engine for Kubernetes
     description:  "{epinio} takes your application from source code to deployment and enables Developers and Operators to work better together"
     learnMoreLink: https://epinio.io/
     learnMore: Learn more
