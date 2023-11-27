@@ -21,6 +21,7 @@ export const EPINIO_TYPES = {
   SERVICE_INSTANCE: 'services',
   // Internal
   DASHBOARD:        'dashboard',
+  ABOUT:            'about',
   CLUSTER:          'cluster',
   APP_ACTION:       'application-action',
   APP_INSTANCE:     'application-instance',

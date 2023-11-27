@@ -117,6 +117,7 @@ export function init($plugin: any, store: any) {
   // Groups
   const ADVANCED_GROUP = 'Advanced';
   const SERVICE_GROUP = 'Services';
+  const ABOUT = 'System';
 
   // Service Instance
   configureType(EPINIO_TYPES.SERVICE_INSTANCE, {
@@ -149,6 +150,15 @@ export function init($plugin: any, store: any) {
     showListMasthead: false // Disable default masthead because we provide a custom one.
   });
 
+  virtualType({
+    label:      store.getters['i18n/t']('epinio.intro.about'),
+    icon:       'dashboard',
+    // group:      'Root',
+    namespaced: false,
+    name:       EPINIO_TYPES.ABOUT,
+    route:      createEpinioRoute('c-cluster-about', { })
+  });
+
   // Side Nav
   weightType(EPINIO_TYPES.CATALOG_SERVICE, 150, true);
   weightType(EPINIO_TYPES.SERVICE_INSTANCE, 151, true);
@@ -164,17 +174,23 @@ export function init($plugin: any, store: any) {
     EPINIO_TYPES.APP_CHARTS
   ], ADVANCED_GROUP);
 
+  basicType([
+    EPINIO_TYPES.ABOUT
+  ], ABOUT);
+
   weightType(EPINIO_TYPES.DASHBOARD, 300, true);
   weightType(EPINIO_TYPES.APP, 250, true);
-  weightGroup(SERVICE_GROUP, 2, true);
   weightType(EPINIO_TYPES.NAMESPACE, 100, true);
-  weightGroup(ADVANCED_GROUP, 1, true);
+  weightGroup(SERVICE_GROUP, 30, true);
+  weightGroup(ADVANCED_GROUP, 20, true);
+  weightGroup(ABOUT, 10, false);
   basicType([
     EPINIO_TYPES.DASHBOARD,
     EPINIO_TYPES.APP,
-    SERVICE_GROUP,
     EPINIO_TYPES.NAMESPACE,
-    ADVANCED_GROUP
+    SERVICE_GROUP,
+    ADVANCED_GROUP,
+    ABOUT
   ]);
 
   headers(EPINIO_TYPES.APP, [
