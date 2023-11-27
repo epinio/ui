@@ -1,6 +1,6 @@
 <script>
 import { MANAGEMENT } from '@shell/config/types';
-import { getVendor } from '@shell/config/private-label';
+import ProductName from '../../../mixins/product-name';
 
 export default {
   async fetch() {
@@ -9,24 +9,22 @@ export default {
     this.version = await this.$store.dispatch('epinio/version');
   },
 
+  mixins: [ProductName],
+
   data() {
     return { version: null };
   },
-  computed: {
-    appName() {
-      const isSingleProduct = !!this.$store.getters['isSingleProduct'];
 
-      return isSingleProduct ? getVendor() : this.t('epinio.label');
-    },
+  computed: {
 
     downloads() {
       // TODO: Not sure if we can get the URL from the settings here.
       const gitUrl = `https://github.com/epinio/epinio/releases/download`;
 
       return [
-        this.createOSOption('about.os.mac', 'icon-apple', `${ gitUrl }/${ this.version?.displayVersion }/${ this.appName.toLowerCase() }-darwin-x86_64`, null),
-        this.createOSOption('about.os.linux', 'icon-linux', `${ gitUrl }/${ this.version?.displayVersion }/${ this.appName.toLowerCase() }-linux-x86_64`, this.downloadLinuxImages),
-        this.createOSOption('about.os.windows', 'icon-windows', `${ gitUrl }/${ this.version?.displayVersion }/${ this.appName.toLowerCase() }-windows-x86_64.zip`)
+        this.createOSOption('about.os.mac', 'icon-apple', `${ gitUrl }/${ this.version?.displayVersion }/epinio-darwin-x86_64`, null),
+        this.createOSOption('about.os.linux', 'icon-linux', `${ gitUrl }/${ this.version?.displayVersion }/epinio-linux-x86_64`, this.downloadLinuxImages),
+        this.createOSOption('about.os.windows', 'icon-windows', `${ gitUrl }/${ this.version?.displayVersion }/epinio-windows-x86_64.zip`)
       ];
     },
 
@@ -58,7 +56,7 @@ export default {
   <div class="about">
     <template>
       <h1 v-t="'about.title'">
-        {{ appName }}
+        {{ productName }}
       </h1>
       <table>
         <thead>
@@ -74,7 +72,7 @@ export default {
               target="_blank"
               rel="nofollow noopener noreferrer"
             >
-              {{ appName }}
+              {{ productName }}
             </a>
           </td><td>{{ versionString }}</td>
         </tr>

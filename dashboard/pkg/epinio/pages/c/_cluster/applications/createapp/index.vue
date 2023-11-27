@@ -162,8 +162,6 @@ export default Vue.extend<Data, any, any, any>({
   >
     <Wizard
       :steps="steps"
-      :banner-title="t('epinio.applications.create.title')"
-      :banner-title-subtext="t('epinio.applications.create.titleSubText')"
       header-mode="create"
       finish-mode="done"
       :edit-first-step="true"

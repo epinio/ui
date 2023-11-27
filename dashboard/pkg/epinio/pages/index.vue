@@ -12,6 +12,7 @@ import epinioAuth, { EpinioAuthTypes } from '../utils/auth';
 import EpinioCluster, { EpinioInfoPath } from '../models/cluster';
 import LoginDialog from '../components/LoginDialog.vue';
 import Dialog from '@shell/components/Dialog.vue';
+import ProductName from '../mixins/product-name';
 
 interface Data {
   clustersSchema: any;
@@ -22,6 +23,8 @@ export default Vue.extend<Data, any, any, any>({
   components: {
     AsyncButton, Loading, Link, ResourceTable, LoginDialog, Dialog
   },
+
+  mixins: [ProductName],
 
   layout: 'plain',
 
@@ -149,15 +152,15 @@ export default Vue.extend<Data, any, any, any>({
     v-else-if="clusters.length === 0"
     class="root"
   >
-    <h2>{{ t('epinio.instances.none.header') }}</h2>
-    <p>{{ t('epinio.instances.none.description') }}</p>
+    <h2>{{ t('epinio.instances.none.header', {epinio: productName}) }}</h2>
+    <p>{{ t('epinio.instances.none.description', {epinio: productName}) }}</p>
   </div>
   <div
     v-else
     class="root"
   >
     <div class="epinios-table">
-      <h2>{{ t('epinio.instances.header') }}</h2>
+      <h2>{{ t('epinio.instances.header', {epinio: productName}) }}</h2>
       <ResourceTable
         :rows="clusters"
         :schema="clustersSchema"

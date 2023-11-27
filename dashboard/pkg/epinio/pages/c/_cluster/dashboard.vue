@@ -13,6 +13,7 @@ import { Location } from 'vue-router';
 import Banner from '@components/Banner/Banner.vue';
 import { METRIC } from '@shell/config/types';
 import { allHash } from '@shell/utils/promise';
+import ProductName from '../../../mixins/product-name';
 
 type ComponentService = {
   name: string,
@@ -26,6 +27,9 @@ export default Vue.extend<any, any, any, any>({
     DashboardCard,
     ConsumptionGauge
   },
+
+  mixins: [ProductName],
+
   async fetch() {
     const hash: { [key:string]: any } = await allHash({
       ns:          this.$store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.NAMESPACE }),
@@ -37,6 +41,7 @@ export default Vue.extend<any, any, any, any>({
 
     this.version = hash.version;
   },
+
   data() {
     return {
       sectionContent: [
@@ -80,9 +85,11 @@ export default Vue.extend<any, any, any, any>({
       showMetricsInfo: false
     };
   },
+
   created() {
     this.redoCards();
   },
+
   watch: {
     namespaces(old, neu) {
       if (isEqual(old, neu)) {
@@ -106,6 +113,7 @@ export default Vue.extend<any, any, any, any>({
       this.redoCards();
     }
   },
+
   methods: {
     async calcAvailableResources() {
       if (this.$store.getters['isSingleProduct']) {
@@ -156,6 +164,7 @@ export default Vue.extend<any, any, any, any>({
       }
     }
   },
+
   computed: {
     services() {
       const fetchServicesInstances: EpinioServiceModel[] = this.$store.getters['epinio/all'](EPINIO_TYPES.SERVICE_INSTANCE);
@@ -214,7 +223,7 @@ export default Vue.extend<any, any, any, any>({
   <div class="dashboard">
     <div class="head">
       <div class="head-title">
-        <h1>{{ t('epinio.intro.welcome') }}</h1>
+        <h1>{{ t('epinio.intro.welcome', {epinio: productName}) }}</h1>
         <span v-if="version">{{ version.displayVersion }}</span>
       </div>
 
@@ -223,7 +232,7 @@ export default Vue.extend<any, any, any, any>({
       </p>
 
       <p>
-        {{ t('epinio.intro.description') }}
+        {{ t('epinio.intro.description', {epinio: productName}) }}
       </p>
 
       <div class="head-links">

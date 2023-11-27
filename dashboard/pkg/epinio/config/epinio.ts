@@ -5,6 +5,7 @@ import { createEpinioRoute, rootEpinioRoute } from '../utils/custom-routing';
 import { EPINIO_PRODUCT_NAME, EPINIO_STANDALONE_CLUSTER_NAME, EPINIO_TYPES } from '../types';
 import EpinioDiscovery from '../utils/epinio-discovery';
 import { MULTI_CLUSTER } from '@shell/store/features';
+import { isStandalone } from '../utils/utils';
 
 export function init($plugin: any, store: any) {
   const {
@@ -18,7 +19,7 @@ export function init($plugin: any, store: any) {
     weightGroup
   } = $plugin.DSL(store, $plugin.name);
 
-  const isEpinioSingleProduct = process.env.rancherEnv === 'epinio';
+  const isEpinioSingleProduct = isStandalone();
 
   if (isEpinioSingleProduct) {
     store.dispatch('setIsSingleProduct', {

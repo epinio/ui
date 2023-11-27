@@ -14,6 +14,7 @@ import { validateKubernetesName } from '@shell/utils/validators/kubernetes-name'
 import { EPINIO_TYPES, EpinioNamespace } from '../../types';
 import Application from '../../models/applications';
 import { objValuesToString } from '../../utils/settings';
+import ProductName from '../../mixins/product-name';
 
 export interface EpinioAppInfo {
   meta: {
@@ -47,6 +48,8 @@ export default Vue.extend<Data, any, any, any>({
     Banner,
     ChartValues,
   },
+
+  mixins: [ProductName],
 
   props: {
     application: {
@@ -234,7 +237,7 @@ export default Vue.extend<Data, any, any, any>({
         v-model="values.configuration.routes"
         data-testid="epinio_app-info_routes"
         :title="t('epinio.applications.create.routes.title')"
-        :protip="t('epinio.applications.create.routes.tooltip')"
+        :protip="t('epinio.applications.create.routes.tooltip', { epinio: productName})"
         :mode="mode"
         :value-placeholder="t('epinio.applications.create.routes.placeholder')"
       />

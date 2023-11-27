@@ -13,6 +13,7 @@ import CreateEpinioResource from '../pages/c/_cluster/_resource/create.vue';
 import ViewEpinioResource from '../pages/c/_cluster/_resource/_id.vue';
 import ViewEpinioNsResource from '../pages/c/_cluster/_resource/_namespace/_id.vue';
 import AuthVerify from '../pages/auth/verify.vue';
+import { isStandalone } from '../utils/utils';
 
 const meta = {
   product: EPINIO_PRODUCT_NAME,
@@ -66,7 +67,7 @@ const routes: RouteConfig[] = [{
   meta
 }];
 
-const isEpinioSingleProduct = process.env.rancherEnv === 'epinio';
+const isEpinioSingleProduct = isStandalone();
 
 if (!isEpinioSingleProduct) {
   routes.unshift({

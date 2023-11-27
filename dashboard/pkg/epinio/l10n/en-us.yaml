@@ -35,8 +35,8 @@ typeLabel:
     }
 typeDescription:
   namespaces: Namespaces group your applications, services and other resources. Deleting a namespace will delete all of it's resources.
-  applications: Epinio uses Applications to transition your code, through build, to being deployed.
-  services: Epinio can create instances of your services. Instances can be bound to your applications to provide data, for example a database service bound to an application might provide connection credentials.
+  applications: Applications transition your code, through build, to being deployed.
+  services: Instances of your services can be created and shared between Applications. Bind instances to your application to provide data, for example a database service bound to an application might provide connection credentials.
   configurations: Configurations are a way to provide data to applications. The data becomes available once the configuration is bound to them.
   appcharts: Application Charts define kube resources created by your application. Templates for active applications cannot be changed
   catalogservices: Catalog Services provide additional, common functionality to applications. For example an instance of a database Catalog Service can be bound to an application.
@@ -65,9 +65,9 @@ epinio:
     getBinaries: Get binaries
   intro:
     dashboard: Dashboard
-    welcome: Welcome to Epinio
-    blurb: The Application Development Engine for Kubernetes
-    description:  Epinio takes your application from source code to deployment and allow for Developers and Operators to work better together!
+    welcome: Welcome to {epinio}
+    blurb: The Application Development Engine for Kubernetes #TODO: RC
+    description:  "{epinio} takes your application from source code to deployment and enables Developers and Operators to work better together"
     learnMoreLink: https://epinio.io/
     learnMore: Learn more
     noNamespaces: Create a Namespace, then create your Applications
@@ -93,10 +93,10 @@ epinio:
   tableHeaders:
     namespace: Namespace
   instances:
-    header: Epinio instances
+    header: "{epinio} Instances"
     none:
-      header: No instances of Epinio were found
-      description: To view an Epinio cluster be sure to import a Cluster where one is installed
+      header: No instances of {epinio} were found
+      description: To view an {epinio} instances be sure to import a Cluster where one is installed
     tableHeaders:
       api: URL
       version: Version
@@ -149,8 +149,6 @@ epinio:
       latestCommit: Latest commit deployed
       behindCommits: Commits behind
     create:
-      title: Application
-      titleSubText: Epinio
       instances: Instances
       settingsVars:
         title: Application Variables
@@ -164,7 +162,7 @@ epinio:
         valueLabel: Value
       routes:
         title: Routes
-        tooltip: Replace the default route (<app name>.<epinio domain>) with one or more custom routes
+        tooltip: Replace the default route (<app name>.<{epinio} domain>) with one or more custom routes
         placeholder: e.g. my-custom-route.com/my-app
     export:
       label: Export App
@@ -245,7 +243,7 @@ epinio:
 
       configurations:
         label: Bindings
-        subtext: Bind to Application
+        subtext: Bind Configurations and Services to your app
         configurations:
           select:
             placeholderWithOptions: Select configs to bind app to
@@ -313,7 +311,8 @@ epinio:
       editFromCommit:
         label: Redeploy
       goToEpinio:
-        label: Epinio App
+        labelStandalone: Epinio App
+        labelEmbedded: Application Engine App
       viewDeployment:
         label: View In Kube Cluster
     wm:
@@ -365,7 +364,7 @@ epinio:
         label: Catalog Service
         placeholderNoOptions: There are no services
         placeholderWithOptions: Select the type of Service to create
-        failedWaitingForServiceInstance: Service instance was created but failed to be returned by Epinio, no applications were bound
+        failedWaitingForServiceInstance: Service instance was created but failed to be returned, no applications were bound
   catalogService:
     tableHeaders:
       shortDesc: Headline
@@ -385,3 +384,6 @@ model:
   authConfig:
     provider:
       epinio: Auth Provider
+product:
+  # Note one other usage of this string above
+  epinio: Application Engine

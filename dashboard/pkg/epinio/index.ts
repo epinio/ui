@@ -7,6 +7,7 @@ import epinioRoutes from './routing/epinio-routing';
 import epinioMgmtStore from './store/epinio-mgmt-store';
 import epinioStore from './store/epinio-store';
 import { createEpinioRoute } from './utils/custom-routing';
+import { isStandalone } from './utils/utils';
 
 const epinioObjAnnotations = [
   'epinio.io/app-container',
@@ -66,7 +67,7 @@ export default function(plugin: IPlugin) {
       ]
     },
     {
-      labelKey: 'epinio.applications.actions.goToEpinio.label',
+      labelKey: isStandalone() ? 'epinio.applications.actions.goToEpinio.labelStandalone' : 'epinio.applications.actions.goToEpinio.labelEmbedded',
       icon:     'icon-epinio',
       enabled(ctx: any) {
         const isUserNamespace = ctx.metadata.namespace !== 'epinio';
