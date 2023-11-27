@@ -1,4 +1,4 @@
-import { METRIC, SCHEMA } from '@shell/config/types';
+import { METRIC, SCHEMA, WORKLOAD_TYPES } from '@shell/config/types';
 import { handleSpoofedRequest } from '@shell/plugins/dashboard-store/actions';
 import { classify } from '@shell/plugins/dashboard-store/classify';
 import { normalizeType } from '@shell/plugins/dashboard-store/normalize';
@@ -12,6 +12,7 @@ import {
 } from '../../types';
 import EpinioCluster from '../../models/cluster';
 import { RedirectToError } from '@shell/utils/error';
+import { allHashSettled } from '@shell/utils/promise';
 
 const createId = (schema: any, resource: any) => {
   const name = resource.meta?.name || resource.name;
@@ -243,13 +244,18 @@ export default {
 
     if (!isSingleProduct) {
       try {
-        const nodeMetricsSchema = await dispatch(`cluster/request`, { url: `/k8s/clusters/${ clusterId }/v1/schemas/${ METRIC.NODE }` }, { root: true });
+        const schemas = await allHashSettled({
+          nodeMetrics: dispatch(`cluster/request`, { url: `/k8s/clusters/${ clusterId }/v1/schemas/${ METRIC.NODE }` }, { root: true }),
+          deployments: dispatch(`cluster/request`, { url: `/k8s/clusters/${ clusterId }/v1/schemas/${ WORKLOAD_TYPES.DEPLOYMENT }` }, { root: true })
+        });
 
-        if (nodeMetricsSchema) {
-          data.push(nodeMetricsSchema);
-        }
+        Object.values(schemas).forEach((res: any ) => {
+          if (res.value) {
+            data.push(res.value);
+          }
+        });
       } catch (e) {
-        console.warn(`Unable to fetch Node metrics schema for epinio cluster: ${ clusterId }`);// eslint-disable-line no-console
+        console.debug(`Unable to fetch schema/s for epinio cluster: ${ clusterId }`, e);// eslint-disable-line no-console
       }
     }
 

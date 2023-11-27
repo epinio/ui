@@ -154,12 +154,6 @@ export default Vue.extend<any, any, any, any>({
         this.sectionContent[2].isLoaded = true;
         this.sectionContent[2].isEnable = true;
       }
-    },
-    openMetricsDetails() {
-      this.$router.replace({
-        name:   'c-cluster-explorer',
-        params: { cluster: this.$store.getters['clusterId'] }
-      });
     }
   },
   computed: {
@@ -206,6 +200,12 @@ export default Vue.extend<any, any, any, any>({
 
       return { totalNamespaces: allNamespaces.length, latestNamespaces: sortBy(allNamespaces, 'metadata.createdAt').reverse().slice(0, 2) };
     },
+    metricsDetails() {
+      return {
+        name:   'c-cluster-explorer',
+        params: { cluster: this.$store.getters['clusterId'] }
+      };
+    }
   },
 });
 </script>
@@ -254,10 +254,11 @@ export default Vue.extend<any, any, any, any>({
       <span>
         {{ t('epinio.intro.metrics.availability', { availableCpu, availableMemory }) }}
       </span>
-      <a
-        class="cluster-link"
-        @click="openMetricsDetails"
-      >{{ t('epinio.intro.metrics.link.label') }}</a>
+      <n-link
+        :to="metricsDetails"
+      >
+        {{ t('epinio.intro.metrics.link.label') }}
+      </n-link>
     </Banner>
 
     <div class="get-started">

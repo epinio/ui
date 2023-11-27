@@ -9,6 +9,8 @@ import {
 import { createEpinioRoute } from '../utils/custom-routing';
 import EpinioNamespacedResource, { bulkRemove } from './epinio-namespaced-resource';
 import { AppUtils } from '../utils/application';
+import { WORKLOAD_TYPES } from '@shell/config/types';
+import { NAME as EXPLORER } from '@shell/config/product/explorer';
 
 // See https://github.com/epinio/epinio/blob/00684bc36780a37ab90091498e5c700337015a96/pkg/api/core/v1/models/app.go#L11
 const STATES = {
@@ -106,7 +108,7 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
       res.push({
         action:  'showAppShell',
         label:   this.t('epinio.applications.actions.shell.label'),
-        icon:    'icon icon-fw icon-chevron-right',
+        icon:    'icon icon-fw icon-terminal',
         enabled: showAppShell,
       });
     }
@@ -125,10 +127,6 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
       },
     );
 
-    if (showAppShell || showAppLog || showStagingLog) {
-      res.push({ divider: true });
-    }
-
     res.push( {
       action:  'restage',
       label:   this.t('epinio.applications.actions.restage.label'),
@@ -141,7 +139,6 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
       icon:    'icon icon-fw icon-refresh',
       enabled: isRunning
     },
-    { divider: true },
     {
       action:  'exportApp',
       label:   this.t('epinio.applications.export.label'),
@@ -149,8 +146,21 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
       enabled: isRunning
     },
     { divider: true },
+    );
 
-    ...super._availableActions);
+    if (this.canViewDeployment) {
+      res.push({
+        action: 'viewDeployment',
+        label:  this.t('epinio.applications.actions.viewDeployment.label'),
+        icon:   'icon icon-fw icon-chevron-right',
+      },
+      { divider: true },
+      );
+    }
+
+    res.push(
+      ...super._availableActions
+    );
 
     return res;
   }
@@ -446,6 +456,52 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
   // TODO: Remove after merging with master
   get applyMode() {
     return 'export';
+  }
+
+  get canViewDeployment() {
+    return !this.$rootGetters['isSingleProduct'] && !!this.$getters[`schemaFor`](WORKLOAD_TYPES.DEPLOYMENT);
+  }
+
+  /**
+   * Attempt to view the deployment for this namespace in Rancher's UI
+   *
+   * If we can't find the deployment, just go to the deployment list with the name in the filter
+   */
+  viewDeployment() {
+    const clusterId = this.$rootGetters['clusterId'];
+    const namespace = this.metadata.namespace;
+    const appName = this.metadata.name;
+    const url = `/k8s/clusters/${ clusterId }/v1/apps.deployments/${ namespace }?labelSelector=app.kubernetes.io/component%3Dapplication,app.kubernetes.io/name%3D${ appName }`;
+
+    const deploymentList = {
+      name:   `c-cluster-product-resource`,
+      params: {
+        product:  EXPLORER,
+        cluster:  clusterId,
+        resource: WORKLOAD_TYPES.DEPLOYMENT,
+      },
+      query: { q: this.metadata.name }
+    };
+
+    this.$dispatch(`cluster/request`, { url }, { root: true })
+      .then((deployments) => {
+        if (deployments?.data?.length === 1) {
+          const deployment = deployments.data[0];
+
+          this.currentRouter().push({
+            name:   `c-cluster-product-resource-namespace-id`,
+            params: {
+              ...deploymentList.params,
+              namespace: deployment.metadata.namespace,
+              id:        deployment.metadata.name,
+            }
+          });
+        } else {
+          this.currentRouter().push(deploymentList);
+        }
+      }).catch(() => {
+        this.currentRouter().push(deploymentList);
+      });
   }
 
   // ------------------------------------------------------------------
