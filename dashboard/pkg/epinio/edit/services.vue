@@ -137,6 +137,10 @@ export default Vue.extend<Data, EpinioCompRecord, EpinioCompRecord, EpinioCompRe
 
       const newSettings = !isEqual(objValuesToString(this.chartValues), objValuesToString(this.value.settings));
 
+      const ttt = objValuesToString(this.chartValues);
+
+      debugger;
+
       if (newSettings) {
         this.value.settings = objValuesToString(this.chartValues);
       }

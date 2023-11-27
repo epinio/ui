@@ -65,6 +65,8 @@ export default class EpinioServiceModel extends EpinioNamespacedResource {
   }
 
   async create() {
+    const t = this.settings;
+    debugger;
     await this.followLink('create', {
       method:  'post',
       headers: {
