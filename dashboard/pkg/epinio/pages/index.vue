@@ -208,6 +208,15 @@ export default Vue.extend<Data, any, any, any>({
             </template>
           </div>
         </template>
+        <template #cell:rancherCluster="{row}">
+          <div class="epinio-row">
+            <nuxt-link
+              :to="{ name: 'c-cluster-explorer', params: { cluster: row.id } }"
+            >
+              {{ row.nameDisplay }}
+            </nuxt-link>
+          </div>
+        </template>
       </ResourceTable>
     </div>
     <Dialog
