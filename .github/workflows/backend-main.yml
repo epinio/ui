@@ -12,8 +12,8 @@ on:
     - backend/**
     - '!backend/README.md'
   # nightly
-  schedule:
-    - cron:  '0 0 * * *'
+  # schedule:
+  #   - cron:  '0 0 * * *'
 
 defaults:
   run:
