@@ -2,8 +2,8 @@ name: Release Next
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron:  '0 1 * * *'
+  # schedule:
+  #   - cron:  '0 1 * * *'
 
 env:
   SETUP_GO_VERSION: '1.20'
