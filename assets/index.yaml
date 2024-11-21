@@ -3,6 +3,28 @@ entries:
   epinio:
   - annotations:
       catalog.cattle.io/certified: rancher
+      catalog.cattle.io/display-name: Epinio (alpha)
+      catalog.cattle.io/kube-version: '>= v1.16.0-0 < v1.29.0-0'
+      catalog.cattle.io/namespace: cattle-ui-plugin-system
+      catalog.cattle.io/os: linux
+      catalog.cattle.io/permits-os: linux, windows
+      catalog.cattle.io/rancher-version: '>= 2.8.0-0 < v2.9.0-0'
+      catalog.cattle.io/scope: management
+      catalog.cattle.io/ui-component: plugins
+      catalog.cattle.io/ui-version: '>= 2.7.2 < v2.9.0-0'
+    apiVersion: v2
+    appVersion: 1.11.0-3
+    created: "2024-11-21T20:34:26.962339847Z"
+    description: Application Development Engine for Kubernetes
+    digest: 7555c0b3c3f4934f068c1ab3dd074908ff91f2b77d654bceb32ebef46d7b0a28
+    icon: https://raw.githubusercontent.com/rancher/dashboard/0b6cbe93e9ed3292294da178f119a500cc494db9/pkg/epinio/assets/logo-epinio.svg
+    name: epinio
+    type: application
+    urls:
+    - assets/epinio/epinio-1.11.0-3.tgz
+    version: 1.11.0-3
+  - annotations:
+      catalog.cattle.io/certified: rancher
       catalog.cattle.io/kube-version: '>= 1.16.0-0 < 1.29.0-0'
       catalog.cattle.io/namespace: cattle-ui-plugin-system
       catalog.cattle.io/os: linux
@@ -12,14 +34,14 @@ entries:
       catalog.cattle.io/ui-component: plugins
     apiVersion: v2
     appVersion: 1.11.0-2
-    created: "2023-11-17T14:28:33.67539625Z"
+    created: "2023-11-17T14:28:53.964097291Z"
     description: Application Development Engine for Kubernetes
-    digest: f32bab5f0c3acf83021ae8dc5641aa736e8312787be515f7a9e158f09a7b131a
+    digest: e45667615f1c1e63b6ab6ddfe159878032eb7cca335b1548149dde20bd0ceb98
     icon: https://raw.githubusercontent.com/rancher/dashboard/0b6cbe93e9ed3292294da178f119a500cc494db9/pkg/epinio/assets/logo-epinio.svg
     name: epinio
     type: application
     urls:
-    - assets/epinio/epinio-1.11.0-2.tgz
+    - https://github.com/epinio/ui/releases/download/epinio-1.11.0-2/epinio-1.11.0-2.tgz
     version: 1.11.0-2
   - annotations:
       catalog.cattle.io/certified: rancher
@@ -61,4 +83,4 @@ entries:
     urls:
     - assets/epinio/epinio-1.9.0-0.tgz
     version: 1.9.0-0
-generated: "2023-11-17T14:28:33.674919366Z"
+generated: "2024-11-21T20:34:26.961986658Z"
