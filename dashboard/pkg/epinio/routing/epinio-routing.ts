@@ -1,6 +1,7 @@
 
 import { RouteConfig } from 'vue-router';
 
+import { BLANK_CLUSTER } from '../config/epinio';
 import { EPINIO_PRODUCT_NAME } from '../types';
 
 import CreateApp from '../pages/c/_cluster/applications/createapp/index.vue';
@@ -19,7 +20,7 @@ const meta = {
   pkg:     EPINIO_PRODUCT_NAME
 };
 
-const routes: RouteConfig[] = [{
+const routes = [{
   name:      `${ EPINIO_PRODUCT_NAME }-auth-verify`,
   path:      `/:product/auth/verify`,
   component: AuthVerify,
@@ -73,6 +74,11 @@ if (!isEpinioSingleProduct) {
     name:      `${ EPINIO_PRODUCT_NAME }`,
     path:      `/:product/`,
     component: ListEpinio,
+    meta:      {
+      product: EPINIO_PRODUCT_NAME,
+      cluster: BLANK_CLUSTER,
+      pkg:     EPINIO_PRODUCT_NAME
+    }
   });
 }
 
