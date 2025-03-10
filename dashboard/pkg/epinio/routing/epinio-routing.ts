@@ -1,5 +1,5 @@
 
-import { RouteConfig } from 'vue-router';
+import { RouteRecordRaw } from 'vue-router';
 
 import { EPINIO_PRODUCT_NAME } from '../types';
 

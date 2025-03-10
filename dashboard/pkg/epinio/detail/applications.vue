@@ -1,4 +1,5 @@
 <script lang="ts">
+import { defineComponent } from 'vue';
 import day from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import Vue, { PropType } from 'vue';
@@ -23,7 +24,7 @@ interface Data {
 }
 
 // Data, Methods, Computed, Props
-export default Vue.extend<Data, EpinioCompRecord, EpinioCompRecord, EpinioCompRecord>({
+export default defineComponent({
   components: {
     Banner,
     SimpleBox,
@@ -99,7 +100,7 @@ export default Vue.extend<Data, EpinioCompRecord, EpinioCompRecord, EpinioCompRe
 
   methods: {
     async updateInstances(newInstances: number) {
-      this.$set(this, 'saving', true);
+      this['saving'] = true;
       try {
         this.value.configuration.instances = newInstances;
         await this.value.update();
@@ -107,7 +108,7 @@ export default Vue.extend<Data, EpinioCompRecord, EpinioCompRecord, EpinioCompRe
       } catch (err) {
         console.error(`Failed to scale Application: `, epinioExceptionToErrorsArray(err)); // eslint-disable-line no-console
       }
-      this.$set(this, 'saving', false);
+      this['saving'] = false;
     },
     formatURL(str: string) {
       const matchGit = str.match('^(https|git)(:\/\/|@)([^\/:]+)[\/:]([^\/:]+)\/(.+)(.git)*$');

@@ -1,4 +1,5 @@
 <script lang="ts">
+import { defineComponent } from 'vue';
 import Vue, { PropType } from 'vue';
 import CreateEditView from '@shell/mixins/create-edit-view';
 import Loading from '@shell/components/Loading.vue';
@@ -18,7 +19,7 @@ import EpinioBindAppsMixin from './bind-apps-mixin.js';
 interface Data {
 }
 
-export default Vue.extend<Data, EpinioCompRecord, EpinioCompRecord, EpinioCompRecord>({
+export default defineComponent({
   components: {
     Loading,
     CruResource,
@@ -48,12 +49,12 @@ export default Vue.extend<Data, EpinioCompRecord, EpinioCompRecord, EpinioCompRe
   async fetch() {
     await this.mixinFetch();
 
-    Vue.set(this.value.meta, 'namespace', this.initialValue.meta.namespace || this.namespaces[0]?.metadata.name);
+    this.value.meta['namespace'] = this.initialValue.meta.namespace || this.namespaces[0]?.metadata.name;
     this.selectedApps = [...this.initialValue.configuration?.boundapps || []];
   },
 
   data() {
-    Vue.set(this.value, 'data', { ...this.initialValue.configuration?.details });
+    this.value['data'] = { ...this.initialValue.configuration?.details };
 
     return {
       errors:           [],
@@ -106,7 +107,7 @@ export default Vue.extend<Data, EpinioCompRecord, EpinioCompRecord, EpinioCompRe
     },
 
     setData(data: any[]) {
-      Vue.set(this.value, 'data', data);
+      this.value['data'] = data;
     },
 
     updateValidation() {
@@ -117,20 +118,20 @@ export default Vue.extend<Data, EpinioCompRecord, EpinioCompRecord, EpinioCompRe
         const dataValues = Object.entries(this.value?.data || {});
 
         if (!!dataValues.length) {
-          Vue.set(this, 'validationPassed', true);
+          this['validationPassed'] = true;
 
           return;
         }
       }
 
-      Vue.set(this, 'validationPassed', false);
+      this['validationPassed'] = false;
     }
 
   },
 
   watch: {
     'value.meta.namespace'() {
-      Vue.set(this, 'selectedApps', []);
+      this['selectedApps'] = [];
       this.updateValidation(); // For when a user is supplying their own ns
     },
 
@@ -183,7 +184,7 @@ export default Vue.extend<Data, EpinioCompRecord, EpinioCompRecord, EpinioCompRe
     <div class="row">
       <div class="col span-6">
         <LabeledSelect
-          v-model="selectedApps"
+          v-model:value="selectedApps"
           :loading="$fetchState.pending"
           :disabled="noApps"
           :options="nsAppOptions"
@@ -209,7 +210,7 @@ export default Vue.extend<Data, EpinioCompRecord, EpinioCompRecord, EpinioCompRe
           :valueMarkdownMultiline="true"
           :parse-lines-from-file="true"
           :parse-value-from-file="true"
-          @input="setData($event)"
+          @update:value="setData($event)"
         />
       </div>
     </div>

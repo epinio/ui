@@ -1,6 +1,6 @@
 import { EPINIO_PRODUCT_NAME } from '../types';
 
-import { Location } from 'vue-router';
+import { RouteLocation } from 'vue-router';
 type Dictionary<T> = { [key: string]: T }
 
 export const rootEpinioRoute = (): Location => ({

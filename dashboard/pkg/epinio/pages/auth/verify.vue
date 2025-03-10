@@ -1,5 +1,7 @@
 <script lang="ts">
-import Vue from 'vue';
+import { defineComponent } from 'vue';
+import { createApp } from 'vue';
+const vueApp = createApp({});
 import epinioAuth from '../../utils/auth';
 import Banner from '@components/Banner/Banner.vue';
 import { dashboardUrl } from '../../utils/embedded-helpers';
@@ -8,7 +10,7 @@ interface Data {
   error: string,
 }
 
-export default Vue.extend<Data, any, any, any>({
+export default defineComponent({
 
   components: { Banner },
 

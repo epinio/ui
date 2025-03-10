@@ -72,15 +72,15 @@ export default {
     >
       <template #cell:configurations="{ row }">
         <span v-if="row.baseConfigurations.length">
-          <template v-for="(configuration, index) in row.baseConfigurations">
+          <template v-for="(configuration, index) in row.baseConfigurations" :key="index">
             <LinkDetail
-              :key="configuration.id"
+             
               :row="configuration"
               :value="configuration.meta.name"
             />
             <span
               v-if="index < row.baseConfigurations.length - 1"
-              :key="configuration.id + 'i'"
+             
             >, </span>
           </template>
         </span>
@@ -91,15 +91,15 @@ export default {
       </template>
       <template #cell:services="{ row }">
         <span v-if="row.services.length">
-          <template v-for="(service, index) in row.services">
+          <template v-for="(service, index) in row.services" :key="index">
             <LinkDetail
-              :key="service.id"
+             
               :row="service"
               :value="service.meta.name"
             />
             <span
               v-if="index < row.services.length - 1"
-              :key="service.id + 'i'"
+             
             >, </span>
           </template>
         </span>
@@ -113,21 +113,21 @@ export default {
           v-if="row.routes.length"
           class="route"
         >
-          <template v-for="(route, index) in row.routes">
+          <template v-for="(route, index) in row.routes" :key="index">
             <a
               v-if="row.state === 'running'"
-              :key="route.id"
+             
               :href="`https://${route}`"
               target="_blank"
               rel="noopener noreferrer nofollow"
             >{{ `https://${route}` }}</a>
             <span
               v-else
-              :key="route.id"
+             
             >{{ `https://${route}` }}</span>
             <span
               v-if="index < row.routes.length - 1"
-              :key="route.id + 'i'"
+             
             >, </span>
           </template>
         </span>

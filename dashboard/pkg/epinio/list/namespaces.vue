@@ -172,7 +172,7 @@ export default {
         >
           <LabeledInput
             ref="namespaceName"
-            v-model="value.meta.name"
+            v-model:value="value.meta.name"
             :label="t('epinio.namespace.name')"
             :mode="mode"
             :required="true"

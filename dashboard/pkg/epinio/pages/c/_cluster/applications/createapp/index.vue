@@ -1,5 +1,7 @@
 <script lang="ts">
-import Vue from 'vue';
+import { defineComponent } from 'vue';
+import { createApp } from 'vue';
+const vueApp = createApp({});
 import Application from '../../../../../models/applications';
 import Loading from '@shell/components/Loading.vue';
 import Wizard from '@shell/components/Wizard.vue';
@@ -22,7 +24,7 @@ interface Data {
 }
 
 // Data, Methods, Computed, Props
-export default Vue.extend<Data, any, any, any>({
+export default defineComponent({
 
   components: {
     Loading,
@@ -88,7 +90,7 @@ export default Vue.extend<Data, any, any, any>({
   methods: {
     set(obj: { [key: string]: string}, changes: { [key: string]: string}) {
       Object.entries(changes).forEach(([key, value]: [string, any]) => {
-        Vue.set(obj, key, value);
+        obj.key = value;
       });
     },
 

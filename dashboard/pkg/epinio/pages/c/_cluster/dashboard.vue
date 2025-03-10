@@ -1,5 +1,7 @@
 <script lang="ts">
-import Vue from 'vue';
+import { defineComponent } from 'vue';
+import { createApp } from 'vue';
+const vueApp = createApp({});
 import DashboardCard from '../../../components/dashboard/Cards.vue';
 import { createEpinioRoute } from '../../../utils/custom-routing';
 import { EpinioApplicationResource, EpinioCatalogService, EPINIO_MGMT_STORE, EPINIO_TYPES } from '../../../types';
@@ -9,7 +11,7 @@ import { parseSi, createMemoryValues } from '@shell/utils/units';
 import EpinioServiceModel from '../../../models/services';
 import isEqual from 'lodash/isEqual';
 import { sortBy } from 'lodash';
-import { Location } from 'vue-router';
+import { RouteLocation } from 'vue-router';
 import Banner from '@components/Banner/Banner.vue';
 import { METRIC } from '@shell/config/types';
 import { allHash } from '@shell/utils/promise';
@@ -20,7 +22,7 @@ type ComponentService = {
   isEnabled: boolean
 }
 
-export default Vue.extend<any, any, any, any>({
+export default defineComponent({
   components: {
     Banner,
     DashboardCard,
@@ -237,12 +239,12 @@ export default Vue.extend<any, any, any, any>({
           target="_blank"
           rel="noopener noreferrer nofollow"
         >{{ t('epinio.intro.issues') }}</a>
-        <n-link
+        <router-link
           v-if="aboutLink"
           :to="aboutLink"
         >
           {{ t('epinio.intro.about') }}
-        </n-link>
+        </router-link>
       </div>
     </div>
 
@@ -254,11 +256,11 @@ export default Vue.extend<any, any, any, any>({
       <span>
         {{ t('epinio.intro.metrics.availability', { availableCpu, availableMemory }) }}
       </span>
-      <n-link
+      <router-link
         :to="metricsDetails"
       >
         {{ t('epinio.intro.metrics.link.label') }}
-      </n-link>
+      </router-link>
     </Banner>
 
     <div class="get-started">
@@ -310,14 +312,14 @@ export default Vue.extend<any, any, any, any>({
                   v-for="(service, i) in services.servicesCatalog"
                   :key="i"
                 >
-                  <n-link
+                  <router-link
                     v-if="service.isEnabled"
                     :to="service.link"
                     class="link"
                   >
                     {{ service.name }}
                     <span>+</span>
-                  </n-link>
+                  </router-link>
 
                   <span
                     v-if="!service.isEnabled"

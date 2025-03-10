@@ -1,6 +1,6 @@
 <script lang="ts">
 import Vue, { PropType } from 'vue';
-
+import { defineComponent } from 'vue';
 import { sortBy } from '@shell/utils/sort';
 import LabeledSelect from '@shell/components/form/LabeledSelect.vue';
 import { _VIEW } from '@shell/config/query-params';
@@ -20,7 +20,7 @@ interface Data {
   }
 }
 
-export default Vue.extend<Data, EpinioCompRecord, EpinioCompRecord, EpinioCompRecord>({
+export default defineComponent({
   components: { LabeledSelect },
 
   props: {
@@ -172,7 +172,7 @@ export default Vue.extend<Data, EpinioCompRecord, EpinioCompRecord, EpinioCompRe
   <div>
     <div class="col span-6">
       <LabeledSelect
-        v-model="values.configurations"
+        v-model:value="values.configurations"
         data-testid="epinio_app-configuration_configurations"
         :loading="$fetchState.pending"
         :disabled="$fetchState.pending || noConfigs || isView"
@@ -187,7 +187,7 @@ export default Vue.extend<Data, EpinioCompRecord, EpinioCompRecord, EpinioCompRe
     <div class="spacer" />
     <div class="col span-6">
       <LabeledSelect
-        v-model="values.services"
+        v-model:value="values.services"
         data-testid="epinio_app-configuration_services"
         :loading="$fetchState.pending"
         :disabled="$fetchState.pending || noServices || isView"

@@ -1,5 +1,6 @@
 <script lang="ts">
 import Vue, { PropType } from 'vue';
+import { defineComponent } from 'vue';
 import ApplicationAction, { APPLICATION_ACTION_TYPE } from '../../models/application-action';
 
 import SortableTable from '@shell/components/SortableTable/index.vue';
@@ -18,7 +19,7 @@ interface Data {
   actions: ApplicationAction[];
 }
 
-export default Vue.extend<Data, EpinioCompRecord, EpinioCompRecord, EpinioCompRecord>({
+export default defineComponent({
   components: {
     SortableTable,
     BadgeState,
@@ -206,7 +207,7 @@ export default Vue.extend<Data, EpinioCompRecord, EpinioCompRecord, EpinioCompRe
   watch: {
     running(neu, prev) {
       if (prev && !neu) {
-        Vue.set(this.step, 'ready', true);
+        this.step['ready'] = true;
       }
     },
   },
@@ -219,7 +220,7 @@ export default Vue.extend<Data, EpinioCompRecord, EpinioCompRecord, EpinioCompRe
     },
 
     async create() {
-      Vue.set(this, 'running', true);
+      this['running'] = true;
 
       const enabledActions = [...this.actionsToRun];
 
@@ -227,7 +228,7 @@ export default Vue.extend<Data, EpinioCompRecord, EpinioCompRecord, EpinioCompRe
         try {
           await action.execute({ source: this.source });
         } catch (err) {
-          Vue.set(this, 'running', false);
+          this['running'] = false;
           console.error(err); // eslint-disable-line no-console
 
           await this.fetchApp();
@@ -236,7 +237,7 @@ export default Vue.extend<Data, EpinioCompRecord, EpinioCompRecord, EpinioCompRe
         }
       }
       await this.fetchApp();
-      Vue.set(this, 'running', false);
+      this['running'] = false;
       this.$emit('finished', true);
     },
   },
@@ -260,7 +261,7 @@ export default Vue.extend<Data, EpinioCompRecord, EpinioCompRecord, EpinioCompRe
       >
         <template #cell:index="{row}">
           <Checkbox
-            v-model="row.run"
+            v-model:value="row.run"
             :disabled="true"
           />
         </template>

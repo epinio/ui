@@ -1,5 +1,7 @@
 <script lang="ts">
-import Vue from 'vue';
+import { defineComponent } from 'vue';
+import { createApp } from 'vue';
+const vueApp = createApp({});
 
 import Loading from '@shell/components/Loading.vue';
 import Link from '@shell/components/formatter/Link.vue';
@@ -18,7 +20,7 @@ interface Data {
 }
 
 // Data, Methods, Computed, Props
-export default Vue.extend<Data, any, any, any>({
+export default defineComponent({
   components: {
     AsyncButton, Loading, Link, ResourceTable, LoginDialog, Dialog
   },
@@ -80,8 +82,8 @@ export default Vue.extend<Data, any, any, any>({
     },
 
     setClusterState(cluster: EpinioCluster, state: string, metadataStateObj: { state: { transitioning: boolean, error: boolean, message: string }}) {
-      Vue.set(cluster, 'state', state);
-      Vue.set(cluster, 'metadata', metadataStateObj);
+      cluster['state'] = state;
+      cluster['metadata'] = metadataStateObj;
     },
 
     testCluster(c: EpinioCluster) {
@@ -95,8 +97,8 @@ export default Vue.extend<Data, any, any, any>({
 
       this.$store.dispatch(`epinio/request`, { opt: { url: this.infoUrl, redirectUnauthorized: false }, clusterId: c.id })
         .then((res: any) => {
-          Vue.set(c, 'version', res?.version);
-          Vue.set(c, 'oidcEnabled', res?.oidc_enabled);
+          c['version'] = res?.version;
+          c['oidcEnabled'] = res?.oidc_enabled;
           this.setClusterState(c, 'available', { state: { transitioning: false } });
         })
         .catch((e: Error) => {

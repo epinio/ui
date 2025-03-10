@@ -143,7 +143,7 @@ export default {
           <Password
             id="password"
             ref="password"
-            v-model="password"
+            v-model:value="password"
             :label="t('login.password')"
             autocomplete="epinio-password"
             :required="true"

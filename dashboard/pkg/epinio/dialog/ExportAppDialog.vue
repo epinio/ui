@@ -1,5 +1,6 @@
 <script>
-import Vue from 'vue';
+import { createApp } from 'vue';
+const vueApp = createApp({});
 import GenericPrompt from '@shell/dialog/GenericPrompt';
 import Banner from '@components/Banner/Banner.vue';
 import Tabbed from '@shell/components/Tabbed/index.vue';
@@ -123,7 +124,7 @@ export default {
               progressEvent.srcElement.getResponseHeader('proxy-content-length');
 
             if (total) {
-              Vue.set(this.percentages, part, Math.round(progressEvent.loaded * 100 / total));
+              this.percentages.part = Math.round(progressEvent.loaded * 100 / total);
             }
 
             if (progressEvent.loaded > 0) {

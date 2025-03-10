@@ -1,4 +1,5 @@
 <script lang="ts">
+import { defineComponent } from 'vue';
 import Vue, { PropType } from 'vue';
 import Application from '../models/applications';
 import CreateEditView from '@shell/mixins/create-edit-view';
@@ -25,7 +26,7 @@ interface Data {
 }
 
 // Data, Methods, Computed, Props
-export default Vue.extend<Data, EpinioCompRecord, EpinioCompRecord, EpinioCompRecord>({
+export default defineComponent({
   components: {
     AppSource,
     AppProgress,
@@ -146,7 +147,7 @@ export default Vue.extend<Data, EpinioCompRecord, EpinioCompRecord, EpinioCompRe
 
     set(obj: { [key: string]: string}, changes: { [key: string]: string}) {
       Object.entries(changes).forEach(([key, value]: [string, any]) => {
-        Vue.set(obj, key, value);
+        obj.key = value;
       });
     },
 
@@ -158,7 +159,7 @@ export default Vue.extend<Data, EpinioCompRecord, EpinioCompRecord, EpinioCompRe
     },
 
     updateConfigurations(changes: EpinioAppBindings) {
-      Vue.set(this, 'bindings', changes);
+      this['bindings'] = changes;
       this.set(this.value.configuration, [
         ...changes.configurations,
         // .map(s => s.meta.name)
@@ -221,7 +222,7 @@ export default Vue.extend<Data, EpinioCompRecord, EpinioCompRecord, EpinioCompRe
     @finish="save"
   >
     <ResourceTabs
-      v-model="value"
+      v-model:value="value"
       mode="mode"
     >
       <Tab

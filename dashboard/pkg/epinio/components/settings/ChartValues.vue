@@ -1,16 +1,17 @@
 <script lang="ts">
 import Vue, { PropType } from 'vue';
+import { defineComponent } from 'vue';
 import formRulesGenerator from '@shell/utils/validators/formRules';
 import Checkbox from '@components/Form/Checkbox/Checkbox.vue';
 import LabeledSelect from '@shell/components/form/LabeledSelect.vue';
-import LabeledInput from '@components/Form/LabeledInput/LabeledInput.vue';
+import { LabeledInput } from '@components/Form/LabeledInput';
 
 interface Data {
   valid: { [key: string]: boolean }
 }
 
 // Data, Methods, Computed, Props
-export default Vue.extend<Data, any, any, any>({
+export default defineComponent({
   components: {
     Checkbox,
     LabeledInput,
@@ -72,7 +73,7 @@ export default Vue.extend<Data, any, any, any>({
             messages.push(maxRes);
           }
         }
-        Vue.set(this.valid, key, !messages.length);
+        this.valid.key = !messages.length;
 
         return messages.join(',');
       };
@@ -91,7 +92,7 @@ export default Vue.extend<Data, any, any, any>({
     },
 
     onInputCheckbox(key: string, value: boolean) {
-      Vue.set(this.value, key, value ? 'true' : 'false');
+      this.value.key = value ? 'true' : 'false';
     }
   },
 });
@@ -108,7 +109,7 @@ export default Vue.extend<Data, any, any, any>({
       <LabeledInput
         v-if="setting.type === 'number' || setting.type === 'integer'"
         :id="key"
-        v-model="value[key]"
+        v-model:value="value[key]"
         :label="key"
         type="number"
         :min="setting.minimum"
@@ -125,12 +126,12 @@ export default Vue.extend<Data, any, any, any>({
         :label="key"
         :mode="mode"
         :disabled="disabled"
-        @input="onInputCheckbox(key, $event)"
+        @update:value="onInputCheckbox(key, $event)"
       />
       <LabeledSelect
         v-else-if="setting.type === 'string' && setting.enum"
         :id="key"
-        v-model="value[key]"
+        v-model:value="value[key]"
         :label="key"
         :options="setting.enum"
         :mode="mode"
@@ -139,7 +140,7 @@ export default Vue.extend<Data, any, any, any>({
       <LabeledInput
         v-else-if="setting.type === 'string'"
         :id="key"
-        v-model="value[key]"
+        v-model:value="value[key]"
         :label="key"
         :mode="mode"
         :disabled="disabled"
