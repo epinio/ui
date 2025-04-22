@@ -1,5 +1,5 @@
 <script lang="ts">
-import Vue, { PropType } from 'vue';
+import Vue, { PropType, defineComponent } from 'vue';
 import jsyaml from 'js-yaml';
 
 import Application from '../../models/applications';
@@ -45,16 +45,7 @@ interface FileWithRelativePath extends File {
 const DEFAULT_BUILD_PACK = 'paketobuildpacks/builder:full';
 
 // Data, Methods, Computed, Props
-export default Vue.extend<Data, any, any, any>({
-
-  components: {
-    FileSelector,
-    LabeledInput,
-    LabeledSelect,
-    RadioGroup,
-    Collapse,
-    GitPicker
-  },
+export default defineComponent({
 
   props: {
     application: {
@@ -133,9 +124,9 @@ export default Vue.extend<Data, any, any, any>({
   mounted() {
     if (!this.appChart) {
       if (this.appCharts[0]?.value) {
-        Vue.set(this, 'appChart', this.appCharts[0]?.value);
+        this['appChart'] = this.appCharts[0]?.value;
       } else {
-        Vue.set(this, 'appChart', this.appCharts[0]);
+        this['appChart'] = this.appCharts[0];
       }
     }
 
@@ -179,24 +170,24 @@ export default Vue.extend<Data, any, any, any>({
         const type = AppUtils.getManifestSourceType(parsed.origin);
 
         this.gitSkipTypeReset = true;
-        Vue.set(this, 'type', type);
+        this['type'] = type;
 
         switch (type) {
         case APPLICATION_SOURCE_TYPE.CONTAINER_URL:
-          Vue.set(this.container, 'url', parsed.origin.container);
+          this.container['url'] = parsed.origin.container;
           break;
         case APPLICATION_SOURCE_TYPE.GIT_URL:
-          Vue.set(this.gitUrl, 'url', parsed.origin.git.url);
-          Vue.set(this.gitUrl, 'branch', parsed.origin.git.revision);
+          this.gitUrl['url'] = parsed.origin.git.url;
+          this.gitUrl['branch'] = parsed.origin.git.revision;
           break;
         case APPLICATION_SOURCE_TYPE.GIT_HUB:
         case APPLICATION_SOURCE_TYPE.GIT_LAB:
-          Vue.set(this, 'git', AppUtils.getGitData(parsed.origin.git));
+          this['git'] = AppUtils.getGitData(parsed.origin.git);
           break;
         }
 
         if (parsed.configuration) {
-          Vue.set(this, 'appChart', parsed.configuration.appchart);
+          this['appChart'] = parsed.configuration.appchart;
         }
 
         const appInfo: EpinioAppInfo = {
@@ -259,8 +250,8 @@ export default Vue.extend<Data, any, any, any>({
       }, {} as { [key: string]: any});
 
       generateZip(filesToZip).then((zip: any) => {
-        Vue.set(this.archive, 'tarball', zip);
-        Vue.set(this.archive, 'fileName', folderName || 'folder');
+        this.archive['tarball'] = zip;
+        this.archive['fileName'] = folderName || 'folder';
 
         this.update();
       });
@@ -397,7 +388,7 @@ export default Vue.extend<Data, any, any, any>({
   <div class="appSource">
     <div class="button-row source">
       <LabeledSelect
-        v-model="type"
+        v-model:value="type"
         data-testid="epinio_app-source_type"
         label="Source Type"
         :options="types"
@@ -420,7 +411,7 @@ export default Vue.extend<Data, any, any, any>({
         <h3>{{ t('epinio.applications.steps.source.archive.file.label') }}</h3>
         <div class="button-row">
           <LabeledInput
-            v-model="archive.fileName"
+            v-model:value="archive.fileName"
             data-testid="epinio_app-source_archive_name"
             :disabled="true"
             :tooltip="t('epinio.applications.steps.source.archive.file.tooltip')"
@@ -444,7 +435,7 @@ export default Vue.extend<Data, any, any, any>({
         <h3>{{ t('epinio.applications.steps.source.folder.file.label') }}</h3>
         <div class="button-row">
           <LabeledInput
-            v-model="archive.fileName"
+            v-model:value="archive.fileName"
             data-testid="epinio_app-source_folder_name"
             :disabled="true"
             :tooltip="t('epinio.applications.steps.source.folder.file.tooltip')"
@@ -467,12 +458,12 @@ export default Vue.extend<Data, any, any, any>({
       <div class="spacer source">
         <h3>{{ t('epinio.applications.steps.source.container_url.url.label') }}</h3>
         <LabeledInput
-          v-model="container.url"
+          v-model:value="container.url"
           data-testid="epinio_app-source_container"
           :tooltip="t('epinio.applications.steps.source.container_url.url.tooltip')"
           :label="t('epinio.applications.steps.source.container_url.url.inputLabel')"
           :required="true"
-          @input="update"
+          @update:value="update"
         />
       </div>
     </template>
@@ -480,7 +471,7 @@ export default Vue.extend<Data, any, any, any>({
       <div class="spacer source">
         <h3>{{ t('epinio.applications.steps.source.git_url.url.label') }}</h3>
         <LabeledInput
-          v-model="gitUrl.url"
+          v-model:value="gitUrl.url"
           v-focus
           data-testid="epinio_app-source_git-url"
           :tooltip="t('epinio.applications.steps.source.git_url.url.tooltip')"
@@ -489,19 +480,19 @@ export default Vue.extend<Data, any, any, any>({
           :required="true"
           :rules="[urlRule]"
           @delay="100"
-          @input="update"
+          @update:value="update"
         />
       </div>
       <div class="spacer source">
         <h3>{{ t('epinio.applications.steps.source.git_url.branch.label') }}</h3>
         <LabeledInput
-          v-model="gitUrl.branch"
+          v-model:value="gitUrl.branch"
           data-testid="epinio_app-source_git-branch"
           :tooltip="t('epinio.applications.steps.source.git_url.branch.tooltip')"
           :label="t('epinio.applications.steps.source.git_url.branch.inputLabel')"
           :required="true"
           :disabled="!gitUrl.validGitUrl"
-          @input="update"
+          @update:value="update"
         />
       </div>
     </template>
@@ -513,14 +504,14 @@ export default Vue.extend<Data, any, any, any>({
       />
     </template>
     <Collapse
-      :open.sync="open"
+      v-model:open="open"
       :title="'Advanced Settings'"
       class="pt-30 pb-30 source"
     >
       <template>
         <!-- Unable to change app chart of active app, so disable -->
         <LabeledSelect
-          v-model="appChart"
+          v-model:value="appChart"
           data-testid="epinio_app-source_appchart"
           :label="t('epinio.applications.steps.source.archive.appchart.label')"
           :options="appCharts"
@@ -530,7 +521,7 @@ export default Vue.extend<Data, any, any, any>({
           :tooltip="t('typeDescription.appcharts')"
           :reduce="(e) => e.value"
           :disabled="mode === EDIT"
-          @input="update"
+          @update:value="update"
         />
         <template v-if="showBuilderImage">
           <RadioGroup
@@ -541,15 +532,15 @@ export default Vue.extend<Data, any, any, any>({
             :labels="[t('epinio.applications.steps.source.archive.builderimage.default'), t('epinio.applications.steps.source.archive.builderimage.custom')]"
             :options="[true, false]"
             :label-key="'epinio.applications.steps.source.archive.builderimage.label'"
-            @input="onImageType"
+            @update:value="onImageType"
           />
           <LabeledInput
-            v-model="builderImage.value"
+            v-model:value="builderImage.value"
             data-testid="epinio_app-source_builder-value"
             :disabled="builderImage.default"
             :tooltip="t('epinio.applications.steps.source.archive.builderimage.tooltip')"
             :mode="mode"
-            @input="update"
+            @update:value="update"
           />
         </template>
       </template>

@@ -1,5 +1,5 @@
 
-import { RouteConfig } from 'vue-router';
+import { RouteRecordRaw } from 'vue-router';
 
 import { BLANK_CLUSTER } from '../config/epinio';
 import { EPINIO_PRODUCT_NAME } from '../types';
@@ -17,7 +17,8 @@ import AuthVerify from '../pages/auth/verify.vue';
 
 const meta = {
   product: EPINIO_PRODUCT_NAME,
-  pkg:     EPINIO_PRODUCT_NAME
+  pkg:     EPINIO_PRODUCT_NAME,
+  cluster: '',
 };
 
 const routes = [{

@@ -40,23 +40,23 @@ export default {
         class="icon icon-fw"
         :class="icon"
       />
-      <n-link :to="link">
+      <router-link :to="link">
         <h1>
           {{ title }}
         </h1>
-      </n-link>
+      </router-link>
     </div>
 
     <p>
       {{ description }}
     </p>
 
-    <n-link
+    <router-link
       class="btn role-secondary"
       :to="cta"
     >
       {{ linkText }}
-    </n-link>
+    </router-link>
 
     <hr v-if="$slots.default">
 

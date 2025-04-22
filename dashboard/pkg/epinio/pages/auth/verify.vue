@@ -1,16 +1,12 @@
 <script lang="ts">
-import Vue from 'vue';
+import { defineComponent } from 'vue';
+
 import epinioAuth from '../../utils/auth';
 import Banner from '@components/Banner/Banner.vue';
 import { dashboardUrl } from '../../utils/embedded-helpers';
 
-interface Data {
-  error: string,
-}
+export default defineComponent({
 
-export default Vue.extend<Data, any, any, any>({
-
-  components: { Banner },
 
   data() {
     return { error: '' };

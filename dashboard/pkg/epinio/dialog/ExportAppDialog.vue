@@ -1,5 +1,5 @@
 <script>
-import Vue from 'vue';
+import { createApp } from 'vue';
 import GenericPrompt from '@shell/dialog/GenericPrompt';
 import Banner from '@components/Banner/Banner.vue';
 import Tabbed from '@shell/components/Tabbed/index.vue';
@@ -8,6 +8,7 @@ import JSZip from 'jszip';
 import { downloadFile } from '@shell/utils/download';
 import PercentageBar from '@shell/components/PercentageBar';
 import { APPLICATION_PARTS } from '../types';
+const vueApp = createApp({});
 
 const partsWeight = {
   [APPLICATION_PARTS.VALUES]: 0.1,
@@ -16,11 +17,7 @@ const partsWeight = {
 };
 
 export default {
-  name:       'ExportAppDialog',
-  components: {
-    GenericPrompt, Banner, PercentageBar, Tabbed, Tab
-  },
-
+  name:  'ExportAppDialog',
   props: {
     resources: {
       type:     Array,
@@ -48,7 +45,7 @@ export default {
     document.addEventListener('keyup', this.escapeHandler);
   },
 
-  beforeDestroy() {
+  beforeUnmount() {
     document.removeEventListener('keyup', this.escapeHandler);
   },
 
@@ -123,7 +120,7 @@ export default {
               progressEvent.srcElement.getResponseHeader('proxy-content-length');
 
             if (total) {
-              Vue.set(this.percentages, part, Math.round(progressEvent.loaded * 100 / total));
+              this.percentages.part = Math.round(progressEvent.loaded * 100 / total);
             }
 
             if (progressEvent.loaded > 0) {

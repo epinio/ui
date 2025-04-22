@@ -1,11 +1,14 @@
-<script lang="ts">
+<script lang="ts" setup>
+import {
+  onMounted, ref, computed, defineProps, useAttrs, PropType
+} from 'vue';
 import day from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
-import Vue, { PropType } from 'vue';
+import { useStore } from 'vuex';
 import Application from '../models/applications';
 import SimpleBox from '@shell/components/SimpleBox.vue';
 import ConsumptionGauge from '@shell/components/ConsumptionGauge.vue';
-import { APPLICATION_MANIFEST_SOURCE_TYPE, EpinioCompRecord, EPINIO_PRODUCT_NAME, EPINIO_TYPES } from '../types';
+import { APPLICATION_MANIFEST_SOURCE_TYPE, EPINIO_PRODUCT_NAME, EPINIO_TYPES } from '../types';
 import ResourceTable from '@shell/components/ResourceTable.vue';
 import PlusMinus from '@shell/components/form/PlusMinus.vue';
 import { epinioExceptionToErrorsArray } from '../utils/errors';
@@ -19,215 +22,155 @@ import { GitUtils } from '@shell/utils/git';
 import { isArray } from '@shell/utils/array';
 import Banner from '@components/Banner/Banner.vue';
 
-interface Data {
+day.extend(relativeTime);
+
+const props = defineProps({
+  value:        { type: Object as PropType<Application>, required: true },
+  initialValue: { type: Object as PropType<Application>, required: true },
+  mode:         { type: String, required: true },
+});
+
+const store = useStore();
+
+const saving = ref(false);
+const gitSource = ref(null);
+const gitDeployment = ref({ deployedCommit: '', commits: null });
+
+const appInstanceSchema = store.getters[`${ EPINIO_PRODUCT_NAME }/schemaFor`](EPINIO_TYPES.APP_INSTANCE);
+const servicesSchema = store.getters[`${ EPINIO_PRODUCT_NAME }/schemaFor`](EPINIO_TYPES.SERVICE_INSTANCE);
+const configsSchema = store.getters[`${ EPINIO_PRODUCT_NAME }/schemaFor`](EPINIO_TYPES.CONFIGURATION);
+
+const servicesHeaders = store.getters['type-map/headersFor'](servicesSchema).filter((h: any) => !['namespace', 'boundApps'].includes(h.name));
+const configsHeaders = store.getters['type-map/headersFor'](configsSchema).filter((h: any) => !['namespace', 'boundApps', 'service'].includes(h.name));
+
+const appInstance = ref({
+  schema:  appInstanceSchema,
+  headers: store.getters['type-map/headersFor'](appInstanceSchema),
+});
+
+const services = ref({
+  schema:  servicesSchema,
+  headers: servicesHeaders,
+});
+
+const configs = ref({
+  schema:  configsSchema,
+  headers: configsHeaders,
+});
+
+const commitActions = [{
+  action:  'editFromCommit',
+  label:   store.getters['i18n/t']('epinio.applications.actions.editFromCommit.label'),
+  icon:    'icon icon-edit',
+  enabled: true,
+}];
+
+const gitType = computed(() => props.value.appSource?.type || null);
+
+const preparedCommits = computed(() => {
+  const commits = gitDeployment.value.commits;
+
+  if (!commits) return [];
+  const arr = isArray(commits) ? commits : [commits];
+
+  return arr.map((c) => ({
+    ...GitUtils[gitType.value].normalize.commit(c),
+    availableActions: commitActions,
+    editFromCommit:   () => props.value.goToEdit({ commit: c.sha || c.id }),
+  }));
+});
+
+const commitsHeaders = computed(() => [
+  {
+    name: 'sha', label: store.getters['i18n/t'](`gitPicker.${ gitType.value }.tableHeaders.sha.label`), width: 100
+  },
+  {
+    name: 'author', label: store.getters['i18n/t'](`gitPicker.${ gitType.value }.tableHeaders.author.label`), width: 190, value: 'author.login', sort: 'author.login'
+  },
+  {
+    name: 'message', label: store.getters['i18n/t'](`gitPicker.${ gitType.value }.tableHeaders.message.label`), value: 'message', sort: 'message'
+  },
+  {
+    name: 'date', width: 220, label: store.getters['i18n/t'](`gitPicker.${ gitType.value }.tableHeaders.date.label`), value: 'date', sort: ['date:desc'], formatter: 'Date', defaultSort: true
+  },
+]);
+
+const commitPosition = computed(() => {
+  const deployed = gitDeployment.value.deployedCommit;
+  const commits = preparedCommits.value;
+
+  if (!commits.length || !deployed) return null;
+
+  const idx = commits.findIndex((c) => c.commitId === deployed.long);
+
+  if (idx === -1) return null;
+
+  return {
+    text:     idx > 0 ? `${ idx } ${ store.getters['i18n/t']('epinio.applications.gitSource.behindCommits') }` : store.getters['i18n/t']('epinio.applications.gitSource.latestCommit'),
+    position: idx
+  };
+});
+
+async function fetchRepoDetails() {
+  const { usernameOrOrg, repo } = props.value.appSource.git;
+  const res = await store.dispatch(`${ gitType.value }/fetchRepoDetails`, { username: usernameOrOrg, repo });
+
+  gitSource.value = GitUtils[gitType.value].normalize.repo(res);
+  await fetchCommits();
 }
 
-// Data, Methods, Computed, Props
-export default Vue.extend<Data, EpinioCompRecord, EpinioCompRecord, EpinioCompRecord>({
-  components: {
-    Banner,
-    SimpleBox,
-    ConsumptionGauge,
-    SortableTable,
-    ResourceTable,
-    PlusMinus,
-    ApplicationCard,
-    AppGitDeployment,
-    Tabbed,
-    Tab,
-    Link
-  },
-  props: {
-    value: {
-      type:     Object as PropType<Application>,
-      required: true
-    },
-    initialValue: {
-      type:     Object as PropType<Application>,
-      required: true
-    },
-    mode: {
-      type:     String,
-      required: true
-    },
-  },
-  async fetch() {
-    this.$store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.SERVICE_INSTANCE });
-    this.$store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.CONFIGURATION });
+async function fetchCommits() {
+  const { usernameOrOrg, repo, branch } = props.value.appSource.git;
 
-    if (this.value.appSource.git) {
-      await this.fetchRepoDetails();
+  if (branch?.name) {
+    gitDeployment.value.commits = await store.dispatch(`${ gitType.value }/fetchCommits`, {
+      username: usernameOrOrg,
+      repo,
+      branch,
+    });
+  }
+}
 
-      this.setCommitDetails();
-    }
-  },
-  data() {
-    const appInstanceSchema = this.$store.getters[`${ EPINIO_PRODUCT_NAME }/schemaFor`](EPINIO_TYPES.APP_INSTANCE);
-    const servicesSchema = this.$store.getters[`${ EPINIO_PRODUCT_NAME }/schemaFor`](EPINIO_TYPES.SERVICE_INSTANCE);
-    const servicesHeaders: [] = this.$store.getters['type-map/headersFor'](servicesSchema);
-    const configsSchema = this.$store.getters[`${ EPINIO_PRODUCT_NAME }/schemaFor`](EPINIO_TYPES.CONFIGURATION);
-    const configsHeaders: [] = this.$store.getters['type-map/headersFor'](configsSchema);
+function setCommitDetails() {
+  const commit = props.value.appSource.git.commit;
+  const selectedCommit = preparedCommits.value.find((c) => c.commitId === commit) || preparedCommits.value[0];
 
-    return {
-      APPLICATION_MANIFEST_SOURCE_TYPE,
-      saving:        false,
-      gitSource:     null,
-      gitDeployment: {
-        deployedCommit: '',
-        commits:        null,
-      },
-      appInstance: {
-        schema:  appInstanceSchema,
-        headers: this.$store.getters['type-map/headersFor'](appInstanceSchema),
-      },
-      services: {
-        schema:  servicesSchema,
-        headers: servicesHeaders.filter((h: any) => !['namespace', 'boundApps'].includes(h.name)),
-      },
-      configs: {
-        schema:  configsSchema,
-        headers: configsHeaders.filter((h: any) => !['namespace', 'boundApps', 'service'].includes(h.name)),
-      },
-      commitActions: [{
-        action:  'editFromCommit',
-        label:   this.t('epinio.applications.actions.editFromCommit.label'),
-        icon:    'icon icon-edit',
-        enabled: true,
-      }],
-    };
-  },
+  gitDeployment.value.deployedCommit = {
+    short: selectedCommit?.commitId?.slice(0, 7),
+    long:  selectedCommit.commitId,
+  };
+}
 
-  methods: {
-    async updateInstances(newInstances: number) {
-      this.$set(this, 'saving', true);
-      try {
-        this.value.configuration.instances = newInstances;
-        await this.value.update();
-        await this.value.forceFetch();
-      } catch (err) {
-        console.error(`Failed to scale Application: `, epinioExceptionToErrorsArray(err)); // eslint-disable-line no-console
-      }
-      this.$set(this, 'saving', false);
-    },
-    formatURL(str: string) {
-      const matchGit = str.match('^(https|git)(:\/\/|@)([^\/:]+)[\/:]([^\/:]+)\/(.+)(.git)*$');
+function formatURL(str: string) {
+  const matchGit = str.match('^(https|git)(:\/\/|@)([^\/]+)[\/:]([^\/]+)\/(.+)(\.git)*$');
 
-      return `${ matchGit?.[4] }/${ matchGit?.[5] }`;
-    },
-    async fetchRepoDetails() {
-      const { usernameOrOrg, repo } = this.value.appSource.git;
+  return `${ matchGit?.[4] }/${ matchGit?.[5] }`;
+}
 
-      const res = await this.$store.dispatch(`${ this.gitType }/fetchRepoDetails`, { username: usernameOrOrg, repo });
+function formatDate(date: string, from: boolean) {
+  return from ? day(date).fromNow() : day(date).format('DD MMM YYYY');
+}
 
-      this.gitSource = GitUtils[this.gitType].normalize.repo(res);
+async function updateInstances(newInstances: number) {
+  saving.value = true;
+  try {
+    props.value.configuration.instances = newInstances;
+    await props.value.update();
+    await props.value.forceFetch();
+  } catch (err) {
+    console.error('Failed to scale Application:', epinioExceptionToErrorsArray(err));
+  } finally {
+    saving.value = false;
+  }
+}
 
-      await this.fetchCommits();
-    },
-    async fetchCommits() {
-      const { usernameOrOrg, repo, branch } = this.value.appSource.git;
+onMounted(async() => {
+  await store.dispatch('epinio/findAll', { type: EPINIO_TYPES.SERVICE_INSTANCE });
+  await store.dispatch('epinio/findAll', { type: EPINIO_TYPES.CONFIGURATION });
 
-      if (branch?.name) {
-        this.gitDeployment.commits = await this.$store.dispatch(`${ this.gitType }/fetchCommits`, {
-          username: usernameOrOrg, repo, branch
-        });
-      }
-    },
-    setCommitDetails() {
-      const { commit } = this.value.appSource.git;
-      const selectedCommit = this.preparedCommits.find((c: { commitId?: string }) => c.commitId === commit) || this.orderedCommits[0];
-
-      this.gitDeployment.deployedCommit = {
-        short: selectedCommit?.commitId?.slice(0, 7),
-        long:  selectedCommit.commitId
-      };
-    },
-    formatDate(date: string, from: boolean) {
-      day.extend(relativeTime);
-
-      return from ? day(date).fromNow() : day(date).format('DD MMM YYYY');
-    },
-  },
-  computed: {
-    gitType() {
-      return this.value.appSource?.type || null;
-    },
-
-    preparedCommits() {
-      const commits = this.gitDeployment.commits;
-
-      if (!commits) {
-        return [];
-      }
-
-      const arr: any[] = isArray(commits) ? commits : [commits];
-
-      return arr.map((c) => ({
-        ...GitUtils[this.gitType].normalize.commit(c),
-        availableActions: this.commitActions,
-        editFromCommit:   () => this.value.goToEdit({ commit: c.sha || c.id }),
-      }));
-    },
-
-    commitsHeaders() {
-      return [
-        {
-          name:  'sha',
-          label: this.t(`gitPicker.${ this.gitType }.tableHeaders.sha.label`),
-          width: 100,
-        },
-        {
-          name:  'author',
-          label: this.t(`gitPicker.${ this.gitType }.tableHeaders.author.label`),
-          width: 190,
-          value: 'author.login',
-          sort:  'author.login',
-        },
-        {
-          name:  'message',
-          label: this.t(`gitPicker.${ this.gitType }.tableHeaders.message.label`),
-          value: 'message',
-          sort:  'message',
-        },
-        {
-          name:        'date',
-          width:       220,
-          label:       this.t(`gitPicker.${ this.gitType }.tableHeaders.date.label`),
-          value:       'date',
-          sort:        ['date:desc'],
-          formatter:   'Date',
-          defaultSort: true,
-        },
-      ];
-    },
-
-    sourceIcon(): string {
-      return this.value.appSourceInfo?.icon || 'icon-epinio';
-    },
-
-    commitPosition() {
-      if (!this.preparedCommits.length && !this.gitDeployment.deployedCommit) {
-        return;
-      }
-
-      let idx = null;
-
-      if (this.preparedCommits) {
-        this.preparedCommits.map((ele: { commitId: any; }, i: number) => {
-          if (ele.commitId === this.gitDeployment?.deployedCommit?.long) {
-            idx = i - 1;
-          }
-        });
-      }
-
-      if (!idx) {
-        return null;
-      }
-
-      return {
-        text:     ( idx - 1) >= 0 ? `${ idx } ${ this.t('epinio.applications.gitSource.behindCommits') }` : this.t('epinio.applications.gitSource.latestCommit'),
-        position: idx
-      };
-    },
+  if (props.value.appSource.git) {
+    await fetchRepoDetails();
+    setCommitDetails();
   }
 });
 </script>

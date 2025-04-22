@@ -14,15 +14,6 @@ import { epinioExceptionToErrorsArray } from '../utils/errors';
 export default {
   name: 'EpinioNamespaceList',
 
-  components: {
-    Banner,
-    ResourceTable,
-    Masthead,
-    Card,
-    LabeledInput,
-    AsyncButton
-  },
-
   data() {
     return {
       showCreateModal: false,
@@ -172,7 +163,7 @@ export default {
         >
           <LabeledInput
             ref="namespaceName"
-            v-model="value.meta.name"
+            v-model:value="value.meta.name"
             :label="t('epinio.namespace.name')"
             :mode="mode"
             :required="true"

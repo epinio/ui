@@ -1,7 +1,9 @@
 <script lang="ts">
-import Vue from 'vue';
+import { defineComponent } from 'vue';
 import DashboardCard from '../../../components/dashboard/Cards.vue';
 import { createEpinioRoute } from '../../../utils/custom-routing';
+import { useStore } from 'vuex';
+
 import { EpinioApplicationResource, EpinioCatalogService, EPINIO_MGMT_STORE, EPINIO_TYPES } from '../../../types';
 import ConsumptionGauge from '@shell/components/ConsumptionGauge.vue';
 import Namespace from '@shell/models/namespace';
@@ -9,23 +11,19 @@ import { parseSi, createMemoryValues } from '@shell/utils/units';
 import EpinioServiceModel from '../../../models/services';
 import isEqual from 'lodash/isEqual';
 import { sortBy } from 'lodash';
-import { Location } from 'vue-router';
 import Banner from '@components/Banner/Banner.vue';
 import { METRIC } from '@shell/config/types';
 import { allHash } from '@shell/utils/promise';
 
 type ComponentService = {
   name: string,
-  link: Location,
+  // link: Location,
+  link: any,
   isEnabled: boolean
 }
 
-export default Vue.extend<any, any, any, any>({
-  components: {
-    Banner,
-    DashboardCard,
-    ConsumptionGauge
-  },
+export default defineComponent({
+  
   async fetch() {
     const hash: { [key:string]: any } = await allHash({
       ns:          this.$store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.NAMESPACE }),
@@ -38,6 +36,8 @@ export default Vue.extend<any, any, any, any>({
     this.version = hash.version;
   },
   data() {
+    const store = useStore()
+
     return {
       sectionContent: [
         {
@@ -74,7 +74,7 @@ export default Vue.extend<any, any, any, any>({
         0: '--info', 30: '--info', 70: '--info'
       },
       version:         null,
-      aboutLink:       !this.$store.getters['isSingleProduct'] ? createEpinioRoute('c-cluster-about', { cluster: this.$store.getters['clusterId'] }) : null,
+      aboutLink:       !store.getters['isSingleProduct'] ? createEpinioRoute('c-cluster-about', { cluster: store.getters['clusterId'] }) : null,
       availableCpu:    100,
       availableMemory: 100,
       showMetricsInfo: false
@@ -84,21 +84,21 @@ export default Vue.extend<any, any, any, any>({
     this.redoCards();
   },
   watch: {
-    namespaces(old, neu) {
+    namespaces(old: any, neu: any) {
       if (isEqual(old, neu)) {
         return;
       }
 
       this.redoCards();
     },
-    apps(old, neu) {
+    apps(old: any, neu: any) {
       if (isEqual(old, neu)) {
         return;
       }
 
       this.redoCards();
     },
-    services(old, neu) {
+    services(old: any, neu: any) {
       if (isEqual(old, neu)) {
         return;
       }
@@ -108,18 +108,22 @@ export default Vue.extend<any, any, any, any>({
   },
   methods: {
     async calcAvailableResources() {
-      if (this.$store.getters['isSingleProduct']) {
+      const store = useStore()  
+
+
+      if (store.getters['isSingleProduct']) {
         return;
       }
 
-      const nodeMetricsSchema = this.$store.getters[`epinio/schemaFor`](METRIC.NODE);
+
+      const nodeMetricsSchema = store.getters[`epinio/schemaFor`](METRIC.NODE);
 
       if (nodeMetricsSchema) {
-        const id = this.$store.getters['clusterId'];
+        const id = store.getters['clusterId'];
 
-        const nodeMetrics = await this.$store.dispatch(`cluster/request`, { url: `/k8s/clusters/${ id }/v1/metrics.k8s.io.nodemetrics` }, { root: true });
+        const nodeMetrics = await store.dispatch(`cluster/request`, { url: `/k8s/clusters/${ id }/v1/metrics.k8s.io.nodemetrics` }, { root: true });
 
-        const currentCluster = this.$store.getters[`${ EPINIO_MGMT_STORE }/byId`](EPINIO_TYPES.CLUSTER, id);
+        const currentCluster = store.getters[`${ EPINIO_MGMT_STORE }/byId`](EPINIO_TYPES.CLUSTER, id);
 
         const cpu = {
           total:  parseSi(currentCluster.mgmtCluster?.status?.capacity?.cpu, null),
@@ -237,12 +241,12 @@ export default Vue.extend<any, any, any, any>({
           target="_blank"
           rel="noopener noreferrer nofollow"
         >{{ t('epinio.intro.issues') }}</a>
-        <n-link
+        <router-link
           v-if="aboutLink"
           :to="aboutLink"
         >
           {{ t('epinio.intro.about') }}
-        </n-link>
+        </router-link>
       </div>
     </div>
 
@@ -254,11 +258,11 @@ export default Vue.extend<any, any, any, any>({
       <span>
         {{ t('epinio.intro.metrics.availability', { availableCpu, availableMemory }) }}
       </span>
-      <n-link
+      <router-link
         :to="metricsDetails"
       >
         {{ t('epinio.intro.metrics.link.label') }}
-      </n-link>
+      </router-link>
     </Banner>
 
     <div class="get-started">
@@ -310,14 +314,14 @@ export default Vue.extend<any, any, any, any>({
                   v-for="(service, i) in services.servicesCatalog"
                   :key="i"
                 >
-                  <n-link
+                  <router-link
                     v-if="service.isEnabled"
                     :to="service.link"
                     class="link"
                   >
                     {{ service.name }}
                     <span>+</span>
-                  </n-link>
+                  </router-link>
 
                   <span
                     v-if="!service.isEnabled"

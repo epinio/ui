@@ -1,16 +1,15 @@
 import { EPINIO_PRODUCT_NAME } from '../types';
 
-import { Location } from 'vue-router';
 type Dictionary<T> = { [key: string]: T }
 
 const BLANK_CLUSTER = '_';
 
-export const rootEpinioRoute = (): Location => ({
+export const rootEpinioRoute = () => ({
   name:   EPINIO_PRODUCT_NAME,
   params: { product: EPINIO_PRODUCT_NAME }
 });
 
-export const createEpinioRoute = (name: string, params: Dictionary<string>, query?: Object): Location => {
+export const createEpinioRoute = (name: string, params: Dictionary<string>, query?: Object) => {
   const rootParams = rootEpinioRoute().params || {};
 
   return {

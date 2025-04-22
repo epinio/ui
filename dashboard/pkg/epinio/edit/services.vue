@@ -1,5 +1,5 @@
 <script lang="ts">
-import Vue, { PropType } from 'vue';
+import Vue, { PropType, defineComponent } from 'vue';
 import ServiceInstance from '../models/services';
 import CreateEditView from '@shell/mixins/create-edit-view';
 import CruResource from '@shell/components/CruResource.vue';
@@ -23,15 +23,7 @@ interface Data {
 }
 
 // Data, Methods, Computed, Props
-export default Vue.extend<Data, EpinioCompRecord, EpinioCompRecord, EpinioCompRecord>({
-  components: {
-    Loading,
-    ChartValues,
-    CruResource,
-    LabeledSelect,
-    NameNsDescription,
-  },
-
+export default defineComponent({
   mixins: [CreateEditView, EpinioBindAppsMixin],
 
   props: {
@@ -55,8 +47,8 @@ export default Vue.extend<Data, EpinioCompRecord, EpinioCompRecord, EpinioCompRe
       this.mixinFetch()
     ]);
 
-    Vue.set(this.value, 'catalog_service', this.selectedCatalogService?.meta.name || this.$route.query[EPINIO_SERVICE_PARAM] || null);
-    Vue.set(this.value.meta, 'namespace', this.initialValue.meta.namespace || this.namespaces[0]?.meta.name);
+    this.value['catalog_service'] = this.selectedCatalogService?.meta.name || this.$route.query[EPINIO_SERVICE_PARAM] || null;
+    this.value.meta['namespace'] = this.initialValue.meta.namespace || this.namespaces[0]?.meta.name;
   },
 
   data() {
@@ -164,7 +156,7 @@ export default Vue.extend<Data, EpinioCompRecord, EpinioCompRecord, EpinioCompRe
         }
       } catch (err: Error | any) {
         if (err.message === 'waitingForServiceInstance') {
-          Vue.set(this, 'failedWaitingForServiceInstance', true);
+          this['failedWaitingForServiceInstance'] = true;
           this.errors = [this.t('epinio.serviceInstance.create.catalogService.failedWaitingForServiceInstance')];
         } else {
           this.errors = epinioExceptionToErrorsArray(err);
@@ -180,7 +172,7 @@ export default Vue.extend<Data, EpinioCompRecord, EpinioCompRecord, EpinioCompRe
 
   watch: {
     'value.meta.namespace'() {
-      Vue.set(this, 'selectedApps', []);
+      this['selectedApps'] = [];
     },
   }
 
@@ -213,7 +205,7 @@ export default Vue.extend<Data, EpinioCompRecord, EpinioCompRecord, EpinioCompRe
     <div class="row">
       <div class="col span-6">
         <LabeledSelect
-          v-model="value.catalog_service"
+          v-model:value="value.catalog_service"
           :loading="$fetchState.pending"
           :options="catalogServiceOpts"
           :disabled="$fetchState.pending || isEdit"
@@ -231,7 +223,7 @@ export default Vue.extend<Data, EpinioCompRecord, EpinioCompRecord, EpinioCompRe
     <div class="row">
       <div class="col span-6">
         <LabeledSelect
-          v-model="selectedApps"
+          v-model:value="selectedApps"
           :loading="$fetchState.pending"
           :options="nsAppOptions"
           :disabled="noApps || $fetchState.pending"
@@ -250,7 +242,7 @@ export default Vue.extend<Data, EpinioCompRecord, EpinioCompRecord, EpinioCompRe
       <div class="col span-6">
         <div class="spacer" />
         <ChartValues
-          v-model="chartValues"
+          v-model:value="chartValues"
           :chart="selectedCatalogService.settings"
           :title="t('epinio.services.chartValues.title')"
           :mode="mode"

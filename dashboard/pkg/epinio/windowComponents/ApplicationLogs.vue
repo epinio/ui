@@ -23,12 +23,6 @@ let lastId = 1;
 const ansiup = new AnsiUp();
 
 export default {
-  components: {
-    Window,
-    Checkbox,
-    AsyncButton,
-    Select
-  },
 
   mixins: [ApplicationSocketMixin],
 
@@ -267,7 +261,7 @@ export default {
         <div class="title-inner-left">
           <Select
             v-if="instanceChoices.length > 1"
-            v-model="instance"
+            :value="instance"
             :disabled="instanceChoices.length === 1"
             class="containerPicker auto-width"
             :options="instanceChoicesWithNone"
@@ -316,14 +310,14 @@ export default {
           </div>
           <div class="log-action  ml-5">
             <input
-              v-model="search"
+              l:value="search"
               class="input-sm"
               type="search"
               :placeholder="t('wm.containerLogs.search')"
             >
           </div>
           <div class="log-action ml-5">
-            <v-popover
+            <VDropdown
               trigger="click"
               placement="top"
             >
@@ -337,12 +331,12 @@ export default {
                     <Checkbox
                       :label="t('wm.containerLogs.wrap')"
                       :value="wrap"
-                      @input="toggleWrap "
+                      @update:value="toggleWrap "
                     />
                   </div>
                 </div>
               </template>
-            </v-popover>
+            </VDropdown>
           </div>
         </div>
       </div>
@@ -460,7 +454,7 @@ export default {
   }
 
   .containerPicker {
-    ::v-deep &.unlabeled-select {
+    :deep() &.unlabeled-select {
       display: inline-block;
       min-width: 200px;
       height: 30px;

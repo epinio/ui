@@ -4,7 +4,6 @@ import { EPINIO_TYPES } from '../types';
 
 export default {
   name:       'EpinioAppChartsList',
-  components: { ResourceTable },
   async fetch() {
     await this.$store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.APP_CHARTS });
   },

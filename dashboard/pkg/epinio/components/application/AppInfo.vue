@@ -1,5 +1,5 @@
 <script lang="ts">
-import Vue, { PropType } from 'vue';
+import Vue, { PropType, defineComponent } from 'vue';
 import NameNsDescription from '@shell/components/form/NameNsDescription.vue';
 import LabeledInput from '@components/Form/LabeledInput/LabeledInput.vue';
 import KeyValue from '@shell/components/form/KeyValue.vue';
@@ -36,17 +36,7 @@ interface Data {
 }
 
 // Data, Methods, Computed, Props
-export default Vue.extend<Data, any, any, any>({
-
-  components: {
-    ArrayList,
-    NameNsDescription,
-    LabeledInput,
-    KeyValue,
-    Loading,
-    Banner,
-    ChartValues,
-  },
+export default defineComponent({
 
   props: {
     application: {
@@ -231,7 +221,7 @@ export default Vue.extend<Data, any, any, any>({
     <div class="spacer" />
     <div class="col span-8">
       <ArrayList
-        v-model="values.configuration.routes"
+        v-model:value="values.configuration.routes"
         data-testid="epinio_app-info_routes"
         :title="t('epinio.applications.create.routes.title')"
         :protip="t('epinio.applications.create.routes.tooltip')"
@@ -255,7 +245,7 @@ export default Vue.extend<Data, any, any, any>({
       class="col span-6"
     >
       <ChartValues
-        v-model="values.configuration.settings"
+        v-model:value="values.configuration.settings"
         :chart="values.chart"
         :title="t('epinio.applications.create.settingsVars.title')"
         :mode="mode"
@@ -265,7 +255,7 @@ export default Vue.extend<Data, any, any, any>({
     </div>
     <div class="col span-8">
       <KeyValue
-        v-model="values.configuration.environment"
+        v-model:value="values.configuration.environment"
         data-testid="epinio_app-info_envs"
         :mode="mode"
         :title="t('epinio.applications.create.envvar.title')"

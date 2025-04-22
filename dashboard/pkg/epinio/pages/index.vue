@@ -1,5 +1,6 @@
 <script lang="ts">
-import Vue from 'vue';
+import { defineComponent, onBeforeUnmount } from 'vue';
+import { useStore } from 'vuex';
 
 import Loading from '@shell/components/Loading.vue';
 import Link from '@shell/components/formatter/Link.vue';
@@ -13,16 +14,16 @@ import EpinioCluster, { EpinioInfoPath } from '../models/cluster';
 import LoginDialog from '../components/LoginDialog.vue';
 import Dialog from '@shell/components/Dialog.vue';
 
-interface Data {
-  clustersSchema: any;
-}
-
 // Data, Methods, Computed, Props
-export default Vue.extend<Data, any, any, any>({
+export default defineComponent({
   components: {
-    AsyncButton, Loading, Link, ResourceTable, LoginDialog, Dialog
+    Loading,
+    Link,
+    ResourceTable,
+    AsyncButton,
+    LoginDialog,
+    Dialog
   },
-
   layout: 'plain',
 
   async fetch() {
@@ -32,8 +33,9 @@ export default Vue.extend<Data, any, any, any>({
   },
 
   data() {
+    const store = useStore();
     return {
-      clustersSchema: this.$store.getters[`${ EPINIO_MGMT_STORE }/schemaFor`](EPINIO_TYPES.CLUSTER),
+      clustersSchema: store.getters[`${ EPINIO_MGMT_STORE }/schemaFor`](EPINIO_TYPES.CLUSTER),
       version:        null,
       infoUrl:        EpinioInfoPath,
       currentCluster: {},
@@ -44,7 +46,7 @@ export default Vue.extend<Data, any, any, any>({
     window.addEventListener('visibilitychange', this.visibilitychange);
   },
 
-  beforeDestroy() {
+  onBeforeUnmount() {
     window.removeEventListener('visibilitychange', this.visibilitychange);
   },
 
@@ -80,8 +82,8 @@ export default Vue.extend<Data, any, any, any>({
     },
 
     setClusterState(cluster: EpinioCluster, state: string, metadataStateObj: { state: { transitioning: boolean, error: boolean, message: string }}) {
-      Vue.set(cluster, 'state', state);
-      Vue.set(cluster, 'metadata', metadataStateObj);
+      cluster['state'] = state;
+      cluster['metadata'] = metadataStateObj;
     },
 
     testCluster(c: EpinioCluster) {
@@ -95,8 +97,8 @@ export default Vue.extend<Data, any, any, any>({
 
       this.$store.dispatch(`epinio/request`, { opt: { url: this.infoUrl, redirectUnauthorized: false }, clusterId: c.id })
         .then((res: any) => {
-          Vue.set(c, 'version', res?.version);
-          Vue.set(c, 'oidcEnabled', res?.oidc_enabled);
+          c['version'] = res?.version;
+          c['oidcEnabled'] = res?.oidc_enabled;
           this.setClusterState(c, 'available', { state: { transitioning: false } });
         })
         .catch((e: Error) => {
@@ -127,6 +129,7 @@ export default Vue.extend<Data, any, any, any>({
           params: { cluster: c.id }
         });
       } else {
+        console.log('Not logged in');
         this.currentCluster = c;
         this.$modal.show('epinio-login-dialog');
       }
@@ -158,6 +161,7 @@ export default Vue.extend<Data, any, any, any>({
   >
     <div class="epinios-table">
       <h2>{{ t('epinio.instances.header') }}</h2>
+      <h2>Test this</h2>
       <ResourceTable
         :rows="clusters"
         :schema="clustersSchema"

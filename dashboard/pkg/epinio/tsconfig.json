@@ -3,7 +3,7 @@
     "allowJs": true,
     "target": "esnext",
     "module": "esnext",
-    "strict": true,
+    "strict": false,
     "jsx": "preserve",
     "importHelpers": true,
     "moduleResolution": "node",
@@ -23,7 +23,6 @@
       "@types/node",
       "@types/jest",
       "@types/lodash",
-      "@nuxt/types",
       "rancher",
       "shell"
     ],
@@ -47,7 +46,7 @@
     "**/*.d.ts",
     "**/*.tsx",
     "**/*.vue"
-  ],
+],
   "exclude": [
     "../../node_modules"
   ]

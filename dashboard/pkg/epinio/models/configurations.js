@@ -86,7 +86,7 @@ export default class EpinioConfigurationModel extends EpinioNamespacedResource {
   }
 
   async remove() {
-    return await super.remove({ data: { unbind: true } });
+    return await super.remove({ data: { unmounted: true } });
   }
 
   bulkRemove(items, opt) {

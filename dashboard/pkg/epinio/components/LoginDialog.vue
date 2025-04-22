@@ -13,10 +13,6 @@ const PROVIDER_TYPES = {
 export default {
   name: 'LoginDialog',
 
-  components: {
-    Banner, LabeledInput, Password
-  },
-
   props: {
     cluster: {
       type:     Object,
@@ -143,7 +139,7 @@ export default {
           <Password
             id="password"
             ref="password"
-            v-model="password"
+            v-model:password="password"
             :label="t('login.password')"
             autocomplete="epinio-password"
             :required="true"

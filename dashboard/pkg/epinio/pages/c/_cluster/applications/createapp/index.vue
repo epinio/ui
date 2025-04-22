@@ -1,5 +1,6 @@
 <script lang="ts">
-import Vue from 'vue';
+import { createApp, defineComponent } from 'vue';
+const vueApp = createApp({});
 import Application from '../../../../../models/applications';
 import Loading from '@shell/components/Loading.vue';
 import Wizard from '@shell/components/Wizard.vue';
@@ -22,16 +23,7 @@ interface Data {
 }
 
 // Data, Methods, Computed, Props
-export default Vue.extend<Data, any, any, any>({
-
-  components: {
-    Loading,
-    Wizard,
-    AppInfo,
-    AppSource,
-    AppConfiguration,
-    AppProgress,
-  },
+export default defineComponent({
 
   async fetch() {
     const hash: { [key:string]: any } = await allHash({
@@ -88,7 +80,7 @@ export default Vue.extend<Data, any, any, any>({
   methods: {
     set(obj: { [key: string]: string}, changes: { [key: string]: string}) {
       Object.entries(changes).forEach(([key, value]: [string, any]) => {
-        Vue.set(obj, key, value);
+        obj.key = value;
       });
     },
 

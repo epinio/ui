@@ -1,11 +1,11 @@
 <script>
+import { ref } from 'vue';
 import { EPINIO_TYPES } from '../types';
 import Loading from '@shell/components/Loading';
 import SelectIconGrid from '@shell/components/SelectIconGrid';
 
 export default {
   name:       'EpinioCatalogList',
-  components: { Loading, SelectIconGrid },
   fetch() {
     this.$store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.CATALOG_SERVICE });
   },
@@ -51,7 +51,7 @@ export default {
     <div class="filter-block">
       <input
         ref="searchQuery"
-        v-model="searchQuery"
+        :value="searchQuery"
         type="search"
         class="input-sm"
         :placeholder="t('catalog.charts.search')"

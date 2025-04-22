@@ -1,5 +1,6 @@
 import Resource from '@shell/plugins/dashboard-store/resource-class';
-import Vue from 'vue';
+import { createApp } from 'vue';
+const vueApp = createApp({});
 import { APPLICATION_ACTION_STATE, APPLICATION_MANIFEST_SOURCE_TYPE, APPLICATION_SOURCE_TYPE, EPINIO_PRODUCT_NAME } from '../types';
 import { epinioExceptionToErrorsArray } from '../utils/errors';
 
@@ -197,15 +198,15 @@ export default class ApplicationActionResource extends Resource {
 
   async execute(params) {
     try {
-      Vue.set(this, 'state', APPLICATION_ACTION_STATE.RUNNING);
+      this['state'] = APPLICATION_ACTION_STATE.RUNNING;
 
       await this.innerExecute(params);
 
-      Vue.set(this, 'state', APPLICATION_ACTION_STATE.SUCCESS);
-      Vue.set(this, 'run', false);
+      this['state'] = APPLICATION_ACTION_STATE.SUCCESS;
+      this['run'] = false;
     } catch (err) {
-      Vue.set(this, 'state', APPLICATION_ACTION_STATE.FAIL);
-      Vue.set(this, 'stateMessage', epinioExceptionToErrorsArray(err)[0].toString());
+      this['state'] = APPLICATION_ACTION_STATE.FAIL;
+      this['stateMessage'] = epinioExceptionToErrorsArray(err[0].toString());
 
       throw err;
     }
