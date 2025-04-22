@@ -12,7 +12,11 @@ const PROVIDER_TYPES = {
 
 export default {
   name: 'LoginDialog',
-
+  components: {
+    Banner,
+    Password,
+    LabeledInput,
+  },
   props: {
     cluster: {
       type:     Object,
