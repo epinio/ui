@@ -11,7 +11,6 @@ import AsyncButton from '@shell/components/AsyncButton.vue';
 import { _MERGE } from '@shell/plugins/dashboard-store/actions';
 import epinioAuth, { EpinioAuthTypes } from '../utils/auth';
 import EpinioCluster, { EpinioInfoPath } from '../models/cluster';
-import LoginDialog from '../components/LoginDialog.vue';
 import Dialog from '@shell/components/Dialog.vue';
 
 // Data, Methods, Computed, Props
@@ -21,7 +20,6 @@ export default defineComponent({
     Link,
     ResourceTable,
     AsyncButton,
-    LoginDialog,
     Dialog
   },
   layout: 'plain',
@@ -131,12 +129,21 @@ export default defineComponent({
       } else {
         console.log('Not logged in');
         this.currentCluster = c;
-        this.$modal.show('epinio-login-dialog');
+
+        this.$store.dispatch('cluster/promptModal', {
+          component: 'LoginDialog',
+          componentProps: {
+            cluster: this.currentCluster,
+          },
+        });
+
+        //this.$modal.show('epinio-login-dialog');
       }
     },
 
     closeDialog() {
-      this.$modal.hide('epinio-login-dialog');
+      console.log(this.$modal);
+      //this.$modal.hide('epinio-login-dialog');
     }
   }
 
@@ -201,9 +208,8 @@ export default defineComponent({
         </template>
       </ResourceTable>
     </div>
-    <Dialog
+    <!--<Dialog
       name="epinio-login-dialog"
-      :title="''"
       style="width:'340px'"
     >
       <template #buttons>
@@ -217,7 +223,7 @@ export default defineComponent({
       <template>
         <LoginDialog :cluster="currentCluster" />
       </template>
-    </Dialog>
+    </Dialog>-->
   </div>
 </template>
 

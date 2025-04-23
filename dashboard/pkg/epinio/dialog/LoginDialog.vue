@@ -133,9 +133,8 @@ export default {
           <LabeledInput
             id="username"
             ref="username"
-            v-model.trim="username"
+            v-model:value="username"
             :label="t('login.username')"
-            autocomplete="epinio-username"
             :required="true"
           />
         </div>
@@ -143,9 +142,8 @@ export default {
           <Password
             id="password"
             ref="password"
-            v-model:password="password"
+            v-model:value="password"
             :label="t('login.password')"
-            autocomplete="epinio-password"
             :required="true"
           />
         </div>
