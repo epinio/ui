@@ -3027,7 +3027,7 @@
 
 "@rancher/components@^0.3.0-alpha.1":
   version "0.3.0-alpha.1"
-  resolved "https://registry.npmjs.org/@rancher/components/-/components-0.3.0-alpha.1.tgz"
+  resolved "https://registry.yarnpkg.com/@rancher/components/-/components-0.3.0-alpha.1.tgz#86f570be89f84ab271bd3ca392b7bc57827e33c1"
   integrity sha512-wqplnnHD4RUY1KO1zl9IZ8pZvVfY2MhgRWHsNaqAd17Y0Chylk9egsFveRJb0VBPOCwa3iu0ttFvl9mLIjvpHw==
   dependencies:
     lodash.debounce "4.0.8"

@@ -28,7 +28,6 @@ export default({
     Loading,
     Wizard,
     AppInfo,
-    EpinioAppInfo,
     AppSource,
     AppConfiguration,
     AppProgress,
