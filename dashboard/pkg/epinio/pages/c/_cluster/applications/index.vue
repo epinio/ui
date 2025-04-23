@@ -7,7 +7,12 @@ import { EPINIO_TYPES } from '../../../../types';
 import { createEpinioRoute } from '../../../../utils/custom-routing';
 
 export default {
-
+  components: {
+    LinkDetail,
+    Loading,
+    Masthead,
+    ResourceTable,
+  },
   async fetch() {
     await this.$store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.APP });
     // Don't block on these, they can show asyncronously

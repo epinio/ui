@@ -22,6 +22,16 @@ const meta = {
 };
 
 const routes = [{
+  name:      `${ EPINIO_PRODUCT_NAME }`,
+  path:      `/:product/`,
+  component: ListEpinio,
+  meta:      {
+    product: EPINIO_PRODUCT_NAME,
+    cluster: BLANK_CLUSTER,
+    pkg:     EPINIO_PRODUCT_NAME
+  }
+},
+{
   name:      `${ EPINIO_PRODUCT_NAME }-auth-verify`,
   path:      `/:product/auth/verify`,
   component: AuthVerify,
@@ -70,17 +80,8 @@ const routes = [{
 
 const isEpinioSingleProduct = process.env.rancherEnv === 'epinio';
 
-if (!isEpinioSingleProduct) {
-  routes.unshift({
-    name:      `${ EPINIO_PRODUCT_NAME }`,
-    path:      `/:product/`,
-    component: ListEpinio,
-    meta:      {
-      product: EPINIO_PRODUCT_NAME,
-      cluster: BLANK_CLUSTER,
-      pkg:     EPINIO_PRODUCT_NAME
-    }
-  });
+if (isEpinioSingleProduct) {
+  routes.splice(0, 1);
 }
 
 export default routes;

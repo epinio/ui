@@ -6,8 +6,6 @@ import Banner from '@components/Banner/Banner.vue';
 import { dashboardUrl } from '../../utils/embedded-helpers';
 
 export default defineComponent({
-
-
   data() {
     return { error: '' };
   },

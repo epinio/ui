@@ -2,6 +2,9 @@
 import ResourceDetail from '@shell/components/ResourceDetail/index.vue';
 
 export default {
+  components: {
+    ResourceDetail,
+  },
   name:       'EpinioResourcedId',
 };
 </script>

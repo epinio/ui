@@ -1,5 +1,5 @@
 <script lang="ts">
-import { createApp, defineComponent } from 'vue';
+import { createApp } from 'vue';
 const vueApp = createApp({});
 import Application from '../../../../../models/applications';
 import Loading from '@shell/components/Loading.vue';
@@ -23,8 +23,16 @@ interface Data {
 }
 
 // Data, Methods, Computed, Props
-export default defineComponent({
-
+export default({
+  components: {
+    Loading,
+    Wizard,
+    AppInfo,
+    EpinioAppInfo,
+    AppSource,
+    AppConfiguration,
+    AppProgress,
+  },
   async fetch() {
     const hash: { [key:string]: any } = await allHash({
       ns:     this.$store.dispatch('epinio/findAll', { type: EPINIO_TYPES.NAMESPACE }),

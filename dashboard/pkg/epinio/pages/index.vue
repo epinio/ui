@@ -1,5 +1,5 @@
 <script lang="ts">
-import { defineComponent, onBeforeUnmount } from 'vue';
+import { ref, onBeforeUnmount } from 'vue';
 import { useStore } from 'vuex';
 
 import Loading from '@shell/components/Loading.vue';
@@ -14,7 +14,7 @@ import EpinioCluster, { EpinioInfoPath } from '../models/cluster';
 import Dialog from '@shell/components/Dialog.vue';
 
 // Data, Methods, Computed, Props
-export default defineComponent({
+export default ({
   components: {
     Loading,
     Link,

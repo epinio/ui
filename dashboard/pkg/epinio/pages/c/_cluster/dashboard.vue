@@ -1,5 +1,4 @@
 <script lang="ts">
-import { defineComponent } from 'vue';
 import DashboardCard from '../../../components/dashboard/Cards.vue';
 import { createEpinioRoute } from '../../../utils/custom-routing';
 import { useStore } from 'vuex';
@@ -22,8 +21,12 @@ type ComponentService = {
   isEnabled: boolean
 }
 
-export default defineComponent({
-  
+export default ({
+  components: {
+    Banner,
+    ConsumptionGauge,
+    DashboardCard,
+  },  
   async fetch() {
     const hash: { [key:string]: any } = await allHash({
       ns:          this.$store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.NAMESPACE }),
