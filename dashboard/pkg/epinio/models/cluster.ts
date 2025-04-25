@@ -16,6 +16,7 @@ export default class EpinioCluster extends Resource {
   loggedIn: boolean;
   api: string;
   mgmtCluster: any;
+  version?: string;
   oidcEnabled: boolean = false;
 
   constructor(data: {

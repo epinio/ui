@@ -14,5 +14,7 @@ dist-pkg
 dynamic-importer.js
 ksconfig.json
 nuxt.config.js
+pkg/epinio/index.ts
+pkg/epinio/store/*
 shell/utils/dynamic-importer.js
 shell/assets/fonts

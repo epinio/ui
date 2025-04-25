@@ -10,7 +10,7 @@
     ],
     "esModuleInterop": true,
     "allowJs": true,
-    "sourceMap": true,
+    "sourceMap": false,
     "strict": true,
     "noEmit": true,
     "baseUrl": ".",
@@ -21,17 +21,16 @@
       "@/*": [
         "./*"
       ],
-      "@components/*": [
-        "./node_modules/@rancher/components/*"
+      "@shell/*": [
+        "./node_modules/@rancher/shell/*"
       ]
     },
     "typeRoots": [
       "./node_modules",
       "./node_modules/@rancher/shell/types"
-    ],    
+    ],
     "types": [
       "@types/node",
-      "@nuxt/types",
       "cypress",
       "rancher",
       "shell"

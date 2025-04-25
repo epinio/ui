@@ -1,9 +1,31 @@
+// import { importTypes } from '@rancher/auto-import';
+// import { IPlugin } from '@shell/core/types';
+// import extensionRouting from './routing/extension-routing';
+
+// // Init the package
+// export default function (plugin: IPlugin) {
+//   // Auto-import model, detail, edit from the folders
+//   importTypes(plugin);
+
+//   // Provide extension metadata from package.json
+//   // it will grab information such as `name` and `description`
+//   plugin.metadata = require('./package.json');
+
+//   // Load a product
+//   plugin.addProduct(require('./product'));
+
+//   // Add Vue Routes
+//   plugin.addRoutes(extensionRouting);
+// }
+
 import { importTypes } from '@rancher/auto-import';
 import {
   ActionLocation, ActionOpts, IPlugin, OnNavAwayFromPackage, OnNavToPackage
 } from '@shell/core/types';
 import { EPINIO_TYPES } from './types';
 import epinioRoutes from './routing/epinio-routing';
+// import extensionRouting from './routing/extension-routing';
+
 import epinioMgmtStore from './store/epinio-mgmt-store';
 import epinioStore from './store/epinio-store';
 import { createEpinioRoute } from './utils/custom-routing';
@@ -42,6 +64,7 @@ export default function(plugin: IPlugin) {
 
   // Load a product
   plugin.addProduct(require('./config/epinio'));
+  // plugin.addProduct(require('./product'));
 
   // Add Vuex stores
   plugin.addDashboardStore(epinioMgmtStore.config.namespace, epinioMgmtStore.specifics, epinioMgmtStore.config);
@@ -49,6 +72,7 @@ export default function(plugin: IPlugin) {
 
   // Add Vue Routes
   plugin.addRoutes(epinioRoutes);
+  // plugin.addRoutes(extensionRouting);
 
   // Add hooks to Vue navigation world
   plugin.addNavHooks(onEnter, onLeave);

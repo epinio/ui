@@ -45,7 +45,10 @@ const canRediscover = () => {
 }
 
 const rediscover = async (buttonCb: (success: boolean) => void)  => {
-  await store.dispatch(`${ EPINIO_MGMT_STORE }/findAll`, { type: EPINIO_TYPES.CLUSTER, opt: { force: true, load: _MERGE } });
+  await store.dispatch(
+    `${ EPINIO_MGMT_STORE }/findAll`, 
+    { type: EPINIO_TYPES.CLUSTER, opt: { force: true, load: _MERGE } },
+  );
   clusters.forEach((c: EpinioCluster) => testCluster(c));
   buttonCb(true);
 }
@@ -94,31 +97,39 @@ const testCluster = (c: EpinioCluster) => {
     }
   });
 
-  store.dispatch(`epinio/request`, { opt: { url: EpinioInfoPath, redirectUnauthorized: false }, clusterId: c.id })
-    .then((res: any) => {
-      c['version'] = res?.version;
-      c['oidcEnabled'] = res?.oidc_enabled;
-      setClusterState(c, 'available', { state: { transitioning: false, error: false, message: "" } });
-    })
-    .catch((e: Error) => {
-      if (e.message === 'Network Error') {
-        setClusterState(c, 'error', {
-          state: {
-            transitioning: false,
-            error:   true,
-            message: `Network Error. It may be that the certificate isn't trusted. Click on the URL above if you'd like to bypass checks and then refresh`
-          }
-        });
-      } else {
-        setClusterState(c, 'error', {
-          state: {
-            transitioning: false,
-            error:   true,
-            message: `Failed to check the ready state: ${ e }`
-          }
-        });
-      }
-    });
+  store.dispatch(
+    `epinio/request`, 
+    { opt: { url: EpinioInfoPath, redirectUnauthorized: false }, clusterId: c.id }
+  )
+  .then((res: any) => {
+    c['version'] = res?.version;
+    c['oidcEnabled'] = res?.oidc_enabled;
+    setClusterState(
+      c, 
+      'available', 
+      { state: { transitioning: false, error: false, message: "" } },
+    );
+  })
+  .catch((e: Error) => {
+    if (e.message === 'Network Error') {
+      setClusterState(c, 'error', {
+        state: {
+          transitioning: false,
+          error:   true,
+          message: `Network Error. It may be that the certificate isn't trusted. 
+            Click on the URL above if you'd like to bypass checks and then refresh`
+        }
+      });
+    } else {
+      setClusterState(c, 'error', {
+        state: {
+          transitioning: false,
+          error:   true,
+          message: `Failed to check the ready state: ${ e }`
+        }
+      });
+    }
+  });
 }
 </script>
 

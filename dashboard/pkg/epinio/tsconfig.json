@@ -17,7 +17,7 @@
     "typeRoots": [
       "../../node_modules",
       "../../node_modules/@rancher/shell/types"
-    ],
+    ],    
     "types": [
       "node",
       "webpack-env",
@@ -46,8 +46,12 @@
     "**/*.ts",
     "**/*.d.ts",
     "**/*.tsx",
+<<<<<<< HEAD
     "**/*.vue",
     "./index.d.ts"
+=======
+    "**/*.vue"
+>>>>>>> a8196432b9f2fcb256297b21938799e49a7aa546
   ],
   "exclude": [
     "../../node_modules",

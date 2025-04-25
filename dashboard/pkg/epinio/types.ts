@@ -4,6 +4,10 @@ import EpinioCatalogServiceModel from './models/catalogservices';
 import EpinioConfigurationModel from './models/configurations';
 import EpinioServiceModel from './models/services';
 
+export const TAPP = {
+  DASHBOARD:           'tapp.io.dashboard'
+};
+
 export const EPINIO_PRODUCT_NAME = 'epinio';
 
 export const EPINIO_MGMT_STORE = 'epiniomgmt';
