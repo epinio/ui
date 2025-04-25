@@ -1,61 +1,55 @@
-<script>
-export default {
-  name:  'DashboardCard',
-  props: {
-    isLoaded:    { type: Boolean, required: true },
-    title:       { type: String, required: true },
-    icon:        { type: String, required: true },
-    cta:         { type: Object, required: true },
-    link:        { type: Object, required: true },
-    linkText:    { type: String, required: true },
-    description: { type: String, required: true },
-    slotTitle:   {
-      type:     String,
-      required: false,
-      default:  null,
-    },
-  },
-  computed: {
-    setLoading() {
-      return !this.isLoaded ? 'loading' : '';
-    },
-  },
-};
+<script setup lang="ts">
+import { computed } from 'vue';
+
+const props = defineProps<{
+  isLoaded: boolean,
+  title: string,
+  icon: string,
+  cta: object,
+  link: object,
+  linkText: string,
+  description: string,
+  slotTitle: string | null, 
+}>()
+
+const setLoading = computed(() => {
+  return !props.isLoaded ? 'loading' : '';
+})
 </script>
 
 <template>
   <div
-    v-if="!isLoaded"
-    :class="setLoading"
+    v-if="!props.isLoaded"
+    :class="props.setLoading"
   >
     <i class="icon-spinner animate-spin" />
   </div>
   <div
     v-else
     class="d-main"
-    :class="setLoading"
+    :class="props.setLoading"
   >
     <div class="d-header">
       <i
-        class="icon icon-fw"
-        :class="icon"
+        class="props.icon icon-fw"
+        :class="props.icon"
       />
-      <router-link :to="link">
+      <router-link :to="props.link">
         <h1>
-          {{ title }}
+          {{ props.title }}
         </h1>
       </router-link>
     </div>
 
     <p>
-      {{ description }}
+      {{ props.description }}
     </p>
 
     <router-link
       class="btn role-secondary"
-      :to="cta"
+      :to="props.cta"
     >
-      {{ linkText }}
+      {{ props.linkText }}
     </router-link>
 
     <hr v-if="$slots.default">
@@ -64,8 +58,8 @@ export default {
       v-if="$slots.default"
       class="d-slot"
     >
-      <h2 v-if="slotTitle">
-        {{ slotTitle }}
+      <h2 v-if="props.slotTitle">
+        {{ props.slotTitle }}
       </h2>
       <slot />
     </div>
