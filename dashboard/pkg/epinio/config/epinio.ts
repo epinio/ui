@@ -40,6 +40,7 @@ export function init($plugin: any, store: any) {
 
   product({
     // ifHaveType:          CAPI.RANCHER_CLUSTER,
+    weight: 100,
     ifFeature:             MULTI_CLUSTER,
     category:              EPINIO_PRODUCT_NAME,
     isMultiClusterApp:     true,

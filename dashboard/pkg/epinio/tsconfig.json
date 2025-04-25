@@ -3,7 +3,7 @@
     "allowJs": true,
     "target": "esnext",
     "module": "esnext",
-    "strict": false,
+    "strict": true,
     "jsx": "preserve",
     "importHelpers": true,
     "moduleResolution": "node",
@@ -16,7 +16,7 @@
     "typeRoots": [
       "../../node_modules",
       "../../node_modules/@rancher/shell/types"
-    ],
+    ],    
     "types": [
       "node",
       "webpack-env",
@@ -46,7 +46,7 @@
     "**/*.d.ts",
     "**/*.tsx",
     "**/*.vue"
-],
+  ],
   "exclude": [
     "../../node_modules"
   ]
