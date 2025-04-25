@@ -1,103 +1,93 @@
-<script>
+<script setup lang="ts">
+import { ref, onMounted } from 'vue';
+import axios from 'axios';
+import { useStore } from 'vuex';
+import { useRouter } from 'vue-router';
+
 import epinioAuth, { EpinioAuthTypes } from '../utils/auth';
+import { stringify, exceptionToErrorsArray } from '@shell/utils/error';
+import { EpinioCluster } from '../models/cluster';
+
+import { Banner } from '@components/Banner';
 import Password from '@shell/components/form/Password';
 import { LabeledInput } from '@components/Form/LabeledInput';
-import { Banner } from '@components/Banner';
-import { stringify, exceptionToErrorsArray } from '@shell/utils/error';
+
+const store = useStore();
+const router = useRouter();
+
+const props = defineProps<{
+  cluster: EpinioCluster,
+}>()
 
 const PROVIDER_TYPES = {
   LOCAL: 'local',
   DEX:   'dex',
 };
 
-export default {
-  name: 'LoginDialog',
-  components: {
-    Banner,
-    Password,
-    LabeledInput,
-  },
-  props: {
-    cluster: {
-      type:     Object,
-      required: true
-    }
-  },
+const username = ref<string>('');
+const password = ref<string>('');
+const selectedAuthType = ref<string>('');
+const busy = ref<boolean>(false);
 
-  data() {
-    return {
-      selectedTab:      '',
-      username:         '',
-      password:         '',
-      PROVIDER_TYPES,
-      selectedAuthType: null,
-      errors:           [],
-      stringify,
-      busy:             false,
-    };
-  },
+let errors: Error[] = [];
+let selectedTab: string;
 
-  mounted() {
-    if (!this.cluster.oidcEnabled) {
-      this.selectedAuthType = PROVIDER_TYPES.LOCAL;
-    } else {
-      this.selectedAuthType = PROVIDER_TYPES.DEX;
-    }
-  },
-
-  methods: {
-    selectType(type) {
-      this.errors = [];
-      this.selectedAuthType = type;
-    },
-
-    async login(provider) {
-      this.busy = true;
-      this.errors = [];
-      const errors = [];
-
-      try {
-        switch (provider) {
-        case PROVIDER_TYPES.LOCAL:
-
-          if (!this.username) {
-            errors.push('Username');
-          }
-          if (!this.password) {
-            errors.push('Password');
-          }
-          if (errors.length) {
-            throw new Error(`${ errors.join('/') } Required`);
-          }
-
-          await epinioAuth.login(this.cluster.createAuthConfig(EpinioAuthTypes.LOCAL, {
-            username: this.username,
-            password: this.password,
-            $axios:   this.$axios,
-          }));
-          break;
-        case PROVIDER_TYPES.DEX:
-          await epinioAuth.login(this.cluster.createAuthConfig(EpinioAuthTypes.DEX));
-
-          break;
-        default:
-          throw new Error(`Unknown log in type: ${ this.selectedTab }`);
-        }
-        this.cluster.loggedIn = true;
-
-        this.$router.push({
-          name:   'epinio-c-cluster-dashboard',
-          params: { cluster: this.cluster.id }
-        });
-      } catch (err) {
-        this.errors.push(...exceptionToErrorsArray(err));
-      }
-
-      this.busy = false;
-    },
-
+onMounted(() => {
+  if (!props.cluster.oidcEnabled) {
+    selectedAuthType.value = PROVIDER_TYPES.LOCAL;
+  } else {
+    selectedAuthType.value = PROVIDER_TYPES.DEX;
   }
-};
+})
+
+const selectType = (type: string) => {
+  errors = [];
+  selectedAuthType.value = type as string;
+}
+
+const login = async (provider: string) => {
+  busy.value = true;
+  errors = [];
+
+  try {
+    switch (provider) {
+      case PROVIDER_TYPES.LOCAL:
+        if (!username.value) {
+          errors.push('Username');
+        }
+        if (!password.value) {
+          errors.push('Password');
+        }
+        if (errors.length) {
+          throw new Error(`${ errors.join('/') } Required`);
+        }
+
+        await epinioAuth.login(props.cluster.createAuthConfig(
+          EpinioAuthTypes.LOCAL, {
+            username: username.value,
+            password: password.value,
+            $axios:   axios,
+          }
+        ));
+        break;
+      case PROVIDER_TYPES.DEX:
+        await epinioAuth.login(props.cluster.createAuthConfig(EpinioAuthTypes.DEX));
+        break;
+      default:
+        throw new Error(`Unknown log in type: ${ selectedTab }`);
+    }
+    props.cluster.loggedIn = true;
+
+    router.push({
+      name:   'epinio-c-cluster-dashboard',
+      params: { cluster: props.cluster.id }
+    });
+  } catch (err) {
+    errors.push(...exceptionToErrorsArray(err));
+  }
+
+  busy.value = false;
+}
 </script>
 
 <template>
@@ -113,7 +103,7 @@ export default {
         />
       </div>
     </div>
-    <div v-if="selectedAuthType === PROVIDER_TYPES.DEX">
+    <div v-if="selectedAuthType == PROVIDER_TYPES.DEX">
       <button
         ref="btn"
         :class="{'disabled': busy}"
@@ -132,7 +122,6 @@ export default {
         <div class="mb-20">
           <LabeledInput
             id="username"
-            ref="username"
             v-model:value="username"
             :label="t('login.username')"
             :required="true"
@@ -141,7 +130,6 @@ export default {
         <div class="mb-20">
           <Password
             id="password"
-            ref="password"
             v-model:value="password"
             :label="t('login.password')"
             :required="true"

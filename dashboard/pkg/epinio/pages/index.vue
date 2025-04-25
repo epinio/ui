@@ -1,166 +1,139 @@
-<script lang="ts">
-import { ref, onBeforeUnmount } from 'vue';
+<script setup lang="ts">
+import { ref, onMounted } from 'vue';
 import { useStore } from 'vuex';
+import { useRouter } from 'vue-router';
+// import { useI18n } from 'vue-i18n';
 
 import Loading from '@shell/components/Loading.vue';
-import Link from '@shell/components/formatter/Link.vue';
 import ResourceTable from '@shell/components/ResourceTable.vue';
-import { EPINIO_MGMT_STORE, EPINIO_TYPES } from '../types';
-
 import AsyncButton from '@shell/components/AsyncButton.vue';
+
+import { EPINIO_MGMT_STORE, EPINIO_TYPES } from '../types';
 import { _MERGE } from '@shell/plugins/dashboard-store/actions';
-import epinioAuth, { EpinioAuthTypes } from '../utils/auth';
 import EpinioCluster, { EpinioInfoPath } from '../models/cluster';
-import Dialog from '@shell/components/Dialog.vue';
+import epinioAuth, { EpinioAuthTypes } from '../utils/auth';
 
-// Data, Methods, Computed, Props
-export default ({
-  components: {
-    Loading,
-    Link,
-    ResourceTable,
-    AsyncButton,
-    Dialog
-  },
-  layout: 'plain',
+const store = useStore();
+const router = useRouter();
+const error = ref<Error | null>(null)
+let currentCluster: EpinioCluster | null = null;
+let clusters: EpinioCluster[] = [];
+let clustersSchema: any = null;
 
-  async fetch() {
-    await this.$store.dispatch(`${ EPINIO_MGMT_STORE }/findAll`, { type: EPINIO_TYPES.CLUSTER });
+// const { t } = useI18n();
 
-    this.clusters.forEach((c: EpinioCluster) => this.testCluster(c));
-  },
+const loading = ref(true);
 
-  data() {
-    const store = useStore();
-    return {
-      clustersSchema: store.getters[`${ EPINIO_MGMT_STORE }/schemaFor`](EPINIO_TYPES.CLUSTER),
-      version:        null,
-      infoUrl:        EpinioInfoPath,
-      currentCluster: {},
-    };
-  },
+onMounted(async () => {
+  loading.value = true
+  try {
+    await store.dispatch(`${EPINIO_MGMT_STORE}/findAll`, { type: EPINIO_TYPES.CLUSTER })
+    clusters = store.getters[`${EPINIO_MGMT_STORE}/all`](EPINIO_TYPES.CLUSTER)
+    clustersSchema = store.getters[`${EPINIO_MGMT_STORE}/schemaFor`](EPINIO_TYPES.CLUSTER)
 
-  mounted() {
-    window.addEventListener('visibilitychange', this.visibilitychange);
-  },
+    console.log('Clusters:', clusters)
+    clusters.forEach((c: EpinioCluster) => testCluster(c))
+  } catch (err) {
+    error.value = err as Error
+  } finally {
+    loading.value = false
+  }
+})
 
-  onBeforeUnmount() {
-    window.removeEventListener('visibilitychange', this.visibilitychange);
-  },
+const canRediscover = () => {
+  return !clusters.find((c: EpinioCluster) => c.state === 'updating');
+}
 
-  computed: {
-    cluster(): string {
-      return this.$route.params.cluster;
-    },
+const rediscover = async (buttonCb: (success: boolean) => void)  => {
+  await store.dispatch(`${ EPINIO_MGMT_STORE }/findAll`, { type: EPINIO_TYPES.CLUSTER, opt: { force: true, load: _MERGE } });
+  clusters.forEach((c: EpinioCluster) => testCluster(c));
+  buttonCb(true);
+}
 
-    product(): string {
-      return this.$route.params.product;
-    },
+const login = async (c: EpinioCluster) =>{
+  const isLoggedIn = await epinioAuth.isLoggedIn(c.createAuthConfig(EpinioAuthTypes.AGNOSTIC));
 
-    canRediscover() {
-      return !this.clusters.find((c: EpinioCluster) => c.state === 'updating');
-    },
+  if (isLoggedIn) {
+    router.push({
+      name:   'epinio-c-cluster-dashboard',
+      params: { cluster: c.id }
+    });
+  } else {
+    console.log('Not logged in');
+    currentCluster = c;
+    store.dispatch('cluster/promptModal', {
+      component: 'LoginDialog',
+      componentProps: {
+        cluster: currentCluster,
+      },
+    });
+  }
+}
 
-    clusters() {
-      return this.$store.getters[`${ EPINIO_MGMT_STORE }/all`](EPINIO_TYPES.CLUSTER);
+const setClusterState = (
+  cluster: EpinioCluster,
+  state: string,
+  metadataStateObj: {
+    state: {
+      transitioning: boolean,
+      error: boolean,
+      message: string
     }
-  },
+  }) => {
+  cluster['state'] = state;
+  cluster['metadata'] = metadataStateObj;
+}
 
-  methods: {
-    async rediscover(buttonCb: (success: boolean) => void) {
-      await this.$store.dispatch(`${ EPINIO_MGMT_STORE }/findAll`, { type: EPINIO_TYPES.CLUSTER, opt: { force: true, load: _MERGE } });
-      this.clusters.forEach((c: EpinioCluster) => this.testCluster(c));
-      buttonCb(true);
-    },
+const testCluster = (c: EpinioCluster) => {
+  // Call '/ready' on each cluster. If there's a network error there's a good chance the user has to permit an invalid cert
+  setClusterState(c, 'updating', {
+    state: {
+      transitioning: true,
+      error:        false,
+      message:       'Contacting...'
+    }
+  });
 
-    visibilitychange() {
-      if (this.canRediscover && document.visibilityState === 'visible') {
-        this.rediscover(() => undefined);
-      }
-    },
-
-    setClusterState(cluster: EpinioCluster, state: string, metadataStateObj: { state: { transitioning: boolean, error: boolean, message: string }}) {
-      cluster['state'] = state;
-      cluster['metadata'] = metadataStateObj;
-    },
-
-    testCluster(c: EpinioCluster) {
-      // Call '/ready' on each cluster. If there's a network error there's a good chance the user has to permit an invalid cert
-      this.setClusterState(c, 'updating', {
-        state: {
-          transitioning: true,
-          message:       'Contacting...'
-        }
-      });
-
-      this.$store.dispatch(`epinio/request`, { opt: { url: this.infoUrl, redirectUnauthorized: false }, clusterId: c.id })
-        .then((res: any) => {
-          c['version'] = res?.version;
-          c['oidcEnabled'] = res?.oidc_enabled;
-          this.setClusterState(c, 'available', { state: { transitioning: false } });
-        })
-        .catch((e: Error) => {
-          if (e.message === 'Network Error') {
-            this.setClusterState(c, 'error', {
-              state: {
-                error:   true,
-                message: `Network Error. It may be that the certificate isn't trusted. Click on the URL above if you'd like to bypass checks and then refresh`
-              }
-            });
-          } else {
-            this.setClusterState(c, 'error', {
-              state: {
-                error:   true,
-                message: `Failed to check the ready state: ${ e }`
-              }
-            });
+  store.dispatch(`epinio/request`, { opt: { url: EpinioInfoPath, redirectUnauthorized: false }, clusterId: c.id })
+    .then((res: any) => {
+      c['version'] = res?.version;
+      c['oidcEnabled'] = res?.oidc_enabled;
+      setClusterState(c, 'available', { state: { transitioning: false, error: false, message: "" } });
+    })
+    .catch((e: Error) => {
+      if (e.message === 'Network Error') {
+        setClusterState(c, 'error', {
+          state: {
+            transitioning: false,
+            error:   true,
+            message: `Network Error. It may be that the certificate isn't trusted. Click on the URL above if you'd like to bypass checks and then refresh`
           }
         });
-    },
-
-    async login(c: EpinioCluster) {
-      const isLoggedIn = await epinioAuth.isLoggedIn(c.createAuthConfig(EpinioAuthTypes.AGNOSTIC));
-
-      if (isLoggedIn) {
-        this.$router.push({
-          name:   'epinio-c-cluster-dashboard',
-          params: { cluster: c.id }
-        });
       } else {
-        console.log('Not logged in');
-        this.currentCluster = c;
-
-        this.$store.dispatch('cluster/promptModal', {
-          component: 'LoginDialog',
-          componentProps: {
-            cluster: this.currentCluster,
-          },
+        setClusterState(c, 'error', {
+          state: {
+            transitioning: false,
+            error:   true,
+            message: `Failed to check the ready state: ${ e }`
+          }
         });
-
-        //this.$modal.show('epinio-login-dialog');
       }
-    },
-
-    closeDialog() {
-      console.log(this.$modal);
-      //this.$modal.hide('epinio-login-dialog');
-    }
-  }
-
-});
+    });
+}
 </script>
 
 <template>
   <Loading
-    v-if="$fetchState.pending"
+    v-if="loading"
     mode="main"
   />
   <div
     v-else-if="clusters.length === 0"
     class="root"
   >
-    <h2>{{ t('epinio.instances.none.header') }}</h2>
-    <p>{{ t('epinio.instances.none.description') }}</p>
+      <h2>Inside v else if</h2>
+    <!-- <h2>{{ t('epinio.instances.none.header') }}</h2>
+    <p>{{ t('epinio.instances.none.description') }}</p> -->
   </div>
   <div
     v-else
@@ -168,7 +141,6 @@ export default ({
   >
     <div class="epinios-table">
       <h2>{{ t('epinio.instances.header') }}</h2>
-      <h2>Test this</h2>
       <ResourceTable
         :rows="clusters"
         :schema="clustersSchema"
@@ -207,24 +179,10 @@ export default ({
           </div>
         </template>
       </ResourceTable>
+
     </div>
-    <!--<Dialog
-      name="epinio-login-dialog"
-      style="width:'340px'"
-    >
-      <template #buttons>
-        <button
-          class="btn role-secondary"
-          @click="closeDialog(false)"
-        >
-          {{ t('generic.cancel') }}
-        </button>
-      </template>
-      <template>
-        <LoginDialog :cluster="currentCluster" />
-      </template>
-    </Dialog>-->
-  </div>
+
+</div>
 </template>
 
 <style lang="scss" scoped>
