@@ -177,6 +177,7 @@ const login = async (provider: string) => {
 $min-width: 400px;
 
 .login-dialog {
+  padding: 20px;
   display: flex;
   flex-direction: column;
   align-items: center;
