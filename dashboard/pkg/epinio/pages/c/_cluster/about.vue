@@ -13,7 +13,6 @@ const t = store.getters['i18n/t'];
 
 
 const fetchData = async () => {
-    console.log('Fetching data...');
   settings.value = await store.dispatch(`management/findAll`, { type: MANAGEMENT.SETTING });
   version.value = await store.dispatch('epinio/version');
 };
@@ -52,7 +51,6 @@ const downloads = computed(() => {
   ];
 });
 
-// Dummy placeholder since original mentions `downloadLinuxImages`, but didn't define it
 const downloadLinuxImages = null;
 
 const versionString = computed(() => {
