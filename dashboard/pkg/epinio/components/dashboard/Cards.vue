@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { computed } from 'vue';
-
+import { computed, defineProps, useSlots } from 'vue';
+const slots = useSlots();
 const props = defineProps<{
   isLoaded: boolean,
-  title: string,
+  title: string | undefined,
   icon: string,
   cta: object,
   link: object,
@@ -52,16 +52,18 @@ const setLoading = computed(() => {
       {{ props.linkText }}
     </router-link>
 
-    <hr v-if="$slots.default">
+    {{slots}}
+    <hr v-if="slots.default">
 
+    {{slots.default}}
     <div
-      v-if="$slots.default"
+      v-if="slots.default"
       class="d-slot"
     >
       <h2 v-if="props.slotTitle">
         {{ props.slotTitle }}
       </h2>
-      <slot />
+      <slot></slot>
     </div>
   </div>
 </template>

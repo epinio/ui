@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import { useI18n } from 'vue-i18n';
-import { Vue, onMounted, computed, watch } from 'vue';
+import { ref, onMounted, computed, watch } from 'vue';
 import { mapGetters, mapState } from 'vuex';
 import DashboardCard from '../../../components/dashboard/Cards.vue';
 import { createEpinioRoute } from '../../../utils/custom-routing';
@@ -30,9 +29,17 @@ type ComponentService = {
   isEnabled: boolean
 }
 
+const version = ref<string>('');
+const showMetricsInfo = ref<boolean>(false);
+
 const store = useStore();
 const router = useRouter();
-let version: string;
+const t = store.getters['i18n/t'];
+
+//Need to convert to computed
+const aboutLink = !store.getters['isSingleProduct'] ? createEpinioRoute('c-cluster-about', { cluster: store.getters['clusterId'] }) : null;
+const availableCpu = ref<number>(100);
+const availableMemory = ref<number>(100);
 
 const sectionContent = [
   {
@@ -92,15 +99,8 @@ const colorStops = {
   70: '--info',
 };
 
-//Need to convert to computed
-const aboutLink = !store.getters['isSingleProduct'] ? createEpinioRoute('c-cluster-about', { cluster: store.getters['clusterId'] }) : null;
-const availableCpu = 100;
-const availableMemory = 100;
-const showMetricsInfo = false;
-
 onMounted(async () => {
   await getVersionHash();
-  generateCards();
 });
 
 //Computed Variables
@@ -161,27 +161,25 @@ const metricsDetails = computed(() => {
 });
 
 //Watchers
-watch(namespaces, (oldValue, newValue) => {
-  if (isEqual(oldValue, newValue)){
-    return;
-  }
+/*watch(namespaces, (oldValue, newValue) => {
+  console.log("GRRRRR");
 
   generateCards();
-});
+}, { immediate: true });
 watch(apps, (oldValue, newValue) => {
   if (isEqual(oldValue, newValue)){
     return;
   }
 
   generateCards();
-});
+}, { immediate: true });
 watch(services, (oldValue, newValue) => {
   if (isEqual(oldValue, newValue)){
     return;
   }
 
   generateCards();
-});
+}, { immediate: true });*/
 
 async function getVersionHash() {
   const hash: { [key:string]: any } = await allHash({
@@ -192,7 +190,7 @@ async function getVersionHash() {
     showMetrics: calcAvailableResources()
   });
 
-  version = hash.version;
+  version.value = hash.version;
 }
 
 async function calcAvailableResources() {
@@ -201,11 +199,11 @@ async function calcAvailableResources() {
   }
 
   const nodeMetricsSchema = store.getters[`epinio/schemaFor`](METRIC.NODE);
-
+  
   if (nodeMetricsSchema) {
     const id = store.getters['clusterId'];
 
-    const nodeMetrics = await $store.dispatch(
+    const nodeMetrics = await store.dispatch(
       `cluster/request`, 
       { url: `/k8s/clusters/${ id }/v1/metrics.k8s.io.nodemetrics` }, 
       { root: true },
@@ -218,20 +216,23 @@ async function calcAvailableResources() {
       useful: parseSi(nodeMetrics.data[0].usage.cpu, null)
     };
 
-    const memory = createMemoryValues(currentCluster.mgmtCluster?.status?.capacity?.memory, nodeMetrics.data[0].usage.memory);
+    const memory = createMemoryValues(
+      currentCluster.mgmtCluster?.status?.capacity?.memory, 
+      nodeMetrics.data[0].usage.memory,
+    );
 
-    availableCpu = Math.floor(100 - cpu.useful / cpu.total * 100);
-    availableMemory = Math.floor(100 - memory.useful / memory.total * 100);
+    availableCpu.value = Math.floor(100 - cpu.useful / cpu.total * 100);
+    availableMemory.value = Math.floor(100 - memory.useful / memory.total * 100);
 
-    showMetricsInfo = true;
+    showMetricsInfo.value = true;
   }
 }
 
-function generateCards() {
+const sectionContentUpdated = computed(() => {
   // Handles titles
-  /*sectionContent[0].title = this.t('typeLabel.withCount.namespaces', { n: this.namespaces.totalNamespaces });
-  this.sectionContent[1].title = this.t('typeLabel.withCount.applications', { n: this.apps?.totalApps });
-  this.sectionContent[2].title = this.t('typeLabel.withCount.services', { n: this.services?.servicesInstances });*/
+  sectionContent[0].title = t('typeLabel.withCount.namespaces', { n: namespaces.totalNamespaces });
+  sectionContent[1].title = t('typeLabel.withCount.applications', { n: apps?.totalApps });
+  sectionContent[2].title = t('typeLabel.withCount.services', { n: services?.servicesInstances });
 
   // Handles descriptions
   if (namespaces?.totalNamespaces >= 0) {
@@ -246,7 +247,9 @@ function generateCards() {
     sectionContent[2].isLoaded = true;
     sectionContent[2].isEnable = true;
   }
-}
+console.log(sectionContent);
+  return sectionContent;
+});
 </script>
 
 <template>
@@ -276,12 +279,12 @@ function generateCards() {
           target="_blank"
           rel="noopener noreferrer nofollow"
         >{{ t('epinio.intro.issues') }}</a>
-        <n-link
+        <RouterLink
           v-if="aboutLink"
           :to="aboutLink"
         >
           {{ t('epinio.intro.about') }}
-        </n-link>
+        </RouterLink>
       </div>
     </div>
 
@@ -293,16 +296,16 @@ function generateCards() {
       <span>
         {{ t('epinio.intro.metrics.availability', { availableCpu, availableMemory }) }}
       </span>
-      <n-link
+      <RouterLink
         :to="metricsDetails"
       >
         {{ t('epinio.intro.metrics.link.label') }}
-      </n-link>
+      </RouterLink>
     </Banner>
 
     <div class="get-started">
       <div
-        v-for="(card, index) in sectionContent"
+        v-for="(card, index) in sectionContentUpdated"
         :key="index"
       >
         <DashboardCard
@@ -317,20 +320,17 @@ function generateCards() {
           :slot-title="card.slotTitle"
         >
           <span v-if="index === 0 && namespaces.latestNamespaces.length > 0">
-            <slot>
-              <ul>
-                <li
-                  v-for="(ns, i) in namespaces.latestNamespaces"
-                  :key="i"
-                >
-                  {{ ns.id }}
-                </li>
-              </ul>
-            </slot>
+            <ul>
+              <li
+                v-for="(ns, i) in namespaces.latestNamespaces"
+                :key="i"
+              >
+                {{ ns.id }}
+              </li>
+            </ul>
           </span>
 
           <span v-if="index === 1 && apps.totalApps > 0">
-            <slot>
               <ConsumptionGauge
                 :resource-name="t('epinio.intro.cards.applications.running')"
                 :capacity="apps.totalApps"
@@ -339,24 +339,22 @@ function generateCards() {
                 :used="apps.runningApps"
                 units="Apps"
               />
-            </slot>
           </span>
 
           <span v-if="index === 2">
-            <slot>
               <ul>
                 <li
                   v-for="(service, i) in services.servicesCatalog"
                   :key="i"
                 >
-                  <n-link
+                  <RouterLink
                     v-if="service.isEnabled"
                     :to="service.link"
                     class="link"
                   >
                     {{ service.name }}
                     <span>+</span>
-                  </n-link>
+                  </RouterLink>
 
                   <span
                     v-if="!service.isEnabled"
@@ -367,7 +365,6 @@ function generateCards() {
                   </span>
                 </li>
               </ul>
-            </slot>
           </span>
         </DashboardCard>
       </div>
