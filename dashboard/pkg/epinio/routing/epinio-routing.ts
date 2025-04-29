@@ -3,6 +3,7 @@ import ListEpinio from "../pages/index.vue";
 import Dashboard from "../pages/c/_cluster/dashboard.vue";
 // import { BLANK_CLUSTER } from '../config/epinio';
 import { EPINIO_PRODUCT_NAME } from '../types';
+import ListEpinioResource from '../pages/c/_cluster/_resource/index.vue';
 
 
 // // import ViewResource from '@shell/pages/c/_cluster/_product/_resource/_id.vue';
@@ -62,7 +63,7 @@ const routes = [
   {
     name: `${EPINIO_PRODUCT_NAME}-c-cluster-resource`,
     path: `/:product/c/:cluster/:resource`,
-    component: ListEpinio, //ListEpinioResource,
+    component: ListEpinioResource,
     meta,
   },
   {
