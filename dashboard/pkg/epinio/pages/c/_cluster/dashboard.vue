@@ -128,16 +128,19 @@ const services = computed(() => {
   const s = services.reduce(
     (acc: ComponentService[], service: EpinioCatalogService) => {
       acc.push({
-      link: createEpinioRoute(
-        'c-cluster-resource-create', 
-        { resource: EPINIO_TYPES.SERVICE_INSTANCE, name: service.id }, 
-        { query: { service: service.id } }),
-      name:      service.name,
-          isEnabled: true
-        });
+        link: createEpinioRoute(
+          'c-cluster-resource-create', 
+          { resource: EPINIO_TYPES.SERVICE_INSTANCE, name: service.id }, 
+          { query: { service: service.id } }
+        ),
+        name: service.name,
+        isEnabled: true
+      });
 
-        return acc;
-      }, [] as ComponentService[]);
+      return acc;
+    }, 
+    [] as ComponentService[]
+  );
 
   return {
     servicesInstances: fetchServicesInstances.length,
@@ -302,15 +305,12 @@ function generateCards() {
         <h1>{{ t('epinio.intro.welcome') }}</h1>
         <span v-if="version">{{ version.displayVersion }}</span>
       </div>
-
       <p class="head-subheader">
         {{ t('epinio.intro.blurb') }}
       </p>
-
       <p>
         {{ t('epinio.intro.description') }}
       </p>
-
       <div class="head-links">
         <a
           href="https://epinio.io/"
@@ -330,7 +330,6 @@ function generateCards() {
         </RouterLink>
       </div>
     </div>
-
     <Banner
       v-if="showMetricsInfo"
       class="metrics"
@@ -345,7 +344,6 @@ function generateCards() {
         {{ t('epinio.intro.metrics.link.label') }}
       </RouterLink>
     </Banner>
-
     <div class="get-started">
       <div
         v-for="(card, index) in sectionContent"
@@ -372,7 +370,6 @@ function generateCards() {
               </li>
             </ul>
           </span>
-
           <span v-if="index === 1 && apps.totalApps > 0">
             <ConsumptionGauge
               :resource-name="t('epinio.intro.cards.applications.running')"
@@ -383,7 +380,6 @@ function generateCards() {
               units="Apps"
             />
           </span>
-
           <span v-if="index === 2">
             <ul>
               <li
