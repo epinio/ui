@@ -108,36 +108,6 @@ const setLoading = computed(() => {
       min-height: 18px;
       font-size: 16px;
     }
-
-    ul {
-      list-style: none;
-      padding: 0;
-      margin: 0;
-      display: flex;
-      flex-direction: column;
-      gap: $space-s;
-
-      li, .link {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        width: 100%;
-        font-size: 14px;
-
-        &:not(:last-child) {
-          border-bottom: 1px solid var(--border);
-          padding-bottom: $space-s;
-        }
-      }
-
-      li > .disabled {
-        color: var(--disabled-text);
-      }
-
-      .disabled {
-        cursor: not-allowed;
-      }
-    }
   }
 }
 

@@ -374,40 +374,40 @@ function generateCards() {
           </span>
 
           <span v-if="index === 1 && apps.totalApps > 0">
-              <ConsumptionGauge
-                :resource-name="t('epinio.intro.cards.applications.running')"
-                :capacity="apps.totalApps"
-                :used-as-resource-name="true"
-                :color-stops="colorStops"
-                :used="apps.runningApps"
-                units="Apps"
-              />
+            <ConsumptionGauge
+              :resource-name="t('epinio.intro.cards.applications.running')"
+              :capacity="apps.totalApps"
+              :used-as-resource-name="true"
+              :color-stops="colorStops"
+              :used="apps.runningApps"
+              units="Apps"
+            />
           </span>
 
           <span v-if="index === 2">
-              <ul>
-                <li
-                  v-for="(service, i) in services.servicesCatalog"
-                  :key="i"
+            <ul>
+              <li
+                v-for="(service, i) in services.servicesCatalog"
+                :key="i"
+              >
+                <RouterLink
+                  v-if="service.isEnabled"
+                  :to="service.link"
+                  class="link"
                 >
-                  <RouterLink
-                    v-if="service.isEnabled"
-                    :to="service.link"
-                    class="link"
-                  >
-                    {{ service.name }}
-                    <span>+</span>
-                  </RouterLink>
+                  {{ service.name }}
+                  <span>+</span>
+                </RouterLink>
 
-                  <span
-                    v-if="!service.isEnabled"
-                    class="link disabled"
-                  >
-                    {{ service.name }}
-                    <span>+</span>
-                  </span>
-                </li>
-              </ul>
+                <span
+                  v-if="!service.isEnabled"
+                  class="link disabled"
+                >
+                  {{ service.name }}
+                  <span>+</span>
+                </span>
+              </li>
+            </ul>
           </span>
         </DashboardCard>
       </div>
@@ -465,6 +465,36 @@ function generateCards() {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
     grid-gap: 20px;
+  }
+}
+
+ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: $space-s;
+
+  li, .link {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    font-size: 14px;
+
+    &:not(:last-child) {
+      border-bottom: 1px solid var(--border);
+      padding-bottom: $space-s;
+    }
+  }
+
+  li > .disabled {
+    color: var(--disabled-text);
+  }
+
+  .disabled {
+    cursor: not-allowed;
   }
 }
 </style>
