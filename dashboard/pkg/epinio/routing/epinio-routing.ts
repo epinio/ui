@@ -1,6 +1,7 @@
 // Don't forget to create a VueJS page called index.vue in the /pages folder!!!
 import ListEpinio from "../pages/index.vue";
 import Dashboard from "../pages/c/_cluster/dashboard.vue";
+import AboutEpinio from "../pages/c/_cluster/about.vue";
 // import { BLANK_CLUSTER } from '../config/epinio';
 import { EPINIO_PRODUCT_NAME } from '../types';
 
@@ -56,7 +57,7 @@ const routes = [
   {
     name: `${EPINIO_PRODUCT_NAME}-c-cluster-about`,
     path: `/:product/c/:cluster/about`,
-    component: ListEpinio, //AboutEpinio,
+    component: AboutEpinio,
     meta,
   },
   {
