@@ -11,6 +11,11 @@ const settings = ref<any[]>([]);
 
 const t = store.getters['i18n/t'];
 
+const aboutVersionsComponentString = computed(() => t('about.versions.component'));
+const aboutVersionsVersionString = computed(() => t('about.versions.version'));
+const aboutDownloadCLIString = computed(() => t('about.downloadCLI.title'));
+const allPackagesString = computed(() => t('epinio.about.allPackages'));
+
 
 const fetchData = async () => {
   settings.value = await store.dispatch(`management/findAll`, { type: MANAGEMENT.SETTING });
@@ -65,15 +70,15 @@ const versionString = computed(() => {
 
 <template>
   <div class="about">
-    <template>
-      <h1 v-t="'about.title'">
+    <template v-if="version">
+      <h1>
         {{ appName }}
       </h1>
       <table>
         <thead>
           <tr>
-            <th>{{ t('about.versions.component') }}</th>
-            <th>{{ t('about.versions.version') }}</th>
+            <th>{{ aboutVersionsComponentString }}</th>
+            <th>{{ aboutVersionsVersionString }}</th>
           </tr>
         </thead>
         <tr v-if="version">
@@ -93,7 +98,7 @@ const versionString = computed(() => {
 
     <template v-if="version && downloads.length">
       <h3 class="pt-40">
-        {{ t('about.downloadCLI.title') }}
+        {{ aboutDownloadCLIString }}
       </h3>
       <table>
         <tr
@@ -122,7 +127,7 @@ const versionString = computed(() => {
         target="_blank"
         :href="`https://github.com/epinio/epinio/releases/tag/${version.displayVersion}`"
       >
-        {{ t('epinio.about.allPackages') }}
+        {{ allPackagesString }}
       </a>
     </template>
   </div>
