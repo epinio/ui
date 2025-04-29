@@ -1,27 +1,26 @@
 <script setup lang="ts">
+import { Location, useRouter } from 'vue-router';
+import { mapGetters, mapState, useStore } from 'vuex';
 import { ref, onMounted, computed, watch } from 'vue';
-import { mapGetters, mapState } from 'vuex';
-import DashboardCard from '../../../components/dashboard/Cards.vue';
-import { createEpinioRoute } from '../../../utils/custom-routing';
 import { 
   EpinioApplicationResource, 
   EpinioCatalogService, 
   EPINIO_MGMT_STORE, 
   EPINIO_TYPES,
 } from '../../../types';
-import ConsumptionGauge from '@shell/components/ConsumptionGauge.vue';
-import Namespace from '@shell/models/namespace';
-import { parseSi, createMemoryValues } from '@shell/utils/units';
-import EpinioServiceModel from '../../../models/services';
-import isEqual from 'lodash/isEqual';
+
 import { sortBy } from 'lodash';
-import { Location } from 'vue-router';
-import Banner from '@components/Banner/Banner.vue';
+import isEqual from 'lodash/isEqual';
+
 import { METRIC } from '@shell/config/types';
 import { allHash } from '@shell/utils/promise';
-
-import { useStore } from 'vuex';
-import { useRouter } from 'vue-router';
+import Namespace from '@shell/models/namespace';
+import Banner from '@components/Banner/Banner.vue';
+import EpinioServiceModel from '../../../models/services';
+import { parseSi, createMemoryValues } from '@shell/utils/units';
+import { createEpinioRoute } from '../../../utils/custom-routing';
+import DashboardCard from '../../../components/dashboard/Cards.vue';
+import ConsumptionGauge from '@shell/components/ConsumptionGauge.vue';
 
 type ComponentService = {
   name: string,
@@ -29,19 +28,21 @@ type ComponentService = {
   isEnabled: boolean
 }
 
-const version = ref<string>('');
-const showMetricsInfo = ref<boolean>(false);
-
 const store = useStore();
 const router = useRouter();
 const t = store.getters['i18n/t'];
+const colorStops = {
+  0: '--info', 
+  30: '--info', 
+  70: '--info',
+};
 
-//Need to convert to computed
-const aboutLink = !store.getters['isSingleProduct'] ? createEpinioRoute('c-cluster-about', { cluster: store.getters['clusterId'] }) : null;
+//Variables that can recieve updates
+const version = ref<string>('');
+const showMetricsInfo = ref<boolean>(false);
 const availableCpu = ref<number>(100);
 const availableMemory = ref<number>(100);
-
-const sectionContent = [
+const sectionContent = ref<array>([
   {
     isEnable: true,
     isLoaded: false,
@@ -88,35 +89,49 @@ const sectionContent = [
       { resource: EPINIO_TYPES.SERVICE_INSTANCE },
     ),
     linkText: t('epinio.intro.cards.services.linkText'),
-    description: t('epinio.intro.cards.services.description'), // INFO: typeDescription to long for the dashboard card.
+    // INFO: typeDescription to long for the dashboard card.
+    description: t('epinio.intro.cards.services.description'),
     slotTitle: t('epinio.intro.cards.services.slotTitle')
   },
-];
+]);
 
-const colorStops = {
-  0: '--info', 
-  30: '--info', 
-  70: '--info',
-};
+/*
+* Computed Variables
+*/
 
-onMounted(async () => {
-  await getVersionHash();
+const aboutLink = computed(() => {
+  if (!store.getters['isSingleProduct']) {
+    return createEpinioRoute(
+      'c-cluster-about', 
+      { cluster: store.getters['clusterId'] },
+    );
+  }
+
+  return null;
 });
 
-//Computed Variables
 const services = computed(() => {
-  const fetchServicesInstances: EpinioServiceModel[] = store.getters['epinio/all'](EPINIO_TYPES.SERVICE_INSTANCE);
-  const fetchServices: EpinioCatalogService[] = store.getters['epinio/all'](EPINIO_TYPES.CATALOG_SERVICE);
+  const fetchServicesInstances: EpinioServiceModel[] = 
+    store.getters['epinio/all'](EPINIO_TYPES.SERVICE_INSTANCE);
+  const fetchServices: EpinioCatalogService[] = 
+    store.getters['epinio/all'](EPINIO_TYPES.CATALOG_SERVICE);
 
   // Try to find the desired services
-  const findDesiredServices = fetchServices?.filter((service) => service.id === 'mysql-dev' || service.id === 'redis-dev');
+  const findDesiredServices = fetchServices?.filter(
+    (service) => service.id === 'mysql-dev' || service.id === 'redis-dev'
+  );
 
   //  if not found, return the first two services from the catalog
-  const services: EpinioCatalogService[] = findDesiredServices.length ? findDesiredServices : fetchServices.slice(0, 2);
+  const services: EpinioCatalogService[] = 
+    findDesiredServices.length ? findDesiredServices : fetchServices.slice(0, 2);
 
-  const s = services.reduce((acc: ComponentService[], service: EpinioCatalogService) => {
-    acc.push({
-      link:      createEpinioRoute('c-cluster-resource-create', { resource: EPINIO_TYPES.SERVICE_INSTANCE, name: service.id }, { query: { service: service.id } }),
+  const s = services.reduce(
+    (acc: ComponentService[], service: EpinioCatalogService) => {
+      acc.push({
+      link: createEpinioRoute(
+        'c-cluster-resource-create', 
+        { resource: EPINIO_TYPES.SERVICE_INSTANCE, name: service.id }, 
+        { query: { service: service.id } }),
       name:      service.name,
           isEnabled: true
         });
@@ -128,7 +143,7 @@ const services = computed(() => {
     servicesInstances: fetchServicesInstances.length,
     servicesCatalog:   s,
   };
-})
+});
 
 const apps = computed(() => {
   const allApps = store.getters['epinio/all'](EPINIO_TYPES.APP) as EpinioApplicationResource[];
@@ -146,12 +161,40 @@ const apps = computed(() => {
 
 const namespaces = computed(() => {
   const allNamespaces: Namespace[] = store.getters['epinio/all'](EPINIO_TYPES.NAMESPACE);
-
+  
   return { 
     totalNamespaces: allNamespaces.length, 
     latestNamespaces: sortBy(allNamespaces, 'metadata.createdAt').reverse().slice(0, 2),
   };
 });
+
+/*
+* Watchers
+*/
+
+watch(services, (oldValue, newValue) => {
+  if (isEqual(oldValue, newValue)){
+    return;
+  }
+
+  generateCards();
+}, { immediate: true });
+
+watch(apps, (oldValue, newValue) => {
+  if (isEqual(oldValue, newValue)){
+    return;
+  }
+
+  generateCards();
+}, { immediate: true });
+
+watch(namespaces, (oldValue, newValue) => {
+  if (isEqual(oldValue, newValue)) {
+    return;
+  }
+
+  generateCards();
+}, { immediate: true });
 
 const metricsDetails = computed(() => {
   return {
@@ -160,33 +203,26 @@ const metricsDetails = computed(() => {
   };
 });
 
-//Watchers
-/*watch(namespaces, (oldValue, newValue) => {
-  console.log("GRRRRR");
-
+onMounted(async () => {
   generateCards();
-}, { immediate: true });
-watch(apps, (oldValue, newValue) => {
-  if (isEqual(oldValue, newValue)){
-    return;
-  }
-
-  generateCards();
-}, { immediate: true });
-watch(services, (oldValue, newValue) => {
-  if (isEqual(oldValue, newValue)){
-    return;
-  }
-
-  generateCards();
-}, { immediate: true });*/
+  await getVersionHash();
+});
 
 async function getVersionHash() {
   const hash: { [key:string]: any } = await allHash({
-    ns:          store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.NAMESPACE }),
-    svc:         store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.SERVICE_INSTANCE }),
-    catalogSvc:  store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.CATALOG_SERVICE }),
-    version:     store.dispatch('epinio/version'),
+    ns: store.dispatch(
+      `epinio/findAll`, 
+      { type: EPINIO_TYPES.NAMESPACE }
+    ),
+    svc: store.dispatch(
+      `epinio/findAll`, 
+      { type: EPINIO_TYPES.SERVICE_INSTANCE }
+    ),
+    catalogSvc: store.dispatch(
+      `epinio/findAll`, 
+      { type: EPINIO_TYPES.CATALOG_SERVICE }
+    ),
+    version: store.dispatch('epinio/version'),
     showMetrics: calcAvailableResources()
   });
 
@@ -228,28 +264,35 @@ async function calcAvailableResources() {
   }
 }
 
-const sectionContentUpdated = computed(() => {
+function generateCards() {
   // Handles titles
-  sectionContent[0].title = t('typeLabel.withCount.namespaces', { n: namespaces.totalNamespaces });
-  sectionContent[1].title = t('typeLabel.withCount.applications', { n: apps?.totalApps });
-  sectionContent[2].title = t('typeLabel.withCount.services', { n: services?.servicesInstances });
+  sectionContent.value[0].title = t(
+    'typeLabel.withCount.namespaces', 
+    { n: namespaces.totalNamespaces },
+  );
+  sectionContent.value[1].title = t(
+    'typeLabel.withCount.applications', 
+    { n: apps?.totalApps },
+  );
+  sectionContent.value[2].title = t(
+    'typeLabel.withCount.services', 
+    { n: services?.servicesInstances },
+  );
 
   // Handles descriptions
-  if (namespaces?.totalNamespaces >= 0) {
-    sectionContent[0].isLoaded = true;
+  if (namespaces._value?.totalNamespaces >= 0) {
+    sectionContent.value[0].isLoaded = true;
   }
 
-  if (apps?.totalApps >= 0) {
-    sectionContent[1].isLoaded = true;
+  if (apps._value?.totalApps >= 0) {
+    sectionContent.value[1].isLoaded = true;
   }
 
-  if (services?.servicesCatalog?.length >= 0) {
-    sectionContent[2].isLoaded = true;
-    sectionContent[2].isEnable = true;
+  if (services._value?.servicesCatalog?.length >= 0) {
+    sectionContent.value[2].isLoaded = true;
+    sectionContent.value[2].isEnable = true;
   }
-console.log(sectionContent);
-  return sectionContent;
-});
+}
 </script>
 
 <template>
@@ -305,7 +348,7 @@ console.log(sectionContent);
 
     <div class="get-started">
       <div
-        v-for="(card, index) in sectionContentUpdated"
+        v-for="(card, index) in sectionContent"
         :key="index"
       >
         <DashboardCard

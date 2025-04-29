@@ -52,10 +52,8 @@ const setLoading = computed(() => {
       {{ props.linkText }}
     </router-link>
 
-    {{slots}}
     <hr v-if="slots.default">
 
-    {{slots.default}}
     <div
       v-if="slots.default"
       class="d-slot"
