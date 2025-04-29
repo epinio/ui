@@ -1,9 +1,12 @@
 <script setup lang="ts">
+import { ref, onMounted, computed, watch } from 'vue';
+import { Location, useRouter, useRoute } from 'vue-router';
+import { mapGetters, mapState, useStore } from 'vuex';
+
 import ResourceTable from '@shell/components/ResourceTable';
 import Masthead from '@shell/components/ResourceList/Masthead';
 import Banner from '@components/Banner/Banner.vue';
 import { Card } from '@components/Card';
-import { mapGetters, mapState } from 'vuex';
 import LabeledInput from '@components/Form/LabeledInput/LabeledInput.vue';
 import { validateKubernetesName } from '@shell/utils/validators/kubernetes-name';
 import AsyncButton from '@shell/components/AsyncButton';
@@ -11,18 +14,27 @@ import { _CREATE } from '@shell/config/query-params';
 import { EPINIO_TYPES } from '../types';
 import { epinioExceptionToErrorsArray } from '../utils/errors';
 
+onMounted(() => {
+  // Opens the create namespace modal if the query is passed as query param
+  if (route.query.mode === 'openModal') {
+    openCreateModal();
+  }
+});
+
 const props = defineProps<{
   schema: object,
   rows: array,
 }>();
 const store = useStore();
 const router = useRouter();
+const route = useRoute();
+
 const t = store.getters['i18n/t'];
 
-const showCreateModal: boolean = false;
+const showCreateModal = ref<boolean>(false);
 const errors: array = [];
 const validFields: array = { name: false };
-const value: { meta: { name: '' } };
+let value: array = { meta: { name: '' } };
 const submitted: boolean = false;
 const mode: string = _CREATE;
 const touched: boolean = false;
@@ -34,17 +46,12 @@ const validationPassed = computed(() => {
   /*
   * Add here fields that need validation
   */
-  const errors = this.getNamespaceErrors(this.value.meta.name);
+  const errors = getNamespaceErrors(value.meta.name);
 
   return errors?.length === 0;
 });
 
-onMounted() {
-  // Opens the create namespace modal if the query is passed as query param
-  if (this.$route.query.mode === 'openModal') {
-    this.openCreateModal();
-  }
-};
+
 
 watch(
   () => showPromptRemove,
@@ -64,41 +71,47 @@ watch(
   }
 );
 
-async openCreateModal() {
-  this.showCreateModal = true;
+async function openCreateModal() {
+  showCreateModal.value = true;
   // Focus on the name input field... after it's been displayed
-  this.$nextTick(() => this.$refs.namespaceName.focus());
+  //this.$nextTick(() => this.$refs.namespaceName.focus());
   // Create a skeleton namespace
-  this.value = await this.$store.dispatch(`epinio/create`, { type: EPINIO_TYPES.NAMESPACE });
-},
+  value = await store.dispatch(`epinio/create`, { type: EPINIO_TYPES.NAMESPACE });
+}
 
-closeCreateModal() {
-  this.showCreateModal = false;
-  this.errors = [];
-  this.touched = false;
-},
+function closeCreateModal() {
+  showCreateModal = false;
+  errors = [];
+  touched = false;
+}
 
-async onSubmit(buttonCb) {
+async function onSubmit(buttonCb) {
   try {
-    await this.value.create();
-    this.closeCreateModal();
+    await value.create();
+    closeCreateModal();
     buttonCb(true);
   } catch (e) {
-    this.errors = epinioExceptionToErrorsArray(e).map(JSON.stringify);
+    errors = epinioExceptionToErrorsArray(e).map(JSON.stringify);
     buttonCb(false);
   }
-},
+}
 
-validateNamespace(name) {
-  if (!name?.length && !this.touched) {
-    this.touched = true;
+function validateNamespace(name) {
+  if (!name?.length && !touched) {
+    touched = true;
   }
 
-  this.errors = this.getNamespaceErrors(name);
-},
+  errors = getNamespaceErrors(name);
+}
 
-getNamespaceErrors(name) {
-  const kubernetesErrors = validateKubernetesName(name || '', this.t('epinio.namespace.name'), this.$store.getters, undefined, []);
+function getNamespaceErrors(name) {
+  const kubernetesErrors = validateKubernetesName(
+    name || '', 
+    t('epinio.namespace.name'), 
+    store.getters, 
+    undefined, 
+    [],
+  );
 
   if (kubernetesErrors.length) {
     return [kubernetesErrors.join(', ')];
@@ -107,7 +120,7 @@ getNamespaceErrors(name) {
   const validateName = name.match(/[a-z0-9]([-a-z0-9]*[a-z0-9])?/);
 
   if (!validateName || validateName[0] !== name) {
-    return [this.t('epinio.namespace.validations.name')];
+    return [t('epinio.namespace.validations.name')];
   }
 
   return [];
