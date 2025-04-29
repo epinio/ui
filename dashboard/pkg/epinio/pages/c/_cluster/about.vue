@@ -12,6 +12,7 @@ const settings = ref<any[]>([]);
 const t = store.getters['i18n/t'];
 
 const aboutVersionsComponentString = computed(() => t('about.versions.component'));
+const aboutTitleString = computed(() => t('about.title'));
 const aboutVersionsVersionString = computed(() => t('about.versions.version'));
 const aboutDownloadCLIString = computed(() => t('about.downloadCLI.title'));
 const allPackagesString = computed(() => t('epinio.about.allPackages'));
@@ -72,7 +73,7 @@ const versionString = computed(() => {
   <div class="about">
     <template v-if="version">
       <h1>
-        {{ appName }}
+        {{ aboutTitleString }}
       </h1>
       <table>
         <thead>
