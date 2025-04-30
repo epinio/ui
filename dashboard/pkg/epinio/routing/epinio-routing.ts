@@ -1,6 +1,7 @@
 // Don't forget to create a VueJS page called index.vue in the /pages folder!!!
 import ListEpinio from "../pages/index.vue";
 import Dashboard from "../pages/c/_cluster/dashboard.vue";
+import AuthVerify from "../pages/auth/verify.vue";
 // import { BLANK_CLUSTER } from '../config/epinio';
 import { EPINIO_PRODUCT_NAME } from '../types';
 import ListEpinioResource from '../pages/c/_cluster/_resource/index.vue';
@@ -36,7 +37,7 @@ const routes = [
   {
     name: `${EPINIO_PRODUCT_NAME}-auth-verify`,
     path: `/:product/auth/verify`,
-    component: ListEpinio, //AuthVerify,
+    component: AuthVerify,
     meta,
   },
   {
