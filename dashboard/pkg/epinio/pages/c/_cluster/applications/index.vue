@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { useStore } from 'vuex';
+import { useRouter } from 'vue-router';
 
 import ResourceTable from '@shell/components/ResourceTable';
 import Loading from '@shell/components/Loading';
@@ -11,6 +12,7 @@ import { EPINIO_TYPES } from '../../../../types';
 import { createEpinioRoute } from '../../../../utils/custom-routing';
 
 const store = useStore();
+const router = useRouter();
 
 const resource = EPINIO_TYPES.APP;
 const schema = ref(store.getters['epinio/schemaFor'](resource));
@@ -20,6 +22,11 @@ const groupBy = computed(() => store.getters['type-map/groupByFor'](schema.value
 const createLocation = computed(() =>
   createEpinioRoute('c-cluster-applications-createapp', { cluster: store.getters['clusterId'] })
 );
+
+const openCreateRoute = () => {
+  router.push(createLocation.value);
+};
+
 const rows = computed(() => store.getters['epinio/all'](resource));
 const hasNamespaces = computed(() => !!store.getters['epinio/all'](EPINIO_TYPES.NAMESPACE)?.length);
 
@@ -41,8 +48,16 @@ onMounted(async () => {
     <Masthead
       :schema="schema"
       :resource="resource"
-      :create-location="createLocation"
-    />
+    >
+      <template v-slot:createButton>
+        <button
+          class="btn role-primary"
+          @click="openCreateRoute"
+        >
+          {{ t('generic.create') }}
+        </button>
+      </template>
+    </Masthead>
 
     <ResourceTable
       :schema="schema"
