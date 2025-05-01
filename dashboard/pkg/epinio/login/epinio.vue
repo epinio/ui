@@ -1,12 +1,11 @@
-<script>
+<script setup lang="ts">
 import { ref, computed, onMounted, reactive } from 'vue';
 import { useStore } from 'vuex';
 
 import Login from '@shell/mixins/login';
 
 const redirectOpts = reactive({});
-
-onMounted(() => {
+onMounted(async () => {
   /* Fetch the dex redirect url.
   *
   * The dashboard would normally get this directly from the auth provider, 
