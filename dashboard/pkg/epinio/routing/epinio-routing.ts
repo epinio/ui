@@ -50,7 +50,6 @@ const routes = [
     name: `${EPINIO_PRODUCT_NAME}-c-cluster-applications`,
     path: `/:product/c/:cluster/applications`,
     component: ListApp,
-    // component: CreateApp,
     meta: {
       product: EPINIO_PRODUCT_NAME,
       pkg: EPINIO_PRODUCT_NAME,
