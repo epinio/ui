@@ -239,3 +239,26 @@ export interface EpinioNamespace extends EpinioMetaProperty {
 }
 
 export type EpinioCompRecord = Record<string, any>
+
+export interface EpinioAppInfo {
+  meta: {
+    name: string,
+    namespace: string
+  },
+  chart?: {},
+  configuration: {
+    configurations: string[],
+    instances: number,
+    environment: { [key: string] : any }
+    settings: { [key: string] : any }
+    routes: string[]
+  }
+}
+
+export const EPINIO_APP_MANIFEST = 'manifest';
+
+export interface EpinioAppBindings {
+  configurations: string[],
+  services: EpinioService[],
+}
+

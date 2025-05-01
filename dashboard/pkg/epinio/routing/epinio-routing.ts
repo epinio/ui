@@ -1,6 +1,8 @@
 // Don't forget to create a VueJS page called index.vue in the /pages folder!!!
 import ListEpinio from "../pages/index.vue";
 import Dashboard from "../pages/c/_cluster/dashboard.vue";
+import ListApp from "../pages/c/_cluster/applications/index.vue";
+import CreateApp from "../pages/c/_cluster/applications/createapp/index.vue";
 import AboutEpinio from "../pages/c/_cluster/about.vue";
 // import { BLANK_CLUSTER } from '../config/epinio';
 import { EPINIO_PRODUCT_NAME } from '../types';
@@ -42,13 +44,13 @@ const routes = [
   {
     name: `${EPINIO_PRODUCT_NAME}-c-cluster-applications-createapp`,
     path: `/:product/c/:cluster/applications/createapp`,
-    component: ListEpinio, //CreateApp,
+    component: CreateApp,
     meta,
   },
   {
     name: `${EPINIO_PRODUCT_NAME}-c-cluster-applications`,
     path: `/:product/c/:cluster/applications`,
-    component: ListEpinio, //ListApp
+    component: ListApp,
     meta: {
       product: EPINIO_PRODUCT_NAME,
       pkg: EPINIO_PRODUCT_NAME,
