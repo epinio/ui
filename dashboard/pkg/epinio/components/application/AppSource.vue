@@ -199,7 +199,7 @@ function onImageType(defaultImage: boolean) {
 function gitUpdate({ repo, selectedAccOrOrg, branch, commit, sourceData }: any) {
   if (!!selectedAccOrOrg && !!repo && !!commit && !!branch) {
     git.usernameOrOrg = selectedAccOrOrg;
-    git.url = `${GIT_BASE_URL[type.value]}${selectedAccOrOrg}/${repo.name}`;
+    git.url = `${GIT_BASE_URL[type.value]}/${selectedAccOrOrg}/${repo.name}`;
     git.commit = commit;
     git.branch = branch;
     git.repo = repo;
