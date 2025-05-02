@@ -4,6 +4,11 @@ import Dashboard from "../pages/c/_cluster/dashboard.vue";
 import ListApp from "../pages/c/_cluster/applications/index.vue";
 import CreateApp from "../pages/c/_cluster/applications/createapp/index.vue";
 import AboutEpinio from "../pages/c/_cluster/about.vue";
+import ListEpinioResource from '../pages/c/_cluster/_resource/index.vue';
+import CreateEpinioResource from '../pages/c/_cluster/_resource/create.vue';
+import ViewEpinioResource from '../pages/c/_cluster/_resource/_id.vue';
+import ViewEpinioNsResource from '../pages/c/_cluster/_resource/_namespace/_id.vue';
+
 // import { BLANK_CLUSTER } from '../config/epinio';
 import { EPINIO_PRODUCT_NAME } from '../types';
 
@@ -65,25 +70,25 @@ const routes = [
   {
     name: `${EPINIO_PRODUCT_NAME}-c-cluster-resource`,
     path: `/:product/c/:cluster/:resource`,
-    component: ListEpinio, //ListEpinioResource,
+    component: ListEpinioResource,
     meta,
   },
   {
     name: `${EPINIO_PRODUCT_NAME}-c-cluster-resource-create`,
     path: `/:product/c/:cluster/:resource/create`,
-    component: ListEpinio, //CreateEpinioResource,
+    component: CreateEpinioResource,
     meta,
   },
   {
     name: `${EPINIO_PRODUCT_NAME}-c-cluster-resource-id`,
     path: `/:product/c/:cluster/:resource/:id`,
-    component: ListEpinio, //ViewEpinioResource,
+    component: ViewEpinioResource,
     meta,
   },
   {
     name: `${EPINIO_PRODUCT_NAME}-c-cluster-resource-namespace-id`,
     path: `/:product/c/:cluster/:resource/:namespace/:id`,
-    component: ListEpinio, //ViewEpinioNsResource,
+    component: ViewEpinioNsResource,
     meta,
   },
 ];
