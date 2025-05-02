@@ -6,6 +6,8 @@ import { EPINIO_PRODUCT_NAME, EPINIO_STANDALONE_CLUSTER_NAME, EPINIO_TYPES } fro
 import EpinioDiscovery from '../utils/epinio-discovery';
 import { MULTI_CLUSTER } from '@shell/store/features';
 
+export const BLANK_CLUSTER = '_';
+
 export function init($plugin: any, store: any) {
   const {
     product,
@@ -38,6 +40,7 @@ export function init($plugin: any, store: any) {
 
   product({
     // ifHaveType:          CAPI.RANCHER_CLUSTER,
+    weight: 100,
     ifFeature:             MULTI_CLUSTER,
     category:              EPINIO_PRODUCT_NAME,
     isMultiClusterApp:     true,
@@ -51,7 +54,11 @@ export function init($plugin: any, store: any) {
     customNamespaceFilter: true,
   });
 
+  const BLANK_CLUSTER = '_';
+
   // Internal Types
+
+  //// Multi-cluster view
   spoofedType({
     label:             store.getters['type-map/labelFor']({ id: EPINIO_TYPES.CLUSTER }, 2),
     type:              EPINIO_TYPES.CLUSTER,
@@ -65,6 +72,7 @@ export function init($plugin: any, store: any) {
     }],
     getInstances: async() => await EpinioDiscovery.discover(store),
   });
+
   configureType(EPINIO_TYPES.CLUSTER, {
     isCreatable: false,
     isEditable:  false,
@@ -75,6 +83,33 @@ export function init($plugin: any, store: any) {
   });
   configureType(EPINIO_TYPES.CLUSTER, { customRoute: createEpinioRoute('c-cluster-resource', { resource: EPINIO_TYPES.CLUSTER }) });
 
+  headers(EPINIO_TYPES.CLUSTER, [
+    STATE,
+    {
+      name:     'name',
+      labelKey: 'tableHeaders.simpleName',
+      sort:     ['name'],
+    },
+    {
+      name:     'version',
+      labelKey: 'epinio.instances.tableHeaders.version',
+      sort:     ['version'],
+      value:    'version'
+    },
+    {
+      name:     'api',
+      labelKey: 'epinio.instances.tableHeaders.api',
+      sort:     ['api'],
+    },
+    {
+      name:     'rancherCluster',
+      labelKey: 'epinio.instances.tableHeaders.cluster',
+      sort:     ['mgmtCluster.nameDisplay'],
+      value:    'mgmtCluster.nameDisplay'
+    },
+  ]);
+
+  //// Standalone app components
   // App resource
   configureType(EPINIO_TYPES.APP, {
     isCreatable: true,
@@ -174,9 +209,11 @@ export function init($plugin: any, store: any) {
     EPINIO_TYPES.APP_CHARTS
   ], ADVANCED_GROUP);
 
-  basicType([
-    EPINIO_TYPES.ABOUT
-  ], ABOUT);
+  if (isEpinioSingleProduct) {
+    basicType([
+      EPINIO_TYPES.ABOUT
+    ], ABOUT);
+  }
 
   weightType(EPINIO_TYPES.DASHBOARD, 300, true);
   weightType(EPINIO_TYPES.APP, 250, true);
@@ -184,6 +221,7 @@ export function init($plugin: any, store: any) {
   weightGroup(SERVICE_GROUP, 30, true);
   weightGroup(ADVANCED_GROUP, 20, true);
   weightGroup(ABOUT, 10, false);
+
   basicType([
     EPINIO_TYPES.DASHBOARD,
     EPINIO_TYPES.APP,
@@ -282,31 +320,7 @@ export function init($plugin: any, store: any) {
     AGE
   ]);
 
-  headers(EPINIO_TYPES.CLUSTER, [
-    STATE,
-    {
-      name:     'name',
-      labelKey: 'tableHeaders.simpleName',
-      sort:     ['name'],
-    },
-    {
-      name:     'version',
-      labelKey: 'epinio.instances.tableHeaders.version',
-      sort:     ['version'],
-      value:    'version'
-    },
-    {
-      name:     'api',
-      labelKey: 'epinio.instances.tableHeaders.api',
-      sort:     ['api'],
-    },
-    {
-      name:     'rancherCluster',
-      labelKey: 'epinio.instances.tableHeaders.cluster',
-      sort:     ['mgmtCluster.nameDisplay'],
-      value:    'mgmtCluster.nameDisplay'
-    },
-  ]);
+  
 
   headers(EPINIO_TYPES.CONFIGURATION, [
     NAME,

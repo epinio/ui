@@ -1,7 +1,7 @@
 import { EPINIO_TYPES } from '@pkg/types';
 import { createEpinioRoute } from '@pkg/utils/custom-routing';
 import EpinioMetaResource from './epinio-namespaced-resource';
-import { EPINIO_SERVICE_PARAM } from '../edit/services.vue';
+// import { EPINIO_SERVICE_PARAM } from '../edit/services.vue';
 
 export default class EpinioCatalogServiceModel extends EpinioMetaResource {
   get _availableActions() {
@@ -57,14 +57,14 @@ export default class EpinioCatalogServiceModel extends EpinioMetaResource {
   }
 
   createService() {
-    const serviceCreateLocation = createEpinioRoute(`c-cluster-resource-create`, {
-      cluster:  this.$rootGetters['clusterId'],
-      resource: EPINIO_TYPES.SERVICE_INSTANCE,
-    });
+    // const serviceCreateLocation = createEpinioRoute(`c-cluster-resource-create`, {
+    //   cluster:  this.$rootGetters['clusterId'],
+    //   resource: EPINIO_TYPES.SERVICE_INSTANCE,
+    // });
 
-    return this.currentRouter().push({
-      ...serviceCreateLocation,
-      query: { [EPINIO_SERVICE_PARAM]: this.name }
-    });
+    // return this.currentRouter().push({
+    //   ...serviceCreateLocation,
+    //   query: { [EPINIO_SERVICE_PARAM]: this.name }
+    // });
   }
 }
