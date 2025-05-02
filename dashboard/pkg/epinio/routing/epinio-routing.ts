@@ -9,6 +9,7 @@ import CreateEpinioResource from '../pages/c/_cluster/_resource/create.vue';
 import ViewEpinioResource from '../pages/c/_cluster/_resource/_id.vue';
 import ViewEpinioNsResource from '../pages/c/_cluster/_resource/_namespace/_id.vue';
 
+import AuthVerify from "../pages/auth/verify.vue";
 // import { BLANK_CLUSTER } from '../config/epinio';
 import { EPINIO_PRODUCT_NAME } from '../types';
 
@@ -43,7 +44,7 @@ const routes = [
   {
     name: `${EPINIO_PRODUCT_NAME}-auth-verify`,
     path: `/:product/auth/verify`,
-    component: ListEpinio, //AuthVerify,
+    component: AuthVerify,
     meta,
   },
   {

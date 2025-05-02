@@ -9,7 +9,7 @@ const props = defineProps<{
   link: object,
   linkText: string,
   description: string,
-  slotTitle: string | null, 
+  slotTitle: string | null,
 }>()
 
 const setLoading = computed(() => {
