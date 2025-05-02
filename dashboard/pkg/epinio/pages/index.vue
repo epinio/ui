@@ -20,7 +20,9 @@ let currentCluster: EpinioCluster | null = null;
 let clusters: EpinioCluster[] = [];
 let clustersSchema: any = null;
 
-// const { t } = useI18n();
+
+const t = store.getters['i18n/t'];
+
 
 const loading = ref(true);
 
@@ -31,7 +33,6 @@ onMounted(async () => {
     clusters = store.getters[`${EPINIO_MGMT_STORE}/all`](EPINIO_TYPES.CLUSTER)
     clustersSchema = store.getters[`${EPINIO_MGMT_STORE}/schemaFor`](EPINIO_TYPES.CLUSTER)
 
-    console.log('Clusters:', clusters)
     clusters.forEach((c: EpinioCluster) => testCluster(c))
   } catch (err) {
     error.value = err as Error

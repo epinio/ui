@@ -271,15 +271,15 @@ function generateCards() {
   // Handles titles
   sectionContent.value[0].title = t(
     'typeLabel.withCount.namespaces', 
-    { n: namespaces.totalNamespaces },
+    { n: namespaces._value?.totalNamespaces },
   );
   sectionContent.value[1].title = t(
     'typeLabel.withCount.applications', 
-    { n: apps?.totalApps },
+    { n: apps._value?.totalApps },
   );
   sectionContent.value[2].title = t(
     'typeLabel.withCount.services', 
-    { n: services?.servicesInstances },
+    { n: services._value?.servicesInstances },
   );
 
   // Handles descriptions

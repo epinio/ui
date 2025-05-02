@@ -2,6 +2,9 @@
 import ListEpinio from "../pages/index.vue";
 import Dashboard from "../pages/c/_cluster/dashboard.vue";
 import AuthVerify from "../pages/auth/verify.vue";
+import ListApp from "../pages/c/_cluster/applications/index.vue";
+import CreateApp from "../pages/c/_cluster/applications/createapp/index.vue";
+import AboutEpinio from "../pages/c/_cluster/about.vue";
 // import { BLANK_CLUSTER } from '../config/epinio';
 import { EPINIO_PRODUCT_NAME } from '../types';
 import ListEpinioResource from '../pages/c/_cluster/_resource/index.vue';
@@ -43,13 +46,13 @@ const routes = [
   {
     name: `${EPINIO_PRODUCT_NAME}-c-cluster-applications-createapp`,
     path: `/:product/c/:cluster/applications/createapp`,
-    component: ListEpinio, //CreateApp,
+    component: CreateApp,
     meta,
   },
   {
     name: `${EPINIO_PRODUCT_NAME}-c-cluster-applications`,
     path: `/:product/c/:cluster/applications`,
-    component: ListEpinio, //ListApp
+    component: ListApp,
     meta: {
       product: EPINIO_PRODUCT_NAME,
       pkg: EPINIO_PRODUCT_NAME,
@@ -58,7 +61,7 @@ const routes = [
   {
     name: `${EPINIO_PRODUCT_NAME}-c-cluster-about`,
     path: `/:product/c/:cluster/about`,
-    component: ListEpinio, //AboutEpinio,
+    component: AboutEpinio,
     meta,
   },
   {
