@@ -1,11 +1,13 @@
 // Don't forget to create a VueJS page called index.vue in the /pages folder!!!
 import ListEpinio from "../pages/index.vue";
 import Dashboard from "../pages/c/_cluster/dashboard.vue";
+import AuthVerify from "../pages/auth/verify.vue";
 import ListApp from "../pages/c/_cluster/applications/index.vue";
 import CreateApp from "../pages/c/_cluster/applications/createapp/index.vue";
 import AboutEpinio from "../pages/c/_cluster/about.vue";
 // import { BLANK_CLUSTER } from '../config/epinio';
 import { EPINIO_PRODUCT_NAME } from '../types';
+import ListEpinioResource from '../pages/c/_cluster/_resource/index.vue';
 
 
 // // import ViewResource from '@shell/pages/c/_cluster/_product/_resource/_id.vue';
@@ -38,7 +40,7 @@ const routes = [
   {
     name: `${EPINIO_PRODUCT_NAME}-auth-verify`,
     path: `/:product/auth/verify`,
-    component: ListEpinio, //AuthVerify,
+    component: AuthVerify,
     meta,
   },
   {
@@ -65,8 +67,11 @@ const routes = [
   {
     name: `${EPINIO_PRODUCT_NAME}-c-cluster-resource`,
     path: `/:product/c/:cluster/:resource`,
-    component: ListEpinio, //ListEpinioResource,
-    meta,
+    component: ListEpinioResource,
+    meta: {
+      product: EPINIO_PRODUCT_NAME,
+      pkg: EPINIO_PRODUCT_NAME,
+    },
   },
   {
     name: `${EPINIO_PRODUCT_NAME}-c-cluster-resource-create`,
