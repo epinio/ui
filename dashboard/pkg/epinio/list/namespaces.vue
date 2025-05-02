@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { mapGetters, mapState, useStore } from 'vuex';
 import { Location, useRouter, useRoute } from 'vue-router';
-import { ref, onMounted, computed, watch, nextTick } from 'vue';
+import { ref, onMounted, computed, watch, nextTick, useAttrs } from 'vue';
 
 import { EPINIO_TYPES } from '../types';
 import { Card } from '@components/Card';
@@ -19,6 +19,7 @@ const props = defineProps<{
   rows: array,
 }>();
 
+const attrs = useAttrs();
 const store = useStore();
 const router = useRouter();
 const route = useRoute();
@@ -28,6 +29,7 @@ const errors = ref<array>([]);
 const namespaceName = ref('namespaceName');
 const showCreateModal = ref<boolean>(false);
 const creatingNamespace = ref<boolean>(false);
+const touched = ref<boolean>(false);
 
 const mode: string = _CREATE;
 const submitted: boolean = false;
@@ -89,6 +91,7 @@ async function openCreateModal() {
 function closeCreateModal() {
   showCreateModal.value = false;
   errors.value = [];
+  touched.value = false;
 }
 
 async function onSubmit(buttonCb) {
@@ -97,6 +100,7 @@ async function onSubmit(buttonCb) {
     await value.value.create();
     closeCreateModal();
     buttonCb(true);
+    touched.value = false;
   } catch (e) {
     errors.value = [];
     errors.value = epinioExceptionToErrorsArray(e).map(JSON.stringify);
@@ -105,6 +109,10 @@ async function onSubmit(buttonCb) {
 }
 
 function validateNamespace(name) {
+  if (!name?.length && !touched.value) {
+    touched.value = true;
+  }
+
   errors.value = getNamespaceErrors(name);
 }
 
@@ -151,7 +159,7 @@ function getNamespaceErrors(name) {
       </template>
     </Masthead>
     <ResourceTable
-      v-bind="$attrs"
+      v-bind="attrs"
       :rows="rows"
       :groupable="false"
       :schema="schema"
@@ -179,6 +187,7 @@ function getNamespaceErrors(name) {
             :required="true"
           />
           <Banner
+            v-if="touched"
             v-for="(err, i) in errors"
             :key="i"
             color="error"
