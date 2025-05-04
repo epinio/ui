@@ -1,15 +1,20 @@
 <script setup lang="ts">
 import { useStore } from 'vuex';
 import { ref, computed, reactive, defineOptions, onMounted, watch } from 'vue';
-import { useRouter, useRoute } from 'vue-router';
+import { useRoute } from 'vue-router';
 
 import ServiceInstance from '../models/services';
-import CreateEditView from '@shell/mixins/create-edit-view';
 import CruResource from '@shell/components/CruResource.vue';
-import Loading from '@shell/components/Loading.vue';
 import { epinioExceptionToErrorsArray } from '../utils/errors';
 import LabeledSelect from '@shell/components/form/LabeledSelect.vue';
-import { EPINIO_TYPES, EpinioNamespace, EpinioCompRecord, EpinioCatalogService } from '../types';
+import { 
+  EPINIO_TYPES, 
+  EpinioNamespace, 
+  EpinioCompRecord, 
+  EpinioCatalogService,
+  EpinioServiceResource,
+} from '../types';
+import CreateEditView from '@shell/mixins/create-edit-view';
 import { validateKubernetesName } from '@shell/utils/validators/kubernetes-name';
 import NameNsDescription from '@shell/components/form/NameNsDescription.vue';
 import ChartValues from '../components/settings/ChartValues.vue';
@@ -22,10 +27,15 @@ import { objValuesToString } from '../utils/settings';
 
 const EPINIO_SERVICE_PARAM = 'service';
 
+const route = useRoute();
 interface Data {}
 
 defineOptions({
   mixins: [CreateEditView, EpinioBindAppsMixin],
+});
+
+const doneRoute = computed(() => {
+  return CreateEditView.computed.doneRoute
 });
 
 const noApps = computed(() => {
@@ -33,12 +43,11 @@ const noApps = computed(() => {
 });
 
 const props = defineProps<{
-  value: object,
+  value: ServiceInstance,
   initialValue: object,
   mode: string,
 }>();
 
-const route = useRoute();
 const store = useStore();
 const t = store.getters['i18n/t'];
 
@@ -54,9 +63,9 @@ const selectedCatalogService = computed(() => {
 
 const pending = ref<boolean>(true);
 const errors = ref<Array<string>>([]);
-const failedWaitingForServiceInstance = ref<Array<string>>([]);
+const failedWaitingForServiceInstance = ref<boolean>(false);
 const selectedApps = ref<Array<string>>(props.value?.boundapps || []);
-const chartValues = ref<Array<string>>(objValuesToString(props.value?.settings) || {});
+const chartValues = reactive<ChartValues>(objValuesToString(props.value?.settings) || {});
 const validChartValues = ref<object>({});
 
 onMounted(async () => {
@@ -79,7 +88,7 @@ const isEdit = computed(() => {
 });
 
 const validationPassed = computed(() => {
-  if (isEdit.value && newBinds.value) {
+  if (isEdit && newBinds.value) {
     return true;
   }
 
@@ -134,62 +143,66 @@ const showChartValues = computed(() => {
   return Object.keys(selectedCatalogService.value?.settings || {}).length !== 0;
 });
 
-
 async function save(saveCb: (success: boolean) => void) {
-  errors = [];
+  errors.values = [];
 
   const newSettings = !isEqual(
     objValuesToString(chartValues), 
-    objValuesToString(value.settings),
+    objValuesToString(props.value.settings),
   );
 
-  if (newSettings) {
-    value.settings = objValuesToString(chartValues);
-  }
+  /*if (newSettings) {
+    props.value.settings = objValuesToString(chartValues);
+  }*/
 
   try {
-    if (isCreate) {
+    if (isEdit) {
       await props.value.create();
       if (selectedApps.length) {
-        await updateServiceInstanceAppBindings(value);
+        await updateServiceInstanceAppBindings(props.value);
       }
       await store.dispatch(
         'epinio/findAll', 
         { type: props.value.type, opt: { force: true }},
       );
-    }
 
-    if (isEdit) {
-      if (newSettings) {
-        await value.update();
-      }
-      await updateServiceInstanceAppBindings(value);
-      await value.forceFetch();
-    }
-
-    if (!_isBeingDestroyed || !_isDestroyed) {
       saveCb(true);
-      done();
+      CreateEditView.methods?.done();
+    }
+
+    if (!isEdit) {
+      if (newSettings) {
+        await props.value.update();
+      }
+      await EpinioBindAppsMixin.methods.updateServiceInstanceAppBindings(props.value);
+      await props.value.forceFetch();
+
+       
+      if (!_isBeingDestroyed || !_isDestroyed) {
+        saveCb(true);
+        CreateEditView.methods?.done();
+      }
     }
   } catch (err: Error | any) {
     if (err.message === 'waitingForServiceInstance') {
-      Vue.set( 'failedWaitingForServiceInstance', true);
-      errors = [t('epinio.serviceInstance.create.catalogService.failedWaitingForServiceInstance')];
+      failedWaitingForServiceInstance.value = true;
+      errors.value = [t('epinio.serviceInstance.create.catalogService.failedWaitingForServiceInstance')];
     } else {
-      errors = epinioExceptionToErrorsArray(err);
+      console.log(err);
+      errors.value = epinioExceptionToErrorsArray(err);
     }
     saveCb(false);
   }
 };
 
 async function resetChartValues() {
-  chartValues = {};
-  validChartValues = {};
+  chartValues.value = {};
+  validChartValues.value = {};
 };
 </script>
 
 <template>
-  <Loading v-if="!value || $fetchState.pending" />
+  <Loading v-if="!value || pending" />
   <CruResource
     v-else-if="value"
     :can-yaml="false"
