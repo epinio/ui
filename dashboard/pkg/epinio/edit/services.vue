@@ -1,52 +1,53 @@
 <script setup lang="ts">
 import { useStore } from 'vuex';
 import { ref, computed, reactive, defineOptions, onMounted, watch } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 
-import ServiceInstance from '../models/services';
-import CruResource from '@shell/components/CruResource.vue';
-import { epinioExceptionToErrorsArray } from '../utils/errors';
-import LabeledSelect from '@shell/components/form/LabeledSelect.vue';
 import { 
   EPINIO_TYPES, 
   EpinioNamespace, 
-  EpinioCompRecord, 
   EpinioCatalogService,
-  EpinioServiceResource,
 } from '../types';
-import CreateEditView from '@shell/mixins/create-edit-view';
-import { validateKubernetesName } from '@shell/utils/validators/kubernetes-name';
-import NameNsDescription from '@shell/components/form/NameNsDescription.vue';
+import ServiceInstance from '../models/services';
+import { objValuesToString } from '../utils/settings';
+import { useEpinioBindAppsMixin } from './bind-apps-mixin';
+import { epinioExceptionToErrorsArray } from '../utils/errors';
 import ChartValues from '../components/settings/ChartValues.vue';
-import EpinioBindAppsMixin from './bind-apps-mixin.js';
-import { mapGetters } from 'vuex';
+import EpinioCatalogServiceModel from '../models/catalogservices';
+
+import CruResource from '@shell/components/CruResource.vue';
+import LabeledSelect from '@shell/components/form/LabeledSelect.vue';
+
+import Loading from '@shell/components/Loading.vue';
+import CreateEditView from '@shell/mixins/create-edit-view';
+import NameNsDescription from '@shell/components/form/NameNsDescription.vue';
+import { validateKubernetesName } from '@shell/utils/validators/kubernetes-name';
+
 import isEqual from 'lodash/isEqual';
 import sortBy from 'lodash/sortBy';
-import EpinioCatalogServiceModel from '../models/catalogservices';
-import { objValuesToString } from '../utils/settings';
 
 const EPINIO_SERVICE_PARAM = 'service';
 
+const doneParams = reactive<object>({});
+const doneRoute = ref<string>('');
+const router = useRouter();
 const route = useRoute();
-interface Data {}
 
 defineOptions({
-  mixins: [CreateEditView, EpinioBindAppsMixin],
-});
-
-const doneRoute = computed(() => {
-  return CreateEditView.computed.doneRoute
-});
-
-const noApps = computed(() => {
-  return !EpinioBindAppsMixin.computed.noApps()
+  mixins: [CreateEditView],
 });
 
 const props = defineProps<{
   value: ServiceInstance,
-  initialValue: object,
+  initialValue: ServiceInstance,
   mode: string,
 }>();
+const { 
+  selectedApps, 
+  nsAppOptions, 
+  noApps, 
+  updateServiceInstanceAppBindings,
+} = useEpinioBindAppsMixin(props);
 
 const store = useStore();
 const t = store.getters['i18n/t'];
@@ -57,14 +58,13 @@ const catalogServices = computed(() => {
 
 const selectedCatalogService = computed(() => {
   return catalogServices.value?.find(
-    ({ name }: EpinioCatalogServiceModel) => name === props.value.catalog_service)
+    ({id}: EpinioCatalogServiceModel) => id === props.value.catalog_service)
   ;
 });
 
 const pending = ref<boolean>(true);
 const errors = ref<Array<string>>([]);
 const failedWaitingForServiceInstance = ref<boolean>(false);
-const selectedApps = ref<Array<string>>(props.value?.boundapps || []);
 const chartValues = reactive<ChartValues>(objValuesToString(props.value?.settings) || {});
 const validChartValues = ref<object>({});
 
@@ -73,7 +73,35 @@ onMounted(async () => {
     store.dispatch('epinio/findAll', { type: EPINIO_TYPES.CATALOG_SERVICE }),
     store.dispatch('epinio/findAll', { type: EPINIO_TYPES.APP }),
   ]);
+
   pending.value = false;
+
+  //Needed doneParams/doneRoute but the mixin that generates these is a rancher
+  //shell mixin, copied parts needed, will move to composable function as needed.
+  if (props.value?.doneParams) {
+    return props.value.doneParams;
+  }
+
+  const out = { ...route.params };
+
+  delete out.namespace;
+  delete out.id;
+
+  doneParams.value = out;
+
+  if (props.value?.doneRoute ) {
+    doneRoute.value = props.value.doneRoute;
+  }else{
+    let name = props.route.name;
+
+    if ( name?.endsWith('-id') ) {
+      name = name.replace(/(-namespace)?-id$/, '');
+    } else if ( name?.endsWith('-create') ) {
+      name = name.replace(/-create$/, '');
+    }
+
+    doneRoute.value = name;
+  }
 })
 
 watch(
@@ -84,30 +112,36 @@ watch(
 );
 
 const isEdit = computed(() => {
-  return !props.mode === 'edit';
+  return props.mode === 'edit';
 });
 
 const validationPassed = computed(() => {
-  if (isEdit && newBinds.value) {
+  if (isEdit.value && newBinds.value) {
     return true;
   }
-
+  
   if (!props.value.catalog_service) {
     return false;
   }
 
-  if (!Object.values(validChartValues).every((v) => !!v)) {
+  if (!Object.values(validChartValues.value).every((v) => !!v)) {
     return false;
   }
 
   const nameErrors = validateKubernetesName(
     props.value.name || '', 
-    t.value('epinio.namespace.name'), 
+    t('epinio.namespace.name'), 
     store.getters, 
     undefined, 
     [],
   );
-  const nsErrors = validateKubernetesName(props.value.meta.namespace || '', '', store.getters, undefined, []);
+  const nsErrors = validateKubernetesName(
+    props.value.meta.namespace || '', 
+    '', 
+    store.getters, 
+    undefined, 
+    [],
+  );
 
   if (nameErrors.length === 0 && nsErrors.length === 0) {
     return !failedWaitingForServiceInstance.value;
@@ -136,29 +170,42 @@ const noCatalogServices = computed(() => {
 });
 
 const newBinds = computed(() => {
-  return !isEqual(sortBy(selectedApps), sortBy(props.value.boundapps));
+  return !isEqual(sortBy(selectedApps.value), sortBy(props.value.boundapps));
 });
 
 const showChartValues = computed(() => {
   return Object.keys(selectedCatalogService.value?.settings || {}).length !== 0;
 });
 
+function done() {
+  if (!doneRoute) {
+    return;
+  }
+
+  router.replace({
+    name:   doneRoute.value,
+    params: doneParams.value || { resource: props.value.type },
+  });
+}
+
 async function save(saveCb: (success: boolean) => void) {
-  errors.values = [];
+  errors.value = [];
 
   const newSettings = !isEqual(
     objValuesToString(chartValues), 
     objValuesToString(props.value.settings),
   );
-
-  /*if (newSettings) {
-    props.value.settings = objValuesToString(chartValues);
-  }*/
+  
+  if (newSettings) {
+    props.value.settings = objValuesToString(chartValues.value);
+  }else{
+    props.value.settings = undefined;
+  }
 
   try {
-    if (isEdit) {
+    if (!isEdit.value) {
       await props.value.create();
-      if (selectedApps.length) {
+      if (selectedApps.value.length) {
         await updateServiceInstanceAppBindings(props.value);
       }
       await store.dispatch(
@@ -167,28 +214,28 @@ async function save(saveCb: (success: boolean) => void) {
       );
 
       saveCb(true);
-      CreateEditView.methods?.done();
+      done();
     }
 
-    if (!isEdit) {
+    if (isEdit.value) {
       if (newSettings) {
         await props.value.update();
       }
-      await EpinioBindAppsMixin.methods.updateServiceInstanceAppBindings(props.value);
+      await updateServiceInstanceAppBindings(props.value);
       await props.value.forceFetch();
-
        
-      if (!_isBeingDestroyed || !_isDestroyed) {
-        saveCb(true);
-        CreateEditView.methods?.done();
-      }
+      saveCb(true);
+      done();
+
+      //Can't find exactly how this is coming in, seems like a k8s attribute
+      //if (!_isBeingDestroyed || !_isDestroyed) {
+      //}
     }
   } catch (err: Error | any) {
     if (err.message === 'waitingForServiceInstance') {
       failedWaitingForServiceInstance.value = true;
       errors.value = [t('epinio.serviceInstance.create.catalogService.failedWaitingForServiceInstance')];
     } else {
-      console.log(err);
       errors.value = epinioExceptionToErrorsArray(err);
     }
     saveCb(false);
@@ -199,6 +246,10 @@ async function resetChartValues() {
   chartValues.value = {};
   validChartValues.value = {};
 };
+
+const handleError = (error) => {
+  console.log("HELLLLOOO", error);
+}
 </script>
 
 <template>
@@ -212,9 +263,11 @@ async function resetChartValues() {
     :resource="value"
     :errors="errors"
     namespace-key="meta.namespace"
-    @error="e=>errors = e"
     @finish="save"
+    @error="handleError"
   >
+    {{validationPassed}}
+    {{errors}}
     <NameNsDescription
       name-key="name"
       namespace-key="namespace"
@@ -235,7 +288,7 @@ async function resetChartValues() {
           :mode="mode"
           :multiple="false"
           :label-key="'epinio.serviceInstance.create.catalogService.label'"
-          :placeholder="$fetchState.pending || noCatalogServices ? t('epinio.serviceInstance.create.catalogService.placeholderNoOptions') : t('epinio.serviceInstance.create.catalogService.placeholderWithOptions')"
+          :placeholder="pending || noCatalogServices ? t('epinio.serviceInstance.create.catalogService.placeholderNoOptions') : t('epinio.serviceInstance.create.catalogService.placeholderWithOptions')"
           required
           @option:selected="resetChartValues"
         />
@@ -245,7 +298,7 @@ async function resetChartValues() {
     <div class="row">
       <div class="col span-6">
         <LabeledSelect
-          v-model="selectedApps"
+          v-model:value="selectedApps"
           :loading="pending"
           :options="nsAppOptions"
           :disabled="noApps || pending"
@@ -253,7 +306,7 @@ async function resetChartValues() {
           :mode="mode"
           :multiple="true"
           :label-key="'epinio.configurations.bindApps.label'"
-          :placeholder="$fetchState.pending || noApps ? t('epinio.configurations.bindApps.placeholderNoOptions') : t('epinio.configurations.bindApps.placeholderWithOptions')"
+          :placeholder="pending || noApps ? t('epinio.configurations.bindApps.placeholderNoOptions') : t('epinio.configurations.bindApps.placeholderWithOptions')"
         />
       </div>
     </div>
@@ -264,7 +317,7 @@ async function resetChartValues() {
       <div class="col span-6">
         <div class="spacer" />
         <ChartValues
-          v-model="chartValues"
+          v-model:value="chartValues"
           :chart="selectedCatalogService.settings"
           :title="t('epinio.services.chartValues.title')"
           :mode="mode"
