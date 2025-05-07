@@ -72,7 +72,10 @@ const routes = [
     name: `${EPINIO_PRODUCT_NAME}-c-cluster-resource`,
     path: `/:product/c/:cluster/:resource`,
     component: ListEpinioResource,
-    meta,
+    meta: {
+      product: EPINIO_PRODUCT_NAME,
+      pkg: EPINIO_PRODUCT_NAME,
+    },
   },
   {
     name: `${EPINIO_PRODUCT_NAME}-c-cluster-resource-create`,
