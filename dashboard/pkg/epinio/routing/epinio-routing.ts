@@ -10,6 +10,7 @@ import ViewEpinioResource from '../pages/c/_cluster/_resource/_id.vue';
 import ViewEpinioNsResource from '../pages/c/_cluster/_resource/_namespace/_id.vue';
 
 import AuthVerify from "../pages/auth/verify.vue";
+
 // import { BLANK_CLUSTER } from '../config/epinio';
 import { EPINIO_PRODUCT_NAME } from '../types';
 
@@ -72,10 +73,7 @@ const routes = [
     name: `${EPINIO_PRODUCT_NAME}-c-cluster-resource`,
     path: `/:product/c/:cluster/:resource`,
     component: ListEpinioResource,
-    meta: {
-      product: EPINIO_PRODUCT_NAME,
-      pkg: EPINIO_PRODUCT_NAME,
-    },
+    meta,
   },
   {
     name: `${EPINIO_PRODUCT_NAME}-c-cluster-resource-create`,

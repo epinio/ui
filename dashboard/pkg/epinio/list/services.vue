@@ -11,13 +11,17 @@ const store = useStore();
 const attrs = useAttrs();
 
 onMounted(async () => {
-  await store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.APP });
-  await store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.SERVICE_INSTANCE });
+  await Promise.all([
+    store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.APP }),
+    store.dispatch(
+      `epinio/findAll`, 
+      { type: EPINIO_TYPES.SERVICE_INSTANCE }
+    ),
+  ]);
   pending.value = false;
 });
 
 const rows = computed(() => {
-  console.log(EPINIO_TYPES.SERVICE_INSTANCE);
   return store.getters['epinio/all'](EPINIO_TYPES.SERVICE_INSTANCE);
 });
 </script>

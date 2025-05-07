@@ -15,11 +15,10 @@ import { epinioExceptionToErrorsArray } from '../utils/errors';
 import ChartValues from '../components/settings/ChartValues.vue';
 import EpinioCatalogServiceModel from '../models/catalogservices';
 
+import Banner from '@components/Banner/Banner.vue';
+import Loading from '@shell/components/Loading.vue';
 import CruResource from '@shell/components/CruResource.vue';
 import LabeledSelect from '@shell/components/form/LabeledSelect.vue';
-
-import Loading from '@shell/components/Loading.vue';
-import CreateEditView from '@shell/mixins/create-edit-view';
 import NameNsDescription from '@shell/components/form/NameNsDescription.vue';
 import { validateKubernetesName } from '@shell/utils/validators/kubernetes-name';
 
@@ -28,14 +27,10 @@ import sortBy from 'lodash/sortBy';
 
 const EPINIO_SERVICE_PARAM = 'service';
 
-const doneParams = reactive<object>({});
-const doneRoute = ref<string>('');
-const router = useRouter();
+const store = useStore();
 const route = useRoute();
-
-defineOptions({
-  mixins: [CreateEditView],
-});
+const router = useRouter();
+const t = store.getters['i18n/t'];
 
 const props = defineProps<{
   value: ServiceInstance,
@@ -49,24 +44,13 @@ const {
   updateServiceInstanceAppBindings,
 } = useEpinioBindAppsMixin(props);
 
-const store = useStore();
-const t = store.getters['i18n/t'];
-
-const catalogServices = computed(() => {
-  return store.getters['epinio/all'](EPINIO_TYPES.CATALOG_SERVICE);
-});
-
-const selectedCatalogService = computed(() => {
-  return catalogServices.value?.find(
-    ({id}: EpinioCatalogServiceModel) => id === props.value.catalog_service)
-  ;
-});
-
+const doneRoute = ref<string>('');
 const pending = ref<boolean>(true);
 const errors = ref<Array<string>>([]);
+const doneParams = reactive<object>({});
+const validChartValues = ref<object>({});
 const failedWaitingForServiceInstance = ref<boolean>(false);
 const chartValues = reactive<ChartValues>(objValuesToString(props.value?.settings) || {});
-const validChartValues = ref<object>({});
 
 onMounted(async () => {
   await Promise.all([
@@ -110,6 +94,16 @@ watch(
     return selectedApps.value = [];
   }
 );
+
+const catalogServices = computed(() => {
+  return store.getters['epinio/all'](EPINIO_TYPES.CATALOG_SERVICE);
+});
+
+const selectedCatalogService = computed(() => {
+  return catalogServices.value?.find(
+    ({id}: EpinioCatalogServiceModel) => id === props.value.catalog_service)
+  ;
+});
 
 const isEdit = computed(() => {
   return props.mode === 'edit';
@@ -177,7 +171,7 @@ const showChartValues = computed(() => {
   return Object.keys(selectedCatalogService.value?.settings || {}).length !== 0;
 });
 
-function done() {
+const done = () => {
   if (!doneRoute) {
     return;
   }
@@ -188,7 +182,7 @@ function done() {
   });
 }
 
-async function save(saveCb: (success: boolean) => void) {
+const save = async (saveCb: (success: boolean) => void) => {
   errors.value = [];
 
   const newSettings = !isEqual(
@@ -242,14 +236,10 @@ async function save(saveCb: (success: boolean) => void) {
   }
 };
 
-async function resetChartValues() {
+const resetChartValues = () => {
   chartValues.value = {};
   validChartValues.value = {};
 };
-
-const handleError = (error) => {
-  console.log("HELLLLOOO", error);
-}
 </script>
 
 <template>
@@ -264,10 +254,15 @@ const handleError = (error) => {
     :errors="errors"
     namespace-key="meta.namespace"
     @finish="save"
-    @error="handleError"
+    @errors="e=>errors = e"
   >
-    {{validationPassed}}
-    {{errors}}
+    <Banner
+      v-if="errors.length > 0"
+      v-for="(err, i) in errors"
+      :key="i"
+      color="error"
+      :label="err"
+    />
     <NameNsDescription
       name-key="name"
       namespace-key="namespace"
@@ -327,4 +322,3 @@ const handleError = (error) => {
     </div>
   </CruResource>
 </template>
-
