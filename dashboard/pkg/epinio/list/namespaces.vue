@@ -73,7 +73,7 @@ watch(
   () => value.value.meta.name,
   () => {
     creatingNamespace.value = false;
-    validateNamespace();
+    validateNamespace(value.value.meta.name);
   }
 );
 
