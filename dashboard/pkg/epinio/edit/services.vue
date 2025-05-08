@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useStore } from 'vuex';
-import { ref, computed, reactive, defineOptions, onMounted, watch } from 'vue';
+import { ref, computed, reactive, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import { 
