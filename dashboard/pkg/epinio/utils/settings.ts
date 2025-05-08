@@ -3,7 +3,7 @@ export function objValuesToString(obj: any) {
 
   for (const key in copy) {
     if (typeof copy[key] !== 'string') {
-      copy[key] = String(copy[key]);
+      copy[key] = JSON.stringify(copy[key]);
     }
   }
 
