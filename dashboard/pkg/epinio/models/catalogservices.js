@@ -33,19 +33,6 @@ export default class EpinioCatalogServiceModel extends EpinioMetaResource {
         label:   this.t('epinio.catalogService.detail.appVersion'),
         content: this.appVersion,
       }
-    //   {
-    //   label:   this.t('epinio.catalogService.detail.chartVersion'),
-    //   content: this.chartVersion,
-    // }, {
-    //   label:         this.t('epinio.catalogService.detail.helmChart'),
-    //   content:       this.helm_repo.name,
-    //   formatter:     `Link`,
-    //   formatterOpts: {
-    //     urlKey:   'helm_repo.url',
-    //     labelKey: 'helm_repo.name',
-    //     row:      this,
-    //   }
-    // }
     ];
   }
 
@@ -57,14 +44,14 @@ export default class EpinioCatalogServiceModel extends EpinioMetaResource {
   }
 
   createService() {
-    // const serviceCreateLocation = createEpinioRoute(`c-cluster-resource-create`, {
-    //   cluster:  this.$rootGetters['clusterId'],
-    //   resource: EPINIO_TYPES.SERVICE_INSTANCE,
-    // });
+    const serviceCreateLocation = createEpinioRoute(`c-cluster-resource-create`, {
+     cluster:  this.$rootGetters['clusterId'],
+     resource: EPINIO_TYPES.SERVICE_INSTANCE,
+    });
 
-    // return this.currentRouter().push({
-    //   ...serviceCreateLocation,
-    //   query: { [EPINIO_SERVICE_PARAM]: this.name }
-    // });
+    return this.currentRouter().push({
+     ...serviceCreateLocation,
+     query: { [EPINIO_SERVICE_PARAM]: this.name }
+    });
   }
 }
