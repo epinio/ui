@@ -1,60 +1,38 @@
-<script>
-import { resourceNames } from '@shell/utils/string';
-import { mapGetters, mapState } from 'vuex';
+<script setup lang="ts">
+import { computed, ref, watch } from 'vue'
+import { useStore } from 'vuex'
+import { resourceNames } from '@shell/utils/string'
 
-export default {
-  name:  'ServicesPromptRemove',
-  props: {
-    value: {
-      type:    Array,
-      default: () => {
-        return [];
-      }
-    },
+const props = defineProps<{
+  value: any[]
+  names: string[]
+  type: string
+}>();
+const store = useStore()
+const t = store.getters['i18n/t'];
 
-    names: {
-      type:    Array,
-      default: () => {
-        return [];
-      }
-    },
+const toRemove = computed(() => store.state['action-menu'].toRemove)
 
-    type: {
-      type:     String,
-      required: true
-    }
-  },
+const plusMore = computed(() => {
+  const remaining = props.names.length - 5; //5 is the max specified in resourceNames func
+  return t('promptRemove.andOthers', { count: remaining })
+})
 
-  computed: {
-    ...mapState('action-menu', ['toRemove']),
-    ...mapGetters({ t: 'i18n/t' }),
+const bounded = computed(() => {
+  return props.value?.reduce((acc, svc) => {
+    const apps = svc?.boundapps ?? []
+    return [...acc, ...apps]
+  }, []) || []
+})
 
-    plusMore() {
-      const remaining = this.toRemove.length - this.names.length;
-
-      return this.t('promptRemove.andOthers', { count: remaining });
-    },
-
-    bounded() {
-      return this.value?.reduce((acc, svc) => {
-        const apps = svc?.boundapps ?? [];
-
-        return [...acc, ...apps];
-      }, []) || [];
-    },
-  },
-
-  methods: { resourceNames }
-};
+const emit = defineEmits(['update:value'])
 </script>
 
 <template>
-  <div>
-    <template>
+   <div>
       {{ t('promptRemove.attemptingToRemove', { type }) }} <span
-        v-clean-html="resourceNames(names, plusMore, t)"
+        v-clean-html="resourceNames(props.names, plusMore, t)"
       />
-    </template>
     <div
       v-if="!bounded.length"
       class="text info mb-10 mt-20"
