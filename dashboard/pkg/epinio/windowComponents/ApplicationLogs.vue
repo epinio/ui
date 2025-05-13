@@ -1,6 +1,13 @@
 <script setup lang="ts">
 import { useStore } from 'vuex';
-import { ref, onMounted, onBeforeUnmount, computed, nextTick } from 'vue';
+import { 
+  ref, 
+  reactive, 
+  onMounted, 
+  onBeforeUnmount, 
+  computed, 
+  nextTick, 
+} from 'vue';
 
 import AnsiUp from 'ansi_up';
 import { addParams } from '@shell/utils/url';
@@ -25,18 +32,29 @@ import { useApplicationSocketMixin } from './ApplicationSocketMixin';
 const store = useStore();
 const t = store.getters['i18n/t'];
 
-const props = defineProps<{
-  ansiToHtml: boolean,
-  application: object,
-}>();
+const props = defineProps({
+  application: {
+    type: Object as PropType<object>,
+    default: null,
+  },
+  endpoint: {
+    type: String as PropType<string>,
+    default: '',
+  },
+  ansiToHtml: {
+    type: Boolean as PropType<boolean>,
+    default: false,
+  },
+});
 
 const lastId = ref<number>(1);
 const search = ref<String>('');
 const instance = ref<String>('');
 const lines = ref<Array<any>>([]);
-const timerFlush = ref<Timeout>(null);
-const isFollowing = ref<Boolean>(true);
-const body = ref<HTMLElement | null>(null);
+const timerFlush = ref<Object>(null);
+const isFollowing = ref<Boolean>(false);
+const active = ref<Boolean>(true);
+const body = ref<HTMLElement>(document.body);
 
 const ansiup = new AnsiUp();
 const timestamps = store.getters['prefs/get'](LOGS_TIME);
@@ -52,8 +70,10 @@ const {
 
 onMounted(async () => {
   await connect();
-  body.addEventListener('scroll', updateFollowing);
+  let boundUpdateFollowing = updateFollowing.bind(body);
+  body.value.addEventListener('scroll', boundUpdateFollowing);
   timerFlush.value = setInterval(flush, 100);
+  isOpen.value = true;
 });
 
 onBeforeUnmount(() => {
@@ -131,13 +151,13 @@ const timeFormatStr = computed(() => {
 
 const getSocketUrl = async () => {
   const { url, token } = await getRootSocketUrl();
-
+  console.log("URL: ", url);
   return addParams(url, { follow: true, authtoken: token });
 };
 
 const connect = async () => {
   if (socket.value) {
-    await socket.disconnect();
+    await socket.value.disconnect();
     socket.value = null;
     lines.value = [];
   }
@@ -145,7 +165,6 @@ const connect = async () => {
   lines.value = [];
 
   const url = await getSocketUrl();
-
   socket.value = new Socket(url, true, 0);
   socket.value.setAutoReconnectUrl(async() => {
     return await getSocketUrl();
@@ -164,39 +183,39 @@ const connect = async () => {
     console.error('Connect Error', e); // eslint-disable-line no-console
   });
 
-  socket.value.addEventListener(EVENT_MESSAGE, (e: any) => {
+  socket.value.addEventListener(EVENT_MESSAGE, async (e: any) => {
     let parsedData;
-
+    let blobData = await e.detail;
+    
     try {
       parsedData = JSON.parse(e.detail.data);
     } catch (e) {
-      console.warn('Unable to parse websocket data: ', e.detail.data); // eslint-disable-line no-console
-
+      console.warn('Unable to parse websocket data: ', e); // eslint-disable-line no-console
+      console.log(e);
       return;
     }
 
     const { PodName, Message } = parsedData;
 
     const line = `[${ PodName }] ${ Message }`;
-
-    backlog.push({
+    backlog.value.push({
       id:     lastId.value++,
       msg:    props.ansiToHtml ? ansiup.ansi_to_html(line) : line,
       rawMsg: line,
       // time,
     });
   });
-
-  socket.connect();
+  
+  socket.value.connect();
 };
 
 const flush = () => {
-  if (backlog.length) {
-    lines.value.push(...backlog);
+  if (backlog.value.length) {
+    lines.value.push(...backlog.value);
     backlog.value = [];
   }
 
-  if (isFollowing) {
+  if (isFollowing.value) {
     nextTick(() => {
       follow();
     });
@@ -204,7 +223,7 @@ const flush = () => {
 };
 
 const updateFollowing = () => {
-  const el = body;
+  const el = body.value;
 
   isFollowing = el.scrollTop + el.clientHeight + 2 >= el.scrollHeight;
 };
@@ -223,8 +242,8 @@ const download = (btnCb) => {
 };
 
 const follow = () => {
-  const el = body;
-
+  const el = body.value;
+  console.log(el);
   el.scrollTop = el.scrollHeight;
 };
 
@@ -271,11 +290,9 @@ const cleanup = () => {
             placeholder="Filter by Instance"
           >
             <template #selected-option="option">
-              <t
-                v-if="option"
-                k="epinio.applications.wm.containerName"
-                :label="option.label"
-              />
+              <span v-if="option" :label="option.label">
+                {{t(epinio.applications.wm.containerName)}}
+              </span>
             </template>
           </Select>
 
@@ -284,13 +301,13 @@ const cleanup = () => {
             :disabled="isFollowing"
             @click="follow"
           >
-            <t k="wm.containerLogs.follow" />
+            {{t('wm.containerLogs.follow')}}
           </button>
-          <button
+           <button
             class=" btn bg-primary ml-5"
             @click="clear"
           >
-            <t k="wm.containerLogs.clear" />
+            {{t('wm.containerLogs.clear')}}
           </button>
           <AsyncButton
             class="ml-5"
@@ -304,10 +321,9 @@ const cleanup = () => {
             class="status log-action text-center p-10"
             style="min-width: 80px;"
           >
-            <t
-              :class="{'text-success': isOpen, 'text-error': !isOpen}"
-              :k="isOpen ? 'wm.connection.connected' : 'wm.connection.disconnected'"
-            />
+            <span :class="{'text-success': isOpen, 'text-error': !isOpen}">
+              {{t(isOpen ? 'wm.connection.connected' : 'wm.connection.disconnected')}}
+            </span>
           </div>
           <div class="log-action  ml-5">
             <input
@@ -326,7 +342,7 @@ const cleanup = () => {
                 <i class="icon icon-gear" />
               </button>
 
-              <template slot="popover">
+              <template #popover>
                 <div class="filter-popup">
                   <div>
                     <Checkbox
@@ -344,7 +360,6 @@ const cleanup = () => {
     </template>
     <template #body>
       <div
-        ref="body"
         :class="{'logs-container': true, 'open': isOpen, 'closed': !isOpen, 'show-times': timestamps && filtered.length, 'wrap-lines': wrap}"
       >
         <table

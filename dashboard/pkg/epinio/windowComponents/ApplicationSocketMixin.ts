@@ -23,6 +23,7 @@ export function useApplicationSocketMixin(props) {
     let api = '';
     let prependPath = '';
 
+    console.log(store);
     if (isSingleProduct) {
       const cnsi = store.getters[`${ EPINIO_PRODUCT_NAME }/singleProductCNSI`]();
 
