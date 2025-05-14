@@ -25,8 +25,6 @@ const props = defineProps<{
 }>();
 
 
-console.log('props', props);
-
 const store = useStore();
 const route = useRoute();
 const router = useRouter();
@@ -75,7 +73,6 @@ onMounted(async () => {
 
 const shouldShowButtons = computed(() => (route.hash === '#source' ? 'hide-buttons-deploy' : ''));
 const showSourceTab = computed(() => {
-  console.log("mode", props.mode);
   return props.mode === _EDIT
 });
 const validationPassed = computed(() => !Object.values(tabErrors).find((error) => error));
@@ -151,7 +148,6 @@ function updateManifestConfigurations(changes: string[]) {
 }
 
 function validate(value: boolean, tab: string) {
-  console.log('validate', value, tab);
   if (tab) {
     tabErrors[tab] = !value;
   }

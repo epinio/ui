@@ -37,8 +37,6 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
   constructor(...args) {
 
     super(...args);
-    console.log(this, ...args)
-
 
     // Props ---------------------------------------------------
     this.buildCache = {};
