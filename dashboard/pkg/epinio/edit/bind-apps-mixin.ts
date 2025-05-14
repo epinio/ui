@@ -1,5 +1,6 @@
 import { useStore } from 'vuex';
 import { ref, computed, onMounted } from 'vue';
+import { useRoute } from 'vue-router';
 
 import { EPINIO_TYPES } from '../types';
 
@@ -8,6 +9,7 @@ import { sortBy } from '@shell/utils/sort';
 export function useEpinioBindAppsMixin(props) {
   const selectedApps = ref<Array<string>>(props.value?.boundapps || []);
   const store = useStore();
+  const route = useRoute();
 
   const allApps = computed(() => {
     return sortBy(store.getters['epinio/all'](EPINIO_TYPES.APP), 'meta.name');
@@ -101,7 +103,42 @@ export function useEpinioBindAppsMixin(props) {
     }
   };
 
+  const doneParams = computed(() => {
+    if (props.value?.doneParams) {
+      return props.value.doneParams;
+    }
+
+    const out = { ...route.params };
+
+    delete out.namespace;
+    delete out.id;
+
+    return out;
+  });
+
+  const doneRoute = computed(() => {
+    let route: string = '';
+
+    if (props.value?.doneRoute ) {
+      route = props.value.doneRoute;
+    }else{
+      let name = props.route.name;
+
+      if ( name?.endsWith('-id') ) {
+        name = name.replace(/(-namespace)?-id$/, '');
+      } else if ( name?.endsWith('-create') ) {
+        name = name.replace(/-create$/, '');
+      }
+
+      route = name;
+    }
+
+    return route;
+  });
+
   return {
+    doneParams,
+    doneRoute,
     selectedApps,
     allApps,
     nsApps,
