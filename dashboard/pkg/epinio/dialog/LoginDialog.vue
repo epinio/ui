@@ -22,8 +22,8 @@ const PROVIDER_TYPES = {
   DEX:   'dex',
 };
 
-const username = ref<string>('');
-const password = ref<string>('');
+const username = ref<string>('admin');
+const password = ref<string>('password');
 const selectedAuthType = ref<string>('');
 const busy = ref<boolean>(false);
 

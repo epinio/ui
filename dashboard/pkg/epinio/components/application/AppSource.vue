@@ -18,7 +18,7 @@ import Collapse from '@shell/components/Collapse.vue';
 import {
   APPLICATION_SOURCE_TYPE, EpinioApplicationChartResource, EPINIO_TYPES, EpinioInfo, AppSourceArchive, AppSourceContainer, AppSourceGit, AppSourceGitUrl, AppSourceBuilderImage, EpinioAppSource, GitAPIData, EPINIO_APP_MANIFEST
 } from '../../types';
-import { EpinioAppInfo } from './AppInfo.vue';
+import { EpinioAppInfo } from '../../types';
 import { _EDIT } from '@shell/config/query-params';
 import { AppUtils } from '../../utils/application';
 

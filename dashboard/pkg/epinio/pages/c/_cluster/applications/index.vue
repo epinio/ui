@@ -101,7 +101,7 @@ onMounted(async () => {
         <span v-if="row.routes.length" class="route">
           <template
             v-for="(route, index) in row.routes"
-            :key="route.id || route"  <!-- fallback if no .id -->
+            :key="route.id || route"
           >
             <a
               v-if="row.state === 'running'"
