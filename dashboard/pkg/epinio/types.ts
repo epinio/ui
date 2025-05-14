@@ -97,12 +97,12 @@ export interface AppSourceBuilderImage {
  * Contains information used within a UI session to represent where an application came from
  */
 export interface EpinioAppSource {
-  type: string // APPLICATION_SOURCE_TYPE,
-  archive: AppSourceArchive,
+  type: string,
+  archive?: AppSourceArchive | undefined,
   container: AppSourceContainer,
   git: AppSourceGit,
   gitUrl: AppSourceGitUrl,
-  builderImage: AppSourceBuilderImage,
+  builderImage?: AppSourceBuilderImage,
   appChart: string,
 }
 

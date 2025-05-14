@@ -73,7 +73,6 @@ const isEdit = computed(() => props.mode === _EDIT);
 
 // Mounted lifecycle hook
 onMounted(() => {
-  console.log("props", props, namespaces.value);
   const valuesData: EpinioAppInfo = {
     meta: {
       name: props.application.meta?.name,
@@ -91,8 +90,6 @@ onMounted(() => {
 
   values.value = valuesData;
   validSettings.value = {};
-
-  console.log('values.value', values.value);
 
   emit('valid', valid.value);
 
