@@ -232,4 +232,8 @@ watch(
 .as-text-area {
   width: 100% !important;
 }
+
+.value-container .file-selector{
+  margin-bottom: 20px;
+}
 </style>
