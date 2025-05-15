@@ -2,7 +2,6 @@
 import { useStore } from 'vuex';
 import { 
   ref, 
-  reactive, 
   onMounted, 
   onBeforeUnmount, 
   computed, 
@@ -45,11 +44,23 @@ const props = defineProps({
     type: Boolean as PropType<boolean>,
     default: false,
   },
+  initialInstance: {
+    type:    String,
+    default: null,
+  },
 });
+
+const {
+  socket,
+  isOpen,
+  backlog,
+  instanceChoices,
+  getRootSocketUrl,
+} = useApplicationSocketMixin(props);
 
 const lastId = ref<number>(1);
 const search = ref<String>('');
-const instance = ref<String>('');
+const instance = ref<String>(props.initialInstance || instanceChoices[0]);
 const lines = ref<Array<any>>([]);
 const timerFlush = ref<Object>(null);
 const isFollowing = ref<Boolean>(false);
@@ -60,20 +71,11 @@ const ansiup = new AnsiUp();
 const timestamps = store.getters['prefs/get'](LOGS_TIME);
 const wrap = store.getters['prefs/get'](LOGS_WRAP);
 
-const {
-  socket,
-  isOpen,
-  backlog,
-  instanceChoices,
-  getRootSocketUrl,
-} = useApplicationSocketMixin(props);
-
 onMounted(async () => {
   await connect();
   let boundUpdateFollowing = updateFollowing.bind(body);
   body.value.addEventListener('scroll', boundUpdateFollowing);
   timerFlush.value = setInterval(flush, 100);
-  isOpen.value = true;
 });
 
 onBeforeUnmount(() => {
@@ -82,11 +84,12 @@ onBeforeUnmount(() => {
     el.removeEventListener('scroll', updateFollowing);
   }
   cleanup();
+  isOpen.value = false;
 });
 
 const instanceChoicesWithNone = computed(() => {
   return [
-    ...instanceChoices,
+    ...instanceChoices.value,
     {
       label: 'No Instance Filter',
       value: null
@@ -151,7 +154,6 @@ const timeFormatStr = computed(() => {
 
 const getSocketUrl = async () => {
   const { url, token } = await getRootSocketUrl();
-  console.log("URL: ", url);
   return addParams(url, { follow: true, authtoken: token });
 };
 
@@ -281,20 +283,14 @@ const cleanup = () => {
         <div class="title-inner-left">
           <Select
             v-if="instanceChoices.length > 1"
-            v-model="instance"
+            v-model:value="instance"
             :disabled="instanceChoices.length === 1"
             class="containerPicker auto-width"
             :options="instanceChoicesWithNone"
             :clearable="true"
             placement="top"
             placeholder="Filter by Instance"
-          >
-            <template #selected-option="option">
-              <span v-if="option" :label="option.label">
-                {{t(epinio.applications.wm.containerName)}}
-              </span>
-            </template>
-          </Select>
+          />
 
           <button
             class="btn bg-primary ml-5"
