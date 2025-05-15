@@ -65,7 +65,7 @@ const lines = ref<Array<any>>([]);
 const timerFlush = ref<Object>(null);
 const isFollowing = ref<Boolean>(false);
 const active = ref<Boolean>(true);
-const body = ref<HTMLElement>(document.body);
+const body = ref<HTMLElement>(null);
 
 const ansiup = new AnsiUp();
 const timestamps = store.getters['prefs/get'](LOGS_TIME);
@@ -227,7 +227,7 @@ const flush = () => {
 const updateFollowing = () => {
   const el = body.value;
 
-  isFollowing = el.scrollTop + el.clientHeight + 2 >= el.scrollHeight;
+  isFollowing.value = el.scrollTop + el.clientHeight + 2 >= el.scrollHeight;
 };
 
 const clear = () => {
@@ -244,9 +244,7 @@ const download = (btnCb) => {
 };
 
 const follow = () => {
-  const el = body.value;
-  console.log(el);
-  el.scrollTop = el.scrollHeight;
+  body.value.scrollTop = body.value.scrollHeight;
 };
 
 const toggleWrap = (on) => {
@@ -356,6 +354,7 @@ const cleanup = () => {
     </template>
     <template #body>
       <div
+        ref="body"
         :class="{'logs-container': true, 'open': isOpen, 'closed': !isOpen, 'show-times': timestamps && filtered.length, 'wrap-lines': wrap}"
       >
         <table
