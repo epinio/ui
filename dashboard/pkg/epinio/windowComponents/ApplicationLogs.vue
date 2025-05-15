@@ -370,30 +370,25 @@ const cleanup = () => {
                 :key="line.id"
               >
                 <td
-                  :key="line.id + '-time'"
                   v-clean-html="format(line.time)"
                   class="time"
                 />
                 <td
-                  :key="line.id + '-msg'"
                   v-clean-html="line.msg"
                   class="msg"
                 />
               </tr>
             </template>
             <tr v-else-if="search">
-              <td
-                v-t="'wm.containerLogs.noMatch'"
-                colspan="2"
-                class="msg text-muted"
-              />
+              <td colspan="2" class="msg text-muted">
+                {{t('wm.containerLogs.noMatch')}}
+              </td>
             </tr>
-            <tr
-              v-else
-              v-t="'epinio.applications.wm.noData'"
-              colspan="2"
-              class="msg text-muted"
-            />
+            <tr v-else>
+              <td colspan="2" class="msg text-muted">
+                {{t('epinio.applications.wm.noData')}}
+              </td>
+            </tr>
           </tbody>
         </table>
       </div>
