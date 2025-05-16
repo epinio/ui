@@ -8,24 +8,24 @@ import {
   nextTick, 
 } from 'vue';
 
-import AnsiUp from 'ansi_up';
-import { addParams } from '@shell/utils/url';
-import { LOGS_TIME, LOGS_WRAP, DATE_FORMAT, TIME_FORMAT } from '@shell/store/prefs';
-import { Checkbox } from '@components/Form/Checkbox';
-import AsyncButton from '@shell/components/AsyncButton';
-import day from 'dayjs';
-import Select from '@shell/components/form/Select';
-
-import { escapeHtml, escapeRegex } from '@shell/utils/string';
-
 import Socket, {
   EVENT_CONNECTED,
   EVENT_DISCONNECTED,
   EVENT_MESSAGE,
   EVENT_CONNECT_ERROR
 } from '@shell/utils/socket';
-import Window from '@shell/components/nav/WindowManager/Window';
+import day from 'dayjs';
+import AnsiUp from 'ansi_up';
+import { addParams } from '@shell/utils/url';
 import { downloadFile } from '@shell/utils/download';
+import { escapeHtml, escapeRegex } from '@shell/utils/string';
+import { LOGS_TIME, LOGS_WRAP, DATE_FORMAT, TIME_FORMAT } from '@shell/store/prefs';
+
+import Select from '@shell/components/form/Select';
+import { Checkbox } from '@components/Form/Checkbox';
+import AsyncButton from '@shell/components/AsyncButton';
+import Window from '@shell/components/nav/WindowManager/Window';
+
 import { useApplicationSocketMixin } from './ApplicationSocketMixin';
 
 const store = useStore();
@@ -204,7 +204,6 @@ const connect = async () => {
       id:     lastId.value++,
       msg:    props.ansiToHtml ? ansiup.ansi_to_html(line) : line,
       rawMsg: line,
-      // time,
     });
   });
   
@@ -252,7 +251,7 @@ const toggleWrap = (on) => {
 };
 
 const format = (time) => {
-  if ( !time ) {
+  if (!time) {
     return '';
   }
 

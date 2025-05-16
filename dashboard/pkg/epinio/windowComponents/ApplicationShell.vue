@@ -7,10 +7,6 @@ import {
   watch,
 } from 'vue';
 
-import { allHash } from '@shell/utils/promise';
-import { addParams } from '@shell/utils/url';
-import { base64Decode, base64Encode } from '@shell/utils/crypto';
-import Select from '@shell/components/form/Select';
 
 import Socket, {
   EVENT_CONNECTED,
@@ -19,8 +15,13 @@ import Socket, {
   EVENT_MESSAGE,
   EVENT_CONNECT_ERROR,
 } from '@shell/utils/socket';
-import Window from '@shell/components/nav/WindowManager/Window';
+import { allHash } from '@shell/utils/promise';
+import { addParams } from '@shell/utils/url';
+import { base64Decode, base64Encode } from '@shell/utils/crypto';
 import { useApplicationSocketMixin } from './ApplicationSocketMixin';
+
+import Select from '@shell/components/form/Select';
+import Window from '@shell/components/nav/WindowManager/Window';
 
 const store = useStore();
 const t = store.getters['i18n/t'];
@@ -35,7 +36,7 @@ const props = defineProps({
     default: '',
   },
   initialInstance: {
-    type:    String,
+    type: String,
     default: null,
   },
 });
@@ -48,14 +49,15 @@ const {
   getRootSocketUrl,
 } = useApplicationSocketMixin(props);
 
-const xterm = ref<HTMLElement>(null);
-const instance = ref<String>(props.initialInstance || instanceChoices[0]);
-const terminal = ref<Object>(null);
-const fitAddon = ref<Object>(null);
-const searchAddon = ref<Object>(null);
-const webglAddon = ref<Object>(null);
+const active = ref<Boolean>(true);
+const xterm = ref<HTMLElement | null>(null);
+const instance = ref<String>(props.initialInstance || instanceChoices.value[0]);
+const terminal = ref<Object | null>(null);
+const fitAddon = ref<Object | null>(null);
+const searchAddon = ref<Object | null>(null);
+const webglAddon = ref<Object | null>(null);
 const isOpening = ref<Boolean>(false);
-const keepAliveTimer = ref<Object>(null);
+const keepAliveTimer = ref<Object | null>(null);
 const xtermConfig = {
   allowProposedApi: true,
   cursorBlink:      true,
@@ -66,17 +68,9 @@ const xtermConfig = {
 watch(
   () => instance.value,
   () => {
-    console.log("TEST");
     connect();
   }
 );
-
-/*watch(
-  height,
-  () => {
-    fit();
-  }
-);*/
 
 onBeforeUnmount(() => {
   clearInterval(keepAliveTimer.value);
@@ -105,8 +99,6 @@ const setupTerminal = async () => {
     weblinks: import('xterm-addon-web-links'),
     search:   import('xterm-addon-search'),
   });
-
-  console.log("Terminal Cursor: ", docStyle.getPropertyValue('--terminal-cursor').trim());
 
   const terminalTemp = new xtermLib.Terminal({
     theme: {
@@ -375,4 +367,3 @@ const cleanup = () => {
   margin-left: 10px;
 }
 </style>
-
