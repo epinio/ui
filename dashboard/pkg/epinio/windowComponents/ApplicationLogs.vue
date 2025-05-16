@@ -69,7 +69,7 @@ const body = ref<HTMLElement>(null);
 
 const ansiup = new AnsiUp();
 const timestamps = store.getters['prefs/get'](LOGS_TIME);
-const wrap = store.getters['prefs/get'](LOGS_WRAP);
+const wrap = ref<Boolean>(store.getters['prefs/get'](LOGS_WRAP));
 
 onMounted(async () => {
   await connect();
@@ -248,8 +248,7 @@ const follow = () => {
 };
 
 const toggleWrap = (on) => {
-  wrap.value = on;
-  store.dispatch('prefs/set', { key: LOGS_WRAP, value: wrap });
+  store.dispatch('prefs/set', { key: LOGS_WRAP, value: wrap.value });
 };
 
 const format = (time) => {
@@ -328,26 +327,18 @@ const cleanup = () => {
             >
           </div>
           <div class="log-action ml-5">
-            <v-popover
-              trigger="click"
-              placement="top"
-            >
+            <VDropdown placement="top">
               <button class="btn bg-primary">
                 <i class="icon icon-gear" />
               </button>
-
-              <template #popover>
-                <div class="filter-popup">
-                  <div>
-                    <Checkbox
-                      :label="t('wm.containerLogs.wrap')"
-                      :value="wrap"
-                      @input="toggleWrap "
-                    />
-                  </div>
-                </div>
+              <template #popper>
+                <Checkbox
+                  :label="t('wm.containerLogs.wrap')"
+                  v-model:value="wrap"
+                  @update:value="toggleWrap"
+                />
               </template>
-            </v-popover>
+            </VDropdown>
           </div>
         </div>
       </div>
