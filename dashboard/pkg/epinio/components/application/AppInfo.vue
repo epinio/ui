@@ -107,8 +107,13 @@ const update = () => {
   });
 };
 
+
+
 // Watchers
-watch(() => values.value?.configuration.instances, update);
+watch(() => values.value?.configuration.instances, (newVal, oldVal) => {
+  values.value.configuration.instances = Number(newVal);
+  update()
+});
 watch(() => values.value?.configuration.environment, update);
 watch(() => values.value?.configuration.settings, update, { deep: true });
 watch(() => values.value?.configuration.routes, update);
@@ -205,6 +210,7 @@ const moveBooleansToFront = (settingsObj: any) => {
         :chart="values.chart"
         :title="t('epinio.applications.create.settingsVars.title')"
         :mode="props.mode"
+        :disabled="false"
         @valid="validSettings = $event"
       />
       <div class="spacer" />

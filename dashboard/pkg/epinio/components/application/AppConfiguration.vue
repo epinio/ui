@@ -1,22 +1,13 @@
 <script setup lang="ts">
 
-import Vue, { PropType } from 'vue';
 import { ref, computed, watch, onMounted } from 'vue';
 import { useStore } from 'vuex';
 import { useRoute } from 'vue-router';
 import { sortBy } from '@shell/utils/sort';
 import LabeledSelect from '@shell/components/form/LabeledSelect.vue';
 import { _VIEW } from '@shell/config/query-params';
-import { EpinioCompRecord, EpinioConfiguration, EpinioService, EPINIO_TYPES, EpinioAppBindings, EPINIO_APP_MANIFEST } from '../../types';
+import { EpinioConfiguration, EpinioService, EPINIO_TYPES, EPINIO_APP_MANIFEST } from '../../types';
 import Application from '../../models/applications';
-
-
-interface Data {
-  values: {
-    configurations: string[],
-    services: string[],
-  }
-}
 
 interface Props {
   initialApplication?: Application;
@@ -80,7 +71,9 @@ const services = computed(() => {
 const noConfigs = computed(() => !configurations.value.length);
 const hasConfigs = computed(() => !!configurations.value.length);
 const noServices = computed(() => !services.value.length);
-const hasServices = computed(() => !!services.value.length);
+const hasServices = computed(() => {
+  return services.value.length > 0;
+});
 const isView = computed(() => props.mode === _VIEW);
 const isFromManifest = computed(() => route.query.from === EPINIO_APP_MANIFEST);
 
@@ -118,24 +111,26 @@ watch(hasConfigs, (neu, old) => {
   }
 });
 
-watch(hasServices, (neu, old) => {
-  if (!old && neu) {
-    if (props.initialApplication?.serviceConfigurationsNames) {
-      values.value.services = props.initialApplication.services || [];
+watch(
+  () => hasServices, 
+  (neu, old) => {
+    if (!old && neu) {
+      if (props.initialApplication?.serviceConfigurationsNames) {
+        values.value.services = props.initialApplication.services || [];
+      }
     }
-  }
 
-  if (isFromManifest.value) {
-    const configurations = namespacedConfigurations.value
-      .filter((nc: any) =>
-        props.application.configuration.configurations.includes(nc.metadata.name) &&
-        nc.isServiceRelated
-      );
+    if (isFromManifest.value) {
+      const configurations = namespacedConfigurations.value
+        .filter((nc: any) =>
+          props.application.configuration.configurations.includes(nc.metadata.name) &&
+          nc.isServiceRelated
+        );
 
-    values.value.services = services.value
-      .filter((s: any) => configurations.some((d: any) => s.value.metadata.name === d.configuration.origin))
-      .map((elem: any) => elem.value);
-  }
+      values.value.services = services.value
+        .filter((s: any) => configurations.some((d: any) => s.value.metadata.name === d.configuration.origin))
+        .map((elem: any) => elem.value);
+    }
 });
 </script>
 
@@ -145,8 +140,7 @@ watch(hasServices, (neu, old) => {
       <LabeledSelect
         v-model:value="values.configurations"
         data-testid="epinio_app-configuration_configurations"
-        :loading="$fetchState.pending"
-        :disabled="$fetchState.pending || noConfigs || isView"
+        :disabled="noConfigs || isView"
         :options="configurations"
         :searchable="true"
         :mode="mode"
@@ -160,8 +154,7 @@ watch(hasServices, (neu, old) => {
       <LabeledSelect
         v-model:value="values.services"
         data-testid="epinio_app-configuration_services"
-        :loading="$fetchState.pending"
-        :disabled="$fetchState.pending || noServices || isView"
+        :disabled="noServices || isView"
         :options="services"
         :searchable="true"
         :mode="mode"

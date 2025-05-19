@@ -51,10 +51,10 @@ const login = async (provider: string) => {
     switch (provider) {
       case PROVIDER_TYPES.LOCAL:
         if (!username.value) {
-          errors.push('Username');
+          errors.push(new Error('Username'));
         }
         if (!password.value) {
-          errors.push('Password');
+          errors.push(new Error('Password'));
         }
         if (errors.length) {
           throw new Error(`${ errors.join('/') } Required`);
