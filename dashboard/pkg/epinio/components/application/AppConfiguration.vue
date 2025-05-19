@@ -109,11 +109,9 @@ watch(hasConfigs, (neu, old) => {
         .map((nc: any) => nc.metadata.name) || [];
     }
   }
-});
+}, { immediate: true });
 
-watch(
-  () => hasServices, 
-  (neu, old) => {
+watch(hasServices, (neu, old) => {
     if (!old && neu) {
       if (props.initialApplication?.serviceConfigurationsNames) {
         values.value.services = props.initialApplication.services || [];
@@ -131,7 +129,7 @@ watch(
         .filter((s: any) => configurations.some((d: any) => s.value.metadata.name === d.configuration.origin))
         .map((elem: any) => elem.value);
     }
-});
+}, { immediate: true });
 </script>
 
 <template>
