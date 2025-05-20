@@ -9,6 +9,7 @@ import { epinioExceptionToErrorsArray } from '../utils/errors';
 import { EPINIO_TYPES, EpinioNamespace, EpinioCompRecord } from '../types';
 
 import { sortBy } from '@shell/utils/sort';
+import { _EDIT } from '@shell/config/query-params';
 import Loading from '@shell/components/Loading.vue';
 import Banner from '@components/Banner/Banner.vue';
 import KeyValue from '@shell/components/form/KeyValue.vue';
@@ -53,7 +54,7 @@ onMounted(async () => {
 });
 
 const isEdit = computed(() => {
-  return props.mode === 'edit';
+  return props.mode === _EDIT;
 });
 
 const namespaces = computed(() => {
