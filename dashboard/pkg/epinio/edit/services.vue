@@ -37,6 +37,7 @@ const props = defineProps<{
   initialValue: ServiceInstance,
   mode: string,
 }>();
+
 const { 
   selectedApps, 
   nsAppOptions, 
