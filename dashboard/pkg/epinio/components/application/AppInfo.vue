@@ -16,12 +16,10 @@ import { EPINIO_TYPES, EpinioNamespace, EpinioAppInfo } from '../../types';
 import Application from '../../models/applications';
 import { objValuesToString } from '../../utils/settings';
 
-
 interface Data {
   errors: string[],
   values?: EpinioAppInfo
 }
-
 
 const store = useStore();
 
@@ -58,11 +56,19 @@ const valid = computed(() => {
   }
   const validName = !!values.value.meta?.name;
 
-  const nsErrors = validateKubernetesName(values.value.meta?.namespace || '', '', store.getters, undefined, []);
+  const nsErrors = validateKubernetesName(
+    values.value.meta?.namespace || '',
+    '',
+    store.getters,
+    undefined,
+    [],
+  );
   const validNamespace = nsErrors.length === 0;
-  const validInstances = typeof values.value.configuration?.instances !== 'string' && values.value.configuration?.instances >= 0;
-
-  return validName && validNamespace && validInstances && Object.values(validSettings.value).every((v) => !!v);
+  const validInstances = typeof Number(values.value.configuration?.instances) !== 'string' && 
+    values.value.configuration?.instances >= 0;
+  
+  return validName && validNamespace && validInstances && 
+    Object.values(validSettings.value).every((v) => !!v);
 });
 
 const showApplicationVariables = computed(() => {
@@ -73,7 +79,6 @@ const isEdit = computed(() => props.mode === _EDIT);
 
 // Mounted lifecycle hook
 onMounted(() => {
-  console.log("props", props, namespaces.value);
   const valuesData: EpinioAppInfo = {
     meta: {
       name: props.application.meta?.name,
@@ -91,8 +96,6 @@ onMounted(() => {
 
   values.value = valuesData;
   validSettings.value = {};
-
-  console.log('values.value', values.value);
 
   emit('valid', valid.value);
 
@@ -119,13 +122,17 @@ watch(valid, (newValid) => {
   emit('valid', newValid);
 });
 
-
 const populateOnEdit = async () => {
   // We need to fetch the chart settings on edit mode.
   if (isEdit.value || props.mode === 'view') {
-    const chartList = await store.dispatch('epinio/findAll', { type: EPINIO_TYPES.APP_CHARTS });
+    const chartList = await store.dispatch(
+      'epinio/findAll', 
+      { type: EPINIO_TYPES.APP_CHARTS },
+    );
 
-    const filterChart = chartList?.find((chart: any) => chart.id === props.application.configuration.appchart);
+    const filterChart = chartList?.find(
+      (chart: any) => chart.id === props.application.configuration.appchart
+    );
 
     if (filterChart?.settings) {
       const customValues = Object.keys(filterChart?.settings).reduce((acc: any, key: any) => {
