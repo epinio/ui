@@ -119,6 +119,7 @@ func getEnvironmentLookup() *env.VarSet {
 
 func main() {
 
+	log.Print("Starting Stratos Jetstream backend...")
 	// Register time.Time in gob
 	gob.Register(time.Time{})
 
