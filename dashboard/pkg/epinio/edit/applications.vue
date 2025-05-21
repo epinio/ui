@@ -141,7 +141,6 @@ function cancel() {
 }
 
 function finish() {
-  console.log('finish');
   router.replace(createEpinioRoute(`c-cluster-resource-id`, {
     cluster: store.getters['clusterId'],
     resource: props.value.type,
