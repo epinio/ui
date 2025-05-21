@@ -10,6 +10,8 @@ import Loading from '@shell/components/Loading.vue';
 import AppInfo from '../components/application/AppInfo.vue';
 import AppConfiguration from '../components/application/AppConfiguration.vue';
 import { epinioExceptionToErrorsArray } from '../utils/errors';
+import { useEpinioBindAppsMixin } from './bind-apps-mixin';
+
 import Wizard from '@shell/components/Wizard.vue';
 import { createEpinioRoute } from '../utils/custom-routing';
 import AppSource from '../components/application/AppSource.vue';
@@ -24,6 +26,10 @@ const props = defineProps<{
   mode: string;
 }>();
 
+const { 
+  doneParams,
+  doneRoute,
+} = useEpinioBindAppsMixin(props);
 
 const store = useStore();
 const route = useRoute();
@@ -77,6 +83,18 @@ const showSourceTab = computed(() => {
 });
 const validationPassed = computed(() => !Object.values(tabErrors).find((error) => error));
 
+const done = () => {
+  if (!doneRoute) {
+    return;
+  }
+
+  router.replace({
+    name:   doneRoute.value,
+    params: doneParams.value || { resource: props.value.type },
+  });
+}
+
+
 async function save(saveCb: (success: boolean) => void) {
   errors.value = [];
   try {
@@ -94,7 +112,7 @@ async function save(saveCb: (success: boolean) => void) {
 
     await props.value.forceFetch();
     saveCb(true);
-    // done();
+    done();
   } catch (err) {
     errors.value = epinioExceptionToErrorsArray(err);
     saveCb(false);
@@ -123,6 +141,7 @@ function cancel() {
 }
 
 function finish() {
+  console.log('finish');
   router.replace(createEpinioRoute(`c-cluster-resource-id`, {
     cluster: store.getters['clusterId'],
     resource: props.value.type,
