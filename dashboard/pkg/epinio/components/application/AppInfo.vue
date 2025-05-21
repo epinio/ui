@@ -73,7 +73,6 @@ const isEdit = computed(() => props.mode === _EDIT);
 
 // Mounted lifecycle hook
 onMounted(() => {
-  console.log("props", props, namespaces.value);
   const valuesData: EpinioAppInfo = {
     meta: {
       name: props.application.meta?.name,
@@ -92,8 +91,6 @@ onMounted(() => {
   values.value = valuesData;
   validSettings.value = {};
 
-  console.log('values.value', values.value);
-
   emit('valid', valid.value);
 
   populateOnEdit();
@@ -110,8 +107,13 @@ const update = () => {
   });
 };
 
+
+
 // Watchers
-watch(() => values.value?.configuration.instances, update);
+watch(() => values.value?.configuration.instances, (newVal, oldVal) => {
+  values.value.configuration.instances = Number(newVal);
+  update()
+});
 watch(() => values.value?.configuration.environment, update);
 watch(() => values.value?.configuration.settings, update, { deep: true });
 watch(() => values.value?.configuration.routes, update);
@@ -208,6 +210,7 @@ const moveBooleansToFront = (settingsObj: any) => {
         :chart="values.chart"
         :title="t('epinio.applications.create.settingsVars.title')"
         :mode="props.mode"
+        :disabled="false"
         @valid="validSettings = $event"
       />
       <div class="spacer" />
