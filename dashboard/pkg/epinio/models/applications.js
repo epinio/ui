@@ -11,7 +11,6 @@ import EpinioNamespacedResource, { bulkRemove } from './epinio-namespaced-resour
 import { AppUtils } from '../utils/application';
 import { WORKLOAD_TYPES } from '@shell/config/types';
 import { NAME as EXPLORER } from '@shell/config/product/explorer';
-
 // See https://github.com/epinio/epinio/blob/00684bc36780a37ab90091498e5c700337015a96/pkg/api/core/v1/models/app.go#L11
 const STATES = {
   CREATING: 'created',
@@ -635,12 +634,10 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
   }
 
   exportApp(resources = this) {
-    this.$dispatch('promptModal', {
+    this.$dispatch('cluster/promptModal', {
+      component: 'ExportAppDialog.vue',
       resources,
-      component:           'ExportAppDialog',
-      modalWidth:          '450px',
-      closeOnClickOutside: false,
-    });
+    }, {root: true });
   }
 
   async fetchPart(part, options = {}) {
