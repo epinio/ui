@@ -634,10 +634,12 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
   }
 
   exportApp(resources = this) {
-    this.$dispatch('cluster/promptModal', {
-      component: 'ExportAppDialog.vue',
-      resources,
-    }, {root: true });
+    this.$dispatch('promptModal', {
+      component: 'ExportAppDialog',
+      componentProps: {
+        resources: resources,
+      },
+    });
   }
 
   async fetchPart(part, options = {}) {

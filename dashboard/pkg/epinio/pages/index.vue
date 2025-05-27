@@ -2,7 +2,6 @@
 import { ref, onMounted } from 'vue';
 import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
-// import { useI18n } from 'vue-i18n';
 
 import Loading from '@shell/components/Loading.vue';
 import ResourceTable from '@shell/components/ResourceTable.vue';
