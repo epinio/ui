@@ -35,7 +35,7 @@
     ],
     "paths": {
       "@shell/*": [
-        "@rancher/shell/*"
+        "../../node_modules/@rancher/shell/*"
       ],
       "@components/*": [
         "@rancher/components/*"
