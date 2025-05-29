@@ -8,6 +8,7 @@
     "importHelpers": true,
     "moduleResolution": "node",
     "skipLibCheck": true,
+    "useDefineForClassFields": false,
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "sourceMap": true,
@@ -16,14 +17,13 @@
     "typeRoots": [
       "../../node_modules",
       "../../node_modules/@rancher/shell/types"
-    ],
+    ],    
     "types": [
       "node",
       "webpack-env",
       "@types/node",
       "@types/jest",
       "@types/lodash",
-      "@nuxt/types",
       "rancher",
       "shell"
     ],
@@ -46,9 +46,12 @@
     "**/*.ts",
     "**/*.d.ts",
     "**/*.tsx",
+    "**/*.vue",
+    "./index.d.ts",
     "**/*.vue"
   ],
   "exclude": [
-    "../../node_modules"
+    "../../node_modules",
+    "**/*.test.ts"
   ]
 }
