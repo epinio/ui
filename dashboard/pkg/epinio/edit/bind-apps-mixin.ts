@@ -6,48 +6,52 @@ import { EPINIO_TYPES } from '../types';
 
 import { sortBy } from '@shell/utils/sort';
 
-export function useEpinioBindAppsMixin(props) {
+export function useEpinioBindAppsMixin(props: any) {
   const selectedApps = ref<Array<string>>(props.value?.boundapps || []);
   const store = useStore();
   const route = useRoute();
 
   const allApps = computed(() => {
-    return sortBy(store.getters['epinio/all'](EPINIO_TYPES.APP), 'meta.name');
+    return sortBy(
+      store.getters['epinio/all'](EPINIO_TYPES.APP),
+      'meta.name',
+      false,
+    );
   });
 
   const nsApps = computed(() => {
-    return allApps.value.filter((a) => a.meta.namespace === props.value.meta.namespace);
+    return allApps.value.filter((a: any) => a.meta.namespace === props.value.meta.namespace);
   });
 
   const nsAppOptions = computed(() => {
-    return nsApps.value.map((a) => ({
+    return nsApps.value.map((a: any) => ({
       label: a.meta.name,
       value: a.meta.name,
     }));
   });
 
   const noApps = computed(() => {
-    return nsAppOptions.length === 0;
+    return nsAppOptions.value.length === 0;
   });
 
-  const updateServiceInstanceAppBindings = async (serviceInstance) => {
+  const updateServiceInstanceAppBindings = async (serviceInstance: any) => {
     // Service instance must be ready before they can be bound to apps
     await waitForServiceInstanceReady(serviceInstance);
     
     const bindApps = selectedApps.value;
     const unbindApps = (props.initialValue.boundapps || []).filter(
-      (bA) => !bindApps.includes(bA)
+      (bA: any) => !bindApps.includes(bA)
     );
 
     const promises = [
       ...bindApps.map((bA) => props.value.bindApp(bA)),
-      ...unbindApps.map((uBA) => props.value.unbindApp(uBA))
+      ...unbindApps.map((uBA: any) => props.value.unbindApp(uBA))
     ];
 
     await Promise.all(promises);
   };
 
-  const waitForServiceInstanceReady = async (serviceInstance) => {
+  const waitForServiceInstanceReady = async (serviceInstance: any) => {
     // It would be nice to use waitForState here, but we need to manually update until Epinio pumps out updates via socket
     await serviceInstance.waitForTestFn(() => {
       const freshServiceInstance = store.getters['epinio/byId'](
@@ -60,7 +64,7 @@ export function useEpinioBindAppsMixin(props) {
       }
       // This is an async fn, but we're in a sync fn. It might create a backlog if previous requests don't complete in time
       serviceInstance.forceFetch();
-    }, `service instance exists`, 30000, 2000).catch((err) => {
+    }, `service instance exists`, 30000, 2000).catch((err: Error) => {
       console.warn(err); // eslint-disable-line no-console
       throw new Error('waitingForServiceInstance');
     });
@@ -72,9 +76,9 @@ export function useEpinioBindAppsMixin(props) {
   const updateConfigurationAppBindings = async () => {
     const bindApps = selectedApps.value;
     const unbindApps = (props.initialValue.configuration?.boundapps || []).
-      filter((bA) => !bindApps.includes(bA));
+      filter((bA: any) => !bindApps.includes(bA));
 
-    const delta = nsApps.value.reduce((res, nsA) => {
+    const delta = nsApps.value.reduce((res: any, nsA: any) => {
       const appName = nsA.metadata.name;
       const configName = props.value.metadata.name;
 

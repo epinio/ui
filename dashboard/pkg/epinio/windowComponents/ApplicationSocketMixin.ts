@@ -3,14 +3,14 @@ import { ref, computed } from 'vue';
 
 import { EPINIO_MGMT_STORE, EPINIO_PRODUCT_NAME, EPINIO_TYPES } from '../types';
 
-export function useApplicationSocketMixin(props) {
+export function useApplicationSocketMixin(props: any) {
   const store = useStore();
   const socket = ref<any>(null);
   const isOpen = ref<boolean>(false);
   const backlog = ref<Array<any>>([]);
 
   const instanceChoices = computed(() => {
-    return props.application.instances.map((i) => i.id);
+    return props.application.instances.map((instance: any) => instance.id);
   });
 
   const getRootSocketUrl = async () => {
