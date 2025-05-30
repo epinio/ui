@@ -96,17 +96,13 @@ const routes = [
 
 const isEpinioSingleProduct = process.env.rancherEnv === "epinio";
 
-if (!isEpinioSingleProduct) {
-//   routes.unshift({
-//     name: `${EPINIO_PRODUCT_NAME}`,
-//     path: `/:product/`,
-//     component: ListEpinio,
-//     meta: {
-//       product: EPINIO_PRODUCT_NAME,
-//       cluster: BLANK_CLUSTER,
-//       pkg: EPINIO_PRODUCT_NAME,
-//     },
-//   });
+if (isEpinioSingleProduct) {
+  alert("hey");
+  routes.unshift({
+    name: `${EPINIO_PRODUCT_NAME}`,
+    path: `/:product/`,
+    component: ListEpinio
+  });
 }
 
 export default routes;
