@@ -140,7 +140,7 @@ export default {
 
         return Promise.reject(err);
       });
-
+		
     function responseObject(res: any) {
       let out = res.data;
 
