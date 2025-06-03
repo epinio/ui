@@ -5,17 +5,31 @@ import {ref, computed, onMounted, onBeforeUnmount } from 'vue';
 
 import JSZip from 'jszip';
 
-import GenericPrompt from '@shell/dialog/GenericPrompt';
+import { APPLICATION_PARTS } from '../types';
 import Banner from '@components/Banner/Banner.vue';
-import Tabbed from '@shell/components/Tabbed/index.vue';
 import Tab from '@shell/components/Tabbed/Tab.vue';
 import { downloadFile } from '@shell/utils/download';
+import GenericPrompt from '@shell/dialog/GenericPrompt';
+import Tabbed from '@shell/components/Tabbed/index.vue';
 import PercentageBar from '@shell/components/PercentageBar';
-import { APPLICATION_PARTS } from '../types';
 
 const store = useStore();
 const route = useRoute();
 const t = store.getters['i18n/t'];
+const emit = defineEmits<{
+  (e: 'close'): void
+}>();
+
+const props = defineProps<{
+  resources: Array,
+}>();
+
+const showProgressBar = ref<boolean>(false);
+const percentages = ref<object>({});
+const step = ref<any>(null);
+const cancelTokenSources:object = {};
+const colorStops:object = { 0: '--primary', 100: '--primary' };
+const genericPrompt = ref<HTMLElement>(null);
 
 const partsWeight = {
   [APPLICATION_PARTS.VALUES]: 0.1,
@@ -23,40 +37,35 @@ const partsWeight = {
   [APPLICATION_PARTS.IMAGE]:  0.7
 };
 
-const props = defineProps<{
-  resources: Array,
-}>();
-
-const zipParts = resources[0].applicationParts.filter(
+const zipParts = props.resources[0]?.applicationParts.filter(
   (part) => part !== APPLICATION_PARTS.MANIFEST
 );
-const showProgressBar = ref<boolean>(false);
-const percentages = ref<object>({});
-const step = ref<any>(null);
-const cancelTokenSources:object = {};
-const colorStops:object = { 0: '--primary', 100: '--primary' };
 
 onMounted(() => {
   document.addEventListener('keyup', escapeHandler);
 });
 
 onBeforeUnmount(() => {
-  document.removeEventListener('keyup', escapeHandler);
+  //Need to wait to remove this so the event listener isn't removed before a 
+  //download is cancelled.
+  setTimeout(() => {
+    document.removeEventListener('keyup', escapeHandler);
+  }, 2000);
 });
 
 const progressBar = computed({
   get() {
-    return Object.keys(percentages).reduce(
-      (acc, part) => acc + (percentages[part] * (partsWeight[part] || 1)), 0);
+    return Object.keys(percentages.value).reduce(
+      (acc, part) => acc + (percentages.value[part] * (partsWeight[part] || 1)), 0);
   },
   set(value) {
-    percentages = { value };
+    percentages.value = { value };
   }
-});
+}, { immediate: true });
 
 const exportApplicationManifest = async () => {
   enableDownload();
-  const resource = resources[0];
+  const resource = props.resources[0];
 
   const chartZip = async(files) => {
     const zip = new JSZip();
@@ -119,67 +128,74 @@ const fetchPart = async (resource, part) => {
   cancelTokenSources[part] = getCancelToken().source();
 
   return await resource.fetchPart(
-    part,
-    {
+    part, {
       onDownloadProgress: (progressEvent) => {
-        const total = progressEvent.srcElement.getResponseHeader('content-length') ||
-          progressEvent.srcElement.getResponseHeader('proxy-content-length');
+        const total = progressEvent.event.srcElement.getResponseHeader('content-length') ||
+          progressEvent.event.srcElement.getResponseHeader('proxy-content-length');
 
         if (total) {
-          Vue.set(this.percentages, part, Math.round(progressEvent.loaded * 100 / total));
+          percentages.value[part] = Math.round(progressEvent.loaded * 100 / total);
         }
 
         if (progressEvent.loaded > 0) {
-          this.toggleStep(part);
+          toggleStep(part);
         }
       },
-      cancelToken: this.cancelTokenSources[part].token
+      cancelToken: cancelTokenSources[part].token
     }).catch((thrown) => {
-    if (!this.$store.$axios.isCancel(thrown)) {
-      this.disableDownload();
+      if (!store.$axios.isCancel(thrown)) {
+        disableDownload();
 
-      // Override only messages of server errors
-      const message = thrown.message ?? this.t('epinio.applications.export.chartValuesImages.error', { part });
+        // Override only messages of server errors
+        const message = thrown.message ?? t(
+          'epinio.applications.export.chartValuesImages.error', 
+          { part },
+        );
 
-      throw new Error(message);
+        throw new Error(message);
+      }
     }
-  });
+  );
 }
 
 const fetchCancel = () => {
   // Cancel pending api requests, see https://axios-http.com/docs/cancellation
-  Object.keys(this.cancelTokenSources).forEach((part) => this.cancelTokenSources[part].cancel(`${ part } part: download cancelled.`));
+  Object.keys(cancelTokenSources).forEach(
+    (part) => cancelTokenSources[part].
+      cancel(`${ part } part: download cancelled.`)
+  );
 }
 
 const close = () => {
-  if (this.$route.hash !== '#manifest') {
-    this.fetchCancel();
+  if (route.hash !== '#manifest') {
+    fetchCancel();
   }
-  this.$emit('close');
+
+  emit('close');
 }
 
-const escapeHandler = (e) => {
+const escapeHandler = (e: KeyboardEvent) => {
   if (e.key === 'Escape') {
-    this.close();
+    close();
   }
 }
 
 const resetErrors = () => {
-  if (this.$refs.genericPrompt) {
-    this.$refs.genericPrompt.errors = [];
+  if (genericPrompt.value) {
+    genericPrompt.value.errors = [];
   }
 }
 
 const enableDownload = () => {
-  this.resetErrors();
-  this.showProgressBar = true;
+  resetErrors();
+  showProgressBar.value = true;
 }
 
 const disableDownload = () => {
-  this.fetchCancel();
-  this.showProgressBar = false;
-  this.progressBar = 0;
-  this.toggleStep(null);
+  fetchCancel();
+  showProgressBar.value = false;
+  progressBar.value = 0;
+  toggleStep(null);
 }
 
 const delayBeforeClose = async (seconds) => {
@@ -187,60 +203,70 @@ const delayBeforeClose = async (seconds) => {
 }
 
 const toggleStep = (part, isPreparing = false) => {
-  this.step = part ? `${ isPreparing ? 'preparing' : 'download' }.${ part }` : null;
+  step.value = part ? `${ isPreparing ? 'preparing' : 'download' }.${ part }` : null;
 }
 </script>
 
 <template>
-
-    <h4
-      class="text-default-text export-app-dialog__title"
-    >
-      {{ t('epinio.applications.export.label') }}
-    </h4>
-    <Tabbed @changed="resetErrors">
-      <Tab
-        label-key="epinio.applications.export.manifest.title"
-        name="manifest"
-        :weight="3"
-        class="export-app-dialog__tab"
+  <GenericPrompt
+    ref="genericPrompt"
+    v-bind="config"
+    @close="close"
+  >
+    <template #title>
+      <h4
+        class="text-default-text export-app-dialog__title"
       >
-        <p>
-          {{ t('epinio.applications.export.manifest.description') }}
-        </p>
-      </Tab>
+        {{ t('epinio.applications.export.label') }}
+      </h4>
+    </template>
 
-      <Tab
-        label-key="epinio.applications.export.chartValuesImages.title"
-        name="chart"
-        :weight="2"
-        class="export-app-dialog__tab"
-      >
-        <p>
-          {{ t('epinio.applications.export.chartValuesImages.description') }}
-        </p>
-        <Banner
-          color="info"
+    <template #body>
+      <Tabbed @changed="resetErrors">
+        <Tab
+          label-key="epinio.applications.export.manifest.title"
+          name="manifest"
+          :weight="3"
+          class="export-app-dialog__tab"
         >
-          {{ t('epinio.applications.export.chartValuesImages.banner') }}
-        </Banner>
+          <p>
+            {{ t('epinio.applications.export.manifest.description') }}
+          </p>
+        </Tab>
 
-        <div
-          v-if="showProgressBar"
-          class="progress-info text info mb-10 mt-20"
+        <Tab
+          label-key="epinio.applications.export.chartValuesImages.title"
+          name="chart"
+          :weight="2"
+          class="export-app-dialog__tab"
         >
-          <span v-if="step">
-            {{ t(`epinio.applications.export.chartValuesImages.steps.${ step }`) }}
-          </span>
-          <PercentageBar
-            class="progress-bar"
-            :value="progressBar"
-            :color-stops="colorStops"
-            preferred-direction="MORE"
-          />
-        </div>
-      </Tab>
-    </Tabbed>
+          <p>
+            {{ t('epinio.applications.export.chartValuesImages.description') }}
+          </p>
+          <Banner
+            color="info"
+          >
+            {{ t('epinio.applications.export.chartValuesImages.banner') }}
+          </Banner>
+
+          <div
+            v-if="showProgressBar"
+            class="progress-info text info mb-10 mt-20"
+          >
+            <span v-if="step">
+              {{ t(`epinio.applications.export.chartValuesImages.steps.${ step }`) }}
+            </span>
+            <PercentageBar
+              class="progress-bar"
+              :modelValue="progressBar"
+              :color-stops="colorStops"
+              preferred-direction="MORE"
+            />
+          </div>
+        </Tab>
+      </Tabbed>
+    </template>
+  </GenericPrompt>
 </template>
 <style lang='scss' scoped>
 .export-app-dialog {

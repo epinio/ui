@@ -633,13 +633,14 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
     this.showStagingLog(stage.id);
   }
 
-  exportApp(resources = this) {
-    this.$dispatch('promptModal', {
-      component: 'ExportAppDialog',
-      componentProps: {
-        resources: resources,
+  async exportApp(resources = this) {
+    this.$dispatch(
+      'cluster/promptModal', {
+        component: 'ExportAppDialog',
+        resources,
       },
-    });
+      { root: true },
+    );
   }
 
   async fetchPart(part, options = {}) {
