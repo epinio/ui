@@ -27,12 +27,6 @@ const meta = {
 
 const routes = [
   {
-    name: `${EPINIO_PRODUCT_NAME}`,
-    path: `/:product/`,
-    component: ListEpinio,
-    meta,
-  },
-  {
     name: `${EPINIO_PRODUCT_NAME}-c-cluster-dashboard`,
     path: `/:product/c/:cluster`,
     component: Dashboard,
@@ -97,7 +91,6 @@ const routes = [
 const isEpinioSingleProduct = process.env.rancherEnv === "epinio";
 
 if (isEpinioSingleProduct) {
-  alert("hey");
   routes.unshift({
     name: `${EPINIO_PRODUCT_NAME}`,
     path: `/:product/`,
