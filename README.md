@@ -1,7 +1,9 @@
-<img src="./docs/images/epinio.png" align="left" width="100" height="50%">
+![logo-epinio](https://github.com/user-attachments/assets/ddd30d0d-135b-49d8-b1c1-962a79128dc2)
 
 # Epinio UI
 This repository contains the UI for epinio. The UI consists of a Rancher Extension and a "ui backend" which helps support Epinio when it is in standalone mode by proxying requests or mocking them. 
+
+![image](https://github.com/user-attachments/assets/3dc1f1df-a5b0-48ca-838d-d26d5193ee23)
 
 ## Installing
 If you are looking to just install Epinio on a cluster, check out in depth documentation on the [Epinio website](https://docs.epinio.io/installation/install_epinio).
