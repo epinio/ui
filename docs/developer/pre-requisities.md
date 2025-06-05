@@ -35,4 +35,4 @@ In order to safely develop the Epinio UI we weill need to setup a cluster and in
 
   6a. Note once you hit the installation step for epinio its self, you can suplement the command with `helm install epinio -n epinio --create-namespace epinio/epinio -f epinio-values.yaml` to target your newly create helm values file. 
 
-Congrats you have completed all of the pre-requisites to develop Epinio! Check out how to get started with the [Epinio Rancher Extension](https://github.com/epinio/ui/blob/doc/1.12-updates/docs/developer/developing-rancher-extension.md) or [Standalone Application](https://github.com/epinio/ui/blob/doc/1.12-updates/docs/developer/developing-standalone-application.md). Looking forward to your first PR!
+Congrats you have completed all of the pre-requisites to develop Epinio! Check out how to get started with the [Epinio Rancher Extension](https://github.com/epinio/ui/blob/doc/1.12-updates/docs/developer/developing-rancher-extension.md){target="_blank"} or [Standalone Application](https://github.com/epinio/ui/blob/doc/1.12-updates/docs/developer/developing-standalone-application.md){target="_blank"}. Looking forward to your first PR!
