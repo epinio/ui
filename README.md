@@ -12,10 +12,10 @@ If you are looking to just install Epinio on a cluster, check out in depth docum
 If you are looking for the main Epinio repo that contains the Epinio backend, that is in this [repository](https://github.com/epinio/epinio).
 
 ## Installing and Production
-Follow the instructions [here](https://github.com/epinio/ui/docs/production.md).
+Follow the instructions [here](docs/production.md).
 
 ## Development
 To get started with Epinio UI development step through the below guides to get up and running. 
-1. [Pre-Requisities](https://github.com/epinio/ui/docs/pre-requisities.md)
-2. [Developing for the Epinio Rancher Extension](https://github.com/epinio/ui/docs/developing-rancher-extension.md)
-3. [Developing for the Epinio Standalone application](https://github.com/epinio/ui/docs/developing-standalone-application.md)
+1. [Pre-Requisities](docs/pre-requisities.md)
+2. [Developing for the Epinio Rancher Extension](docs/developing-rancher-extension.md)
+3. [Developing for the Epinio Standalone application](docs/developing-standalone-application.md)
