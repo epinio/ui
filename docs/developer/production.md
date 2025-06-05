@@ -1,7 +1,5 @@
 # Developer Guide
 
-The Epinio UI is currently served via the [Rancher Dashboard](https://github.com/rancher/dashboard) where both the code lives and the build occurs.
-
 ## Release Epinio UI
 
 ### Built-in / Embedded
