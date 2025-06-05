@@ -94,7 +94,8 @@ if (isEpinioSingleProduct) {
   routes.unshift({
     name: `${EPINIO_PRODUCT_NAME}`,
     path: `/:product/`,
-    component: ListEpinio
+    component: ListEpinio,
+    meta
   });
 }
 

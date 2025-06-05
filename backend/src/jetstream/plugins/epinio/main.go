@@ -176,8 +176,8 @@ func (epinio *Epinio) AddRootGroupRoutes(echoGroup *echo.Group) {
 
 	// Rancher Steve API
 	steveGroup := rancherProxyGroup.Group("/v1")
-  steveGroup.GET("/uiplugins")
 	steveGroup.Use(p.SetSecureCacheContentMiddleware)
+  steveGroup.GET("/schemas", steveProxy.SteveSchemas)
 	steveGroup.Use(func(h echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			// TODO: RC Tech Debt - This was done as there was no pp/session access in the rancher proxy stuff. Can now be fixed
@@ -196,7 +196,6 @@ func (epinio *Epinio) AddRootGroupRoutes(echoGroup *echo.Group) {
 	// Rancher Steve API (secure)
 	steveGroup.Use(p.SessionMiddleware())
 	steveGroup.GET("/management.cattle.io.cluster", steveProxy.Clusters)
-	steveGroup.GET("/schemas", steveProxy.SteveSchemas)
 	steveGroup.GET("/userpreferences", steveProxy.GetUserPrefs)
 	steveGroup.PUT("/userpreferences/*", steveProxy.GetSpecificUserPrefs)
 
