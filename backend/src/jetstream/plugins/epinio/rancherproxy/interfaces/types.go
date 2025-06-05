@@ -106,6 +106,13 @@ type Schema struct {
 	Attributes        map[string]interface{} `json:"attributes"`
 }
 
+type UIPlugin struct {
+  TypeMeta interface{} `json:",inline"`
+  ObjectMeta interface{} `json:"metadata,omitempty"`
+  Spec interface{} `json:"spec"`
+  Status interface{} `json:"status"`
+}
+
 type Error struct {
 	Message string `json:"message"`
 	Status  string `json:"status"`

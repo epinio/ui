@@ -14,4 +14,4 @@ docker run \
     -e GITHUB_TOKEN=$GITHUB_TOKEN \
     -e ACTIONS_ID_TOKEN_REQUEST_URL=$ACTIONS_ID_TOKEN_REQUEST_URL \
     -e ACTIONS_ID_TOKEN_REQUEST_TOKEN=$ACTIONS_ID_TOKEN_REQUEST_TOKEN \
-    goreleaser/goreleaser-cross:v1.20.0 $@
+    goreleaser/goreleaser-cross:v1.21.5 $@

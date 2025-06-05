@@ -6,7 +6,7 @@
     "node": ">=20"
   },
   "dependencies": {
-    "@rancher/shell": "^3.0.4",
+    "@rancher/shell": "^3.0.5-rc.2",
     "@types/lodash": "^4.17.16",
     "oidc-client-ts": "^3.2.0",
     "vue-i18n": "^11.1.3"

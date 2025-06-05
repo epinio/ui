@@ -21,8 +21,9 @@ func NewDefaultSchemas(ec echo.Context) *interfaces.Collection {
 
 	baseURL := interfaces.GetSelfLink(ec)
 
-	col.Data = make([]interface{}, 1)
+	col.Data = make([]interface{}, 2)
 	col.Data[0] = NewSchema(baseURL, "management.cattle.io.setting")
+	col.Data[1] = NewSchema(baseURL, "management.cattle.io.cluster")
 
 	return &col
 }

@@ -1,18 +1,21 @@
+![logo-epinio](https://github.com/user-attachments/assets/ddd30d0d-135b-49d8-b1c1-962a79128dc2)
+
 # Epinio UI
+This repository contains the UI for epinio. The UI consists of a Rancher Extension and a "ui backend" which helps support Epinio when it is in standalone mode by proxying requests or mocking them. 
 
-## Pre-Requisites
+![image](https://github.com/user-attachments/assets/3dc1f1df-a5b0-48ca-838d-d26d5193ee23)
 
-### Configure Epinio
-Epinio must be informed of the domain the UI is served on. This can be set by the access controll allow origin property  
-* when installing epinio (`helm install epinio-installer epinio/epinio-installer --values <filepath to below>.yaml`)
-  ```
-  global:
-    domain: <see epinio docs>
-  server:
-    accessControlAllowOrigin: <domain>
-  ```
-* at run time (edit the `ACCESS_CONTROL_ALLOW_ORIGIN` env var of the `epinio/epinio-server` `deployment`)
+## Installing
+If you are looking to just install Epinio on a cluster, check out in depth documentation on the [Epinio website](https://docs.epinio.io/installation/install_epinio).
 
-## Run the Epinio UI
+## Main Epinio Repository
+If you are looking for the main Epinio repo that contains the Epinio backend, that is in this [repository](https://github.com/epinio/epinio).
 
-See [./dashboard/README.md](./dashboard/README.md)
+## Installing and Production
+Follow the instructions [here](docs/production.md).
+
+## Development
+To get started with Epinio UI development step through the below guides to get up and running. 
+1. [Pre-Requisities](docs/pre-requisities.md)
+2. [Developing for the Epinio Rancher Extension](docs/developing-rancher-extension.md)
+3. [Developing for the Epinio Standalone application](docs/developing-standalone-application.md)
