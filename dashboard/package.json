@@ -8,6 +8,8 @@
   "dependencies": {
     "@rancher/shell": "^3.0.4",
     "@types/lodash": "^4.17.16",
+    "eslint-plugin-node": "^11.1.0",
+    "eslint-plugin-promise": "^7.2.1",
     "oidc-client-ts": "^3.2.0",
     "vue-i18n": "^11.1.3"
   },
