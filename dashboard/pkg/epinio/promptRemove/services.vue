@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed } from 'vue'
 import { useStore } from 'vuex'
 import { resourceNames } from '@shell/utils/string'
 
@@ -10,8 +10,6 @@ const props = defineProps<{
 }>();
 const store = useStore()
 const t = store.getters['i18n/t'];
-
-const toRemove = computed(() => store.state['action-menu'].toRemove)
 
 const plusMore = computed(() => {
   const remaining = props.names.length - 5; //5 is the max specified in resourceNames func
@@ -25,7 +23,6 @@ const bounded = computed(() => {
   }, []) || []
 })
 
-const emit = defineEmits(['update:value'])
 </script>
 
 <template>

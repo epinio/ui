@@ -1,21 +1,17 @@
 <script setup lang="ts">
 import { useStore } from 'vuex';
-import { ref, computed, onMounted, useAttrs } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { ref, computed, onMounted } from 'vue';
 
 import EpinioCatalogServiceModel from '../models/catalogservices';
-import { EpinioCompRecord, EPINIO_PRODUCT_NAME, EPINIO_TYPES } from '../types';
+import { EPINIO_PRODUCT_NAME, EPINIO_TYPES } from '../types';
 
 import ResourceTable from '@shell/components/ResourceTable.vue';
 
 const store = useStore();
-const attrs = useAttrs();
 
 const t = store.getters['i18n/t'];
 
-const props = defineProps<{
-  value: EpinioCatalogServiceModel,
-}>();
+const props = defineProps<{ value: EpinioCatalogServiceModel }>(); // eslint-disable-line @typescript-eslint/no-unused-vars
 
 const pending = ref<boolean>(true);
 
@@ -46,7 +42,7 @@ const servicesHeaders = computed(() => {
     >
       <template #cell:boundApps="{ row }">
         <span v-if="row.applications.length">
-          <template :key="app.id" v-for="(app, index) in row.applications">
+          <template v-for="(app, index) in row.applications" :key="app.id">
             <LinkDetail
               :row="app"
               :value="app.meta.name"

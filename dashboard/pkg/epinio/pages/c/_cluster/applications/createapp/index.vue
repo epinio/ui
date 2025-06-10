@@ -21,7 +21,6 @@ const store = useStore();
 const loading = ref(true);
 const value = ref<any>(null);
 const mode = ref(_CREATE);
-const errors = ref<string[]>([]);
 const source = ref<EpinioAppSource>();
 const bindings = ref<EpinioAppBindings>();
 const appChart = reactive({ chartsList: undefined as any, selectedChart: undefined });
@@ -167,8 +166,8 @@ function finish() {
           :mode="mode"
           :info="epinioInfo"
           @change="updateSource"
-          @changeAppInfo="updateInfo"
-          @changeAppConfig="updateManifestConfigurations"
+          @change-app-info="updateInfo"
+          @change-app-config="updateManifestConfigurations"
           @valid="(val) => steps[0].ready = val"
         />
       </template>

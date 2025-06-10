@@ -10,9 +10,7 @@ import SelectIconGrid from '@shell/components/SelectIconGrid.vue'
 
 const store = useStore()
 const router = useRouter()
-const props = defineProps<{
-  schema: Object,
-}>();
+const props = defineProps<{ schema: object }>(); // eslint-disable-line @typescript-eslint/no-unused-vars
 
 const pending = ref(true);
 const searchQuery = ref(null);

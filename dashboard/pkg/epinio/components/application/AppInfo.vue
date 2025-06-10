@@ -16,10 +16,10 @@ import { EPINIO_TYPES, EpinioNamespace, EpinioAppInfo } from '../../types';
 import Application from '../../models/applications';
 import { objValuesToString } from '../../utils/settings';
 
-interface Data {
+/*interface Data {
   errors: string[],
   values?: EpinioAppInfo
-}
+}*/
 
 const store = useStore();
 
@@ -38,7 +38,7 @@ const emit = defineEmits<{
 }>();
 
 // Reactive state
-const errors = ref<string[]>([]);
+const errors = ref<string[]>([]); // eslint-disable-line @typescript-eslint/no-unused-vars
 const values = ref<EpinioAppInfo | undefined>(undefined);
 const validSettings = ref<{ [key: string]: boolean }>({});
 
@@ -113,10 +113,8 @@ const update = () => {
   });
 };
 
-
-
 // Watchers
-watch(() => values.value?.configuration.instances, (newVal, oldVal) => {
+watch(() => values.value?.configuration.instances, (newVal) => {
   values.value.configuration.instances = Number(newVal);
   update()
 });
