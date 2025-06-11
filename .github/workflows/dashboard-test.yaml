@@ -27,6 +27,10 @@ jobs:
       - uses: actions/setup-node@v3
         with:
           node-version: '22.x'
+
+      - name: Install yarn
+        run: npm install -g yarn
+        working-directory: dashboard
       
       - name: Install packages
         run: yarn install
