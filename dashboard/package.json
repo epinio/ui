@@ -5,9 +5,7 @@
     "node": ">=20"
   },
   "dependencies": {
-    "@eslint/eslintrc": "^3.3.1",
-    "@eslint/js": "^9.28.0",
-    "@rancher/shell": "^3.0.4",
+    "@rancher/shell": "^3.0.5-rc.2",
     "@types/lodash": "^4.17.16",
     "eslint": "^9.28.0",
     "eslint-config-prettier": "^10.1.5",

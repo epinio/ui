@@ -27,12 +27,6 @@ const meta = {
 
 const routes = [
   {
-    name: `${EPINIO_PRODUCT_NAME}`,
-    path: `/:product/`,
-    component: ListEpinio,
-    meta,
-  },
-  {
     name: `${EPINIO_PRODUCT_NAME}-c-cluster-dashboard`,
     path: `/:product/c/:cluster`,
     component: Dashboard,
@@ -96,17 +90,12 @@ const routes = [
 
 const isEpinioSingleProduct = process.env.rancherEnv === "epinio";
 
-if (!isEpinioSingleProduct) {
-//   routes.unshift({
-//     name: `${EPINIO_PRODUCT_NAME}`,
-//     path: `/:product/`,
-//     component: ListEpinio,
-//     meta: {
-//       product: EPINIO_PRODUCT_NAME,
-//       cluster: BLANK_CLUSTER,
-//       pkg: EPINIO_PRODUCT_NAME,
-//     },
-//   });
+if (isEpinioSingleProduct) {
+  routes.unshift({
+    name: `${EPINIO_PRODUCT_NAME}`,
+    path: `/:product/`,
+    component: ListEpinio
+  });
 }
 
 export default routes;

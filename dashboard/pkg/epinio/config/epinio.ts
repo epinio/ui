@@ -21,7 +21,7 @@ export function init($plugin: any, store: any) {
   } = $plugin.DSL(store, $plugin.name);
 
   const isEpinioSingleProduct = process.env.rancherEnv === 'epinio';
-
+  
   if (isEpinioSingleProduct) {
     store.dispatch('setIsSingleProduct', {
       logo:                require(`../assets/logo-epinio.svg`), // eslint-disable-line @typescript-eslint/no-require-imports
