@@ -50,7 +50,6 @@ onMounted(async () => {
 });
 
 function login() {
-  console.log("HEYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY");
   store.dispatch('auth/redirectTo', this.redirectOpts);
 };
 </script>

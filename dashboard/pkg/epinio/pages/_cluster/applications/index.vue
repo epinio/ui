@@ -13,7 +13,7 @@ import { createEpinioRoute } from '../../../utils/custom-routing';
 
 const store = useStore();
 const router = useRouter();
-console.log("Applications: ", store);
+
 const resource = EPINIO_TYPES.APP;
 const schema = ref(store.getters['epinio/schemaFor'](resource));
 

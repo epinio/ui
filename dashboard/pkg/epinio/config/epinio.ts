@@ -21,9 +21,8 @@ export function init($plugin: any, store: any) {
   } = $plugin.DSL(store, $plugin.name);
 
   const isEpinioSingleProduct = process.env.rancherEnv === 'epinio';
-  console.log("IS ITA?", isEpinioSingleProduct);
+  
   if (isEpinioSingleProduct) {
-    console.log("SINGLE PRODUCT YO");
     store.dispatch('setIsSingleProduct', {
       logo:                require(`../assets/logo-epinio.svg`),
       productNameKey:      'epinio.label',
