@@ -508,7 +508,11 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
   // Change/handle changes of the app
 
   trace(text, ...args) {
-    console.log(`### Application: ${ text }`, `${ this.meta.namespace }/${ this.meta.name }`, args.length ? args : '');// eslint-disable-line no-console
+    console.log(
+      `### Application: ${ text }`, 
+      `${ this.meta.namespace }/${ this.meta.name }`, 
+      args.length ? args : ''
+    );
   }
 
   async create() {
@@ -657,7 +661,7 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
     return data;
   }
 
-  async downloadAppParts({ part, data, all = false }) {
+  async downloadAppParts({ part, data }) {
     if (part === 'values') {
       await downloadFile(`${ this.meta.name }-${ part }.yaml`, data, 'text/plain');
     } else {
@@ -708,7 +712,7 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
 
   showStagingLog(stageId = this.stage_id) {
     if (!stageId) {
-      console.warn('Unable to show staging logs, no stage id');// eslint-disable-line no-console
+      console.warn('Unable to show staging logs, no stage id');
     }
 
     // /namespaces/:namespace/staging/:stage_id/logs
@@ -748,7 +752,7 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
     }
   }
 
-  async remove(opt = {} ) {
+  async remove() {
     this.closeWindows();
 
     await super.remove();
@@ -832,7 +836,10 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
       // This is an async fn, but we're in a sync fn. It might create a backlog if previous requests don't complete in time
       fresh.forceFetch();
     }, `app ready replicas = desired`, 20000, 2000).catch((err) => {
-      console.warn('Original timeout request failed, also failed to wait for pseudo deployed state', err); // eslint-disable-line no-console
+      console.warn(
+        'Original timeout request failed, also failed to wait for pseudo deployed state', 
+        err
+      );
       throw origError;
     });
   }
@@ -849,10 +856,9 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
 
     const manifest = await this.fetchPart('manifest');
 
-    downloadFile(fileName, manifest, 'application/yaml')
-      .catch((e) => {
-        console.error('Failed to download manifest: ', e);// eslint-disable-line no-console
-      });
+    downloadFile(fileName, manifest, 'application/yaml').catch((e) => {
+      console.error('Failed to download manifest: ', e);
+    });
   }
 
   async updateConfigurations(initialValues = [], currentValues = this.configuration.configurations) {

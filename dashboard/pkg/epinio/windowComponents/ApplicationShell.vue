@@ -5,8 +5,8 @@ import {
   onMounted, 
   onBeforeUnmount, 
   watch,
+  PropType,
 } from 'vue';
-
 
 import Socket, {
   EVENT_CONNECTED,
@@ -49,15 +49,15 @@ const {
   getRootSocketUrl,
 } = useApplicationSocketMixin(props);
 
-const active = ref<Boolean>(true);
+const active = ref<boolean>(true);
 const xterm = ref<HTMLElement | null>(null);
-const instance = ref<String>(props.initialInstance || instanceChoices.value[0]);
-const terminal = ref<Object | null>(null);
-const fitAddon = ref<Object | null>(null);
-const searchAddon = ref<Object | null>(null);
-const webglAddon = ref<Object | null>(null);
-const isOpening = ref<Boolean>(false);
-const keepAliveTimer = ref<Object | null>(null);
+const instance = ref<string>(props.initialInstance || instanceChoices.value[0]);
+const terminal = ref<object | null>(null);
+const fitAddon = ref<object | null>(null);
+const searchAddon = ref<object | null>(null);
+const webglAddon = ref<object | null>(null);
+const isOpening = ref<boolean>(false);
+const keepAliveTimer = ref<object | null>(null);
 const xtermConfig = {
   allowProposedApi: true,
   cursorBlink:      true,
@@ -115,7 +115,7 @@ const setupTerminal = async () => {
 
   try {
     webglAddon.value = new addons.webgl.WebGlAddon();
-  } catch (e) {
+  } catch (e: any) { // eslint-disable-line @typescript-eslint/no-unused-vars
     // Some browsers (Safari) don't support the webgl renderer, so don't use it.
     webglAddon.value = null;
   }
@@ -177,7 +177,7 @@ const connect = async () => {
 
   socket.value = new Socket(url, false, 0, 'base64.channel.k8s.io');
 
-  socket.value.addEventListener(EVENT_CONNECTING, (e) => {
+  socket.value.addEventListener(EVENT_CONNECTING, () => {
     isOpen.value = false;
     isOpening.value = true;
   });
@@ -185,17 +185,17 @@ const connect = async () => {
   socket.value.addEventListener(EVENT_CONNECT_ERROR, (e) => {
     isOpen.value = false;
     isOpening.value = false;
-    console.error('Connect Error', e); // eslint-disable-line no-console
+    console.error('Connect Error', e);
   });
 
-  socket.value.addEventListener(EVENT_CONNECTED, (e) => {
+  socket.value.addEventListener(EVENT_CONNECTED, () => {
     isOpen.value = true;
     isOpening.value = false;
     fit();
     flush();
   });
 
-  socket.value.addEventListener(EVENT_DISCONNECTED, (e) => {
+  socket.value.addEventListener(EVENT_DISCONNECTED, () => {
     isOpen.value = false;
     isOpening.value = false;
   });
@@ -207,7 +207,7 @@ const connect = async () => {
     if (`${ type }` === '1') {
       terminal.value.write(msg);
     } else {
-      console.error(msg); // eslint-disable-line no-console
+      console.error(msg);
     }
   });
 
@@ -290,8 +290,8 @@ const cleanup = () => {
         </span>
         <span 
           v-else-if="isOpening"
-          class="text-warning"
           v-clean-html="t('wm.connection.connecting')"
+          class="text-warning"
         />
         <span 
           v-else

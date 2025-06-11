@@ -28,7 +28,6 @@ const openCreateRoute = () => {
 };
 
 const rows = computed(() => store.getters['epinio/all'](resource));
-const hasNamespaces = computed(() => !!store.getters['epinio/all'](EPINIO_TYPES.NAMESPACE)?.length);
 
 const pending = ref(true);
 
@@ -49,7 +48,7 @@ onMounted(async () => {
       :schema="schema"
       :resource="resource"
     >
-      <template v-slot:createButton>
+      <template #createButton>
         <button
           class="btn role-primary"
           @click="openCreateRoute"

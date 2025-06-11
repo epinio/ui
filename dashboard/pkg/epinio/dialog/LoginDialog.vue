@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
-import { useStore } from 'vuex';
 import axios from 'axios';
 import { useRouter } from 'vue-router';
 
@@ -12,7 +11,6 @@ import { Banner } from '@components/Banner';
 import Password from '@shell/components/form/Password';
 import { LabeledInput } from '@components/Form/LabeledInput';
 
-const store = useStore();
 const router = useRouter();
 
 const emit = defineEmits<{

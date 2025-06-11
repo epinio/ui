@@ -35,12 +35,12 @@ export default {
       }
     }
 
-    url = getters.urlOptions(url, opt);
+    url = getters.urlOptions(url);
 
     return url;
   },
 
-  urlOptions: () => (url: any, opt: any) => {
+  urlOptions: () => (url: any) => {
     // This is where Epinio API filter, limit, sort will be applied
     return url;
   },
