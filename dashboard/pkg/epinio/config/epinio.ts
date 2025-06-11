@@ -24,7 +24,7 @@ export function init($plugin: any, store: any) {
   
   if (isEpinioSingleProduct) {
     store.dispatch('setIsSingleProduct', {
-      logo:                require(`../assets/logo-epinio.svg`),
+      logo:                require(`../assets/logo-epinio.svg`), // eslint-disable-line @typescript-eslint/no-require-imports
       productNameKey:      'epinio.label',
       aboutPage:           createEpinioRoute('c-cluster-about', { cluster: EPINIO_STANDALONE_CLUSTER_NAME }),
       afterLoginRoute:     createEpinioRoute('c-cluster-dashboard', { cluster: EPINIO_STANDALONE_CLUSTER_NAME }),
@@ -46,15 +46,13 @@ export function init($plugin: any, store: any) {
     isMultiClusterApp:     true,
     inStore:               EPINIO_PRODUCT_NAME,
     icon:                  'epinio',
-    iconHeader:            isEpinioSingleProduct ? undefined : require(`../assets/logo-epinio.svg`),
+    iconHeader:            isEpinioSingleProduct ? undefined : require(`../assets/logo-epinio.svg`), // eslint-disable-line @typescript-eslint/no-require-imports
     removable:             false,
     showClusterSwitcher:   false,
     to:                    rootEpinioRoute(),
     showNamespaceFilter:   true,
     customNamespaceFilter: true,
   });
-
-  const BLANK_CLUSTER = '_';
 
   // Internal Types
 
@@ -271,7 +269,7 @@ export function init($plugin: any, store: any) {
     AGE
   ]);
 
-  const { width, canBeVariable, ...instanceName } = SIMPLE_NAME;
+  const { ...instanceName } = SIMPLE_NAME;
 
   headers(EPINIO_TYPES.APP_INSTANCE, [
     STATE,

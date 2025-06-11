@@ -6,6 +6,7 @@ import {
   onBeforeUnmount, 
   computed, 
   nextTick, 
+  PropType,
 } from 'vue';
 
 import Socket, {
@@ -59,17 +60,17 @@ const {
 } = useApplicationSocketMixin(props);
 
 const lastId = ref<number>(1);
-const search = ref<String>('');
-const instance = ref<String>(props.initialInstance || instanceChoices[0]);
+const search = ref<string>('');
+const instance = ref<string>(props.initialInstance || instanceChoices[0]);
 const lines = ref<Array<any>>([]);
-const timerFlush = ref<Object>(null);
-const isFollowing = ref<Boolean>(false);
-const active = ref<Boolean>(true);
+const timerFlush = ref<object>(null);
+const isFollowing = ref<boolean>(false);
+const active = ref<boolean>(true);
 const body = ref<HTMLElement>(null);
 
 const ansiup = new AnsiUp();
 const timestamps = store.getters['prefs/get'](LOGS_TIME);
-const wrap = ref<Boolean>(store.getters['prefs/get'](LOGS_WRAP));
+const wrap = ref<boolean>(store.getters['prefs/get'](LOGS_WRAP));
 
 onMounted(async () => {
   await connect();
@@ -172,28 +173,26 @@ const connect = async () => {
     return await getSocketUrl();
   });
 
-  socket.value.addEventListener(EVENT_CONNECTED, (e: any) => {
+  socket.value.addEventListener(EVENT_CONNECTED, () => {
     isOpen.value = true;
   });
 
-  socket.value.addEventListener(EVENT_DISCONNECTED, (e: any) => {
+  socket.value.addEventListener(EVENT_DISCONNECTED, () => {
     isOpen.value = false;
   });
 
   socket.value.addEventListener(EVENT_CONNECT_ERROR, (e: any) => {
     isOpen.value = false;
-    console.error('Connect Error', e); // eslint-disable-line no-console
+    console.error('Connect Error', e);
   });
 
   socket.value.addEventListener(EVENT_MESSAGE, async (e: any) => {
     let parsedData;
-    let blobData = await e.detail;
     
     try {
       parsedData = JSON.parse(e.detail.data);
     } catch (e) {
-      console.warn('Unable to parse websocket data: ', e); // eslint-disable-line no-console
-      console.log(e);
+      console.warn('Unable to parse websocket data: ', e);
       return;
     }
 
@@ -246,7 +245,7 @@ const follow = () => {
   body.value.scrollTop = body.value.scrollHeight;
 };
 
-const toggleWrap = (on) => {
+const toggleWrap = () => {
   store.dispatch('prefs/set', { key: LOGS_WRAP, value: wrap.value });
 };
 
@@ -332,8 +331,8 @@ const cleanup = () => {
               </button>
               <template #popper>
                 <Checkbox
-                  :label="t('wm.containerLogs.wrap')"
                   v-model:value="wrap"
+                  :label="t('wm.containerLogs.wrap')"
                   @update:value="toggleWrap"
                 />
               </template>

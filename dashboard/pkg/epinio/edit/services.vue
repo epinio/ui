@@ -25,8 +25,6 @@ import { validateKubernetesName } from '@shell/utils/validators/kubernetes-name'
 import isEqual from 'lodash/isEqual';
 import sortBy from 'lodash/sortBy';
 
-const EPINIO_SERVICE_PARAM = 'service';
-
 const store = useStore();
 const route = useRoute();
 const router = useRouter();
@@ -173,7 +171,7 @@ const showChartValues = computed(() => {
 });
 
 const done = () => {
-  if (!doneRoute) {
+  if (!doneRoute.value) {
     return;
   }
 
@@ -257,13 +255,14 @@ const resetChartValues = () => {
     @finish="save"
     @errors="e=>errors = e"
   >
-    <Banner
-      v-if="errors.length > 0"
-      v-for="(err, i) in errors"
-      :key="i"
-      color="error"
-      :label="err"
-    />
+    <div v-if="errors.length > 0">
+      <Banner
+        v-for="(err, i) in errors"
+        :key="i"
+        color="error"
+        :label="err"
+      />
+    </div>
     <NameNsDescription
       name-key="name"
       namespace-key="namespace"

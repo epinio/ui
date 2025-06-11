@@ -26,10 +26,14 @@ jobs:
           fetch-depth: 1
       - uses: actions/setup-node@v3
         with:
-          node-version: '14.x'
+          node-version: '22.x'
+
+      - name: Install yarn
+        run: npm install -g yarn
+        working-directory: dashboard
       
       - name: Install packages
-        run: yarn install:ci
+        run: yarn install
         working-directory: dashboard
       
       - name: Run linters

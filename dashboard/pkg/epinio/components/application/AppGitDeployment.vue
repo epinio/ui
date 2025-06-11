@@ -1,5 +1,4 @@
 <script setup>
-import { computed } from 'vue';
 import day from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 

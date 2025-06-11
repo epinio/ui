@@ -1,13 +1,11 @@
 import { User, UserManager } from 'oidc-client-ts';
 import { base64Encode } from '@shell/utils/crypto';
 
-/* eslint-disable no-unused-vars */
 export enum EpinioAuthTypes {
   LOCAL = 'local',
   DEX = 'dex',
   AGNOSTIC = 'agnostic'
 }
-/* eslint-enable no-unused-vars */
 
 export interface EpinioAuthUser {
   email: string,
@@ -138,7 +136,9 @@ class EpinioAuth {
         email: dexUser.profile.email || '',
         name:  dexUser.profile.name || ''
       };
-    } catch {}
+    } catch (e) {
+      console.log("Failed to get user: ", e);
+    }
   }
 
   async authHeader(config: EpinioAuthConfig) {

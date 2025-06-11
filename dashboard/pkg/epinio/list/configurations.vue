@@ -4,14 +4,12 @@ import { EPINIO_TYPES } from '../types';
 import Loading from '@shell/components/Loading';
 
 import { useStore } from 'vuex';
-import { ref, reactive, computed, onMounted, watch, useAttrs } from 'vue';
+import { ref, computed, onMounted, useAttrs } from 'vue';
 
 const store = useStore();
 const attrs = useAttrs();
 
-const props = defineProps<{
-  schema: object,
-}>();
+const props = defineProps<{ schema: object }>(); // eslint-disable-line @typescript-eslint/no-unused-vars
 
 const pending = ref<boolean>(true);
 
@@ -50,7 +48,7 @@ const rows = computed(() => {
       </template>
       <template #cell:boundApps="{ row }">
         <span v-if="row.applications.length">
-          <template :key="app.id" v-for="(app, index) in row.applications">
+          <template v-for="(app, index) in row.applications" :key="app.id">
             <LinkDetail
               :row="app"
               :value="app.meta.name"

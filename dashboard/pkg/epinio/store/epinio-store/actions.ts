@@ -140,7 +140,7 @@ export default {
 
         return Promise.reject(err);
       });
-
+		
     function responseObject(res: any) {
       let out = res.data;
 
@@ -245,8 +245,16 @@ export default {
     if (!isSingleProduct) {
       try {
         const schemas = await allHashSettled({
-          nodeMetrics: dispatch(`cluster/request`, { url: `/k8s/clusters/${ clusterId }/v1/schemas/${ METRIC.NODE }` }, { root: true }),
-          deployments: dispatch(`cluster/request`, { url: `/k8s/clusters/${ clusterId }/v1/schemas/${ WORKLOAD_TYPES.DEPLOYMENT }` }, { root: true })
+          nodeMetrics: dispatch(
+            `cluster/request`, 
+            { url: `/k8s/clusters/${ clusterId }/v1/schemas/${ METRIC.NODE }` }, 
+            { root: true }
+          ),
+          deployments: dispatch(
+            `cluster/request`, 
+            { url: `/k8s/clusters/${ clusterId }/v1/schemas/${ WORKLOAD_TYPES.DEPLOYMENT }` }, 
+            { root: true }
+          )
         });
 
         Object.values(schemas).forEach((res: any ) => {
@@ -255,7 +263,7 @@ export default {
           }
         });
       } catch (e) {
-        console.debug(`Unable to fetch schema/s for epinio cluster: ${ clusterId }`, e);// eslint-disable-line no-console
+        console.debug(`Unable to fetch schema/s for epinio cluster: ${ clusterId }`, e);
       }
     }
 
@@ -299,7 +307,7 @@ export default {
     const cnsi = endpoints?.find((e: any) => e.name === EPINIO_STANDALONE_CLUSTER_NAME);
 
     if (!cnsi) {
-      console.warn('Unable to find the CNSI guid of the Epinio Endpoint');// eslint-disable-line no-console
+      console.warn('Unable to find the CNSI guid of the Epinio Endpoint');
     }
 
     commit('singleProductCNSI', cnsi);

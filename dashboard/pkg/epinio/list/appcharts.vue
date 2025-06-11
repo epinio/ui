@@ -2,12 +2,10 @@
 import { EPINIO_TYPES } from '../types';
 import { useStore } from 'vuex';
 import ResourceTable from '@shell/components/ResourceTable';
-import { ref, onMounted, computed, watch, nextTick, useAttrs } from 'vue';
+import { ref, onMounted, computed, useAttrs } from 'vue';
 
 const pending = ref<boolean>(true);
-const props = defineProps<{
-  schema: object,
-}>();
+const props = defineProps<{ schema: object }>(); //eslint-disable-line @typescript-eslint/no-unused-vars
 
 const store = useStore();
 const attrs = useAttrs();

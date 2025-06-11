@@ -13,6 +13,10 @@ import { LabeledInput } from '@components/Form/LabeledInput';
 
 const router = useRouter();
 
+const emit = defineEmits<{
+  (e: 'close'): void
+}>();
+
 const props = defineProps<{
   cluster: EpinioCluster,
 }>()
@@ -75,6 +79,9 @@ const login = async (provider: string) => {
         throw new Error(`Unknown log in type: ${ selectedTab }`);
     }
     props.cluster.loggedIn = true;
+
+    //Ensure the store knows the dialog has been closed. 
+    emit('close');
 
     router.push({
       name:   'epinio-c-cluster-dashboard',

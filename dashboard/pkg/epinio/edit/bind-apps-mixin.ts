@@ -1,5 +1,5 @@
 import { useStore } from 'vuex';
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed } from 'vue';
 import { useRoute } from 'vue-router';
 
 import { EPINIO_TYPES } from '../types';
@@ -65,7 +65,7 @@ export function useEpinioBindAppsMixin(props: any) {
       // This is an async fn, but we're in a sync fn. It might create a backlog if previous requests don't complete in time
       serviceInstance.forceFetch();
     }, `service instance exists`, 30000, 2000).catch((err: Error) => {
-      console.warn(err); // eslint-disable-line no-console
+      console.warn(err);
       throw new Error('waitingForServiceInstance');
     });
 

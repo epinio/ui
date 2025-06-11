@@ -15,7 +15,7 @@ export const rootEpinioRoute = (): RootEpinioRoute => ({
 export const createEpinioRoute = (
   name: string, 
   params: Dictionary<string>, 
-  query?: Object,
+  query?: object,
 ): any => {
   const rootParams = rootEpinioRoute().params || {};
 
