@@ -270,27 +270,27 @@ function generateCards() {
   // Handles titles
   sectionContent.value[0].title = t(
     'typeLabel.withCount.namespaces',
-    { n: namespaces.value._value?.totalNamespaces },
+    { n: namespaces.value?.totalNamespaces },
   );
   sectionContent.value[1].title = t(
     'typeLabel.withCount.applications',
-    { n: apps.value._value?.totalApps },
+    { n: apps.value?.totalApps },
   );
   sectionContent.value[2].title = t(
     'typeLabel.withCount.services',
-    { n: services.value._value?.servicesInstances },
+    { n: services.value?.servicesInstances },
   );
 
   // Handles descriptions
-  if (namespaces.value._value?.totalNamespaces >= 0) {
+  if (namespaces.value.totalNamespaces >= 0) {
     sectionContent.value[0].isLoaded = true;
   }
 
-  if (apps.value._value?.totalApps >= 0) {
+  if (apps.value.totalApps >= 0) {
     sectionContent.value[1].isLoaded = true;
   }
 
-  if (services.value._value?.servicesCatalog?.length >= 0) {
+  if (services.value.servicesCatalog?.length >= 0) {
     sectionContent.value[2].isLoaded = true;
     sectionContent.value[2].isEnable = true;
   }
