@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { Location } from 'vue-router';
-import { useStore } from 'vuex';
+import { Location, useRouter } from 'vue-router';
+import { mapGetters, mapState, useStore } from 'vuex';
 import { ref, onMounted, computed, watch } from 'vue';
-import { 
-  EpinioApplicationResource, 
-  EpinioCatalogService, 
-  EPINIO_MGMT_STORE, 
+import {
+  EpinioApplicationResource,
+  EpinioCatalogService,
+  EPINIO_MGMT_STORE,
   EPINIO_TYPES,
 } from '../../../types';
 
@@ -29,10 +29,11 @@ type ComponentService = {
 }
 
 const store = useStore();
+const router = useRouter();
 const t = store.getters['i18n/t'];
 const colorStops = {
-  0: '--info', 
-  30: '--info', 
+  0: '--info',
+  30: '--info',
   70: '--info',
 };
 
@@ -41,18 +42,18 @@ const version = ref<string>('');
 const showMetricsInfo = ref<boolean>(false);
 const availableCpu = ref<number>(100);
 const availableMemory = ref<number>(100);
-const sectionContent = ref<Array>([
+const sectionContent = ref<array>([
   {
     isEnable: true,
     isLoaded: false,
     icon: 'icon-namespace',
     cta: createEpinioRoute(
-      'c-cluster-resource', 
-      { resource: EPINIO_TYPES.NAMESPACE }, 
+      'c-cluster-resource',
+      { resource: EPINIO_TYPES.NAMESPACE },
       { query: { mode: 'openModal' }, }
     ),
     link: createEpinioRoute(
-      'c-cluster-resource', 
+      'c-cluster-resource',
       { resource: EPINIO_TYPES.NAMESPACE },
     ),
     linkText:    t('epinio.intro.cards.namespaces.linkText'),
@@ -64,11 +65,11 @@ const sectionContent = ref<Array>([
     isLoaded: false,
     icon: 'icon-application',
     cta: createEpinioRoute(
-      'c-cluster-applications-createapp', 
+      'c-cluster-applications-createapp',
       { resource: EPINIO_TYPES.APP },
     ),
     link: createEpinioRoute(
-      'c-cluster-applications', 
+      'c-cluster-applications',
       { resource: EPINIO_TYPES.APP },
     ),
     linkText: t('epinio.intro.cards.applications.linkText'),
@@ -80,11 +81,11 @@ const sectionContent = ref<Array>([
     isLoaded: false,
     icon: 'icon-service',
     cta: createEpinioRoute(
-      'c-cluster-resource-create', 
+      'c-cluster-resource-create',
       { resource: EPINIO_TYPES.SERVICE_INSTANCE },
     ),
     link: createEpinioRoute(
-      'c-cluster-resource', 
+      'c-cluster-resource',
       { resource: EPINIO_TYPES.SERVICE_INSTANCE },
     ),
     linkText: t('epinio.intro.cards.services.linkText'),
@@ -101,7 +102,7 @@ const sectionContent = ref<Array>([
 const aboutLink = computed(() => {
   if (!store.getters['isSingleProduct']) {
     return createEpinioRoute(
-      'c-cluster-about', 
+      'c-cluster-about',
       { cluster: store.getters['clusterId'] },
     );
   }
@@ -110,9 +111,9 @@ const aboutLink = computed(() => {
 });
 
 const services = computed(() => {
-  const fetchServicesInstances: EpinioServiceModel[] = 
+  const fetchServicesInstances: EpinioServiceModel[] =
     store.getters['epinio/all'](EPINIO_TYPES.SERVICE_INSTANCE);
-  const fetchServices: EpinioCatalogService[] = 
+  const fetchServices: EpinioCatalogService[] =
     store.getters['epinio/all'](EPINIO_TYPES.CATALOG_SERVICE);
 
   // Try to find the desired services
@@ -121,15 +122,15 @@ const services = computed(() => {
   );
 
   //  if not found, return the first two services from the catalog
-  const services: EpinioCatalogService[] = 
+  const services: EpinioCatalogService[] =
     findDesiredServices.length ? findDesiredServices : fetchServices.slice(0, 2);
 
   const s = services.reduce(
     (acc: ComponentService[], service: EpinioCatalogService) => {
       acc.push({
         link: createEpinioRoute(
-          'c-cluster-resource-create', 
-          { resource: EPINIO_TYPES.SERVICE_INSTANCE, name: service.id }, 
+          'c-cluster-resource-create',
+          { resource: EPINIO_TYPES.SERVICE_INSTANCE, name: service.id },
           { query: { service: service.id } }
         ),
         name: service.name,
@@ -137,7 +138,7 @@ const services = computed(() => {
       });
 
       return acc;
-    }, 
+    },
     [] as ComponentService[]
   );
 
@@ -163,9 +164,9 @@ const apps = computed(() => {
 
 const namespaces = computed(() => {
   const allNamespaces: Namespace[] = store.getters['epinio/all'](EPINIO_TYPES.NAMESPACE);
-  
-  return { 
-    totalNamespaces: allNamespaces.length, 
+
+  return {
+    totalNamespaces: allNamespaces.length,
     latestNamespaces: sortBy(allNamespaces, 'metadata.createdAt').reverse().slice(0, 2),
   };
 });
@@ -213,15 +214,15 @@ onMounted(async () => {
 async function getVersionHash() {
   const hash: { [key:string]: any } = await allHash({
     ns: store.dispatch(
-      `epinio/findAll`, 
+      `epinio/findAll`,
       { type: EPINIO_TYPES.NAMESPACE }
     ),
     svc: store.dispatch(
-      `epinio/findAll`, 
+      `epinio/findAll`,
       { type: EPINIO_TYPES.SERVICE_INSTANCE }
     ),
     catalogSvc: store.dispatch(
-      `epinio/findAll`, 
+      `epinio/findAll`,
       { type: EPINIO_TYPES.CATALOG_SERVICE }
     ),
     version: store.dispatch('epinio/version'),
@@ -237,13 +238,13 @@ async function calcAvailableResources() {
   }
 
   const nodeMetricsSchema = store.getters[`epinio/schemaFor`](METRIC.NODE);
-  
+
   if (nodeMetricsSchema) {
     const id = store.getters['clusterId'];
 
     const nodeMetrics = await store.dispatch(
-      `cluster/request`, 
-      { url: `/k8s/clusters/${ id }/v1/metrics.k8s.io.nodemetrics` }, 
+      `cluster/request`,
+      { url: `/k8s/clusters/${ id }/v1/metrics.k8s.io.nodemetrics` },
       { root: true },
     );
 
@@ -255,7 +256,7 @@ async function calcAvailableResources() {
     };
 
     const memory = createMemoryValues(
-      currentCluster.mgmtCluster?.status?.capacity?.memory, 
+      currentCluster.mgmtCluster?.status?.capacity?.memory,
       nodeMetrics.data[0].usage.memory,
     );
 
@@ -269,28 +270,28 @@ async function calcAvailableResources() {
 function generateCards() {
   // Handles titles
   sectionContent.value[0].title = t(
-    'typeLabel.withCount.namespaces', 
-    { n: namespaces.value._value?.totalNamespaces },
+    'typeLabel.withCount.namespaces',
+    { n: namespaces._value?.totalNamespaces },
   );
   sectionContent.value[1].title = t(
-    'typeLabel.withCount.applications', 
-    { n: apps.value._value?.totalApps },
+    'typeLabel.withCount.applications',
+    { n: apps._value?.totalApps },
   );
   sectionContent.value[2].title = t(
-    'typeLabel.withCount.services', 
-    { n: services.value._value?.servicesInstances },
+    'typeLabel.withCount.services',
+    { n: services._value?.servicesInstances },
   );
 
   // Handles descriptions
-  if (namespaces.value._value?.totalNamespaces >= 0) {
+  if (namespaces._value?.totalNamespaces >= 0) {
     sectionContent.value[0].isLoaded = true;
   }
 
-  if (apps.value._value?.totalApps >= 0) {
+  if (apps._value?.totalApps >= 0) {
     sectionContent.value[1].isLoaded = true;
   }
 
-  if (services.value._value?.servicesCatalog?.length >= 0) {
+  if (services._value?.servicesCatalog?.length >= 0) {
     sectionContent.value[2].isLoaded = true;
     sectionContent.value[2].isEnable = true;
   }

@@ -1,7 +1,7 @@
 import { EPINIO_TYPES } from '@pkg/types';
 import { createEpinioRoute } from '@pkg/utils/custom-routing';
 import EpinioMetaResource from './epinio-namespaced-resource';
-import { EPINIO_SERVICE_PARAM } from '../edit/services.vue';
+import EPINIO_SERVICE_PARAM from '../edit/services.vue';
 
 export default class EpinioCatalogServiceModel extends EpinioMetaResource {
   get _availableActions() {
