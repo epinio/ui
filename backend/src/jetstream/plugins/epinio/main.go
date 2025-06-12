@@ -176,7 +176,6 @@ func (epinio *Epinio) AddRootGroupRoutes(echoGroup *echo.Group) {
 
 	// Rancher Steve API
 	steveGroup := rancherProxyGroup.Group("/v1")
-  steveGroup.GET("/uiplugins")
 	steveGroup.Use(p.SetSecureCacheContentMiddleware)
 	steveGroup.Use(func(h echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
