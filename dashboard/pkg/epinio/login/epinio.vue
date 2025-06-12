@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, reactive } from 'vue';
+import { onMounted, ref } from 'vue';
 import { useStore } from 'vuex';
 
-import Login from '@shell/mixins/login';
+const store = useStore();
+let redirectOpts = ref<object>({});
 
-const redirectOpts = reactive({});
 onMounted(async () => {
   /* Fetch the dex redirect url.
   *
@@ -36,8 +36,8 @@ onMounted(async () => {
   // supply our own mangled version anyway, so nuke.
   redirectAsUrl.searchParams.delete('scope');
 
-  this.redirectOpts = {
-    provider: this.name,
+  redirectOpts.value = {
+    provider: name,
     redirectUrl: redirectAsUrl.toString(),
     scopes: scopes.split(' '), // Put it in the format expcted by the `redirectTo` action
     scopesJoinChar: ' ',
@@ -50,7 +50,7 @@ onMounted(async () => {
 });
 
 function login() {
-  store.dispatch('auth/redirectTo', this.redirectOpts);
+  store.dispatch('auth/redirectTo', redirectOpts.value);
 };
 </script>
 

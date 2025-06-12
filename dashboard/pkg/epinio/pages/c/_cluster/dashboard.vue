@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { Location, useRouter } from 'vue-router';
-import { mapGetters, mapState, useStore } from 'vuex';
+import { Location } from 'vue-router';
+import { useStore } from 'vuex';
 import { ref, onMounted, computed, watch } from 'vue';
 import {
   EpinioApplicationResource,
@@ -29,7 +29,6 @@ type ComponentService = {
 }
 
 const store = useStore();
-const router = useRouter();
 const t = store.getters['i18n/t'];
 const colorStops = {
   0: '--info',
@@ -42,7 +41,7 @@ const version = ref<string>('');
 const showMetricsInfo = ref<boolean>(false);
 const availableCpu = ref<number>(100);
 const availableMemory = ref<number>(100);
-const sectionContent = ref<array>([
+const sectionContent = ref<Array>([
   {
     isEnable: true,
     isLoaded: false,
@@ -271,27 +270,27 @@ function generateCards() {
   // Handles titles
   sectionContent.value[0].title = t(
     'typeLabel.withCount.namespaces',
-    { n: namespaces._value?.totalNamespaces },
+    { n: namespaces.value._value?.totalNamespaces },
   );
   sectionContent.value[1].title = t(
     'typeLabel.withCount.applications',
-    { n: apps._value?.totalApps },
+    { n: apps.value._value?.totalApps },
   );
   sectionContent.value[2].title = t(
     'typeLabel.withCount.services',
-    { n: services._value?.servicesInstances },
+    { n: services.value._value?.servicesInstances },
   );
 
   // Handles descriptions
-  if (namespaces._value?.totalNamespaces >= 0) {
+  if (namespaces.value._value?.totalNamespaces >= 0) {
     sectionContent.value[0].isLoaded = true;
   }
 
-  if (apps._value?.totalApps >= 0) {
+  if (apps.value._value?.totalApps >= 0) {
     sectionContent.value[1].isLoaded = true;
   }
 
-  if (services._value?.servicesCatalog?.length >= 0) {
+  if (services.value._value?.servicesCatalog?.length >= 0) {
     sectionContent.value[2].isLoaded = true;
     sectionContent.value[2].isEnable = true;
   }
