@@ -1,40 +1,32 @@
-<script lang="ts">
-import Vue from 'vue';
+<script setup lang="ts">
+import { ref, onMounted } from 'vue';
+import { useRoute } from 'vue-router';
 import epinioAuth from '../../utils/auth';
 import Banner from '@components/Banner/Banner.vue';
 import { dashboardUrl } from '../../utils/embedded-helpers';
 
-interface Data {
-  error: string,
-}
+const route = useRoute();
 
-export default Vue.extend<Data, any, any, any>({
+const error = ref<string>('');
 
-  components: { Banner },
-
-  data() {
-    return { error: '' };
-  },
-
-  async fetch({ store, route }: { store: any, route: any}) {
-    const { error, error_description: errorDescription } = route.query;
-
-    this.error = errorDescription || error;
-
-    if (this.error) {
-      console.error('Dex indicates failure', error); // eslint-disable-line no-console
-    } else {
-      await epinioAuth.dexRedirect(route, {
-        dexUrl:       document.referrer,
-        dashboardUrl: dashboardUrl()
-      });
-    }
-  },
+onMounted(async () => {
+  const { error: routeError, error_description: errorDescription } = route.query;
+  
+  error.value = errorDescription || routeError;
+  
+  if (error.value) {
+    console.error('Dex indicates failure', error);
+  } else {
+    await epinioAuth.dexRedirect(route, {
+      dexUrl:       document.referrer,
+      dashboardUrl: dashboardUrl()
+    });
+  }
 });
-
 </script>
 
 <template>
+  {{error}}
   <main class="main-layout">
     <Banner
       v-if="error"

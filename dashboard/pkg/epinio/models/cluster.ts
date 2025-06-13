@@ -16,6 +16,7 @@ export default class EpinioCluster extends Resource {
   loggedIn: boolean;
   api: string;
   mgmtCluster: any;
+  version?: string;
   oidcEnabled: boolean = false;
 
   constructor(data: {
@@ -57,7 +58,7 @@ export default class EpinioCluster extends Resource {
 
       this.loggedIn = false;
     } catch (err) {
-      console.error(`Failed to log out: ${ err }`);// eslint-disable-line no-console
+      console.error(`Failed to log out: ${ err }`);
 
       this.metadata = {
         state: {

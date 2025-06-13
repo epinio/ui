@@ -1,42 +1,38 @@
-<script>
+<script setup lang="ts">
 import ResourceTable from '@shell/components/ResourceTable';
 import { EPINIO_TYPES } from '../types';
 import Loading from '@shell/components/Loading';
 
-export default {
-  name:       'EpinioConfigurationsList',
-  components: {
-    Loading,
-    ResourceTable,
-  },
-  async fetch() {
-    this.$store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.APP });
-    this.$store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.SERVICE_INSTANCE });
-    await this.$store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.CONFIGURATION });
-  },
-  props: {
-    schema: {
-      type:     Object,
-      required: true,
-    },
-  },
+import { useStore } from 'vuex';
+import { ref, computed, onMounted, useAttrs } from 'vue';
 
-  computed: {
-    rows() {
-      return this.$store.getters['epinio/all'](EPINIO_TYPES.CONFIGURATION);
-    },
-  }
-};
+const store = useStore();
+const attrs = useAttrs();
+
+const props = defineProps<{ schema: object }>(); // eslint-disable-line @typescript-eslint/no-unused-vars
+
+const pending = ref<boolean>(true);
+
+onMounted(async () => {
+  store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.APP });
+  store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.SERVICE_INSTANCE });
+  await store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.CONFIGURATION });
+
+  pending.value = false;
+});
+
+const rows = computed(() => {
+  return store.getters['epinio/all'](EPINIO_TYPES.CONFIGURATION);
+});
 </script>
 
 <template>
-  <Loading v-if="$fetchState.pending" />
+  <Loading v-if="pending" />
   <div v-else>
     <ResourceTable
-      v-bind="$attrs"
+      v-bind="attrs"
       :rows="rows"
       :schema="schema"
-      v-on="$listeners"
     >
       <template #cell:service="{ row }">
         <LinkDetail
@@ -52,9 +48,8 @@ export default {
       </template>
       <template #cell:boundApps="{ row }">
         <span v-if="row.applications.length">
-          <template v-for="(app, index) in row.applications">
+          <template v-for="(app, index) in row.applications" :key="app.id">
             <LinkDetail
-              :key="app.id"
               :row="app"
               :value="app.meta.name"
             />

@@ -1,194 +1,248 @@
-<script lang="ts">
-import Vue, { PropType } from 'vue';
+<script setup lang="ts">
+import { useStore } from 'vuex';
+import { ref, computed, reactive, onMounted, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
+
+import { 
+  EPINIO_TYPES, 
+  EpinioNamespace, 
+  EpinioCatalogService,
+} from '../types';
 import ServiceInstance from '../models/services';
-import CreateEditView from '@shell/mixins/create-edit-view';
-import CruResource from '@shell/components/CruResource.vue';
-import Loading from '@shell/components/Loading.vue';
+import { objValuesToString } from '../utils/settings';
+import { useEpinioBindAppsMixin } from './bind-apps-mixin';
 import { epinioExceptionToErrorsArray } from '../utils/errors';
-import LabeledSelect from '@shell/components/form/LabeledSelect.vue';
-import { EPINIO_TYPES, EpinioNamespace, EpinioCompRecord, EpinioCatalogService } from '../types';
-import { validateKubernetesName } from '@shell/utils/validators/kubernetes-name';
-import NameNsDescription from '@shell/components/form/NameNsDescription.vue';
 import ChartValues from '../components/settings/ChartValues.vue';
-import EpinioBindAppsMixin from './bind-apps-mixin.js';
-import { mapGetters } from 'vuex';
+import EpinioCatalogServiceModel from '../models/catalogservices';
+
+import Banner from '@components/Banner/Banner.vue';
+import Loading from '@shell/components/Loading.vue';
+import CruResource from '@shell/components/CruResource.vue';
+import LabeledSelect from '@shell/components/form/LabeledSelect.vue';
+import NameNsDescription from '@shell/components/form/NameNsDescription.vue';
+import { validateKubernetesName } from '@shell/utils/validators/kubernetes-name';
+
 import isEqual from 'lodash/isEqual';
 import sortBy from 'lodash/sortBy';
-import EpinioCatalogServiceModel from '../models/catalogservices';
-import { objValuesToString } from '../utils/settings';
 
-export const EPINIO_SERVICE_PARAM = 'service';
+const store = useStore();
+const route = useRoute();
+const router = useRouter();
+const t = store.getters['i18n/t'];
 
-interface Data {
-}
+const props = defineProps<{
+  value: ServiceInstance,
+  initialValue: ServiceInstance,
+  mode: string,
+}>();
 
-// Data, Methods, Computed, Props
-export default Vue.extend<Data, EpinioCompRecord, EpinioCompRecord, EpinioCompRecord>({
-  components: {
-    Loading,
-    ChartValues,
-    CruResource,
-    LabeledSelect,
-    NameNsDescription,
-  },
+const { 
+  selectedApps, 
+  nsAppOptions, 
+  noApps, 
+  updateServiceInstanceAppBindings,
+} = useEpinioBindAppsMixin(props);
 
-  mixins: [CreateEditView, EpinioBindAppsMixin],
+const doneRoute = ref<string>('');
+const pending = ref<boolean>(true);
+const errors = ref<Array<string>>([]);
+const doneParams = reactive<object>({});
+const validChartValues = ref<object>({});
+const failedWaitingForServiceInstance = ref<boolean>(false);
+const chartValues = reactive<ChartValues>(objValuesToString(props.value?.settings) || {});
 
-  props: {
-    value: {
-      type:     Object as PropType<ServiceInstance>,
-      required: true
-    },
-    initialValue: {
-      type:     Object as PropType<ServiceInstance>,
-      required: true
-    },
-    mode: {
-      type:     String,
-      required: true
-    },
-  },
+onMounted(async () => {
+  await Promise.all([
+    store.dispatch('epinio/findAll', { type: EPINIO_TYPES.CATALOG_SERVICE }),
+    store.dispatch('epinio/findAll', { type: EPINIO_TYPES.APP }),
+  ]);
 
-  async fetch() {
-    await Promise.all([
-      this.$store.dispatch('epinio/findAll', { type: EPINIO_TYPES.CATALOG_SERVICE }),
-      this.mixinFetch()
-    ]);
+  pending.value = false;
 
-    Vue.set(this.value, 'catalog_service', this.selectedCatalogService?.meta.name || this.$route.query[EPINIO_SERVICE_PARAM] || null);
-    Vue.set(this.value.meta, 'namespace', this.initialValue.meta.namespace || this.namespaces[0]?.meta.name);
-  },
-
-  data() {
-    return {
-      errors:                          [],
-      failedWaitingForServiceInstance: false,
-      selectedApps:                    this.value.boundapps || [],
-      chartValues:                     objValuesToString(this.value.settings) || {},
-      validChartValues:                {}
-    };
-  },
-
-  computed: {
-    ...mapGetters({ t: 'i18n/t' }),
-
-    validationPassed() {
-      if (this.isEdit && this.newBinds) {
-        return true;
-      }
-
-      if (!this.value.catalog_service) {
-        return false;
-      }
-
-      if (!Object.values(this.validChartValues).every((v) => !!v)) {
-        return false;
-      }
-
-      const nameErrors = validateKubernetesName(this.value?.name || '', this.t('epinio.namespace.name'), this.$store.getters, undefined, []);
-      const nsErrors = validateKubernetesName(this.value?.meta.namespace || '', '', this.$store.getters, undefined, []);
-
-      if (nameErrors.length === 0 && nsErrors.length === 0) {
-        return !this.failedWaitingForServiceInstance;
-      }
-
-      return false;
-    },
-
-    namespaces() {
-      return sortBy(this.$store.getters['epinio/all'](EPINIO_TYPES.NAMESPACE), 'name');
-    },
-
-    namespaceNames() {
-      return this.namespaces.map((n: EpinioNamespace) => n.metadata.name);
-    },
-
-    catalogServices(): EpinioCatalogServiceModel[] {
-      return this.$store.getters['epinio/all'](EPINIO_TYPES.CATALOG_SERVICE);
-    },
-
-    catalogServiceOpts() {
-      return this.catalogServices.map((cs: EpinioCatalogService) => ({
-        label: `${ cs.name } (${ cs.short_description })`,
-        value: cs.name
-      }));
-    },
-
-    noCatalogServices() {
-      return this.catalogServices.length === 0;
-    },
-
-    selectedCatalogService() {
-      return this.catalogServices?.find(({ name }: EpinioCatalogServiceModel) => name === this.value.catalog_service);
-    },
-
-    newBinds() {
-      return !isEqual(sortBy(this.selectedApps), sortBy(this.value.boundapps));
-    },
-
-    showChartValues() {
-      return Object.keys(this.selectedCatalogService?.settings || {}).length !== 0;
-    }
-  },
-
-  methods: {
-    async save(saveCb: (success: boolean) => void) {
-      this.errors = [];
-
-      const newSettings = !isEqual(objValuesToString(this.chartValues), objValuesToString(this.value.settings));
-
-      if (newSettings) {
-        this.value.settings = objValuesToString(this.chartValues);
-      }
-
-      try {
-        if (this.isCreate) {
-          await this.value.create();
-          if (this.selectedApps.length) {
-            await this.updateServiceInstanceAppBindings(this.value);
-          }
-          await this.$store.dispatch('epinio/findAll', { type: this.value.type, opt: { force: true } });
-        }
-
-        if (this.isEdit) {
-          if (newSettings) {
-            await this.value.update();
-          }
-          await this.updateServiceInstanceAppBindings(this.value);
-          await this.value.forceFetch();
-        }
-
-        if (!this._isBeingDestroyed || !this._isDestroyed) {
-          saveCb(true);
-          this.done();
-        }
-      } catch (err: Error | any) {
-        if (err.message === 'waitingForServiceInstance') {
-          Vue.set(this, 'failedWaitingForServiceInstance', true);
-          this.errors = [this.t('epinio.serviceInstance.create.catalogService.failedWaitingForServiceInstance')];
-        } else {
-          this.errors = epinioExceptionToErrorsArray(err);
-        }
-        saveCb(false);
-      }
-    },
-    resetChartValues() {
-      this.chartValues = {};
-      this.validChartValues = {};
-    }
-  },
-
-  watch: {
-    'value.meta.namespace'() {
-      Vue.set(this, 'selectedApps', []);
-    },
+  //Needed doneParams/doneRoute but the mixin that generates these is a rancher
+  //shell mixin, copied parts needed, will move to composable function as needed.
+  if (props.value?.doneParams) {
+    return props.value.doneParams;
   }
 
+  const out = { ...route.params };
+
+  delete out.namespace;
+  delete out.id;
+
+  doneParams.value = out;
+
+  if (props.value?.doneRoute ) {
+    doneRoute.value = props.value.doneRoute;
+  }else{
+    let name = props.route.name;
+
+    if ( name?.endsWith('-id') ) {
+      name = name.replace(/(-namespace)?-id$/, '');
+    } else if ( name?.endsWith('-create') ) {
+      name = name.replace(/-create$/, '');
+    }
+
+    doneRoute.value = name;
+  }
+})
+
+watch(
+  () => props.value.meta.namespace,
+  () => {
+    return selectedApps.value = [];
+  }
+);
+
+const catalogServices = computed(() => {
+  return store.getters['epinio/all'](EPINIO_TYPES.CATALOG_SERVICE);
 });
+
+const selectedCatalogService = computed(() => {
+  return catalogServices.value?.find(
+    ({id}: EpinioCatalogServiceModel) => id === props.value.catalog_service)
+  ;
+});
+
+const isEdit = computed(() => {
+  return props.mode === 'edit';
+});
+
+const validationPassed = computed(() => {
+  if (isEdit.value && newBinds.value) {
+    return true;
+  }
+  
+  if (!props.value.catalog_service) {
+    return false;
+  }
+
+  if (!Object.values(validChartValues.value).every((v) => !!v)) {
+    return false;
+  }
+
+  const nameErrors = validateKubernetesName(
+    props.value.name || '', 
+    t('epinio.namespace.name'), 
+    store.getters, 
+    undefined, 
+    [],
+  );
+  const nsErrors = validateKubernetesName(
+    props.value.meta.namespace || '', 
+    '', 
+    store.getters, 
+    undefined, 
+    [],
+  );
+
+  if (nameErrors.length === 0 && nsErrors.length === 0) {
+    return !failedWaitingForServiceInstance.value;
+  }
+
+  return false;
+});
+
+const namespaces = computed(() => {
+  return sortBy(store.getters['epinio/all'](EPINIO_TYPES.NAMESPACE), 'name');
+});
+
+const namespaceNames = computed(() => {
+  return namespaces.value.map((n: EpinioNamespace) => n.metadata.name);
+});
+
+const catalogServiceOpts = computed(() => {
+  return catalogServices.value.map((cs: EpinioCatalogService) => ({
+    label: `${cs.name} (${cs.short_description})`,
+    value: cs.name,
+  }));
+});
+
+const noCatalogServices = computed(() => {
+  return catalogServices.value.length === 0;
+});
+
+const newBinds = computed(() => {
+  return !isEqual(sortBy(selectedApps.value), sortBy(props.value.boundapps));
+});
+
+const showChartValues = computed(() => {
+  return Object.keys(selectedCatalogService.value?.settings || {}).length !== 0;
+});
+
+const done = () => {
+  if (!doneRoute.value) {
+    return;
+  }
+
+  router.replace({
+    name:   doneRoute.value,
+    params: doneParams.value || { resource: props.value.type },
+  });
+}
+
+const save = async (saveCb: (success: boolean) => void) => {
+  errors.value = [];
+
+  const newSettings = !isEqual(
+    objValuesToString(chartValues), 
+    objValuesToString(props.value.settings),
+  );
+  
+  if (newSettings) {
+    props.value.settings = objValuesToString(chartValues.value);
+  }else{
+    props.value.settings = undefined;
+  }
+
+  try {
+    if (!isEdit.value) {
+      await props.value.create();
+      if (selectedApps.value.length) {
+        await updateServiceInstanceAppBindings(props.value);
+      }
+      await store.dispatch(
+        'epinio/findAll', 
+        { type: props.value.type, opt: { force: true }},
+      );
+
+      saveCb(true);
+      done();
+    }
+
+    if (isEdit.value) {
+      if (newSettings) {
+        await props.value.update();
+      }
+      await updateServiceInstanceAppBindings(props.value);
+      await props.value.forceFetch();
+       
+      saveCb(true);
+      done();
+
+      //Can't find exactly how this is coming in, seems like a k8s attribute
+      //if (!_isBeingDestroyed || !_isDestroyed) {
+      //}
+    }
+  } catch (err: Error | any) {
+    if (err.message === 'waitingForServiceInstance') {
+      failedWaitingForServiceInstance.value = true;
+      errors.value = [t('epinio.serviceInstance.create.catalogService.failedWaitingForServiceInstance')];
+    } else {
+      errors.value = epinioExceptionToErrorsArray(err);
+    }
+    saveCb(false);
+  }
+};
+
+const resetChartValues = () => {
+  chartValues.value = {};
+  validChartValues.value = {};
+};
 </script>
 
 <template>
-  <Loading v-if="!value || $fetchState.pending" />
+  <Loading v-if="!value || pending" />
   <CruResource
     v-else-if="value"
     :can-yaml="false"
@@ -198,9 +252,17 @@ export default Vue.extend<Data, EpinioCompRecord, EpinioCompRecord, EpinioCompRe
     :resource="value"
     :errors="errors"
     namespace-key="meta.namespace"
-    @error="e=>errors = e"
     @finish="save"
+    @errors="e=>errors = e"
   >
+    <div v-if="errors.length > 0">
+      <Banner
+        v-for="(err, i) in errors"
+        :key="i"
+        color="error"
+        :label="err"
+      />
+    </div>
     <NameNsDescription
       name-key="name"
       namespace-key="namespace"
@@ -213,15 +275,15 @@ export default Vue.extend<Data, EpinioCompRecord, EpinioCompRecord, EpinioCompRe
     <div class="row">
       <div class="col span-6">
         <LabeledSelect
-          v-model="value.catalog_service"
-          :loading="$fetchState.pending"
+          v-model:value="value.catalog_service"
+          :loading="pending"
           :options="catalogServiceOpts"
-          :disabled="$fetchState.pending || isEdit"
+          :disabled="pending || isEdit"
           :searchable="true"
           :mode="mode"
           :multiple="false"
           :label-key="'epinio.serviceInstance.create.catalogService.label'"
-          :placeholder="$fetchState.pending || noCatalogServices ? t('epinio.serviceInstance.create.catalogService.placeholderNoOptions') : t('epinio.serviceInstance.create.catalogService.placeholderWithOptions')"
+          :placeholder="pending || noCatalogServices ? t('epinio.serviceInstance.create.catalogService.placeholderNoOptions') : t('epinio.serviceInstance.create.catalogService.placeholderWithOptions')"
           required
           @option:selected="resetChartValues"
         />
@@ -231,15 +293,15 @@ export default Vue.extend<Data, EpinioCompRecord, EpinioCompRecord, EpinioCompRe
     <div class="row">
       <div class="col span-6">
         <LabeledSelect
-          v-model="selectedApps"
-          :loading="$fetchState.pending"
+          v-model:value="selectedApps"
+          :loading="pending"
           :options="nsAppOptions"
-          :disabled="noApps || $fetchState.pending"
+          :disabled="noApps || pending"
           :searchable="true"
           :mode="mode"
           :multiple="true"
           :label-key="'epinio.configurations.bindApps.label'"
-          :placeholder="$fetchState.pending || noApps ? t('epinio.configurations.bindApps.placeholderNoOptions') : t('epinio.configurations.bindApps.placeholderWithOptions')"
+          :placeholder="pending || noApps ? t('epinio.configurations.bindApps.placeholderNoOptions') : t('epinio.configurations.bindApps.placeholderWithOptions')"
         />
       </div>
     </div>
@@ -250,7 +312,7 @@ export default Vue.extend<Data, EpinioCompRecord, EpinioCompRecord, EpinioCompRe
       <div class="col span-6">
         <div class="spacer" />
         <ChartValues
-          v-model="chartValues"
+          v-model:value="chartValues"
           :chart="selectedCatalogService.settings"
           :title="t('epinio.services.chartValues.title')"
           :mode="mode"

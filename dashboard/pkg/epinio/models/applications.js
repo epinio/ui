@@ -11,7 +11,6 @@ import EpinioNamespacedResource, { bulkRemove } from './epinio-namespaced-resour
 import { AppUtils } from '../utils/application';
 import { WORKLOAD_TYPES } from '@shell/config/types';
 import { NAME as EXPLORER } from '@shell/config/product/explorer';
-
 // See https://github.com/epinio/epinio/blob/00684bc36780a37ab90091498e5c700337015a96/pkg/api/core/v1/models/app.go#L11
 const STATES = {
   CREATING: 'created',
@@ -35,6 +34,7 @@ function isGitRepo(type) {
 
 export default class EpinioApplicationModel extends EpinioNamespacedResource {
   constructor(...args) {
+
     super(...args);
 
     // Props ---------------------------------------------------
@@ -508,7 +508,11 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
   // Change/handle changes of the app
 
   trace(text, ...args) {
-    console.log(`### Application: ${ text }`, `${ this.meta.namespace }/${ this.meta.name }`, args.length ? args : '');// eslint-disable-line no-console
+    console.log(
+      `### Application: ${ text }`, 
+      `${ this.meta.namespace }/${ this.meta.name }`, 
+      args.length ? args : ''
+    );
   }
 
   async create() {
@@ -633,13 +637,14 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
     this.showStagingLog(stage.id);
   }
 
-  exportApp(resources = this) {
-    this.$dispatch('promptModal', {
-      resources,
-      component:           'ExportAppDialog',
-      modalWidth:          '450px',
-      closeOnClickOutside: false,
-    });
+  async exportApp(resources = this) {
+    this.$dispatch(
+      'cluster/promptModal', {
+        component: 'ExportAppDialog',
+        resources,
+      },
+      { root: true },
+    );
   }
 
   async fetchPart(part, options = {}) {
@@ -656,7 +661,7 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
     return data;
   }
 
-  async downloadAppParts({ part, data, all = false }) {
+  async downloadAppParts({ part, data }) {
     if (part === 'values') {
       await downloadFile(`${ this.meta.name }-${ part }.yaml`, data, 'text/plain');
     } else {
@@ -707,7 +712,7 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
 
   showStagingLog(stageId = this.stage_id) {
     if (!stageId) {
-      console.warn('Unable to show staging logs, no stage id');// eslint-disable-line no-console
+      console.warn('Unable to show staging logs, no stage id');
     }
 
     // /namespaces/:namespace/staging/:stage_id/logs
@@ -747,7 +752,7 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
     }
   }
 
-  async remove(opt = {} ) {
+  async remove() {
     this.closeWindows();
 
     await super.remove();
@@ -831,7 +836,10 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
       // This is an async fn, but we're in a sync fn. It might create a backlog if previous requests don't complete in time
       fresh.forceFetch();
     }, `app ready replicas = desired`, 20000, 2000).catch((err) => {
-      console.warn('Original timeout request failed, also failed to wait for pseudo deployed state', err); // eslint-disable-line no-console
+      console.warn(
+        'Original timeout request failed, also failed to wait for pseudo deployed state', 
+        err
+      );
       throw origError;
     });
   }
@@ -848,10 +856,9 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
 
     const manifest = await this.fetchPart('manifest');
 
-    downloadFile(fileName, manifest, 'application/yaml')
-      .catch((e) => {
-        console.error('Failed to download manifest: ', e);// eslint-disable-line no-console
-      });
+    downloadFile(fileName, manifest, 'application/yaml').catch((e) => {
+      console.error('Failed to download manifest: ', e);
+    });
   }
 
   async updateConfigurations(initialValues = [], currentValues = this.configuration.configurations) {

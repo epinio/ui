@@ -9,7 +9,7 @@ export default class EpinioServiceModel extends EpinioNamespacedResource {
       self:   this.getUrl(),
       remove: this.getUrl(),
       bind:   `${ this.getUrl() }/bind`,
-      unbind: `${ this.getUrl() }/unbind`,
+      unmounted: `${ this.getUrl() }/unmounted`,
       create: this.getUrl(this.metadata?.namespace, null) // ensure name is null
     };
   }
@@ -102,7 +102,7 @@ export default class EpinioServiceModel extends EpinioNamespacedResource {
   }
 
   async unbindApp(appName) {
-    await this.followLink('unbind', {
+    await this.followLink('unmounted', {
       method:  'post',
       headers: {
         'content-type': 'application/json',
@@ -112,8 +112,8 @@ export default class EpinioServiceModel extends EpinioNamespacedResource {
     });
   }
 
-  async delete(unbind = true) {
-    await this._remove({ data: { unbind } });
+  async delete(unmounted = true) {
+    await this._remove({ data: { unmounted } });
   }
 
   async remove() {

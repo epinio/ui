@@ -1,133 +1,140 @@
-<script>
+<script setup lang="ts">
+import { useStore } from 'vuex';
+import { useRoute } from 'vue-router';
+import { ref, onMounted, computed, watch, nextTick, useAttrs } from 'vue';
+
+import { EPINIO_TYPES } from '../types';
+import { Card } from '@components/Card';
+import Banner from '@components/Banner/Banner.vue';
+import { _CREATE } from '@shell/config/query-params';
+import AsyncButton from '@shell/components/AsyncButton';
 import ResourceTable from '@shell/components/ResourceTable';
 import Masthead from '@shell/components/ResourceList/Masthead';
-import Banner from '@components/Banner/Banner.vue';
-import { Card } from '@components/Card';
-import { mapGetters, mapState } from 'vuex';
+import { epinioExceptionToErrorsArray } from '../utils/errors';
 import LabeledInput from '@components/Form/LabeledInput/LabeledInput.vue';
 import { validateKubernetesName } from '@shell/utils/validators/kubernetes-name';
-import AsyncButton from '@shell/components/AsyncButton';
-import { _CREATE } from '@shell/config/query-params';
-import { EPINIO_TYPES } from '../types';
-import { epinioExceptionToErrorsArray } from '../utils/errors';
 
-export default {
-  name: 'EpinioNamespaceList',
+const props = defineProps<{ schema: object, rows: Array}>(); // eslint-disable-line @typescript-eslint/no-unused-vars
 
-  components: {
-    Banner,
-    ResourceTable,
-    Masthead,
-    Card,
-    LabeledInput,
-    AsyncButton
-  },
+const attrs = useAttrs();
+const store = useStore();
+const route = useRoute();
+const t = store.getters['i18n/t'];
 
-  data() {
-    return {
-      showCreateModal: false,
-      errors:          [],
-      validFields:     { name: false },
-      value:           { meta: { name: '' } },
-      submitted:       false,
-      mode:            _CREATE,
-      touched:         false,
-      resource:        EPINIO_TYPES.NAMESPACE
-    };
-  },
+const errors = ref<Array>([]);
+const namespaceName = ref('namespaceName');
+const showCreateModal = ref<boolean>(false);
+const creatingNamespace = ref<boolean>(false);
+const touched = ref<boolean>(false);
 
-  computed: {
-    ...mapGetters({ t: 'i18n/t' }),
-    ...mapState('action-menu', ['showPromptRemove']),
+const mode: string = _CREATE;
+const resource: string = EPINIO_TYPES.NAMESPACE;
+const value = ref<Array>({ meta: { name: '' } });
 
-    validationPassed() {
-      /**
-       * Add here fields that need validation
-       */
-      const errors = this.getNamespaceErrors(this.value.meta.name);
+const showPromptRemove = computed(() => { 
+  return store.state['action-menu'].showPromptRemove
+});
 
-      return errors?.length === 0;
-    },
-  },
-  mounted() {
-    // Opens the create namespace modal if the query is passed as query param
-    if (this.$route.query.mode === 'openModal') {
-      this.openCreateModal();
-    }
-  },
-  props: {
-    schema: {
-      type:     Object,
-      required: true,
-    },
-    rows: {
-      type:     Array,
-      required: true,
-    },
-  },
+const validationPassed = computed(() => {
+  // Add here fields that need validation
+  if (!creatingNamespace.value) {
+    errors.value = []; // eslint-disable-line vue/no-side-effects-in-computed-properties
+    errors.value = getNamespaceErrors(value.value.meta.name); // eslint-disable-line vue/no-side-effects-in-computed-properties
+  }
 
-  watch: {
-    showPromptRemove(oldState, newState) {
-      if (oldState === true && newState === false) {
-        // Refetch apps when namespace is deleted
-        this.$store.dispatch('findAll', { type: 'applications', opt: { force: true } });
-      }
-    },
+  return errors.value?.length === 0;
+});
 
-    'value.meta.name': 'validateNamespace',
-  },
+onMounted(() => {
+  // Opens the create namespace modal if the query is passed as query param
+  if (route.query.mode === 'openModal') {
+    openCreateModal();
+  }
+});
 
-  methods: {
-    async openCreateModal() {
-      this.showCreateModal = true;
-      // Focus on the name input field... after it's been displayed
-      this.$nextTick(() => this.$refs.namespaceName.focus());
-      // Create a skeleton namespace
-      this.value = await this.$store.dispatch(`epinio/create`, { type: EPINIO_TYPES.NAMESPACE });
-    },
-
-    closeCreateModal() {
-      this.showCreateModal = false;
-      this.errors = [];
-      this.touched = false;
-    },
-
-    async onSubmit(buttonCb) {
-      try {
-        await this.value.create();
-        this.closeCreateModal();
-        buttonCb(true);
-      } catch (e) {
-        this.errors = epinioExceptionToErrorsArray(e).map(JSON.stringify);
-        buttonCb(false);
-      }
-    },
-
-    validateNamespace(name) {
-      if (!name?.length && !this.touched) {
-        this.touched = true;
-      }
-
-      this.errors = this.getNamespaceErrors(name);
-    },
-
-    getNamespaceErrors(name) {
-      const kubernetesErrors = validateKubernetesName(name || '', this.t('epinio.namespace.name'), this.$store.getters, undefined, []);
-
-      if (kubernetesErrors.length) {
-        return [kubernetesErrors.join(', ')];
-      }
-
-      const validateName = name.match(/[a-z0-9]([-a-z0-9]*[a-z0-9])?/);
-
-      if (!validateName || validateName[0] !== name) {
-        return [this.t('epinio.namespace.validations.name')];
-      }
-
-      return [];
+watch(
+  () => showPromptRemove,
+  (newState, oldState) => {
+    if (oldState === true && newState === false) {
+      // Refetch apps when namespace is deleted
+      store.dispatch('findAll', { type: 'applications', opt: { force: true } });
     }
   }
-};
+);
+
+// Watch for changes in value.meta.name, not needed as there are no rules currently
+watch(
+  () => value.value.meta.name,
+  () => {
+    creatingNamespace.value = false;
+    validateNamespace(value.value.meta.name);
+  }
+);
+
+async function openCreateModal() {
+  showCreateModal.value = true;
+  // Focus on the name input field... after it's been displayed
+  nextTick(() => namespaceName.value.focus());
+  // Create a skeleton namespace
+  value.value = await store.dispatch(
+    `epinio/create`, 
+    { type: EPINIO_TYPES.NAMESPACE },
+  );
+}
+
+function closeCreateModal() {
+  showCreateModal.value = false;
+  errors.value = [];
+  touched.value = false;
+}
+
+async function onSubmit(buttonCb) {
+  creatingNamespace.value = true;
+  try {
+    await value.value.create();
+    closeCreateModal();
+    buttonCb(true);
+    touched.value = false;
+  } catch (e) {
+    errors.value = [];
+    errors.value = epinioExceptionToErrorsArray(e).map(JSON.stringify);
+    buttonCb(false);
+  }
+}
+
+function validateNamespace(name) {
+  if (!name?.length && !touched.value) {
+    touched.value = true;
+  }
+
+  errors.value = getNamespaceErrors(name);
+}
+
+function getNamespaceErrors(name) {
+  const kubernetesErrors = validateKubernetesName(
+    name || '', 
+    t('epinio.namespace.name'), 
+    store.getters, 
+    undefined, 
+    [],
+  );
+
+  if (kubernetesErrors.length) {
+    return [kubernetesErrors.join(', ')];
+  }
+
+  const validateName = name.match(/[a-z0-9]([-a-z0-9]*[a-z0-9])?/);
+
+  if (
+    !validateName || 
+    validateName[0] !== name && 
+    !errors.value.includes(t('epinio.namespace.validations.name'))
+  ) {
+    return [t('epinio.namespace.validations.name')];
+  }
+
+  return [];
+}
 </script>
 
 <template>
@@ -136,7 +143,7 @@ export default {
       :schema="schema"
       :resource="resource"
     >
-      <template v-slot:createButton>
+      <template #createButton>
         <button
           class="btn role-primary"
           @click="openCreateModal"
@@ -146,13 +153,12 @@ export default {
       </template>
     </Masthead>
     <ResourceTable
-      v-bind="$attrs"
+      v-bind="attrs"
       :rows="rows"
       :groupable="false"
       :schema="schema"
       key-field="_key"
       :useQueryParamsForSimpleFiltering="true"
-      v-on="$listeners"
     />
     <div
       v-if="showCreateModal"
@@ -162,33 +168,28 @@ export default {
         class="modal-content"
         :show-actions="true"
       >
-        <h4
-          slot="title"
-          v-clean-html="t('epinio.namespace.create')"
-        />
-        <div
-          slot="body"
-          class="model-body"
-        >
+        <template #title>
+          <h4
+            v-clean-html="t('epinio.namespace.create')"
+          />
+        </template>
+        <template #body class="model-body">
           <LabeledInput
             ref="namespaceName"
-            v-model="value.meta.name"
+            v-model:value="value.meta.name"
             :label="t('epinio.namespace.name')"
-            :mode="mode"
             :required="true"
           />
-          <Banner
-            v-for="(err, i) in errors"
-            :key="i"
-            color="error"
-            :label="err"
-          />
-        </div>
-
-        <div
-          slot="actions"
-          class="model-actions"
-        >
+          <div v-if="touched">
+            <Banner
+              v-for="(err, i) in errors"
+              :key="i"
+              color="error"
+              :label="err"
+            />
+          </div>
+        </template>
+        <template #actions class="model-actions">
           <button
             class="btn role-secondary mr-10"
             @click="closeCreateModal"
@@ -200,14 +201,13 @@ export default {
             :mode="mode"
             @click="onSubmit"
           />
-        </div>
+        </template>
       </Card>
     </div>
   </div>
 </template>
 
 <style lang='scss' scoped>
-
 .modal {
   position: fixed; /* Stay in place */
   z-index: 50; /* Sit on top */
@@ -244,5 +244,5 @@ export default {
   }
 
 }
-
 </style>
+

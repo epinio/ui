@@ -171,6 +171,7 @@ func (epinio *Epinio) AddRootGroupRoutes(echoGroup *echo.Group) {
 	rancherProxyGroup := epinioGroup.Group("/rancher")
 
 	// Mock /rancherversion
+	rancherProxyGroup.GET("/version", steveProxy.GetRancherVersion)
 	rancherProxyGroup.GET("/rancherversion", steveProxy.GetRancherVersion)
 
 	// Rancher Steve API
@@ -188,6 +189,7 @@ func (epinio *Epinio) AddRootGroupRoutes(echoGroup *echo.Group) {
 	})
 
 	// Rancher Steve API (unsecure)
+	steveGroup.GET("/management.cattle.io.settings", steveProxy.MgmtSettings)
 	steveGroup.GET("/management.cattle.io.setting", steveProxy.MgmtSettings)
 
 	// Rancher Steve API (secure)

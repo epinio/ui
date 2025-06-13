@@ -4,6 +4,10 @@ import EpinioCatalogServiceModel from './models/catalogservices';
 import EpinioConfigurationModel from './models/configurations';
 import EpinioServiceModel from './models/services';
 
+export const TAPP = {
+  DASHBOARD:           'tapp.io.dashboard'
+};
+
 export const EPINIO_PRODUCT_NAME = 'epinio';
 
 export const EPINIO_MGMT_STORE = 'epiniomgmt';
@@ -37,21 +41,20 @@ export const APPLICATION_MANIFEST_SOURCE_TYPE = {
 
 // ------------ App Source Info (used within the UI) --------------
 export enum APPLICATION_SOURCE_TYPE {
-  CONTAINER_URL = 'container_url', // eslint-disable-line no-unused-vars
-  ARCHIVE = 'archive', // eslint-disable-line no-unused-vars
-  FOLDER = 'folder', // eslint-disable-line no-unused-vars
-  GIT_URL = 'git_url', // eslint-disable-line no-unused-vars
-  GIT_HUB = 'github', // eslint-disable-line no-unused-vars
-  GIT_LAB = 'gitlab', // eslint-disable-line no-unused-vars
+  CONTAINER_URL = 'container_url',
+  ARCHIVE = 'archive',
+  FOLDER = 'folder',
+  GIT_URL = 'git_url',
+  GIT_HUB = 'github',
+  GIT_LAB = 'gitlab',
 }
 
 export enum GitProvider {
-  // eslint-disable-next-line no-unused-vars
-  GIT = 'git', // eslint-disable-next-line no-unused-vars
-  GIT_HUB = 'github', // eslint-disable-next-line no-unused-vars
-  GIT_HUB_ENTERPRISE = 'github_enterprise', // eslint-disable-next-line no-unused-vars
-  GIT_LAB = 'gitlab', // eslint-disable-next-line no-unused-vars
-  GIT_LAB_ENTERPRISE = 'gitlab_enterprise', // eslint-disable-next-line no-unused-vars
+  GIT = 'git',
+  GIT_HUB = 'github',
+  GIT_HUB_ENTERPRISE = 'github_enterprise',
+  GIT_LAB = 'gitlab',
+  GIT_LAB_ENTERPRISE = 'gitlab_enterprise',
   UNKNOWN = 'unknown'
 }
 
@@ -93,12 +96,12 @@ export interface AppSourceBuilderImage {
  * Contains information used within a UI session to represent where an application came from
  */
 export interface EpinioAppSource {
-  type: string // APPLICATION_SOURCE_TYPE,
-  archive: AppSourceArchive,
+  type: string,
+  archive?: AppSourceArchive | undefined,
   container: AppSourceContainer,
   git: AppSourceGit,
   gitUrl: AppSourceGitUrl,
-  builderImage: AppSourceBuilderImage,
+  builderImage?: AppSourceBuilderImage,
   appChart: string,
 }
 
@@ -144,7 +147,7 @@ export interface EpinioApplicationResource {
     environment: Map<string, string>,
     routes: string[]
   },
-  image_url: string // eslint-disable-line camelcase
+  image_url: string
   meta: EpinioMeta
   origin: {
     Kind: number,
@@ -158,7 +161,7 @@ export interface EpinioApplicationResource {
       revision: string,
     }
   }
-  stage_id: string // eslint-disable-line camelcase
+  stage_id: string
   staging: {
     builder: string
   }
@@ -171,8 +174,8 @@ export type EpinioApplication = EpinioApplicationResource & EpinioApplicationMod
 export interface EpinioApplicationChartResource {
   meta: EpinioMeta,
   description: string,
-  helm_chart: string, // eslint-disable-line camelcase
-  short_description: string, // eslint-disable-line camelcase
+  helm_chart: string,
+  short_description: string,
 }
 
 export type EpinioAppChart = EpinioApplicationChartResource & EpinioAppChartModel & EpinioMetaProperty;
@@ -186,11 +189,11 @@ export interface EpinioCatalogServiceResource {
   id: string,
   description: string,
   shortId: string,
-  short_description: string, // eslint-disable-line camelcase
+  short_description: string,
   chart: string,
   chartVersion: string,
   appVersion: string,
-  helm_repo: EpinioHelmRepoResource, // eslint-disable-line camelcase
+  helm_repo: EpinioHelmRepoResource,
   values: string,
 }
 
@@ -200,7 +203,7 @@ export interface EpinioConfigurationResource {
   meta: EpinioMeta
   configuration: {
     user: string,
-    details: Map<string, {}>,
+    details: Map<string, object>,
     boundapps: string[],
   }
 }
@@ -210,18 +213,18 @@ export type EpinioConfiguration = EpinioConfigurationResource & EpinioConfigurat
 export interface EpinioServiceResource {
   meta: EpinioMeta
   boundapps: string[],
-  catalog_service: string, // eslint-disable-line camelcase
-  catalog_service_version: string, // eslint-disable-line camelcase
+  catalog_service: string,
+  catalog_service_version: string,
   status: string,
 }
 
 export type EpinioService = EpinioServiceResource & EpinioServiceModel & EpinioMetaProperty;
 
 export interface EpinioInfo {
-  default_builder_image: string, // eslint-disable-line camelcase
-  kube_version: string, // eslint-disable-line camelcase
-  platform: string, // eslint-disable-line camelcase
-  version: string, // eslint-disable-line camelcase
+  default_builder_image: string,
+  kube_version: string,
+  platform: string,
+  version: string, 
 }
 
 export interface EpinioVersion {
@@ -235,3 +238,26 @@ export interface EpinioNamespace extends EpinioMetaProperty {
 }
 
 export type EpinioCompRecord = Record<string, any>
+
+export interface EpinioAppInfo {
+  meta: {
+    name: string,
+    namespace: string
+  },
+  chart?: object,
+  configuration: {
+    configurations: string[],
+    instances: number,
+    environment: { [key: string] : any }
+    settings: { [key: string] : any }
+    routes: string[]
+  }
+}
+
+export const EPINIO_APP_MANIFEST = 'manifest';
+
+export interface EpinioAppBindings {
+  configurations: string[],
+  services: EpinioService[],
+}
+

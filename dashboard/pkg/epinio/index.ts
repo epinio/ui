@@ -4,6 +4,7 @@ import {
 } from '@shell/core/types';
 import { EPINIO_TYPES } from './types';
 import epinioRoutes from './routing/epinio-routing';
+
 import epinioMgmtStore from './store/epinio-mgmt-store';
 import epinioStore from './store/epinio-store';
 import { createEpinioRoute } from './utils/custom-routing';
@@ -15,7 +16,7 @@ const epinioObjAnnotations = [
 
 const isPodFromEpinio = (a: string) => epinioObjAnnotations.includes(a);
 
-const onEnter: OnNavToPackage = async({ getters, dispatch }, config) => {
+const onEnter: OnNavToPackage = async({ getters, dispatch }) => {
   await dispatch(`${ epinioMgmtStore.config.namespace }/loadManagement`);
 
   if (getters['isSingleProduct']) {
@@ -23,7 +24,7 @@ const onEnter: OnNavToPackage = async({ getters, dispatch }, config) => {
   }
 };
 
-const onLeave: OnNavAwayFromPackage = async(store, config) => {
+const onLeave: OnNavAwayFromPackage = async(store) => {
   // The dashboard retains the previous cluster info until another cluster is loaded, this helps when returning to the same cluster.
   // We need to forget epinio cluster info
   // - The polling is pretty brutal
@@ -38,14 +39,23 @@ export default function(plugin: IPlugin) {
   importTypes(plugin);
 
   // Provide plugin metadata from package.json
-  plugin.metadata = require('./package.json');
+  plugin.metadata = require('./package.json'); // eslint-disable-line @typescript-eslint/no-require-imports
 
   // Load a product
-  plugin.addProduct(require('./config/epinio'));
+  plugin.addProduct(require('./config/epinio')); // eslint-disable-line @typescript-eslint/no-require-imports
+  // plugin.addProduct(require('./product'));
 
   // Add Vuex stores
-  plugin.addDashboardStore(epinioMgmtStore.config.namespace, epinioMgmtStore.specifics, epinioMgmtStore.config);
-  plugin.addDashboardStore(epinioStore.config.namespace, epinioStore.specifics, epinioStore.config);
+  plugin.addDashboardStore(
+    epinioMgmtStore.config.namespace, 
+    epinioMgmtStore.specifics, 
+    epinioMgmtStore.config,
+  );
+  plugin.addDashboardStore(
+    epinioStore.config.namespace, 
+    epinioStore.specifics, 
+    epinioStore.config,
+  );
 
   // Add Vue Routes
   plugin.addRoutes(epinioRoutes);

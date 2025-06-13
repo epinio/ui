@@ -1,8 +1,12 @@
-<script>
-import { allHash } from '@shell/utils/promise';
-import { addParams } from '@shell/utils/url';
-import { base64Decode, base64Encode } from '@shell/utils/crypto';
-import Select from '@shell/components/form/Select';
+<script setup lang="ts">
+import { useStore } from 'vuex';
+import { 
+  ref, 
+  onMounted, 
+  onBeforeUnmount, 
+  watch,
+  PropType,
+} from 'vue';
 
 import Socket, {
   EVENT_CONNECTED,
@@ -11,243 +15,248 @@ import Socket, {
   EVENT_MESSAGE,
   EVENT_CONNECT_ERROR,
 } from '@shell/utils/socket';
+import { allHash } from '@shell/utils/promise';
+import { addParams } from '@shell/utils/url';
+import { base64Decode, base64Encode } from '@shell/utils/crypto';
+import { useApplicationSocketMixin } from './ApplicationSocketMixin';
+
+import Select from '@shell/components/form/Select';
 import Window from '@shell/components/nav/WindowManager/Window';
-import ApplicationSocketMixin from './ApplicationSocketMixin';
 
-export default {
-  components: { Window, Select },
+const store = useStore();
+const t = store.getters['i18n/t'];
 
-  mixins: [ApplicationSocketMixin],
-
-  props: {
-    // The instance in the application to initially show
-    initialInstance: {
-      type:    String,
-      default: null,
-    },
+const props = defineProps({
+  application: {
+    type: Object as PropType<object>,
+    default: null,
   },
-
-  data() {
-    return {
-      instance:       this.initialInstance || this.instanceChoices[0],
-      terminal:       null,
-      fitAddon:       null,
-      searchAddon:    null,
-      webglAddon:     null,
-      isOpening:      false,
-      keepAliveTimer: null,
-    };
+  endpoint: {
+    type: String as PropType<string>,
+    default: '',
   },
-
-  computed: {
-    xtermConfig() {
-      return {
-        allowProposedApi: true,
-        cursorBlink:      true,
-        useStyle:         true,
-        fontSize:         12,
-      };
-    },
-
+  initialInstance: {
+    type: String,
+    default: null,
   },
+});
 
-  watch: {
-    instance() {
-      this.connect();
+const {
+  socket,
+  isOpen,
+  backlog,
+  instanceChoices,
+  getRootSocketUrl,
+} = useApplicationSocketMixin(props);
+
+const active = ref<boolean>(true);
+const xterm = ref<HTMLElement | null>(null);
+const instance = ref<string>(props.initialInstance || instanceChoices.value[0]);
+const terminal = ref<object | null>(null);
+const fitAddon = ref<object | null>(null);
+const searchAddon = ref<object | null>(null);
+const webglAddon = ref<object | null>(null);
+const isOpening = ref<boolean>(false);
+const keepAliveTimer = ref<object | null>(null);
+const xtermConfig = {
+  allowProposedApi: true,
+  cursorBlink:      true,
+  useStyle:         true,
+  fontSize:         12,
+};
+
+watch(
+  () => instance.value,
+  () => {
+    connect();
+  }
+);
+
+onBeforeUnmount(() => {
+  clearInterval(keepAliveTimer.value);
+  cleanup();
+});
+
+onMounted(async () => {
+  await setupTerminal();
+  await connect();
+
+  isOpen.value = true;
+
+  clearInterval(keepAliveTimer.value);
+  keepAliveTimer.value = setInterval(() => {
+    fit();
+  }, 60 * 1000);
+}); 
+
+const setupTerminal = async () => {
+  const docStyle = getComputedStyle(document.querySelector('body'));
+  const xtermLib = await import('xterm');
+
+  const addons = await allHash({
+    fit:      import('xterm-addon-fit'),
+    webgl:    import('xterm-addon-webgl'),
+    weblinks: import('xterm-addon-web-links'),
+    search:   import('xterm-addon-search'),
+  });
+
+  const terminalTemp = new xtermLib.Terminal({
+    theme: {
+      background: docStyle.getPropertyValue('--terminal-bg').trim(),
+      foreground: docStyle.getPropertyValue('--terminal-text').trim(),
+      cursor: docStyle.getPropertyValue('--terminal-cursor').trim(),
+      selectionBackground: docStyle.getPropertyValue('--terminal-selection').trim(),
     },
+    ...xtermConfig,
+  });
 
-    height() {
-      this.fit();
-    },
-  },
+  fitAddon.value = new addons.fit.FitAddon();
+  searchAddon.value = new addons.search.SearchAddon();
 
-  beforeDestroy() {
-    clearInterval(this.keepAliveTimer);
-    this.cleanup();
-  },
+  try {
+    webglAddon.value = new addons.webgl.WebGlAddon();
+  } catch (e: any) { // eslint-disable-line @typescript-eslint/no-unused-vars
+    // Some browsers (Safari) don't support the webgl renderer, so don't use it.
+    webglAddon.value = null;
+  }
 
-  async mounted() {
-    await this.setupTerminal();
-    await this.connect();
+  terminalTemp.loadAddon(fitAddon.value);
+  terminalTemp.loadAddon(searchAddon.value);
+  terminalTemp.loadAddon(new addons.weblinks.WebLinksAddon());
+  if (webglAddon.value) {
+    terminalTemp.loadAddon(webglAddon.value);
+  }
+  
+  terminalTemp.open(xterm.value);
 
-    clearInterval(this.keepAliveTimer);
-    this.keepAliveTimer = setInterval(() => {
-      this.fit();
-    }, 60 * 1000);
-  },
+  fit();
+  flush();
 
-  methods: {
-    async setupTerminal() {
-      const docStyle = getComputedStyle(document.querySelector('body'));
-      const xterm = await import(/* webpackChunkName: "xterm" */ 'xterm');
+  terminalTemp.onData((input) => {
+    const msg = `0${ base64Encode(input) }`;
 
-      const addons = await allHash({
-        fit:      import(/* webpackChunkName: "xterm" */ 'xterm-addon-fit'),
-        webgl:    import(/* webpackChunkName: "xterm" */ 'xterm-addon-webgl'),
-        weblinks: import(/* webpackChunkName: "xterm" */ 'xterm-addon-web-links'),
-        search:   import(/* webpackChunkName: "xterm" */ 'xterm-addon-search'),
-      });
+    write(msg);
+  });
 
-      const terminal = new xterm.Terminal({
-        theme: {
-          background:          docStyle.getPropertyValue('--terminal-bg').trim(),
-          foreground:          docStyle.getPropertyValue('--terminal-text').trim(),
-          cursor:              docStyle.getPropertyValue('--terminal-cursor').trim(),
-          selectionBackground: docStyle.getPropertyValue('--terminal-selection').trim(),
-        },
-        ...this.xtermConfig,
-      });
+  terminal.value = terminalTemp;
+};
 
-      this.fitAddon = new addons.fit.FitAddon();
-      this.searchAddon = new addons.search.SearchAddon();
+const write = (msg) => {
+  if (isOpen.value) {
+    socket.value.send(msg);
+  } else {
+    backlog.value.push(msg);
+  }
+};
 
-      try {
-        this.webglAddon = new addons.webgl.WebGlAddon();
-      } catch (e) {
-        // Some browsers (Safari) don't support the webgl renderer, so don't use it.
-        this.webglAddon = null;
-      }
+const clear = () => {
+  terminal.value.clear();
+};
 
-      terminal.loadAddon(this.fitAddon);
-      terminal.loadAddon(this.searchAddon);
-      terminal.loadAddon(new addons.weblinks.WebLinksAddon());
-      terminal.open(this.$refs.xterm);
+const getSocketUrl = async () => {
+  const { url, token } = await getRootSocketUrl();
 
-      if (this.webglAddon) {
-        terminal.loadAddon(this.webglAddon);
-      }
+  return addParams(url, {
+    authtoken: token,
+    instance: instance.value,
+  });
+};
 
-      this.fit();
-      this.flush();
+const connect = async () => {
+  if (socket.value) {
+    await socket.value.disconnect();
+    socket.value = null;
+    terminal.value.reset();
+  }
 
-      terminal.onData((input) => {
-        const msg = `0${ base64Encode(input) }`;
+  const url = await getSocketUrl();
 
-        this.write(msg);
-      });
+  if (!url) {
+    return;
+  }
 
-      this.terminal = terminal;
-    },
+  socket.value = new Socket(url, false, 0, 'base64.channel.k8s.io');
 
-    write(msg) {
-      if (this.isOpen) {
-        this.socket.send(msg);
-      } else {
-        this.backlog.push(msg);
-      }
-    },
+  socket.value.addEventListener(EVENT_CONNECTING, () => {
+    isOpen.value = false;
+    isOpening.value = true;
+  });
 
-    clear() {
-      this.terminal.clear();
-    },
+  socket.value.addEventListener(EVENT_CONNECT_ERROR, (e) => {
+    isOpen.value = false;
+    isOpening.value = false;
+    console.error('Connect Error', e);
+  });
 
-    async getSocketUrl() {
-      const { url, token } = await this.getRootSocketUrl();
+  socket.value.addEventListener(EVENT_CONNECTED, () => {
+    isOpen.value = true;
+    isOpening.value = false;
+    fit();
+    flush();
+  });
 
-      return addParams(url, {
-        authtoken: token,
-        instance:  this.instance,
-      });
-    },
+  socket.value.addEventListener(EVENT_DISCONNECTED, () => {
+    isOpen.value = false;
+    isOpening.value = false;
+  });
 
-    async connect() {
-      if (this.socket) {
-        await this.socket.disconnect();
-        this.socket = null;
-        this.terminal.reset();
-      }
+  socket.value.addEventListener(EVENT_MESSAGE, (e) => {
+    const type = e.detail.data.substr(0, 1);
+    const msg = base64Decode(e.detail.data.substr(1));
 
-      const url = await this.getSocketUrl();
+    if (`${ type }` === '1') {
+      terminal.value.write(msg);
+    } else {
+      console.error(msg);
+    }
+  });
 
-      if (!url) {
-        return;
-      }
+  socket.value.connect();
+  terminal.value.focus();
+};
 
-      this.socket = new Socket(url, false, 0, 'base64.channel.k8s.io');
+const flush = () => {
+  const backlogTemp = backlog.value.slice();
 
-      this.socket.addEventListener(EVENT_CONNECTING, (e) => {
-        this.isOpen = false;
-        this.isOpening = true;
-      });
+  backlog.value = [];
 
-      this.socket.addEventListener(EVENT_CONNECT_ERROR, (e) => {
-        this.isOpen = false;
-        this.isOpening = false;
-        console.error('Connect Error', e); // eslint-disable-line no-console
-      });
+  for (const data of backlogTemp) {
+    socket.value.send(data);
+  }
+};
 
-      this.socket.addEventListener(EVENT_CONNECTED, (e) => {
-        this.isOpen = true;
-        this.isOpening = false;
-        this.fit();
-        this.flush();
-      });
+const fit = () => {
+  if (!fitAddon.value) {
+    return;
+  }
+  
+  fitAddon.value.fit();
+  const { rows, cols } = fitAddon.value.proposeDimensions();
 
-      this.socket.addEventListener(EVENT_DISCONNECTED, (e) => {
-        this.isOpen = false;
-        this.isOpening = false;
-      });
+  if (!isOpen.value) {
+    return;
+  }
 
-      this.socket.addEventListener(EVENT_MESSAGE, (e) => {
-        const type = e.detail.data.substr(0, 1);
-        const msg = base64Decode(e.detail.data.substr(1));
+  const message = `4${ base64Encode(
+    JSON.stringify({
+      Width:  Math.floor(cols),
+      Height: Math.floor(rows),
+    })
+  ) }`;
 
-        if (`${ type }` === '1') {
-          this.terminal.write(msg);
-        } else {
-          console.error(msg); // eslint-disable-line no-console
-        }
-      });
+  socket.value.send(message);
+};
 
-      this.socket.connect();
-      this.terminal.focus();
-    },
+const cleanup = () => {
+  if (socket.value) {
+    socket.value.disconnect();
+    socket.value = null;
+  }
 
-    flush() {
-      const backlog = this.backlog.slice();
-
-      this.backlog = [];
-
-      for (const data of backlog) {
-        this.socket.send(data);
-      }
-    },
-
-    fit(arg) {
-      if (!this.fitAddon) {
-        return;
-      }
-
-      this.fitAddon.fit();
-
-      const { rows, cols } = this.fitAddon.proposeDimensions();
-
-      if (!this.isOpen) {
-        return;
-      }
-
-      const message = `4${ base64Encode(
-        JSON.stringify({
-          Width:  Math.floor(cols),
-          Height: Math.floor(rows),
-        })
-      ) }`;
-
-      this.socket.send(message);
-    },
-
-    cleanup() {
-      if (this.socket) {
-        this.socket.disconnect();
-        this.socket = null;
-      }
-
-      if (this.terminal) {
-        this.terminal.dispose();
-        this.terminal = null;
-      }
-    },
-  },
+  if (terminal.value) {
+    terminal.value.dispose();
+    terminal.value = null;
+  }
 };
 </script>
 
@@ -260,46 +269,36 @@ export default {
     <template #title>
       <Select
         v-if="instanceChoices.length > 1"
-        v-model="instance"
+        v-model:value="instance"
         :disabled="instanceChoices.length === 1"
         class="containerPicker auto-width pull-left"
         :options="instanceChoices"
         :clearable="false"
         placement="top"
-      >
-        <template #selected-option="option">
-          <t
-            v-if="option"
-            k="epinio.applications.wm.containerName"
-            :label="option.label"
-          />
-        </template>
-      </Select>
+      />
       <div class="pull-left ml-5">
         <button
           class="btn btn-sm bg-primary"
           @click="clear"
         >
-          <t k="wm.containerShell.clear" />
+          {{t('wm.containerShell.clear')}}
         </button>
       </div>
       <div class="status pull-left">
-        <t
-          v-if="isOpen"
-          k="wm.connection.connected"
-          class="text-success"
-        />
-        <t
+        <span v-if="isOpen" class="text-success">
+          {{t('wm.connection.connected')}}
+        </span>
+        <span 
           v-else-if="isOpening"
-          k="wm.connection.connecting"
+          v-clean-html="t('wm.connection.connecting')"
           class="text-warning"
-          :raw="true"
         />
-        <t
+        <span 
           v-else
-          k="wm.connection.disconnected"
           class="text-error"
-        />
+        >
+          {{t('wm.connection.disconnected')}}
+        </span>
       </div>
     </template>
     <template #body>

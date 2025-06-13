@@ -1,69 +1,63 @@
-<script>
+<script setup lang="ts">
+import { ref, computed, onMounted } from 'vue';
+import { useStore } from 'vuex';
+import { useRouter } from 'vue-router';
+
 import ResourceTable from '@shell/components/ResourceTable';
 import Loading from '@shell/components/Loading';
 import Masthead from '@shell/components/ResourceList/Masthead';
 import LinkDetail from '@shell/components/formatter/LinkDetail';
+
 import { EPINIO_TYPES } from '../../../../types';
 import { createEpinioRoute } from '../../../../utils/custom-routing';
 
-export default {
-  components: {
-    Loading,
-    LinkDetail,
-    ResourceTable,
-    Masthead,
-  },
+const store = useStore();
+const router = useRouter();
 
-  async fetch() {
-    await this.$store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.APP });
-    // Don't block on these, they can show asyncronously
-    this.$store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.CONFIGURATION });
-    this.$store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.SERVICE_INSTANCE });
-  },
+const resource = EPINIO_TYPES.APP;
+const schema = ref(store.getters['epinio/schemaFor'](resource));
 
-  data() {
-    const resource = EPINIO_TYPES.APP;
-    const schema = this.$store.getters[`epinio/schemaFor`](resource);
+const headers = computed(() => store.getters['type-map/headersFor'](schema.value));
+const groupBy = computed(() => store.getters['type-map/groupByFor'](schema.value));
+const createLocation = computed(() =>
+  createEpinioRoute('c-cluster-applications-createapp', { cluster: store.getters['clusterId'] })
+);
 
-    return {
-      schema,
-      resource,
-    };
-  },
-
-  computed: {
-    headers() {
-      return this.$store.getters['type-map/headersFor'](this.schema);
-    },
-
-    groupBy() {
-      return this.$store.getters['type-map/groupByFor'](this.schema);
-    },
-
-    createLocation() {
-      return createEpinioRoute(`c-cluster-applications-createapp`, { cluster: this.$store.getters['clusterId'] });
-    },
-
-    rows() {
-      return this.$store.getters['epinio/all'](this.resource);
-    },
-
-    hasNamespaces() {
-      return !!this.$store.getters['epinio/all'](EPINIO_TYPES.NAMESPACE)?.length;
-    }
-  },
-
+const openCreateRoute = () => {
+  router.push(createLocation.value);
 };
+
+const rows = computed(() => store.getters['epinio/all'](resource));
+
+const pending = ref(true);
+
+onMounted(async () => {
+  await store.dispatch('epinio/findAll', { type: EPINIO_TYPES.APP });
+  // Non-blocking fetch
+  store.dispatch('epinio/findAll', { type: EPINIO_TYPES.CONFIGURATION });
+  store.dispatch('epinio/findAll', { type: EPINIO_TYPES.SERVICE_INSTANCE });
+
+  pending.value = false;
+});
 </script>
 
 <template>
-  <Loading v-if="$fetchState.pending" />
+  <Loading v-if="pending" />
   <div v-else>
     <Masthead
       :schema="schema"
       :resource="resource"
-      :create-location="createLocation"
-    />
+    >
+      <template #createButton>
+        <button
+          class="btn role-primary"
+          @click="openCreateRoute"
+        >
+          {{ t('generic.create') }}
+        </button>
+      </template>
+    </Masthead>
+
     <ResourceTable
       :schema="schema"
       :rows="rows"
@@ -72,69 +66,57 @@ export default {
     >
       <template #cell:configurations="{ row }">
         <span v-if="row.baseConfigurations.length">
-          <template v-for="(configuration, index) in row.baseConfigurations">
+          <template
+            v-for="(configuration, index) in row.baseConfigurations"
+            :key="configuration.id"
+          >
             <LinkDetail
-              :key="configuration.id"
               :row="configuration"
               :value="configuration.meta.name"
             />
-            <span
-              v-if="index < row.baseConfigurations.length - 1"
-              :key="configuration.id + 'i'"
-            >, </span>
+            <span v-if="index !== row.baseConfigurations.length - 1">, </span>
           </template>
         </span>
-        <span
-          v-else
-          class="text-muted"
-        >&nbsp;</span>
+        <span v-else class="text-muted">&nbsp;</span>
       </template>
+
       <template #cell:services="{ row }">
         <span v-if="row.services.length">
-          <template v-for="(service, index) in row.services">
+          <template
+            v-for="(service, index) in row.services"
+            :key="service.id"
+          >
             <LinkDetail
-              :key="service.id"
               :row="service"
               :value="service.meta.name"
             />
-            <span
-              v-if="index < row.services.length - 1"
-              :key="service.id + 'i'"
-            >, </span>
+            <span v-if="index !== row.services.length - 1">, </span>
           </template>
         </span>
-        <span
-          v-else
-          class="text-muted"
-        >&nbsp;</span>
+        <span v-else class="text-muted">&nbsp;</span>
       </template>
+
       <template #cell:route="{ row }">
-        <span
-          v-if="row.routes.length"
-          class="route"
-        >
-          <template v-for="(route, index) in row.routes">
+        <span v-if="row.routes.length" class="route">
+          <template
+            v-for="(route, index) in row.routes"
+            :key="route.id || route"
+          >
             <a
               v-if="row.state === 'running'"
-              :key="route.id"
               :href="`https://${route}`"
               target="_blank"
               rel="noopener noreferrer nofollow"
-            >{{ `https://${route}` }}</a>
-            <span
-              v-else
-              :key="route.id"
-            >{{ `https://${route}` }}</span>
-            <span
-              v-if="index < row.routes.length - 1"
-              :key="route.id + 'i'"
-            >, </span>
+            >
+              {{ `https://${route}` }}
+            </a>
+            <span v-else>
+              {{ `https://${route}` }}
+            </span>
+            <span v-if="index !== row.routes.length - 1">, </span>
           </template>
         </span>
-        <span
-          v-else
-          class="text-muted"
-        >&nbsp;</span>
+        <span v-else class="text-muted">&nbsp;</span>
       </template>
     </ResourceTable>
   </div>
@@ -142,6 +124,6 @@ export default {
 
 <style lang="scss" scoped>
 .route {
-  word-break: break-all;
+  word-break: break-word;
 }
 </style>

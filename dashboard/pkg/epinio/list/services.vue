@@ -1,47 +1,41 @@
-<script>
-import ResourceTable from '@shell/components/ResourceTable';
+<script setup lang="ts">
+import { ref, onMounted, useAttrs, computed } from 'vue';
+
 import { EPINIO_TYPES } from '../types';
 import Loading from '@shell/components/Loading';
+import { useStore } from 'vuex';
+import ResourceTable from '@shell/components/ResourceTable';
 
-export default {
-  name:       'EpinioServicesList',
-  components: {
-    Loading,
-    ResourceTable,
-  },
-  fetch() {
-    this.$store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.APP });
-    this.$store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.SERVICE_INSTANCE });
-  },
-  props: {
-    schema: {
-      type:     Object,
-      required: true,
-    },
-  },
+const pending = ref(true);
+const store = useStore();
+const attrs = useAttrs();
 
-  computed: {
-    rows() {
-      return this.$store.getters['epinio/all'](EPINIO_TYPES.SERVICE_INSTANCE);
-    },
-  }
-};
+onMounted(async () => {
+  await Promise.all([
+    store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.APP }),
+    store.dispatch(
+      `epinio/findAll`, 
+      { type: EPINIO_TYPES.SERVICE_INSTANCE }
+    ),
+  ]);
+  pending.value = false;
+});
+
+const rows = computed(() => {
+  return store.getters['epinio/all'](EPINIO_TYPES.SERVICE_INSTANCE);
+});
 </script>
-
 <template>
-  <Loading v-if="$fetchState.pending" />
+  <Loading v-if="pending" />
   <div v-else>
     <ResourceTable
-      v-bind="$attrs"
+      v-bind="attrs"
       :rows="rows"
-      :schema="schema"
-      v-on="$listeners"
     >
       <template #cell:boundApps="{ row }">
         <span v-if="row.applications.length">
-          <template v-for="(app, index) in row.applications">
+          <template v-for="(app, index) in row.applications" :key="app.id">
             <LinkDetail
-              :key="app.id"
               :row="app"
               :value="app.meta.name"
             />
@@ -59,3 +53,4 @@ export default {
     </ResourceTable>
   </div>
 </template>
+

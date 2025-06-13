@@ -6,10 +6,10 @@ export const bulkRemove = async(items, opt = {}) => {
   const model = items[0];
 
   if ( !opt.url ) {
-    opt.url = model.linkFor('self').replace(/\/[^\/]+$/, '?');
+    opt.url = model.linkFor('self').replace(/\/[^\/]+$/, '?'); // eslint-disable-line no-useless-escape
   }
   opt.method = 'delete';
-  opt.data = JSON.stringify({ unbind: true });
+  opt.data = JSON.stringify({ unmounted: true });
 
   // Separates the resources by namespace
   const _byNamespace = items.reduce((acc, cur) => {
@@ -38,7 +38,7 @@ export const bulkRemove = async(items, opt = {}) => {
   await Promise.all(Object.entries(resPerNS).map(([key, value]) => {
     const safeOpt = { ...opt };
 
-    safeOpt.url = `${ safeOpt.url?.replace(/\/([^\/]*)\/([^\/]*)\/([^\/]*)\/([^\/]*)/, `/$1/$2/$3/${ key }`) }${ value }`;
+    safeOpt.url = `${ safeOpt.url?.replace(/\/([^\/]*)\/([^\/]*)\/([^\/]*)\/([^\/]*)/, `/$1/$2/$3/${ key }`) }${ value }`; // eslint-disable-line no-useless-escape
 
     return model.$dispatch('request', { opt: safeOpt, type: model.type });
   }));
@@ -46,7 +46,7 @@ export const bulkRemove = async(items, opt = {}) => {
   // Remove from store, so we don't wait for poll to show resources removed
   items.forEach((i) => model.$dispatch('remove', i));
 
-  console.log('### Resource Bulk Remove', model.type, items?.map((ele) => ele?.id), opt); // eslint-disable-line no-console
+  console.log('### Resource Bulk Remove', model.type, items?.map((ele) => ele?.id), opt);
 };
 
 export default class EpinioMetaResource extends EpinioResource {

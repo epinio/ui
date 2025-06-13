@@ -1,56 +1,53 @@
-<script>
-import { EPINIO_TYPES } from '../types';
-import Loading from '@shell/components/Loading';
-import SelectIconGrid from '@shell/components/SelectIconGrid';
+<script setup lang="ts">
+import { useStore } from 'vuex'
+import { useRouter } from 'vue-router'
+import { ref, computed, onMounted } from 'vue'
 
-export default {
-  name:       'EpinioCatalogList',
-  components: { Loading, SelectIconGrid },
-  fetch() {
-    this.$store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.CATALOG_SERVICE });
-  },
-  props: {
-    schema: {
-      type:     Object,
-      required: true,
-    },
-  },
+import { EPINIO_TYPES } from '../types'
 
-  data() {
-    return { searchQuery: null };
-  },
+import Loading from '@shell/components/Loading.vue'
+import SelectIconGrid from '@shell/components/SelectIconGrid.vue'
 
-  methods: {
-    showDetails(chart) {
-      this.$router.push(chart.detailLocation);
-    },
+const store = useStore()
+const router = useRouter()
+const props = defineProps<{ schema: object }>(); // eslint-disable-line @typescript-eslint/no-unused-vars
 
-    colorFor() {
-      return `color-1`;
-    },
-  },
-  computed: {
-    list() {
-      const list = this.$store.getters['epinio/all'](EPINIO_TYPES.CATALOG_SERVICE);
+const pending = ref(true);
+const searchQuery = ref(null);
 
-      if (!this.searchQuery) {
-        return list;
-      } else {
-        const query = this.searchQuery.toLowerCase();
+onMounted(async () => {
+  await store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.CATALOG_SERVICE });
+  pending.value = false;
+})
 
-        return list.filter((e) => e?.chart.toLowerCase().includes(query) || e?.description.toLowerCase().includes(query) || e?.short_description.toLowerCase().includes(query));
-      }
-    },
+const list = computed(() => {
+  const catalogList = store.getters['epinio/all'](EPINIO_TYPES.CATALOG_SERVICE)
+  
+  if (!searchQuery.value) {
+    return catalogList;
+  } else {
+    const query = searchQuery.value.toLowerCase();
+
+    return catalogList.filter((e) => e?.chart.toLowerCase().includes(query) || 
+      e?.description.toLowerCase().includes(query) || 
+      e?.short_description.toLowerCase().includes(query));
   }
-};
+})
+
+const showDetails = (chart: any) => {
+  router.push(chart.detailLocation)
+}
+
+const colorFor = () => {
+  return `color-1`
+}
 </script>
 
 <template>
-  <Loading v-if="$fetchState.pending" />
+  <Loading v-if="pending" />
   <div v-else>
     <div class="filter-block">
       <input
-        ref="searchQuery"
         v-model="searchQuery"
         type="search"
         class="input-sm"
