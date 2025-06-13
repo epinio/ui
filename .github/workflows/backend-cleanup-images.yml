@@ -14,20 +14,18 @@ jobs:
         uses: snok/container-retention-policy@v3.0.0
         with:
           image-names: epinio-ui
-          cut-off: A week ago UTC
-          account-type: org
-          org-name: epinio
-          keep-at-least: 1
-          filter-tags: v*-[0-9]*-g*
-          filter-include-untagged: true
+          cut-off: 1w
+          account: epinio
+          keep-n-most-recent: 1
+          image-tags: v*-[0-9]*-g*
+          tag-selection: both
           token: ${{ secrets.IMG_CLEANUP_TOKEN }}
       - name: Delete untagged containers older than a week
         uses: snok/container-retention-policy@v3.0.0
         with:
           image-names: epinio-ui
-          cut-off: A week ago UTC
-          account-type: org
-          org-name: epinio
-          keep-at-least: 1
+          cut-off: 1w
+          account: epinio
+          keep-n-most-recent: 1
           token: ${{ secrets.IMG_CLEANUP_TOKEN }}
-          untagged-only: true
+          tag-selection: untagged
