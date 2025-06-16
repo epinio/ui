@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { useStore } from 'vuex';
 import { ref, computed, reactive, onMounted, watch } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
 
 import { 
   EPINIO_TYPES, 
@@ -26,8 +25,6 @@ import isEqual from 'lodash/isEqual';
 import sortBy from 'lodash/sortBy';
 
 const store = useStore();
-const route = useRoute();
-const router = useRouter();
 const t = store.getters['i18n/t'];
 
 const props = defineProps<{
@@ -65,7 +62,7 @@ onMounted(async () => {
     return props.value.doneParams;
   }
 
-  const out = { ...route.params };
+  const out = { ...store.$router.currentRoute._value.params };
 
   delete out.namespace;
   delete out.id;
@@ -175,7 +172,7 @@ const done = () => {
     return;
   }
 
-  router.replace({
+  store.$router.replace({
     name:   doneRoute.value,
     params: doneParams.value || { resource: props.value.type },
   });

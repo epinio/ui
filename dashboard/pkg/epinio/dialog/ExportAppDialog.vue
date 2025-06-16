@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { useStore } from 'vuex'
-import { useRoute } from 'vue-router'
 import {ref, computed, onMounted, onBeforeUnmount } from 'vue';
 
 import JSZip from 'jszip';
@@ -14,7 +13,6 @@ import Tabbed from '@shell/components/Tabbed/index.vue';
 import PercentageBar from '@shell/components/PercentageBar';
 
 const store = useStore();
-const route = useRoute();
 const t = store.getters['i18n/t'];
 const emit = defineEmits<{
   (e: 'close'): void
@@ -92,7 +90,7 @@ const exportApplicationManifest = async () => {
     );
   };
 
-  if (route.hash === '#manifest') {
+  if (store.$router.currentRoute._value.hash === '#manifest') {
     await resource.createManifest();
   } else {
     const partsData = await zipParts.reduce(async(acc, part) => ({
@@ -167,7 +165,7 @@ const fetchCancel = () => {
 }
 
 const close = () => {
-  if (route.hash !== '#manifest') {
+  if (store.$router.currentRoute._value.hash !== '#manifest') {
     fetchCancel();
   }
 

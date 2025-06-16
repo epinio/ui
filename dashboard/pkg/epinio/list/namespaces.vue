@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { useStore } from 'vuex';
-import { useRoute } from 'vue-router';
 import { ref, onMounted, computed, watch, nextTick, useAttrs } from 'vue';
 
 import { EPINIO_TYPES } from '../types';
@@ -18,7 +17,6 @@ const props = defineProps<{ schema: object, rows: Array}>(); // eslint-disable-l
 
 const attrs = useAttrs();
 const store = useStore();
-const route = useRoute();
 const t = store.getters['i18n/t'];
 
 const errors = ref<Array>([]);
@@ -47,7 +45,7 @@ const validationPassed = computed(() => {
 
 onMounted(() => {
   // Opens the create namespace modal if the query is passed as query param
-  if (route.query.mode === 'openModal') {
+  if (store.$router.currentRoute._value.query.mode === 'openModal') {
     openCreateModal();
   }
 });

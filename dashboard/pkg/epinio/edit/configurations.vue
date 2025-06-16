@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { useStore } from 'vuex';
-import { useRouter } from 'vue-router';
 import { ref, computed, onMounted, watch } from 'vue';
 
 import EpinioConfiguration from '../models/configurations';
@@ -18,7 +17,6 @@ import LabeledSelect from '@shell/components/form/LabeledSelect.vue';
 import NameNsDescription from '@shell/components/form/NameNsDescription.vue';
 import { validateKubernetesName } from '@shell/utils/validators/kubernetes-name';
 
-const router = useRouter();
 const store = useStore();
 const t = store.getters['i18n/t'];
 
@@ -69,7 +67,7 @@ const done = () => {
     return;
   }
 
-  router.replace({
+  store.$router.replace({
     name:   doneRoute.value,
     params: doneParams.value || { resource: props.value.type },
   });

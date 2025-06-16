@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { useStore } from 'vuex'
-import { useRouter } from 'vue-router'
 import { ref, computed, onMounted } from 'vue'
 
 import { EPINIO_TYPES } from '../types'
@@ -9,7 +8,6 @@ import Loading from '@shell/components/Loading.vue'
 import SelectIconGrid from '@shell/components/SelectIconGrid.vue'
 
 const store = useStore()
-const router = useRouter()
 const props = defineProps<{ schema: object }>(); // eslint-disable-line @typescript-eslint/no-unused-vars
 
 const pending = ref(true);
@@ -35,7 +33,7 @@ const list = computed(() => {
 })
 
 const showDetails = (chart: any) => {
-  router.push(chart.detailLocation)
+  store.$router.push(chart.detailLocation)
 }
 
 const colorFor = () => {

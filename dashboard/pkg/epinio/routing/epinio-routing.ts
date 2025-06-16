@@ -10,14 +10,9 @@ import ViewEpinioResource from '../pages/c/_cluster/_resource/_id.vue';
 import ViewEpinioNsResource from '../pages/c/_cluster/_resource/_namespace/_id.vue';
 
 import AuthVerify from "../pages/auth/verify.vue";
-// import { BLANK_CLUSTER } from '../config/epinio';
+import { BLANK_CLUSTER } from '../config/epinio';
 import { EPINIO_PRODUCT_NAME } from '../types';
 
-
-// // import ViewResource from '@shell/pages/c/_cluster/_product/_resource/_id.vue';
-// import ViewResource from '../pages/c/_cluster/viewresource/index.vue';
-
-const BLANK_CLUSTER = '_';
 
 const meta = {
   cluster: BLANK_CLUSTER,
@@ -100,7 +95,8 @@ if (isEpinioSingleProduct) {
   routes.unshift({
     name: `${EPINIO_PRODUCT_NAME}`,
     path: `/:product/`,
-    component: ListEpinio
+    component: ListEpinio,
+    meta,
   });
 }
 

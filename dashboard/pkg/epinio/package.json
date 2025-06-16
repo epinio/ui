@@ -1,7 +1,7 @@
 {
   "name": "epinio",
   "description": "epinio plugin",
-  "version": "0.1.0",
+  "version": "1.12.0",
   "private": false,
   "rancher": {
     "annotations": {

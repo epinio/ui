@@ -1,6 +1,5 @@
 <script lang="ts" setup>
 import { ref, computed, watch, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
 import { useStore } from 'vuex';
 
 import SortableTable from '@shell/components/SortableTable/index.vue';
@@ -30,7 +29,6 @@ const props = defineProps<{
 const emit = defineEmits(['finished']);
 
 const store = useStore();
-const router = useRouter();
 
 const running = ref(false);
 const actions = ref<ApplicationAction[]>([]);
@@ -94,7 +92,7 @@ watch(running, (neu, prev) => {
 });
 
 const createActions = async () => {
-  const REDEPLOY_SOURCE = router.currentRoute.value.hash === '#source';
+  const REDEPLOY_SOURCE = store.$router.currentRoute._value.hash === '#source';
 
   const coreArgs = {
     application: props.application,
