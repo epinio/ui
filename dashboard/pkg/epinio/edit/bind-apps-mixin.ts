@@ -1,6 +1,5 @@
 import { useStore } from 'vuex';
 import { ref, computed } from 'vue';
-import { useRoute } from 'vue-router';
 
 import { EPINIO_TYPES } from '../types';
 
@@ -9,7 +8,6 @@ import { sortBy } from '@shell/utils/sort';
 export function useEpinioBindAppsMixin(props: any) {
   const selectedApps = ref<Array<string>>(props.value?.boundapps || []);
   const store = useStore();
-  const route = useRoute();
 
   const allApps = computed(() => {
     return sortBy(
@@ -111,8 +109,8 @@ export function useEpinioBindAppsMixin(props: any) {
     if (props.value?.doneParams) {
       return props.value.doneParams;
     }
-
-    const out = { ...route.params };
+    
+    const out = { ...(store as any).$router.currentRoute._value.params };
 
     delete out.namespace;
     delete out.id;

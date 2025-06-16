@@ -19,7 +19,6 @@ const props = defineProps<Props>();
 const emit = defineEmits(['change']);
 
 const store = useStore();
-const route = useRoute();
 
 const t = store.getters['i18n/t'];
 
@@ -75,7 +74,9 @@ const hasServices = computed(() => {
   return services.value.length > 0;
 });
 const isView = computed(() => props.mode === _VIEW);
-const isFromManifest = computed(() => route.query.from === EPINIO_APP_MANIFEST);
+const isFromManifest = computed(
+  () => store.$router.currentRoute._value.query.from === EPINIO_APP_MANIFEST
+);
 
 // Watchers
 watch(values, () => emit('change', values.value), { deep: true });

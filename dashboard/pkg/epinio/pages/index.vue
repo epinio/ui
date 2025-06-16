@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { useStore } from 'vuex';
-import { useRouter } from 'vue-router';
 
 import Loading from '@shell/components/Loading.vue';
 import ResourceTable from '@shell/components/ResourceTable.vue';
@@ -13,7 +12,6 @@ import EpinioCluster, { EpinioInfoPath } from '../models/cluster';
 import epinioAuth, { EpinioAuthTypes } from '../utils/auth';
 
 const store = useStore();
-const router = useRouter();
 const t = store.getters['i18n/t'];
 
 let currentCluster: EpinioCluster | null = null;
@@ -55,7 +53,7 @@ const login = async (c: EpinioCluster) =>{
   const isLoggedIn = await epinioAuth.isLoggedIn(c.createAuthConfig(EpinioAuthTypes.AGNOSTIC));
 
   if (isLoggedIn) {
-    router.push({
+    store.$router.push({
       name:   'epinio-c-cluster-dashboard',
       params: { cluster: c.id }
     });
