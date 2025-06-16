@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { ref, reactive, onBeforeMount, computed } from 'vue';
-import { useRouter } from 'vue-router';
 import { useStore } from 'vuex';
 import Loading from '@shell/components/Loading.vue';
 import Wizard from '@shell/components/Wizard.vue';
@@ -15,7 +14,6 @@ import { EpinioAppInfo, EpinioAppBindings, EpinioAppSource, EPINIO_TYPES } from 
 import { createEpinioRoute } from '../../../../utils/custom-routing';
 import { allHash } from '@shell/utils/promise';
 
-const router = useRouter();
 const store = useStore();
 
 const loading = ref(true);
@@ -132,7 +130,7 @@ function updateConfigurations(changes: EpinioAppBindings) {
 }
 
 function cancel() {
-  router.replace(value.value.listLocation);
+  store.$router.replace(value.value.listLocation);
 }
 
 function finish() {
@@ -142,7 +140,7 @@ function finish() {
     id: `${value.value.meta.namespace}/${value.value.meta.name}`
   });
 
-  router.replace(route);
+  store.$router.replace(route);
 }
 </script>
 

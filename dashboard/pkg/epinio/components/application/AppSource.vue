@@ -2,7 +2,6 @@
 
 import { ref, reactive, computed, onMounted, watch } from 'vue';
 import { useStore } from 'vuex';
-import { useRouter } from 'vue-router';
 import jsyaml from 'js-yaml';
 
 import Application from '../../models/applications';
@@ -55,7 +54,6 @@ interface FileWithRelativePath extends File {
 const DEFAULT_BUILD_PACK = 'paketobuildpacks/builder:full';
 
 const store = useStore();
-const router = useRouter();
 
 const t = store.getters['i18n/t'];
 
@@ -278,7 +276,7 @@ function onManifestFileSelected(file: string) {
       }
     };
 
-    router.replace({ query: { from: EPINIO_APP_MANIFEST } });
+    store.$router.replace({ query: { from: EPINIO_APP_MANIFEST } });
     update();
     updateAppInfo(appInfo);
     updateConfigurations(parsed.configuration.configurations || []);
