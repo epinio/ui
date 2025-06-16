@@ -9,7 +9,10 @@ const store = useStore();
 const error = ref<string>('');
 
 onMounted(async () => {
-  const { error: routeError, error_description: errorDescription } = route.query;
+  const { 
+    error: routeError, 
+    error_description: errorDescription,
+  } = store.$router.currentRoute._value.query;
   
   error.value = errorDescription || routeError;
 

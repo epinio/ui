@@ -2,7 +2,6 @@
 
 import { ref, computed, watch, onMounted } from 'vue';
 import { useStore } from 'vuex';
-import { useRoute } from 'vue-router';
 import { sortBy } from '@shell/utils/sort';
 import LabeledSelect from '@shell/components/form/LabeledSelect.vue';
 import { _VIEW } from '@shell/config/query-params';

@@ -90,7 +90,7 @@ const exportApplicationManifest = async () => {
     );
   };
 
-  if (route.hash === '#manifest') {
+  if (store.$router.currentRoute._value.hash === '#manifest') {
     await resource.createManifest();
   } else {
     const partsData = await zipParts.reduce(async(acc, part) => ({
