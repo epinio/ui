@@ -1,0 +1,23 @@
+name: Build and Release Extension Charts
+
+on:
+  workflow_dispatch:
+  release:
+    types: [released]
+
+defaults:
+  run:
+    shell: bash
+    working-directory: ./dashboard
+
+jobs:
+  build-extension-charts:
+    uses: epinio/ui/.github/workflows/build-extension-charts.yml@main
+    permissions:
+      actions: write
+      contents: write
+      deployments: write
+      pages: write
+    with:
+      target_branch: gh-pages
+      tagged_release: ${{ github.ref_name }}
