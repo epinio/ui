@@ -1,36 +1,31 @@
-<script lang="ts">
-import Vue, { PropType } from 'vue';
+<script setup lang="ts">
+import { useStore } from 'vuex';
+import { ref, computed, onMounted } from 'vue';
+
 import EpinioCatalogServiceModel from '../models/catalogservices';
-import { EpinioCompRecord, EPINIO_PRODUCT_NAME, EPINIO_TYPES } from '../types';
+import { EPINIO_PRODUCT_NAME, EPINIO_TYPES } from '../types';
 
 import ResourceTable from '@shell/components/ResourceTable.vue';
 
-interface Data {
-}
+const store = useStore();
 
-export default Vue.extend<Data, EpinioCompRecord, EpinioCompRecord, EpinioCompRecord>({
-  components: { ResourceTable },
+const t = store.getters['i18n/t'];
 
-  props: {
-    value: {
-      type:     Object as PropType<EpinioCatalogServiceModel>,
-      required: true
-    },
-  },
+const props = defineProps<{ value: EpinioCatalogServiceModel }>(); // eslint-disable-line @typescript-eslint/no-unused-vars
 
-  async fetch() {
-    await this.$store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.SERVICE_INSTANCE });
-  },
+const pending = ref<boolean>(true);
 
-  data() {
-    const servicesSchema = this.$store.getters[`${ EPINIO_PRODUCT_NAME }/schemaFor`](EPINIO_TYPES.SERVICE_INSTANCE);
-    const servicesHeaders: [] = this.$store.getters['type-map/headersFor'](servicesSchema);
+onMounted(async () => {
+  await store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.SERVICE_INSTANCE });
+  pending.value = false;
+});
 
-    return {
-      servicesSchema,
-      servicesHeaders
-    };
-  },
+const servicesSchema = computed(() => {
+  return store.getters[`${ EPINIO_PRODUCT_NAME }/schemaFor`](EPINIO_TYPES.SERVICE_INSTANCE);
+});
+
+const servicesHeaders = computed(() => {
+  return store.getters['type-map/headersFor'](servicesSchema.value);
 });
 </script>
 
@@ -42,8 +37,28 @@ export default Vue.extend<Data, EpinioCompRecord, EpinioCompRecord, EpinioCompRe
     <ResourceTable
       :schema="servicesSchema"
       :rows="value.services"
-      :loading="$fetchState.pending"
+      :loading="pending"
       :headers="servicesHeaders"
-    />
+    >
+      <template #cell:boundApps="{ row }">
+        <span v-if="row.applications.length">
+          <template v-for="(app, index) in row.applications" :key="app.id">
+            <LinkDetail
+              :row="app"
+              :value="app.meta.name"
+            />
+            <span
+              v-if="index < row.applications.length - 1"
+              :key="app.id + 'i'"
+            >, </span>
+          </template>
+        </span>
+        <span
+          v-else
+          class="text-muted"
+        >&nbsp;</span>
+      </template>
+
+    </ResourceTable>
   </div>
 </template>

@@ -9,7 +9,7 @@ export default class EpinioServiceModel extends EpinioNamespacedResource {
       self:   this.getUrl(),
       remove: this.getUrl(),
       bind:   `${ this.getUrl() }/bind`,
-      unbind: `${ this.getUrl() }/unbind`,
+      unmounted: `${ this.getUrl() }/unmounted`,
       create: this.getUrl(this.metadata?.namespace, null) // ensure name is null
     };
   }
@@ -33,8 +33,25 @@ export default class EpinioServiceModel extends EpinioNamespacedResource {
       .filter((a) => !!a);
   }
 
-  // ------------------------------------------------------------------
+  get serviceDetails() {
+    return this._serviceDetails;
+  }
 
+  /**
+   * Return the dashboard reserved getter for `details` (shown in MastHead)
+   */
+  get details() {
+    return super.details;
+  }
+
+  /**
+   * When assigning Epinio details property ensure it goes to a temp value (instead of colliding with dashboard reserved `details` getter)
+   */
+  set details(v) {
+    this._serviceDetails = v;
+  }
+
+  // ------------------------------------------------------------------
   get state() {
     return this.status;
   }
@@ -56,8 +73,20 @@ export default class EpinioServiceModel extends EpinioNamespacedResource {
       },
       data: {
         name:            this.name,
-        catalog_service: this.catalog_service
+        catalog_service: this.catalog_service,
+        settings:        this.settings
       }
+    });
+  }
+
+  async update() {
+    await this.followLink('update', {
+      method:  'put',
+      headers: {
+        'content-type': 'application/json',
+        accept:         'application/json'
+      },
+      data: { settings: this.settings }
     });
   }
 
@@ -73,7 +102,7 @@ export default class EpinioServiceModel extends EpinioNamespacedResource {
   }
 
   async unbindApp(appName) {
-    await this.followLink('unbind', {
+    await this.followLink('unmounted', {
       method:  'post',
       headers: {
         'content-type': 'application/json',
@@ -83,8 +112,8 @@ export default class EpinioServiceModel extends EpinioNamespacedResource {
     });
   }
 
-  async delete(unbind = true) {
-    await this._remove({ data: { unbind } });
+  async delete(unmounted = true) {
+    await this._remove({ data: { unmounted } });
   }
 
   async remove() {
@@ -93,5 +122,20 @@ export default class EpinioServiceModel extends EpinioNamespacedResource {
 
   bulkRemove(items, opt) {
     return bulkRemove(items, opt);
+  }
+
+  // Ensure when we clone that we preserve the description
+  toJSON() {
+    const data = super.toJSON();
+
+    // Ensure the epinio detail gets persisted in the right property
+    data.details = this._serviceDetails;
+    delete data._serviceDetails;
+
+    return data;
+  }
+
+  toSave() {
+    return this.toJSON();
   }
 }

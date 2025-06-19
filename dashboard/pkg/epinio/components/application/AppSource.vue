@@ -1,5 +1,7 @@
-<script lang="ts">
-import Vue, { PropType } from 'vue';
+<script setup lang="ts">
+
+import { ref, reactive, computed, onMounted, watch } from 'vue';
+import { useStore } from 'vuex';
 import jsyaml from 'js-yaml';
 
 import Application from '../../models/applications';
@@ -12,9 +14,18 @@ import { sortBy } from '@shell/utils/sort';
 import { generateZip } from '@shell/utils/download';
 import Collapse from '@shell/components/Collapse.vue';
 import {
-  APPLICATION_SOURCE_TYPE, EpinioApplicationChartResource, EPINIO_TYPES, EpinioInfo, AppSourceArchive, AppSourceContainer, AppSourceGit, AppSourceGitUrl, AppSourceBuilderImage, EpinioAppSource, GitAPIData
+  APPLICATION_SOURCE_TYPE, 
+  EpinioApplicationChartResource, 
+  EpinioInfo, 
+  //AppSourceArchive, 
+  //AppSourceContainer, 
+  //AppSourceGit, 
+  //AppSourceGitUrl, 
+  //AppSourceBuilderImage, 
+  EpinioAppSource, 
+  EPINIO_APP_MANIFEST
 } from '../../types';
-import { EpinioAppInfo } from './AppInfo.vue';
+import { EpinioAppInfo } from '../../types';
 import { _EDIT } from '@shell/config/query-params';
 import { AppUtils } from '../../utils/application';
 
@@ -23,9 +34,7 @@ const GIT_BASE_URL = {
   [APPLICATION_SOURCE_TYPE.GIT_LAB]: 'https://gitlab.com',
 };
 
-export const EPINIO_APP_MANIFEST = 'manifest';
-
-interface Data {
+/*interface Data {
   open: boolean,
   archive: AppSourceArchive,
   container: AppSourceContainer,
@@ -35,7 +44,7 @@ interface Data {
   types: any[],
   type: APPLICATION_SOURCE_TYPE ;// || { } from the select component
   APPLICATION_SOURCE_TYPE: typeof APPLICATION_SOURCE_TYPE
-}
+}*/
 
 interface FileWithRelativePath extends File {
   // For some reason TS throws this as missing at transpile time .. so recreate it
@@ -44,360 +53,286 @@ interface FileWithRelativePath extends File {
 
 const DEFAULT_BUILD_PACK = 'paketobuildpacks/builder:full';
 
-// Data, Methods, Computed, Props
-export default Vue.extend<Data, any, any, any>({
+const store = useStore();
 
-  components: {
-    FileSelector,
-    LabeledInput,
-    LabeledSelect,
-    RadioGroup,
-    Collapse,
-    GitPicker
-  },
+const t = store.getters['i18n/t'];
 
-  props: {
-    application: {
-      type:     Object as PropType<Application>,
-      required: true
-    },
-    source: {
-      type:    Object as PropType<EpinioAppSource>,
-      default: null
-    },
-    info: {
-      type:    Object as PropType<EpinioInfo>,
-      default: null
-    },
-    mode: {
-      type:     String,
-      required: true
-    },
-  },
+const props = defineProps<{
+  application: Application;
+  source?: EpinioAppSource;
+  info?: EpinioInfo;
+  mode: string;
+}>();
 
-  data() {
-    const defaultBuilderImage = this.info?.default_builder_image || DEFAULT_BUILD_PACK;
-    const builderImage = this.source?.builderImage?.value || defaultBuilderImage;
+const emit = defineEmits<{
+  (e: 'change', payload: any): void;
+  (e: 'changeAppInfo', info: EpinioAppInfo): void;
+  (e: 'changeAppConfig', configs: string[]): void;
+  (e: 'valid', valid: boolean): void;
+}>();
 
-    return {
-      open:  false,
-      valid: this.validate(),
-      defaultBuilderImage,
+// Defaults
+const defaultBuilderImage = ref(props.info?.default_builder_image || DEFAULT_BUILD_PACK);
+const builderImageValue = ref(props.source?.builderImage?.value || defaultBuilderImage.value);
 
-      archive: {
-        tarball:  this.source?.archive?.tarball || '',
-        fileName: this.source?.archive?.fileName || '',
-      },
+// Reactive State
+const open = ref(false);
+const gitSkipTypeReset = ref(false);
+const archive = reactive({
+  tarball: props.source?.archive?.tarball || '',
+  fileName: props.source?.archive?.fileName || '',
+});
 
-      container: { url: this.source?.container?.url },
+const container = reactive({
+  url: props.source?.container?.url || ''
+});
 
-      gitUrl: {
-        url:         this.source?.gitUrl?.url || '',
-        branch:      this.source?.gitUrl?.branch || '',
-        validGitUrl: false,
-      },
+const gitUrl = reactive({
+  url: props.source?.gitUrl?.url || '',
+  branch: props.source?.gitUrl?.branch || '',
+  validGitUrl: false,
+});
 
-      git: {
-        usernameOrOrg: this.source?.git?.usernameOrOrg || '',
-        repo:          this.source?.git?.repo || '',
-        commit:        this.source?.git?.commit || '',
-        branch:        this.source?.git?.branch || '',
-        url:           this.source?.git?.url || '',
-        sourceData:    this.source?.git?.sourceData || {
-          repos:    [],
-          branches: [],
-          commits:  []
-        }
-      },
-
-      gitSkipTypeReset: false,
-
-      builderImage: {
-        value:   builderImage,
-        default: builderImage === defaultBuilderImage,
-      },
-
-      appChart: this.source?.appChart,
-
-      types: Object.values(APPLICATION_SOURCE_TYPE).map((value) => ({
-        label: this.t(`epinio.applications.steps.source.${ value }.label`),
-        value
-      })),
-
-      type: this.source?.type || APPLICATION_SOURCE_TYPE.FOLDER,
-      APPLICATION_SOURCE_TYPE,
-      EDIT: _EDIT
-    };
-  },
-
-  mounted() {
-    if (!this.appChart) {
-      if (this.appCharts[0]?.value) {
-        Vue.set(this, 'appChart', this.appCharts[0]?.value);
-      } else {
-        Vue.set(this, 'appChart', this.appCharts[0]);
-      }
-    }
-
-    this.update();
-  },
-
-  methods: {
-    urlRule() {
-      const gitRegex = /(https?:\/\/(?:www\.|(?!www))[a-zA-Z0-9][a-zA-Z0-9-]+[a-zA-Z0-9]\.[^\s]{2,}|www\.[a-zA-Z0-9][a-zA-Z0-9-]+[a-zA-Z0-9]\.[^\s]{2,}|https?:\/\/(?:www\.|(?!www))[a-zA-Z0-9]+\.[^\s]{2,}|www\.[a-zA-Z0-9]+\.[^\s]{2,})/gm;
-
-      if (!this.gitUrl.url) {
-        return;
-      }
-
-      const evalUrl = () => {
-        const result = gitRegex.exec(this.gitUrl.url);
-
-        if (result && this.gitUrl.url === result[0]) {
-          this.gitUrl.validGitUrl = true;
-        } else {
-          this.gitUrl.validGitUrl = false;
-
-          return this.t('epinio.applications.steps.source.git_url.error.label');
-        }
-      };
-
-      return evalUrl();
-    },
-
-    onFileSelected(file: File) {
-      this.archive.tarball = file;
-      this.archive.fileName = file.name;
-
-      this.update();
-    },
-
-    onManifestFileSelected(file: string) {
-      try {
-        const parsed: any = jsyaml.load(file);
-
-        const type = AppUtils.getManifestSourceType(parsed.origin);
-
-        this.gitSkipTypeReset = true;
-        Vue.set(this, 'type', type);
-
-        switch (type) {
-        case APPLICATION_SOURCE_TYPE.CONTAINER_URL:
-          Vue.set(this.container, 'url', parsed.origin.container);
-          break;
-        case APPLICATION_SOURCE_TYPE.GIT_URL:
-          Vue.set(this.gitUrl, 'url', parsed.origin.git.url);
-          Vue.set(this.gitUrl, 'branch', parsed.origin.git.revision);
-          break;
-        case APPLICATION_SOURCE_TYPE.GIT_HUB:
-        case APPLICATION_SOURCE_TYPE.GIT_LAB:
-          Vue.set(this, 'git', AppUtils.getGitData(parsed.origin.git));
-          break;
-        }
-
-        if (parsed.configuration) {
-          Vue.set(this, 'appChart', parsed.configuration.appchart);
-        }
-
-        const appInfo: EpinioAppInfo = {
-          meta: {
-            name:      parsed.name || '',
-            namespace: this.namespaces?.[0]?.name || ''
-          },
-          configuration: {
-            configurations: parsed.configuration?.configurations as string[] || [],
-            instances:      parsed.configuration.instances || 1,
-            environment:    parsed.configuration.environment || {},
-            settings:       parsed.configuration?.settings || {},
-            routes:         parsed.configuration.routes || []
-          }
-        };
-
-        this.$router.applyQuery({ from: EPINIO_APP_MANIFEST });
-        this.update();
-        this.updateAppInfo(appInfo);
-        this.updateConfigurations(parsed.configuration.configurations || []);
-      } catch (e) {
-        console.error('Failed to parse or process manifest: ', e); // eslint-disable-line no-console
-      }
-    },
-
-    onFolderSelected(files: FileWithRelativePath | FileWithRelativePath[]) {
-      const safeFiles = Array.isArray(files) ? files : [files];
-      let folderName = '';
-
-      // Determine parent folder name
-      for (const f of safeFiles) {
-        const paths = f.webkitRelativePath.split('/');
-
-        if (paths.length > 1) {
-          if (!folderName) {
-            folderName = paths[0];
-            continue;
-          }
-          if (folderName !== paths[0]) {
-            folderName = '';
-            break;
-          }
-        }
-      }
-
-      const filesToZip = safeFiles.reduce((res, f) => {
-        let path = f.webkitRelativePath;
-
-        if (folderName) {
-          // Remove parent folder name
-          const parts = path.split('/');
-
-          parts.shift();
-          path = parts.join('/');
-        }
-
-        res[path] = f;
-
-        return res;
-      }, {} as { [key: string]: any});
-
-      generateZip(filesToZip).then((zip: any) => {
-        Vue.set(this.archive, 'tarball', zip);
-        Vue.set(this.archive, 'fileName', folderName || 'folder');
-
-        this.update();
-      });
-    },
-
-    update() {
-      this.$emit('change', {
-        type:         this.type,
-        archive:      this.archive,
-        container:    this.container,
-        gitUrl:       this.gitUrl,
-        builderImage: this.builderImage,
-        appChart:     this.appChart,
-        git:          this.git,
-      });
-      this.valid = this.validate();
-    },
-
-    updateAppInfo(info: EpinioAppInfo) {
-      this.$emit('changeAppInfo', info);
-    },
-
-    updateConfigurations(configs: string[]) {
-      this.$emit('changeAppConfig', configs);
-    },
-
-    onImageType(defaultImage: boolean) {
-      if (defaultImage) {
-        this.builderImage.value = this.defaultBuilderImage;
-      }
-
-      this.builderImage.default = defaultImage;
-
-      this.update();
-    },
-
-    gitUpdate({
-      repo, selectedAccOrOrg, branch, commit, sourceData
-    }: {
-      commit: string,
-      selectedAccOrOrg: string,
-      repo: { id?: string, name: string },
-      branch: string,
-      sourceData: GitAPIData
-    }) {
-      if (!!selectedAccOrOrg && !!repo && !!commit && !!branch) {
-        const url = `${ GIT_BASE_URL[this.type as APPLICATION_SOURCE_TYPE.GIT_HUB | APPLICATION_SOURCE_TYPE.GIT_LAB] }/${ selectedAccOrOrg }/${ repo.name }`;
-
-        this.git.usernameOrOrg = selectedAccOrOrg;
-        this.git.url = url;
-        this.git.commit = commit;
-        this.git.branch = branch;
-        this.git.repo = repo;
-        this.git.sourceData = sourceData;
-
-        this.update();
-        this.$emit('valid', true);
-      } else {
-        this.update();
-        this.$emit('valid', false);
-      }
-    },
-
-    validate() {
-      switch (this.type) {
-      case APPLICATION_SOURCE_TYPE.ARCHIVE:
-      case APPLICATION_SOURCE_TYPE.FOLDER: {
-        return !!this.archive.tarball && !!this.builderImage.value;
-      }
-      case APPLICATION_SOURCE_TYPE.CONTAINER_URL:
-        return !!this.container.url;
-      case APPLICATION_SOURCE_TYPE.GIT_URL:
-        return !!this.gitUrl.url && !!this.gitUrl.branch && !!this.builderImage.value && !!this.gitUrl.validGitUrl;
-      case APPLICATION_SOURCE_TYPE.GIT_HUB:
-      case APPLICATION_SOURCE_TYPE.GIT_LAB:
-        return !!this.git.usernameOrOrg && !!this.git.url && !!this.git.repo && !!this.git.branch && !!this.git.commit;
-      }
-    }
-  },
-
-  watch: {
-    type() {
-      // If we don't skip reseting the git type... we lose changes from loaded manifests
-      if (this.gitSkipTypeReset) {
-        this.gitSkipTypeReset = false;
-      } else {
-        this.git = {};
-      }
-
-      this.update();
-    },
-
-    valid(neu) {
-      this.$emit('valid', neu);
-    }
-  },
-
-  computed: {
-    showBuilderImage() {
-      return [
-        APPLICATION_SOURCE_TYPE.ARCHIVE,
-        APPLICATION_SOURCE_TYPE.FOLDER,
-        APPLICATION_SOURCE_TYPE.GIT_URL,
-        APPLICATION_SOURCE_TYPE.GIT_HUB,
-        APPLICATION_SOURCE_TYPE.GIT_LAB,
-      ].includes(this.type);
-    },
-
-    namespaces() {
-      return sortBy(this.$store.getters['epinio/all'](EPINIO_TYPES.NAMESPACE), 'name', false);
-    },
-
-    appCharts() {
-      return sortBy(this.$store.getters['epinio/all'](EPINIO_TYPES.APP_CHARTS), 'name', false).map((ap: EpinioApplicationChartResource) => ({
-        value: ap.meta.name,
-        label: `${ ap.meta.name } (${ ap.short_description })`
-      }));
-    },
-
-    gitSource() {
-      return {
-        type:             this.type,
-        selectedAccOrOrg: this.git.usernameOrOrg,
-        selectedRepo:     this.git.repo,
-        selectedBranch:   this.git.branch,
-        selectedCommit:   { sha: this.git.commit }
-      };
-    }
+const git = reactive({
+  usernameOrOrg: props.source?.git?.usernameOrOrg || '',
+  repo: props.source?.git?.repo || '',
+  commit: props.source?.git?.commit || '',
+  branch: props.source?.git?.branch || '',
+  url: props.source?.git?.url || '',
+  sourceData: props.source?.git?.sourceData || {
+    repos: [],
+    branches: [],
+    commits: []
   }
 });
+
+const builderImage = reactive({
+  value: builderImageValue.value,
+  default: builderImageValue.value === defaultBuilderImage.value
+});
+
+const EDIT = _EDIT;
+
+const appChart = ref(props.source?.appChart);
+const type = ref(props.source?.type || APPLICATION_SOURCE_TYPE.FOLDER);
+
+// Derived and Computed
+const types = Object.values(APPLICATION_SOURCE_TYPE).map(value => ({
+  label: t(`epinio.applications.steps.source.${ value }.label`),
+  value
+}));
+
+const namespaces = computed(() => sortBy(store.getters['epinio/all']('namespace'), 'name', false));
+const appCharts = computed(() =>
+  sortBy(store.getters['epinio/all']('appCharts'), 'name', false).map((ap: EpinioApplicationChartResource) => ({
+    value: ap.meta.name,
+    label: `${ap.meta.name} (${ap.short_description})`
+  }))
+);
+
+const showBuilderImage = computed(() =>
+  [APPLICATION_SOURCE_TYPE.ARCHIVE, APPLICATION_SOURCE_TYPE.FOLDER, APPLICATION_SOURCE_TYPE.GIT_URL, APPLICATION_SOURCE_TYPE.GIT_HUB, APPLICATION_SOURCE_TYPE.GIT_LAB].includes(type.value)
+);
+
+const gitSource = computed(() => ({
+  type: type.value,
+  selectedAccOrOrg: git.usernameOrOrg,
+  selectedRepo: git.repo,
+  selectedBranch: git.branch,
+  selectedCommit: { sha: git.commit }
+}));
+
+const valid = ref(validate());
+
+watch(type, () => {
+  if (gitSkipTypeReset.value) {
+    gitSkipTypeReset.value = false;
+  } else {
+    Object.assign(git, {});
+  }
+  update();
+});
+
+watch(valid, (val) => {
+  emit('valid', val);
+});
+
+function validate() {
+  switch (type.value) {
+    case APPLICATION_SOURCE_TYPE.ARCHIVE:
+    case APPLICATION_SOURCE_TYPE.FOLDER:
+      return !!archive.tarball && !!builderImage.value;
+    case APPLICATION_SOURCE_TYPE.CONTAINER_URL:
+      return !!container.url;
+    case APPLICATION_SOURCE_TYPE.GIT_URL:
+      return !!gitUrl.url && !!gitUrl.branch && !!builderImage.value && !!gitUrl.validGitUrl;
+    case APPLICATION_SOURCE_TYPE.GIT_HUB:
+    case APPLICATION_SOURCE_TYPE.GIT_LAB:
+      return !!git.usernameOrOrg && !!git.url && !!git.repo && !!git.branch && !!git.commit;
+  }
+}
+
+function update() {
+  emit('change', {
+    type: type.value,
+    archive,
+    container,
+    gitUrl,
+    builderImage,
+    appChart: appChart.value,
+    git
+  });
+  valid.value = validate();
+}
+
+function updateAppInfo(info: EpinioAppInfo) {
+  emit('changeAppInfo', info);
+}
+
+function updateConfigurations(configs: string[]) {
+  emit('changeAppConfig', configs);
+}
+
+function onImageType(defaultImage: boolean) {
+  if (defaultImage) {
+    builderImage.value = defaultBuilderImage.value;
+  }
+  builderImage.default = defaultImage;
+  update();
+}
+
+function gitUpdate({ repo, selectedAccOrOrg, branch, commit, sourceData }: any) {
+  if (!!selectedAccOrOrg && !!repo && !!commit && !!branch) {
+    git.usernameOrOrg = selectedAccOrOrg;
+    git.url = `${GIT_BASE_URL[type.value]}/${selectedAccOrOrg}/${repo.name}`;
+    git.commit = commit;
+    git.branch = branch;
+    git.repo = repo;
+    git.sourceData = sourceData;
+    update();
+    emit('valid', true);
+  } else {
+    update();
+    emit('valid', false);
+  }
+}
+
+function urlRule() {
+  if (!gitUrl.url) return;
+
+  const gitRegex = /(https?:\/\/(?:www\.|(?!www))[a-zA-Z0-9]+\.[^\s]{2,})/gm;
+  const result = gitRegex.exec(gitUrl.url);
+
+  if (result && gitUrl.url === result[0]) {
+    gitUrl.validGitUrl = true;
+  } else {
+    gitUrl.validGitUrl = false;
+    return t('epinio.applications.steps.source.git_url.error.label');
+  }
+}
+
+function onFileSelected(file: File) {
+  archive.tarball = file;
+  archive.fileName = file.name;
+  update();
+}
+
+function onManifestFileSelected(file: string) {
+  try {
+    const parsed: any = jsyaml.load(file);
+    const manifestType = AppUtils.getManifestSourceType(parsed.origin);
+    gitSkipTypeReset.value = true;
+    type.value = manifestType;
+
+    switch (manifestType) {
+      case APPLICATION_SOURCE_TYPE.CONTAINER_URL:
+        container.url = parsed.origin.container;
+        break;
+      case APPLICATION_SOURCE_TYPE.GIT_URL:
+        gitUrl.url = parsed.origin.git.url;
+        gitUrl.branch = parsed.origin.git.revision;
+        break;
+      case APPLICATION_SOURCE_TYPE.GIT_HUB:
+      case APPLICATION_SOURCE_TYPE.GIT_LAB:
+        Object.assign(git, AppUtils.getGitData(parsed.origin.git));
+        break;
+    }
+
+    if (parsed.configuration) {
+      appChart.value = parsed.configuration.appchart;
+    }
+
+    const appInfo: EpinioAppInfo = {
+      meta: {
+        name: parsed.name || '',
+        namespace: namespaces.value?.[0]?.name || ''
+      },
+      configuration: {
+        configurations: parsed.configuration?.configurations || [],
+        instances: parsed.configuration.instances || 1,
+        environment: parsed.configuration.environment || {},
+        settings: parsed.configuration?.settings || {},
+        routes: parsed.configuration.routes || []
+      }
+    };
+
+    store.$router.replace({ query: { from: EPINIO_APP_MANIFEST } });
+    update();
+    updateAppInfo(appInfo);
+    updateConfigurations(parsed.configuration.configurations || []);
+  } catch (e) {
+    console.error('Failed to parse manifest:', e);
+  }
+}
+
+function onFolderSelected(files: FileWithRelativePath | FileWithRelativePath[]) {
+  const safeFiles = Array.isArray(files) ? files : [files];
+  let folderName = '';
+
+  for (const f of safeFiles) {
+    const paths = f.webkitRelativePath.split('/');
+    if (paths.length > 1) {
+      if (!folderName) {
+        folderName = paths[0];
+      } else if (folderName !== paths[0]) {
+        folderName = '';
+        break;
+      }
+    }
+  }
+
+  const filesToZip = safeFiles.reduce((res, f) => {
+    let path = f.webkitRelativePath;
+    if (folderName) {
+      const parts = path.split('/');
+      parts.shift();
+      path = parts.join('/');
+    }
+    res[path] = f;
+    return res;
+  }, {} as { [key: string]: any });
+
+  generateZip(filesToZip).then((zip: any) => {
+    archive.tarball = zip;
+    archive.fileName = folderName || 'folder';
+    update();
+  });
+}
+
+onMounted(() => {
+  if (!appChart.value) {
+    appChart.value = appCharts.value[0]?.value || appCharts.value[0];
+  }
+  update();
+});
+
 </script>
 
 <template>
   <div class="appSource">
     <div class="button-row source">
       <LabeledSelect
-        v-model="type"
+        v-model:value="type"
         data-testid="epinio_app-source_type"
         label="Source Type"
         :options="types"
@@ -420,7 +355,7 @@ export default Vue.extend<Data, any, any, any>({
         <h3>{{ t('epinio.applications.steps.source.archive.file.label') }}</h3>
         <div class="button-row">
           <LabeledInput
-            v-model="archive.fileName"
+            v-model:value="archive.fileName"
             data-testid="epinio_app-source_archive_name"
             :disabled="true"
             :tooltip="t('epinio.applications.steps.source.archive.file.tooltip')"
@@ -439,12 +374,13 @@ export default Vue.extend<Data, any, any, any>({
         </div>
       </div>
     </template>
+
     <template v-else-if="type === APPLICATION_SOURCE_TYPE.FOLDER">
       <div class="spacer source">
         <h3>{{ t('epinio.applications.steps.source.folder.file.label') }}</h3>
         <div class="button-row">
           <LabeledInput
-            v-model="archive.fileName"
+            v-model:value="archive.fileName"
             data-testid="epinio_app-source_folder_name"
             :disabled="true"
             :tooltip="t('epinio.applications.steps.source.folder.file.tooltip')"
@@ -463,11 +399,12 @@ export default Vue.extend<Data, any, any, any>({
         </div>
       </div>
     </template>
+
     <template v-else-if="type === APPLICATION_SOURCE_TYPE.CONTAINER_URL">
       <div class="spacer source">
         <h3>{{ t('epinio.applications.steps.source.container_url.url.label') }}</h3>
         <LabeledInput
-          v-model="container.url"
+          v-model:value="container.url"
           data-testid="epinio_app-source_container"
           :tooltip="t('epinio.applications.steps.source.container_url.url.tooltip')"
           :label="t('epinio.applications.steps.source.container_url.url.inputLabel')"
@@ -476,11 +413,12 @@ export default Vue.extend<Data, any, any, any>({
         />
       </div>
     </template>
+
     <template v-else-if="type === APPLICATION_SOURCE_TYPE.GIT_URL">
       <div class="spacer source">
         <h3>{{ t('epinio.applications.steps.source.git_url.url.label') }}</h3>
         <LabeledInput
-          v-model="gitUrl.url"
+          v-model:value="gitUrl.url"
           v-focus
           data-testid="epinio_app-source_git-url"
           :tooltip="t('epinio.applications.steps.source.git_url.url.tooltip')"
@@ -495,7 +433,7 @@ export default Vue.extend<Data, any, any, any>({
       <div class="spacer source">
         <h3>{{ t('epinio.applications.steps.source.git_url.branch.label') }}</h3>
         <LabeledInput
-          v-model="gitUrl.branch"
+          v-model:value="gitUrl.branch"
           data-testid="epinio_app-source_git-branch"
           :tooltip="t('epinio.applications.steps.source.git_url.branch.tooltip')"
           :label="t('epinio.applications.steps.source.git_url.branch.inputLabel')"
@@ -505,57 +443,61 @@ export default Vue.extend<Data, any, any, any>({
         />
       </div>
     </template>
+
     <template v-else>
       <GitPicker
-        :value="gitSource"
+        v-model:value="gitSource"
         :type="type"
         @change="gitUpdate"
       />
     </template>
+
     <Collapse
-      :open.sync="open"
+      v-model:value:open="open"
       :title="'Advanced Settings'"
       class="pt-30 pb-30 source"
     >
-      <template>
-        <!-- Unable to change app chart of active app, so disable -->
-        <LabeledSelect
-          v-model="appChart"
-          data-testid="epinio_app-source_appchart"
-          :label="t('epinio.applications.steps.source.archive.appchart.label')"
-          :options="appCharts"
+      <LabeledSelect
+        v-model:value="appChart"
+        data-testid="epinio_app-source_appchart"
+        :label="t('epinio.applications.steps.source.archive.appchart.label')"
+        :options="appCharts"
+        :mode="mode"
+        :clearable="false"
+        :required="true"
+        :tooltip="t('typeDescription.appcharts')"
+        :reduce="(e) => e.value"
+        :disabled="mode === EDIT"
+        @input="update"
+      />
+
+      <template v-if="showBuilderImage">
+        <RadioGroup
+          v-model:value="builderImage.default"
+          class="mt-20"
+          name="defaultBuilderImage"
+          data-testid="epinio_app-source_builder-select"
+          :labels="[
+            t('epinio.applications.steps.source.archive.builderimage.default'),
+            t('epinio.applications.steps.source.archive.builderimage.custom')
+          ]"
+          :options="[true, false]"
+          :label-key="'epinio.applications.steps.source.archive.builderimage.label'"
+          @input="onImageType"
+        />
+        <LabeledInput
+          v-model:value="builderImage.value"
+          data-testid="epinio_app-source_builder-value"
+          :disabled="builderImage.default"
+          :tooltip="t('epinio.applications.steps.source.archive.builderimage.tooltip')"
           :mode="mode"
-          :clearable="false"
-          :required="true"
-          :tooltip="t('typeDescription.appcharts')"
-          :reduce="(e) => e.value"
-          :disabled="mode === EDIT"
           @input="update"
         />
-        <template v-if="showBuilderImage">
-          <RadioGroup
-            class="mt-20"
-            name="defaultBuilderImage"
-            data-testid="epinio_app-source_builder-select"
-            :value="builderImage.default"
-            :labels="[t('epinio.applications.steps.source.archive.builderimage.default'), t('epinio.applications.steps.source.archive.builderimage.custom')]"
-            :options="[true, false]"
-            :label-key="'epinio.applications.steps.source.archive.builderimage.label'"
-            @input="onImageType"
-          />
-          <LabeledInput
-            v-model="builderImage.value"
-            data-testid="epinio_app-source_builder-value"
-            :disabled="builderImage.default"
-            :tooltip="t('epinio.applications.steps.source.archive.builderimage.tooltip')"
-            :mode="mode"
-            @input="update"
-          />
-        </template>
       </template>
     </Collapse>
   </div>
 </template>
+
 
 <style lang="scss" scoped>
 .appSource {

@@ -1,165 +1,153 @@
-<script lang="ts">
-import Vue from 'vue';
-import Application from '../../../../../models/applications';
+<script setup lang="ts">
+import { ref, reactive, onBeforeMount, computed } from 'vue';
+import { useRouter } from 'vue-router';
+import { useStore } from 'vuex';
 import Loading from '@shell/components/Loading.vue';
 import Wizard from '@shell/components/Wizard.vue';
-import { EpinioAppSource, EPINIO_TYPES } from '../../../../../types';
-import { _CREATE } from '@shell/config/query-params';
-import AppInfo, { EpinioAppInfo } from '../../../../../components/application/AppInfo.vue';
+
+import AppInfo from '../../../../../components/application/AppInfo.vue';
 import AppSource from '../../../../../components/application/AppSource.vue';
-import AppConfiguration, { EpinioAppBindings } from '../../../../../components/application/AppConfiguration.vue';
+import AppConfiguration from '../../../../../components/application/AppConfiguration.vue';
 import AppProgress from '../../../../../components/application/AppProgress.vue';
+
+import { _CREATE } from '@shell/config/query-params';
+import { EpinioAppInfo, EpinioAppBindings, EpinioAppSource, EPINIO_TYPES } from '../../../../../types';
 import { createEpinioRoute } from '../../../../../utils/custom-routing';
 import { allHash } from '@shell/utils/promise';
 
-interface Data {
-  value?: Application,
-  mode: string,
-  errors: string[],
-  source?: EpinioAppSource,
-  bindings?: EpinioAppBindings,
-  steps: any[],
-}
+const router = useRouter();
+const store = useStore();
 
-// Data, Methods, Computed, Props
-export default Vue.extend<Data, any, any, any>({
+const loading = ref(true);
+const value = ref<any>(null);
+const mode = ref(_CREATE);
+const source = ref<EpinioAppSource>();
+const bindings = ref<EpinioAppBindings>();
+const appChart = reactive({ chartsList: undefined as any, selectedChart: undefined });
+const epinioInfo = ref<any>(null);
+const originalModel = ref<any>(null);
 
-  components: {
-    Loading,
-    Wizard,
-    AppInfo,
-    AppSource,
-    AppConfiguration,
-    AppProgress,
+// i18n
+const t = computed(() => store.getters['i18n/t']);
+
+// Steps
+const steps = reactive([
+  {
+    name: 'source',
+    label: t.value('epinio.applications.steps.source.label'),
+    subtext: t.value('epinio.applications.steps.source.subtext'),
+    ready: false
   },
-
-  async fetch() {
-    const hash: { [key:string]: any } = await allHash({
-      ns:     this.$store.dispatch('epinio/findAll', { type: EPINIO_TYPES.NAMESPACE }),
-      charts: this.$store.dispatch('epinio/findAll', { type: EPINIO_TYPES.APP_CHARTS }),
-      info:   this.$store.dispatch('epinio/info'),
-    });
-
-    this.epinioInfo = hash.info;
-    this.appChart.chartsList = hash.charts;
-    this.originalModel = await this.$store.dispatch(`epinio/create`, { type: EPINIO_TYPES.APP });
-    // Dissassociate the original model & model. This fixes `Create` after refreshing page with SSR on
-    this.value = await this.$store.dispatch(`epinio/clone`, { resource: this.originalModel });
+  {
+    name: 'basics',
+    label: t.value('epinio.applications.steps.basics.label'),
+    subtext: t.value('epinio.applications.steps.basics.subtext'),
+    ready: false
   },
-
-  data() {
-    return {
-      value:    undefined,
-      mode:     _CREATE,
-      errors:   [],
-      source:   undefined,
-      bindings: undefined,
-      steps:    [{
-        name:    'source',
-        label:   this.t('epinio.applications.steps.source.label'),
-        subtext: this.t('epinio.applications.steps.source.subtext'),
-        ready:   false,
-      }, {
-        name:    'basics',
-        label:   this.t('epinio.applications.steps.basics.label'),
-        subtext: this.t('epinio.applications.steps.basics.subtext'),
-        ready:   false,
-      }, {
-        name:       'configurations',
-        label:      this.t('epinio.applications.steps.configurations.label'),
-        subtext:    this.t('epinio.applications.steps.configurations.subtext'),
-        ready:      true,
-        nextButton: {
-          labelKey: 'epinio.applications.steps.configurations.next',
-          style:    'btn role-primary bg-warning'
-        }
-      }, {
-        name:           'progress',
-        label:          this.t('epinio.applications.steps.progress.label'),
-        subtext:        this.t('epinio.applications.steps.progress.subtext'),
-        ready:          false,
-        previousButton: { disable: true }
-      }],
-      appChart:   { chartsList: undefined },
-      epinioInfo: undefined
-    };
-  },
-
-  methods: {
-    set(obj: { [key: string]: string}, changes: { [key: string]: string}) {
-      Object.entries(changes).forEach(([key, value]: [string, any]) => {
-        Vue.set(obj, key, value);
-      });
-    },
-
-    updateInfo(changes: EpinioAppInfo) {
-      this.value.meta = this.value.meta || {};
-      this.value.configuration = this.value.configuration || {};
-      this.set(this.value.meta, changes.meta);
-      this.set(this.value.configuration, { settings: this.appChart.settings });
-      this.set(this.value.configuration, changes.configuration);
-    },
-
-    updateSource(changes: EpinioAppSource) {
-      this.source = {};
-      const { appChart, ...cleanChanges } = changes;
-
-      this.appChart.selectedChart = appChart;
-      this.value.configuration = this.value.configuration || {};
-      this.value.configuration.settings = undefined;
-
-      if (appChart) {
-        // app chart actually belongs in config, so stick it in there
-        this.set(this.value.configuration, { appchart: appChart });
-        const filterChart = this.appChart.chartsList?.find((chart: any) => chart.id === appChart);
-
-        if (filterChart?.settings ) {
-          const customValues = Object.keys(filterChart?.settings).reduce((acc:any, key: any) => {
-            acc[key] = '';
-
-            return acc;
-          }, {});
-
-          this.set(this.value.configuration, { settings: customValues });
-          this.set(this.value, { chart: filterChart });
-        }
-      }
-
-      this.set(this.source, cleanChanges);
-    },
-
-    updateManifestConfigurations(changes: string[]) {
-      this.set(this.value.configuration, { configurations: changes });
-    },
-
-    updateConfigurations(changes: EpinioAppBindings) {
-      this.bindings = {};
-      this.set(this.bindings, changes);
-      this.set(this.value.configuration, [...changes.configurations]);
-    },
-
-    cancel() {
-      this.$router.replace(this.value.listLocation);
-    },
-
-    finish() {
-      this.$router.replace(createEpinioRoute(`c-cluster-resource-id`, {
-        cluster:  this.$store.getters['clusterId'],
-        resource: this.value.type,
-        id:       `${ this.value.meta.namespace }/${ this.value.meta.name }`
-      }));
+  {
+    name: 'configurations',
+    label: t.value('epinio.applications.steps.configurations.label'),
+    subtext: t.value('epinio.applications.steps.configurations.subtext'),
+    ready: true,
+    nextButton: {
+      labelKey: 'epinio.applications.steps.configurations.next',
+      style: 'btn role-primary bg-warning'
     }
+  },
+  {
+    name: 'progress',
+    label: t.value('epinio.applications.steps.progress.label'),
+    subtext: t.value('epinio.applications.steps.progress.subtext'),
+    ready: false,
+    previousButton: { disable: true }
   }
+]);
+
+// Fetch data before mount
+onBeforeMount(async () => {
+  const hash = await allHash({
+    ns: store.dispatch('epinio/findAll', { type: EPINIO_TYPES.NAMESPACE }),
+    charts: store.dispatch('epinio/findAll', { type: EPINIO_TYPES.APP_CHARTS }),
+    info: store.dispatch('epinio/info'),
+  });
+
+  epinioInfo.value = hash.info;
+  appChart.chartsList = hash.charts;
+  originalModel.value = await store.dispatch('epinio/create', { type: EPINIO_TYPES.APP });
+  value.value = await store.dispatch('epinio/clone', { resource: originalModel.value });
+
+  loading.value = false;
 });
 
+// Methods
+function set(obj: Record<string, any>, changes: Record<string, any>) {
+  Object.entries(changes).forEach(([key, val]) => {
+    obj[key] = val;
+  });
+}
+
+function updateInfo(changes: EpinioAppInfo) {
+  value.value.meta ||= {};
+  value.value.configuration ||= {};
+  set(value.value.meta, changes.meta);
+  set(value.value.configuration, { settings: appChart.settings });
+  set(value.value.configuration, changes.configuration);
+}
+
+function updateSource(changes: EpinioAppSource) {
+  source.value = {};
+  const { appChart: chartId, ...cleanChanges } = changes;
+
+  appChart.selectedChart = chartId;
+  value.value.configuration ||= {};
+  value.value.configuration.settings = undefined;
+
+  if (chartId) {
+    set(value.value.configuration, { appchart: chartId });
+    const chart = appChart.chartsList?.find((c: any) => c.id === chartId);
+
+    if (chart?.settings) {
+      const customSettings = Object.keys(chart.settings).reduce((acc, key) => {
+        acc[key] = '';
+        return acc;
+      }, {} as Record<string, any>);
+
+      set(value.value.configuration, { settings: customSettings });
+      set(value.value, { chart });
+    }
+  }
+
+  set(source.value, cleanChanges);
+}
+
+function updateManifestConfigurations(configs: string[]) {
+  set(value.value.configuration, { configurations: configs });
+}
+
+function updateConfigurations(changes: EpinioAppBindings) {
+  bindings.value = {};
+  set(bindings.value, changes);
+  set(value.value.configuration, [...changes.configurations]);
+}
+
+function cancel() {
+  router.replace(value.value.listLocation);
+}
+
+function finish() {
+  const route = createEpinioRoute('c-cluster-resource-id', {
+    cluster: store.getters['clusterId'],
+    resource: value.value.type,
+    id: `${value.value.meta.namespace}/${value.value.meta.name}`
+  });
+
+  router.replace(route);
+}
 </script>
 
 <template>
-  <Loading v-if="$fetchState.pending" />
-  <div
-    v-else
-    class="application-wizard"
-  >
+  <Loading v-if="loading" />
+  <div v-else class="application-wizard">
     <Wizard
       :steps="steps"
       :banner-title="t('epinio.applications.create.title')"
@@ -178,19 +166,21 @@ export default Vue.extend<Data, any, any, any>({
           :mode="mode"
           :info="epinioInfo"
           @change="updateSource"
-          @changeAppInfo="updateInfo"
-          @changeAppConfig="updateManifestConfigurations"
-          @valid="steps[0].ready = $event"
+          @change-app-info="updateInfo"
+          @change-app-config="updateManifestConfigurations"
+          @valid="(val) => steps[0].ready = val"
         />
       </template>
+
       <template #basics>
         <AppInfo
           :application="value"
           :mode="mode"
           @change="updateInfo"
-          @valid="steps[1].ready = $event"
+          @valid="(val) => steps[1].ready = val"
         />
       </template>
+
       <template #configurations>
         <AppConfiguration
           :application="value"
@@ -198,7 +188,8 @@ export default Vue.extend<Data, any, any, any>({
           @change="updateConfigurations"
         />
       </template>
-      <template #progress="{step}">
+
+      <template #progress="{ step }">
         <AppProgress
           :application="value"
           :source="source"
@@ -211,9 +202,8 @@ export default Vue.extend<Data, any, any, any>({
   </div>
 </template>
 
-<style lang='scss' scoped>
+<style lang="scss" scoped>
 .application-wizard {
-
   padding-top: 10px;
   height: 0;
   position: relative;
@@ -226,13 +216,8 @@ export default Vue.extend<Data, any, any, any>({
     overflow: auto;
   }
 
-  // This is a hack and is needed as the wizard's buttons are now `position: absolute; bottom: 0;` so appears over wizard content
-  // In the dashabord app chart install wizard this is applied to specific content winthin the wizard (scroll__content)
-  // We applied the same thing here
-  // Both places need to be removed and the padding added within the wizard component
   :deep(.step-container__step) {
     padding-bottom: 40px;
   }
-
 }
 </style>

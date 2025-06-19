@@ -1,202 +1,181 @@
-<script lang="ts">
-import Vue, { PropType } from 'vue';
+<script lang="ts" setup>
+import { ref, reactive, computed, onMounted } from 'vue';
+import { useStore } from 'vuex';
 import Application from '../models/applications';
-import CreateEditView from '@shell/mixins/create-edit-view';
 import CruResource from '@shell/components/CruResource.vue';
 import ResourceTabs from '@shell/components/form/ResourceTabs/index.vue';
 import Tab from '@shell/components/Tabbed/Tab.vue';
 import Loading from '@shell/components/Loading.vue';
-import AppInfo, { EpinioAppInfo } from '../components/application/AppInfo.vue';
-import AppConfiguration, { EpinioAppBindings } from '../components/application/AppConfiguration.vue';
+import AppInfo from '../components/application/AppInfo.vue';
+import AppConfiguration from '../components/application/AppConfiguration.vue';
 import { epinioExceptionToErrorsArray } from '../utils/errors';
+import { useEpinioBindAppsMixin } from './bind-apps-mixin';
+
 import Wizard from '@shell/components/Wizard.vue';
 import { createEpinioRoute } from '../utils/custom-routing';
 import AppSource from '../components/application/AppSource.vue';
+import AppProgress from '../components/application/AppProgress.vue';
+import { EpinioAppSource, EPINIO_TYPES, EpinioAppInfo, EpinioAppBindings } from '../types';
+import { allHash } from '@shell/utils/promise';
 import { _EDIT } from '@shell/config/query-params';
 
-import AppProgress from '../components/application/AppProgress.vue';
-import { EpinioAppSource, EpinioCompRecord, EPINIO_TYPES } from '../types';
-import { allHash } from '@shell/utils/promise';
+const props = defineProps<{ 
+  value: Application;
+  initialValue: Application;
+  mode: string;
+}>();
 
-interface Data {
-  bindings: EpinioAppBindings,
-  source?: EpinioAppSource,
-  errors: string[],
+const { 
+  doneParams,
+  doneRoute,
+} = useEpinioBindAppsMixin(props);
+
+const store = useStore();
+
+const t = store.getters['i18n/t'];
+
+const bindings = reactive<EpinioAppBindings>({ configurations: [], services: [] });
+const source = ref<EpinioAppSource>(props.value.appSource);
+const errors = ref<string[]>([]);
+const epinioInfo = ref();
+const tabErrors = reactive<{ appInfo: boolean }>({ appInfo: false });
+
+const steps = reactive([
+  {
+    name: 'source',
+    label: t('epinio.applications.steps.source.label'),
+    subtext: t('epinio.applications.steps.source.subtext'),
+    ready: false,
+    nextButton: {
+      labelKey: 'epinio.applications.steps.configurations.update',
+      style: 'btn role-primary bg-warning'
+    }
+  },
+  {
+    name: 'progress',
+    label: t('epinio.applications.steps.progress.label'),
+    subtext: t('epinio.applications.steps.progress.subtext'),
+    ready: false,
+    previousButton: { disable: true }
+  },
+]);
+
+if (source.value.git && store.$router.currentRoute._value.query?.commit) {
+  source.value.git.commit = store.$router.currentRoute._value.query.commit as string;
 }
 
-// Data, Methods, Computed, Props
-export default Vue.extend<Data, EpinioCompRecord, EpinioCompRecord, EpinioCompRecord>({
-  components: {
-    AppSource,
-    AppProgress,
-    Loading,
-    CruResource,
-    ResourceTabs,
-    Tab,
-    AppInfo,
-    Wizard,
-    AppConfiguration
-  },
+onMounted(async () => {
+  const hash = await allHash({
+    ns: store.dispatch('epinio/findAll', { type: EPINIO_TYPES.NAMESPACE }),
+    charts: store.dispatch('epinio/findAll', { type: EPINIO_TYPES.APP_CHARTS }),
+    info: store.dispatch('epinio/info'),
+  });
 
-  data() {
-    const source = this.value.appSource;
-
-    /**
-     * Edit git application from specific commit
-     */
-    if (source.git && this.$route.query?.commit) {
-      source.git.commit = this.$route?.query?.commit;
-    }
-
-    return {
-      bindings: {
-        configurations: [],
-        services:       []
-      },
-      errors: [],
-      source,
-      steps:  [
-        {
-          name:       'source',
-          label:      this.t('epinio.applications.steps.source.label'),
-          subtext:    this.t('epinio.applications.steps.source.subtext'),
-          ready:      false,
-          nextButton: {
-            labelKey: 'epinio.applications.steps.configurations.update',
-            style:    'btn role-primary bg-warning'
-          }
-        }, {
-          name:           'progress',
-          label:          this.t('epinio.applications.steps.progress.label'),
-          subtext:        this.t('epinio.applications.steps.progress.subtext'),
-          ready:          false,
-          previousButton: { disable: true }
-        },
-      ],
-      epinioInfo: undefined
-    };
-  },
-
-  mixins: [CreateEditView],
-
-  props: {
-    value: {
-      type:     Object as PropType<Application>,
-      required: true
-    },
-    initialValue: {
-      type:     Object as PropType<Application>,
-      required: true
-    },
-    mode: {
-      type:     String,
-      required: true
-    },
-  },
-
-  async fetch() {
-    const hash: { [key:string]: any } = await allHash({
-      ns:     this.$store.dispatch('epinio/findAll', { type: EPINIO_TYPES.NAMESPACE }),
-      charts: this.$store.dispatch('epinio/findAll', { type: EPINIO_TYPES.APP_CHARTS }),
-      info:   this.$store.dispatch('epinio/info'),
-    });
-
-    this.epinioInfo = hash.info;
-  },
-
-  computed: {
-    shouldShowButtons() {
-      return this.$route.hash === '#source' ? 'hide-buttons-deploy' : '';
-    },
-    showSourceTab() {
-      return this.mode === _EDIT;
-    },
-  },
-
-  methods: {
-    async save(saveCb: (success: boolean) => void) {
-      this.errors = [];
-      try {
-        await this.value.update();
-
-        await this.value.updateConfigurations(
-          this.initialValue.baseConfigurationsNames || [],
-          this.bindings?.configurations || [],
-        );
-
-        await this.value.updateServices(
-          this.initialValue.services || [],
-          this.bindings?.services || [],
-        );
-
-        await this.value.forceFetch();
-        if (!this._isBeingDestroyed || !this._isDestroyed) {
-          saveCb(true);
-          this.done();
-        }
-      } catch (err) {
-        this.errors = epinioExceptionToErrorsArray(err);
-        saveCb(false);
-      }
-    },
-
-    set(obj: { [key: string]: string}, changes: { [key: string]: string}) {
-      Object.entries(changes).forEach(([key, value]: [string, any]) => {
-        Vue.set(obj, key, value);
-      });
-    },
-
-    updateInfo(changes: EpinioAppInfo) {
-      this.value.meta = this.value.meta || {};
-      this.value.configuration = this.value.configuration || {};
-      this.set(this.value.meta, changes.meta);
-      this.set(this.value.configuration, changes.configuration);
-    },
-
-    updateConfigurations(changes: EpinioAppBindings) {
-      Vue.set(this, 'bindings', changes);
-      this.set(this.value.configuration, [
-        ...changes.configurations,
-        // .map(s => s.meta.name)
-        // ...changes.services
-      ]);
-    },
-
-    cancel() {
-      this.$router.replace(this.value.listLocation);
-    },
-
-    finish() {
-      this.$router.replace(createEpinioRoute(`c-cluster-resource-id`, {
-        cluster:  this.$store.getters['clusterId'],
-        resource: this.value.type,
-        id:       `${ this.value.meta.namespace }/${ this.value.meta.name }`
-      }));
-    },
-
-    updateSource(changes: EpinioAppSource) {
-      this.source = {} as EpinioAppSource;
-      const { appChart, ...cleanChanges } = changes;
-
-      this.value.configuration = this.value.configuration || {};
-
-      if (appChart) {
-        // app chart actually belongs in config, so stick it in there
-        this.set(this.value.configuration, { appchart: appChart });
-      }
-
-      this.set(this.source, cleanChanges);
-    },
-
-    updateManifestConfigurations(changes: string[]) {
-      this.set(this.value.configuration, { configurations: changes });
-    },
-  },
+  epinioInfo.value = (hash as { info: any }).info;
 });
+
+const shouldShowButtons = computed(
+  () => (store.$router.currentRoute._value.hash === '#source' ? 'hide-buttons-deploy' : '')
+);
+const showSourceTab = computed(() => {
+  return props.mode === _EDIT
+});
+const validationPassed = computed(() => !Object.values(tabErrors).find((error) => error));
+
+const done = () => {
+  if (!doneRoute) {
+    return;
+  }
+
+  store.$router.replace({
+    name:   doneRoute.value,
+    params: doneParams.value || { resource: props.value.type },
+  });
+}
+
+
+async function save(saveCb: (success: boolean) => void) {
+  errors.value = [];
+  try {
+    await props.value.update();
+
+    await props.value.updateConfigurations(
+      props.initialValue.baseConfigurationsNames || [],
+      bindings.configurations || [],
+    );
+
+    await props.value.updateServices(
+      props.initialValue.services || [],
+      bindings.services || [],
+    );
+
+    await props.value.forceFetch();
+    saveCb(true);
+    done();
+  } catch (err) {
+    errors.value = epinioExceptionToErrorsArray(err);
+    saveCb(false);
+  }
+}
+
+function set(obj: Record<string, any>, changes: Record<string, any>) {
+  Object.entries(changes).forEach(([key, value]) => {
+    obj[key] = value;
+  });
+}
+
+function updateInfo(changes: EpinioAppInfo) {
+  props.value.meta = props.value.meta || {};
+  props.value.configuration = props.value.configuration || {};
+  set(props.value.meta, changes.meta);
+  set(props.value.configuration, changes.configuration);
+}
+
+function updateConfigurations(changes: EpinioAppBindings) {
+  Object.assign(bindings, changes);
+}
+
+function cancel() {
+  store.$router.replace(props.value.listLocation);
+}
+
+function finish() {
+  store.$router.replace(createEpinioRoute(`c-cluster-resource-id`, {
+    cluster: store.getters['clusterId'],
+    resource: props.value.type,
+    id: `${props.value.meta.namespace}/${props.value.meta.name}`,
+  }));
+}
+
+function updateSource(changes: EpinioAppSource) {
+  source.value = {} as EpinioAppSource;
+  const { appChart, ...cleanChanges } = changes;
+
+  props.value.configuration = props.value.configuration || {};
+
+  if (appChart) {
+    set(props.value.configuration, { appchart: appChart });
+  }
+
+  set(source.value, cleanChanges);
+}
+
+function updateManifestConfigurations(changes: string[]) {
+  set(props.value.configuration, { configurations: changes });
+}
+
+function validate(value: boolean, tab: string) {
+  if (tab) {
+    tabErrors[tab] = !value;
+  }
+
+  steps[0].ready = value;
+}
 </script>
 
+
 <template>
-  <Loading v-if="!value || $fetchState.pending" />
+  <Loading v-if="!value" />
   <CruResource
     v-else
     :class="shouldShowButtons"
@@ -204,11 +183,11 @@ export default Vue.extend<Data, EpinioCompRecord, EpinioCompRecord, EpinioCompRe
     :mode="mode"
     :resource="value"
     :errors="errors"
-    @error="e=>errors = e"
+    :validation-passed="validationPassed"
+    @error="(e : Error) => errors = epinioExceptionToErrorsArray(e)"
     @finish="save"
   >
     <ResourceTabs
-      v-model="value"
       mode="mode"
     >
       <Tab
@@ -254,15 +233,18 @@ export default Vue.extend<Data, EpinioCompRecord, EpinioCompRecord, EpinioCompRe
           </Wizard>
         </div>
       </Tab>
+      
       <Tab
         label-key="epinio.applications.steps.basics.label"
         name="info"
         :weight="20"
+        :error="tabErrors.appInfo"
       >
         <AppInfo
           :application="value"
           :mode="mode"
           @change="updateInfo"
+          @valid="validate($event, 'appInfo')"
         />
       </Tab>
       <Tab

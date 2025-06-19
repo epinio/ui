@@ -1,128 +1,136 @@
-<script lang="ts">
-import Vue from 'vue';
+<script setup lang="ts">
+import { ref, onMounted } from 'vue';
+import { useStore } from 'vuex';
 
 import Loading from '@shell/components/Loading.vue';
-import Link from '@shell/components/formatter/Link.vue';
 import ResourceTable from '@shell/components/ResourceTable.vue';
-import { EPINIO_MGMT_STORE, EPINIO_TYPES } from '../types';
-import Resource from '@shell/plugins/dashboard-store/resource-class';
 import AsyncButton from '@shell/components/AsyncButton.vue';
+
+import { EPINIO_MGMT_STORE, EPINIO_TYPES } from '../types';
 import { _MERGE } from '@shell/plugins/dashboard-store/actions';
+import EpinioCluster, { EpinioInfoPath } from '../models/cluster';
+import epinioAuth, { EpinioAuthTypes } from '../utils/auth';
 
-interface Cluster extends Resource{
-  id: string,
+const store = useStore();
+const t = store.getters['i18n/t'];
+
+let currentCluster: EpinioCluster | null = null;
+let clusters: EpinioCluster[] = [];
+let clustersSchema: any = null;
+
+const loading = ref(true);
+const error = ref<Error | null>(null)
+
+onMounted(async () => {
+  loading.value = true
+  try {
+    await store.dispatch(`${EPINIO_MGMT_STORE}/findAll`, { type: EPINIO_TYPES.CLUSTER })
+    clusters = store.getters[`${EPINIO_MGMT_STORE}/all`](EPINIO_TYPES.CLUSTER)
+    clustersSchema = store.getters[`${EPINIO_MGMT_STORE}/schemaFor`](EPINIO_TYPES.CLUSTER)
+
+    clusters.forEach((c: EpinioCluster) => testCluster(c))
+  } catch (err) {
+    error.value = err as Error
+  } finally {
+    loading.value = false
+  }
+})
+
+const canRediscover = () => {
+  return !clusters.find((c: EpinioCluster) => c.state === 'updating');
+}
+
+const rediscover = async (buttonCb: (success: boolean) => void)  => {
+  await store.dispatch(
+    `${ EPINIO_MGMT_STORE }/findAll`, 
+    { type: EPINIO_TYPES.CLUSTER, opt: { force: true, load: _MERGE } },
+  );
+  clusters.forEach((c: EpinioCluster) => testCluster(c));
+  buttonCb(true);
+}
+
+const login = async (c: EpinioCluster) =>{
+  const isLoggedIn = await epinioAuth.isLoggedIn(c.createAuthConfig(EpinioAuthTypes.AGNOSTIC));
+
+  if (isLoggedIn) {
+    store.$router.push({
+      name:   'epinio-c-cluster-dashboard',
+      params: { cluster: c.id }
+    });
+  } else {
+    currentCluster = c;
+    store.dispatch('cluster/promptModal', {
+      component: 'LoginDialog',
+      componentProps: {
+        cluster: currentCluster,
+      },
+    });
+  }
+}
+
+const setClusterState = (
+  cluster: EpinioCluster,
   state: string,
-}
-
-interface Data {
-  clustersSchema: any;
-}
-
-// Data, Methods, Computed, Props
-export default Vue.extend<Data, any, any, any>({
-  components: {
-    AsyncButton, Loading, Link, ResourceTable
-  },
-
-  layout: 'plain',
-
-  async fetch() {
-    await this.$store.dispatch(`${ EPINIO_MGMT_STORE }/findAll`, { type: EPINIO_TYPES.INSTANCE });
-
-    this.clusters.forEach((c: Cluster) => this.testCluster(c));
-  },
-
-  data() {
-    return { clustersSchema: this.$store.getters[`${ EPINIO_MGMT_STORE }/schemaFor`](EPINIO_TYPES.INSTANCE) };
-  },
-
-  mounted() {
-    window.addEventListener('visibilitychange', this.visibilitychange);
-  },
-
-  beforeDestroy() {
-    window.removeEventListener('visibilitychange', this.visibilitychange);
-  },
-
-  computed: {
-    cluster(): string {
-      return this.$route.params.cluster;
-    },
-
-    product(): string {
-      return this.$route.params.product;
-    },
-
-    canRediscover() {
-      return !this.clusters.find((c: Cluster) => c.state === 'updating');
-    },
-
-    clusters() {
-      return this.$store.getters[`${ EPINIO_MGMT_STORE }/all`](EPINIO_TYPES.INSTANCE);
+  metadataStateObj: {
+    state: {
+      transitioning: boolean,
+      error: boolean,
+      message: string
     }
-  },
+  }) => {
+  cluster['state'] = state;
+  cluster['metadata'] = metadataStateObj;
+}
 
-  methods: {
-    async rediscover(buttonCb: (success: boolean) => void) {
-      await this.$store.dispatch(`${ EPINIO_MGMT_STORE }/findAll`, { type: EPINIO_TYPES.INSTANCE, opt: { force: true, load: _MERGE } });
-      this.clusters.forEach((c: Cluster) => this.testCluster(c));
-      buttonCb(true);
-    },
+const testCluster = (c: EpinioCluster) => {
+  // Call '/ready' on each cluster. If there's a network error there's a good chance the user has to permit an invalid cert
+  setClusterState(c, 'updating', {
+    state: {
+      transitioning: true,
+      error:        false,
+      message:       'Contacting...'
+    }
+  });
 
-    visibilitychange() {
-      if (this.canRediscover && document.visibilityState === 'visible') {
-        this.rediscover(() => undefined);
-      }
-    },
-
-    setClusterState(cluster: Cluster, state: string, metadataStateObj: { transitioning: boolean, error: boolean, message: string }) {
-      Vue.set(cluster, 'state', state);
-      Vue.set(cluster, 'metadata', metadataStateObj);
-    },
-
-    testCluster(c: Cluster) {
-      // Call '/ready' on each cluster. If there's a network error there's a good chance the user has to permit an invalid cert
-      this.setClusterState(c, 'updating', {
+  store.dispatch(
+    `epinio/request`, 
+    { opt: { url: EpinioInfoPath, redirectUnauthorized: false }, clusterId: c.id }
+  )
+  .then((res: any) => {
+    c['version'] = res?.version;
+    c['oidcEnabled'] = res?.oidc_enabled;
+    setClusterState(
+      c, 
+      'available', 
+      { state: { transitioning: false, error: false, message: "" } },
+    );
+  })
+  .catch((e: Error) => {
+    if (e.message === 'Network Error') {
+      setClusterState(c, 'error', {
         state: {
-          transitioning: true,
-          message:       'Contacting...'
+          transitioning: false,
+          error:   true,
+          message: `Network Error. It may be that the certificate isn't trusted. 
+            Click on the URL above if you'd like to bypass checks and then refresh`
         }
       });
-
-      // Calls to `/ready` currently throw CORS error (but not `/api/v1`). This code block will probably change given auth stuff
-      // this.$store.dispatch('epinio/request', { opt: { url: `/ready` }, clusterId: c.id })
-      this.$store.dispatch(`epinio/request`, { opt: { url: `/api/v1/info` }, clusterId: c.id })
-        // .then(() => this.$store.dispatch(`epinio/request`, { opt: { url: `/api/v1/info` }, clusterId: c.id }))
-        .then((res: any) => {
-          Vue.set(c, 'version', res?.version);
-          this.setClusterState(c, 'available', { state: { transitioning: false } });
-        })
-        .catch((e: Error) => {
-          if (e.message === 'Network Error') {
-            this.setClusterState(c, 'error', {
-              state: {
-                error:   true,
-                message: `Network Error. It may be that the certificate isn't trusted. Click on the URL above if you'd like to bypass checks and then refresh`
-              }
-            });
-          } else {
-            this.setClusterState(c, 'error', {
-              state: {
-                error:   true,
-                message: `Failed to check the ready state: ${ e }`
-              }
-            });
-          }
-        });
+    } else {
+      setClusterState(c, 'error', {
+        state: {
+          transitioning: false,
+          error:   true,
+          message: `Failed to check the ready state: ${ e }`
+        }
+      });
     }
-  }
-
-});
+  });
+}
 </script>
 
 <template>
   <Loading
-    v-if="$fetchState.pending"
+    v-if="loading"
     mode="main"
   />
   <div
@@ -142,7 +150,6 @@ export default Vue.extend<Data, any, any, any>({
         :rows="clusters"
         :schema="clustersSchema"
         :table-actions="false"
-        :row-actions="false"
       >
         <template #header-left>
           <AsyncButton
@@ -153,15 +160,12 @@ export default Vue.extend<Data, any, any, any>({
             @click="rediscover"
           />
         </template>
-
         <template #cell:name="{row}">
           <div class="epinio-row">
-            <n-link
+            <a
               v-if="row.state === 'available'"
-              :to="{name: 'epinio-c-cluster-dashboard', params: {cluster: row.id}}"
-            >
-              {{ row.name }}
-            </n-link>
+              @click="login(row)"
+            >{{ row.name }}</a>
             <template v-else>
               {{ row.name }}
             </template>
@@ -172,7 +176,7 @@ export default Vue.extend<Data, any, any, any>({
             <Link
               v-if="row.state !== 'available'"
               :row="row"
-              :value="{ text: row.api, url: row.readyApi }"
+              :value="{ text: row.api, url: row.infoUrl }"
             />
             <template v-else>
               {{ row.api }}
@@ -180,8 +184,10 @@ export default Vue.extend<Data, any, any, any>({
           </div>
         </template>
       </ResourceTable>
+
     </div>
-  </div>
+
+</div>
 </template>
 
 <style lang="scss" scoped>
@@ -202,6 +208,10 @@ div.root {
       height: 40px;
       display: flex;
       align-items: center;
+
+      a {
+        cursor: pointer;
+      }
     }
   }
 }

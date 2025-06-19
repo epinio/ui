@@ -1,31 +1,31 @@
 {
   "name": "epinio",
-  "description": "Application Development Engine for Kubernetes",
-  "icon": "https://raw.githubusercontent.com/rancher/dashboard/0b6cbe93e9ed3292294da178f119a500cc494db9/pkg/epinio/assets/logo-epinio.svg",
-  "version": "1.9.0",
+  "description": "A Rancher Extension of The Application Development Engine for Kubernetes",
+  "version": "1.12.0-rc1",
   "private": false,
-  "rancher": true,
-  "license": "Apache-2.0",
-  "author": "SUSE",
-  "scripts": {
-    "dev": "./node_modules/.bin/nuxt dev",
-    "nuxt": "./node_modules/.bin/nuxt"
+  "rancher": {
+    "annotations": {
+      "catalog.cattle.io/display-name": "Epinio",
+      "catalog.cattle.io/rancher-version": ">= 2.10.0",
+      "catalog.cattle.io/ui-extensions-version": ">= 3.0.0 < 4.0.0"
+    }
   },
+  "icon": "https://raw.githubusercontent.com/epinio/ui/7e810f1c25cf44fa5a262329bb45274c2aebc0eb/dashboard/pkg/epinio/assets/logo-epinio.svg",
+  "scripts": {},
   "engines": {
-    "node": ">=14"
-  },
-  "dependencies": {
-    "js-yaml": "^4.1.0"
+    "node": ">=20"
   },
   "devDependencies": {
-    "@types/js-yaml": "^4.0.5",
-    "@vue/cli-plugin-babel": "4.5.18",
-    "@vue/cli-plugin-typescript": "4.5.18",
-    "@vue/cli-service": "4.5.18"
+    "@vue/cli-plugin-babel": "~5.0.0",
+    "@vue/cli-plugin-typescript": "~5.0.0",
+    "@vue/cli-service": "~5.0.0"
   },
   "browserslist": [
     "> 1%",
     "last 2 versions",
     "not dead"
-  ]
+  ],
+  "dependencies": {
+    "vue-i18n": "^11.1.3"
+  }
 }

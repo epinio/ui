@@ -1,35 +1,34 @@
-<script>
-import ResourceTable from '@shell/components/ResourceTable';
+<script setup lang="ts">
 import { EPINIO_TYPES } from '../types';
+import { useStore } from 'vuex';
+import ResourceTable from '@shell/components/ResourceTable';
+import { ref, onMounted, computed, useAttrs } from 'vue';
 
-export default {
-  name:       'EpinioAppChartsList',
-  components: { ResourceTable },
-  async fetch() {
-    await this.$store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.APP_CHARTS });
-  },
-  props: {
-    schema: {
-      type:     Object,
-      required: true,
-    },
-  },
+const pending = ref<boolean>(true);
+const props = defineProps<{ schema: object }>(); //eslint-disable-line @typescript-eslint/no-unused-vars
 
-  computed: {
-    rows() {
-      return this.$store.getters['epinio/all'](EPINIO_TYPES.APP_CHARTS);
-    },
-  }
-};
+const store = useStore();
+const attrs = useAttrs();
+
+onMounted(async () => {
+  await store.dispatch(
+    `epinio/findAll`, 
+    { type: EPINIO_TYPES.APP_CHARTS }
+  );
+  pending.value = false;
+});
+
+const rows = computed(() => {
+  return store.getters['epinio/all'](EPINIO_TYPES.APP_CHARTS);
+});
 </script>
 
 <template>
   <ResourceTable
-    v-bind="$attrs"
+    v-bind="attrs"
     :rows="rows"
     :schema="schema"
-    :loading="$fetchState.pending"
+    :loading="pending"
     :table-actions="false"
-    v-on="$listeners"
   />
 </template>

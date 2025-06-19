@@ -1,74 +1,85 @@
-<script>
+<script setup lang="ts">
+import { onMounted, ref, computed } from 'vue';
+import { useStore } from 'vuex';
 import { MANAGEMENT } from '@shell/config/types';
 import { getVendor } from '@shell/config/private-label';
-import BackLink from '@shell/components/BackLink';
-import BackRoute from '@shell/mixins/back-link';
 
-export default {
-  layout:     'plain',
-  components: { BackLink },
-  mixins:     [BackRoute],
-  async fetch() {
-    this.settings = await this.$store.dispatch(`management/findAll`, { type: MANAGEMENT.SETTING });
+const store = useStore();
 
-    this.version = await this.$store.dispatch('epinio/version');
-  },
+const version = ref<any>(null);
+const settings = ref<any[]>([]);
 
-  data() {
-    return { version: null };
-  },
-  computed: {
-    appName() {
-      return getVendor();
-    },
+const t = store.getters['i18n/t'];
 
-    downloads() {
-      // TODO: Not sure if we can get the URL from the settings here.
-      const gitUrl = `https://github.com/epinio/epinio/releases/download`;
+const aboutVersionsComponentString = computed(() => t('about.versions.component'));
+const aboutTitleString = computed(() => t('about.title'));
+const aboutVersionsVersionString = computed(() => t('about.versions.version'));
+const aboutDownloadCLIString = computed(() => t('about.downloadCLI.title'));
+const allPackagesString = computed(() => t('epinio.about.allPackages'));
 
-      return [
-        this.createOSOption('about.os.mac', 'icon-apple', `${ gitUrl }/${ this.version?.displayVersion }/${ this.appName.toLowerCase() }-darwin-x86_64`, null),
-        this.createOSOption('about.os.linux', 'icon-linux', `${ gitUrl }/${ this.version?.displayVersion }/${ this.appName.toLowerCase() }-linux-x86_64`, this.downloadLinuxImages),
-        this.createOSOption('about.os.windows', 'icon-windows', `${ gitUrl }/${ this.version?.displayVersion }/${ this.appName.toLowerCase() }-windows-x86_64.zip`)
-      ];
-    },
 
-    versionString() {
-      if (this.version?.displayVersion === this.version?.fullVersion) {
-        return this.version?.displayVersion;
-      }
-
-      return this.version.fullVersion;
-    }
-  },
-  methods: {
-    createOSOption(label, icon, cliLink, imageList) {
-      const slash = cliLink?.lastIndexOf('/');
-
-      return {
-        label,
-        icon,
-        imageList,
-        cliLink,
-        cliFile: slash >= 0 ? cliLink.substr(slash + 1, cliLink.length - 1) : cliLink
-      };
-    },
-  }
+const fetchData = async () => {
+  settings.value = await store.dispatch(`management/findAll`, { type: MANAGEMENT.SETTING });
+  version.value = await store.dispatch('epinio/version');
 };
+
+onMounted(fetchData);
+
+const appName = computed(() => {
+  const isSingleProduct = !!store.getters['isSingleProduct'];
+  return isSingleProduct ? getVendor() : t('epinio.label');
+});
+
+function createOSOption(label: string, icon: string, cliLink: string, imageList: any = null) {
+  const slash = cliLink?.lastIndexOf('/');
+  return {
+    label,
+    icon,
+    imageList,
+    cliLink,
+    cliFile: slash >= 0 ? cliLink.substr(slash + 1) : cliLink
+  };
+}
+
+const downloads = computed(() => {
+  if (!version.value) {
+    return [];
+  }
+
+  const gitUrl = `https://github.com/epinio/epinio/releases/download`;
+  const versionStr = version.value.displayVersion;
+  const app = appName.value.toLowerCase();
+
+  return [
+    createOSOption('about.os.mac', 'icon-apple', `${gitUrl}/${versionStr}/${app}-darwin-x86_64`),
+    createOSOption('about.os.linux', 'icon-linux', `${gitUrl}/${versionStr}/${app}-linux-x86_64`, downloadLinuxImages),
+    createOSOption('about.os.windows', 'icon-windows', `${gitUrl}/${versionStr}/${app}-windows-x86_64.zip`)
+  ];
+});
+
+const downloadLinuxImages = null;
+
+const versionString = computed(() => {
+  if (!version.value) return '';
+  if (version.value.displayVersion === version.value.fullVersion) {
+    return version.value.displayVersion;
+  }
+  return version.value.fullVersion;
+});
+
 </script>
 
 <template>
   <div class="about">
-    <template>
-      <BackLink :link="backLink" />
-      <h1 v-t="'about.title'">
-        {{ appName }}
+    <template v-if="version">
+      <h1>
+        {{ aboutTitleString }}
       </h1>
       <table>
         <thead>
           <tr>
-            <th>{{ t('about.versions.component') }}</th>
-            <th>{{ t('about.versions.version') }}</th>
+            <th>{{ aboutVersionsComponentString }}</th>
+            <th>{{ aboutVersionsVersionString }}</th>
           </tr>
         </thead>
         <tr v-if="version">
@@ -80,13 +91,15 @@ export default {
             >
               {{ appName }}
             </a>
-          </td><td>{{ versionString }}</td>
+          </td>
+          <td>{{ versionString }}</td>
         </tr>
       </table>
     </template>
+
     <template v-if="version && downloads.length">
       <h3 class="pt-40">
-        {{ t('about.downloadCLI.title') }}
+        {{ aboutDownloadCLIString }}
       </h3>
       <table>
         <tr
@@ -108,13 +121,14 @@ export default {
         </tr>
       </table>
     </template>
+
     <template v-if="version">
       <a
         class="mt-5"
         target="_blank"
         :href="`https://github.com/epinio/epinio/releases/tag/${version.displayVersion}`"
       >
-        {{ t('epinio.about.allPackages') }}
+        {{ allPackagesString }}
       </a>
     </template>
   </div>
@@ -153,5 +167,4 @@ export default {
     }
   }
 }
-
 </style>

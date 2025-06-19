@@ -1,73 +1,65 @@
-<script>
-export default {
-  name:  'DashboardCard',
-  props: {
-    isLoaded:    { type: Boolean, required: true },
-    title:       { type: String, required: true },
-    icon:        { type: String, required: true },
-    cta:         { type: Object, required: true },
-    link:        { type: Object, required: true },
-    linkText:    { type: String, required: true },
-    description: { type: String, required: true },
-    slotTitle:   {
-      type:     String,
-      required: false,
-      default:  null,
-    },
-  },
-  computed: {
-    setLoading() {
-      return !this.isLoaded ? 'loading' : '';
-    },
-  },
-};
+<script setup lang="ts">
+import { computed, defineProps, useSlots } from 'vue';
+const slots = useSlots();
+const props = defineProps<{
+  isLoaded: boolean,
+  title: string | undefined,
+  icon: string,
+  cta: object,
+  link: object,
+  linkText: string,
+  description: string,
+  slotTitle: string | null,
+}>();
+
+const setLoading = computed(() => { return !props.isLoaded ? 'loading' : ''; }); // eslint-disable-line @typescript-eslint/no-unused-vars
 </script>
 
 <template>
   <div
-    v-if="!isLoaded"
-    :class="setLoading"
+    v-if="!props.isLoaded"
+    :class="props.setLoading"
   >
     <i class="icon-spinner animate-spin" />
   </div>
   <div
     v-else
     class="d-main"
-    :class="setLoading"
+    :class="props.setLoading"
   >
     <div class="d-header">
       <i
-        class="icon icon-fw"
-        :class="icon"
+        class="props.icon icon-fw"
+        :class="props.icon"
       />
-      <n-link :to="link">
+      <router-link :to="props.link">
         <h1>
-          {{ title }}
+          {{ props.title }}
         </h1>
-      </n-link>
+      </router-link>
     </div>
 
     <p>
-      {{ description }}
+      {{ props.description }}
     </p>
 
-    <n-link
+    <router-link
       class="btn role-secondary"
-      :to="cta"
+      :to="props.cta"
     >
-      {{ linkText }}
-    </n-link>
+      {{ props.linkText }}
+    </router-link>
 
-    <hr v-if="$slots.default">
+    <hr v-if="slots.default">
 
     <div
-      v-if="$slots.default"
+      v-if="slots.default"
       class="d-slot"
     >
-      <h2 v-if="slotTitle">
-        {{ slotTitle }}
+      <h2 v-if="props.slotTitle">
+        {{ props.slotTitle }}
       </h2>
-      <slot />
+      <slot></slot>
     </div>
   </div>
 </template>
@@ -113,36 +105,6 @@ export default {
     h2 {
       min-height: 18px;
       font-size: 16px;
-    }
-
-    ul {
-      list-style: none;
-      padding: 0;
-      margin: 0;
-      display: flex;
-      flex-direction: column;
-      gap: $space-s;
-
-      li, .link {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        width: 100%;
-        font-size: 14px;
-
-        &:not(:last-child) {
-          border-bottom: 1px solid var(--border);
-          padding-bottom: $space-s;
-        }
-      }
-
-      li > .disabled {
-        color: var(--disabled-text);
-      }
-
-      .disabled {
-        cursor: not-allowed;
-      }
     }
   }
 }

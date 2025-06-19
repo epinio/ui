@@ -45,6 +45,19 @@ asyncButton:
     action: Export
     success: Exported
     waiting: Exporting&hellip;
+  login:
+    action: Log In
+    success: Log In
+    waiting: Log In
+  refresh:
+    action: 'Refresh'
+    actionIcon: refresh
+    error: 'Refresh'
+    errorIcon: error
+    success: 'Refreshed'
+    successIcon: checkmark
+    waiting: 'Refreshing'
+    waitingIcon: refresh
 epinio:
   label: Epinio
   about:
@@ -60,6 +73,7 @@ epinio:
     noNamespaces: Create a Namespace, then create your Applications
     getStarted: Get started
     issues: Issues
+    about: About
     cards:
       namespaces:
         linkText: Create Namespace
@@ -72,6 +86,10 @@ epinio:
         description: Create instances of your services. Instances can be bound to your Applications to provide data.
         linkText: Create Instance
         slotTitle: Quick start with
+    metrics:
+      availability: 'Available node resources: { availableCpu }% cpu, { availableMemory }% memory. '
+      link:
+        label: Show Metrics in Cluster Explorer
   tableHeaders:
     namespace: Namespace
   instances:
@@ -153,10 +171,21 @@ epinio:
       manifest:
         title: Manifest
         description: Manifests contain basic application configuration like name, routes, number of instances, etc.
-      chart:
+      chartValuesImages:
         title: Chart and Images
         description: Helm chart and images can be used to `helm install` your application.
         banner: Container images can be large and take a long time to download.
+        steps:
+          preparing:
+            values: "Preparing download: Values"
+            chart: "Preparing download: Chart"
+            image: "Preparing download: Image"
+          download:
+            values: "Downloading: Values"
+            chart: "Downloading: Chart"
+            image: "Downloading: Image"
+            zip:   Compressing Files
+        error: Server Error, download of { part } part failed.
     steps:
       basics:
         label: Details
@@ -283,6 +312,10 @@ epinio:
         label: Download Manifest
       editFromCommit:
         label: Redeploy
+      goToEpinio:
+        label: Epinio App
+      viewDeployment:
+        label: View In Kube Cluster
     wm:
       containerName: 'Instance: {label}'
       noData: There are no log entries to show.
@@ -304,6 +337,8 @@ epinio:
       }
     promptRemove:
       attemptingToRemove: You are attempting to delete the Service Instance
+    chartValues:
+      title: Service Variables
   configurations:
     pairs:
       label: Config Data
@@ -330,7 +365,7 @@ epinio:
         label: Catalog Service
         placeholderNoOptions: There are no services
         placeholderWithOptions: Select the type of Service to create
-        failedWaitingForDeploy: Service instance was created but failed to reach a deployed state in a reasonable amount of time, no applications were bound
+        failedWaitingForServiceInstance: Service instance was created but failed to be returned by Epinio, no applications were bound
   catalogService:
     tableHeaders:
       shortDesc: Headline
@@ -342,9 +377,11 @@ epinio:
       helmChart: Helm Chart
   warnings:
     noNamespace: There are no namespaces. Please create one before proceeding
+  login:
+    login: Log in
+    genericProvider: Log in with Auth Provider
+    useGenericProvider: Use Auth Provider
 model:
   authConfig:
     provider:
       epinio: Auth Provider
-login:
-  genericProvider: Log in with Auth Provider

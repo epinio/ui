@@ -1,82 +1,82 @@
-<script>
+<script setup>
 import day from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 
-export default {
-  props: {
-    gitSource:      { default: null, type: Object },
-    commitPosition: {
-      default: null,
-      type:    Object
-    },
-    gitDeployment: {
-      default: null,
-      type:    Object
-    },
-  },
-  methods: {
-    formatDate(date, from) {
-      day.extend(relativeTime);
+day.extend(relativeTime);
 
-      return from ? day(date).fromNow() : day(date).format('DD MMM YYYY');
-    },
+const props = defineProps({
+  gitSource: {
+    type: Object,
+    default: null
   },
-};
+  commitPosition: {
+    type: Object,
+    default: null
+  },
+  gitDeployment: {
+    type: Object,
+    default: null
+  }
+});
+
+function formatDate(date, from) {
+  return from ? day(date).fromNow() : day(date).format('DD MMM YYYY');
+}
 </script>
 
 <template>
   <div class="repo-info">
     <div class="repo-info-owner">
       <img
-        :src="gitSource.owner.avatarUrl"
+        :src="props.gitSource.owner.avatarUrl"
         alt=""
       >
       <div>
         <a
           ref="nofollow"
           target="_blank"
-          :href="gitSource.owner.htmlUrl"
-        >{{ gitSource.owner.name }}</a>
+          :href="props.gitSource.owner.htmlUrl"
+        >{{ props.gitSource.owner.name }}</a>
         <span>/</span>
         <a
           ref="nofollow"
           target="_blank"
-          :href="gitSource.htmlUrl"
-        >{{ gitSource.name }}</a>
+          :href="props.gitSource.htmlUrl"
+        >{{ props.gitSource.name }}</a>
       </div>
     </div>
     <div
-      v-if="gitDeployment.deployedCommit"
+      v-if="props.gitDeployment.deployedCommit"
       class="repo-info-revision"
     >
       <span>
         <i class="icon icon-fw icon-commit" />
-        {{ gitDeployment.deployedCommit.short }}
+        {{ props.gitDeployment.deployedCommit.short }}
 
       </span>
       <span
-        v-if="commitPosition"
+        v-if="props.commitPosition"
         class="masthead-state badge-state"
       >
         <i class="icon icon-fw icon-commit" />
-        {{ commitPosition.text }}
+        {{ props.commitPosition.text }}
       </span>
     </div>
     <div
-      v-if="gitSource.description"
+      v-if="props.gitSource.description"
       class="repo-info-description"
     >
       <i class="icon icon-fw icon-comment" />
       <p>
-        {{ gitSource.description }}
+        {{ props.gitSource.description }}
       </p>
     </div>
     <ul>
       <li>
-        <span>{{ t('epinio.applications.detail.deployment.details.git.created') }}</span>: {{ formatDate(gitSource.created_at) }}
+        <span>{{ t('epinio.applications.detail.deployment.details.git.created') }}</span>: {{ formatDate(props.gitSource.created_at) }}
       </li>
       <li>
-        <span>{{ t('epinio.applications.detail.deployment.details.git.updated') }}</span>: {{ formatDate(gitSource.updated_at, true) }}
+        <span>{{ t('epinio.applications.detail.deployment.details.git.updated') }}</span>: {{ formatDate(props.gitSource.updated_at, true) }}
       </li>
     </ul>
   </div>

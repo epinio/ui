@@ -1,14 +1,18 @@
-import { SCHEMA } from '@shell/config/types';
+import { METRIC, SCHEMA, WORKLOAD_TYPES } from '@shell/config/types';
 import { handleSpoofedRequest } from '@shell/plugins/dashboard-store/actions';
 import { classify } from '@shell/plugins/dashboard-store/classify';
 import { normalizeType } from '@shell/plugins/dashboard-store/normalize';
 import { NAMESPACE_FILTERS } from '@shell/store/prefs';
-import { base64Encode } from '@shell/utils/crypto';
 import { createNamespaceFilterKeyWithId } from '@shell/utils/namespace-filter';
 import { parse as parseUrl, stringify as unParseUrl } from '@shell/utils/url';
+import epinioAuth, { EpinioAuthTypes } from '../../utils/auth';
+
 import {
   EpinioInfo, EpinioVersion, EPINIO_MGMT_STORE, EPINIO_PRODUCT_NAME, EPINIO_STANDALONE_CLUSTER_NAME, EPINIO_TYPES
 } from '../../types';
+import EpinioCluster from '../../models/cluster';
+import { RedirectToError } from '@shell/utils/error';
+import { allHashSettled } from '@shell/utils/promise';
 
 const createId = (schema: any, resource: any) => {
   const name = resource.meta?.name || resource.name;
@@ -36,17 +40,17 @@ export default {
     commit('remove', obj);
   },
 
-  async request({ rootGetters, dispatch, getters }: any, {
+  async request(context: any, {
     opt, type, clusterId, growlOnError = false
   }: any) {
+    const { rootGetters, dispatch, getters } = context;
+
     const spoofedRes = await handleSpoofedRequest(rootGetters, EPINIO_PRODUCT_NAME, opt, EPINIO_PRODUCT_NAME);
 
     if (spoofedRes) {
       return spoofedRes;
     }
 
-    // @TODO queue/defer duplicate requests
-    opt.depaginate = opt.depaginate !== false;
     opt.url = opt.url.replace(/\/*$/g, '');
 
     const isSingleProduct = rootGetters['isSingleProduct'];
@@ -58,13 +62,13 @@ export default {
         ps = dispatch('findSingleProductCNSI').then((cnsi: any) => `/pp/v1/direct/r/${ cnsi?.guid }`);
       }
     } else {
-      ps = dispatch(`${ EPINIO_MGMT_STORE }/findAll`, { type: EPINIO_TYPES.INSTANCE }, { root: true }).then(() => '');
+      ps = dispatch(`${ EPINIO_MGMT_STORE }/findAll`, { type: EPINIO_TYPES.CLUSTER }, { root: true }).then(() => '');
     }
 
     // opt.httpsAgent = new https.Agent({ rejectUnauthorized: false });
 
     return await ps
-      .then((prependPath = opt?.prependPath) => {
+      .then(async(prependPath = opt?.prependPath) => {
         if (isSingleProduct) {
           if (opt.url.startsWith('/')) {
             opt.url = prependPath + opt.url;
@@ -78,12 +82,14 @@ export default {
           }
         } else {
           const currentClusterId = clusterId || rootGetters['clusterId'];
-          const currentCluster = rootGetters[`${ EPINIO_MGMT_STORE }/byId`](EPINIO_TYPES.INSTANCE, currentClusterId);
+          const currentCluster: EpinioCluster = rootGetters[`${ EPINIO_MGMT_STORE }/byId`](EPINIO_TYPES.CLUSTER, currentClusterId);
 
-          opt.headers = {
-            ...opt.headers,
-            Authorization: `Basic ${ base64Encode(`${ currentCluster.username }:${ currentCluster.password }`) }`
-          };
+          if (currentCluster.createAuthConfig) {
+            opt.headers = {
+              ...opt.headers,
+              Authorization: await epinioAuth.authHeader(currentCluster.createAuthConfig(EpinioAuthTypes.AGNOSTIC))
+            };
+          }
 
           opt.url = `${ currentCluster.api }${ opt.url }`;
         }
@@ -92,17 +98,7 @@ export default {
       })
       .then((res) => {
         if ( opt.depaginate ) {
-        // @TODO but API never sends it
-        /*
-        return new Promise((resolve, reject) => {
-          const next = res.pagination.next;
-          if (!next ) [
-            return resolve();
-          }
-
-          dispatch('request')
-        });
-        */
+          throw Error('depaginate not supported');
         }
 
         if ( opt.responseType ) {
@@ -128,9 +124,12 @@ export default {
         const res = err.response;
 
         // Go to the logout page for 401s, unless redirectUnauthorized specifically disables (for the login page)
-        if ( opt.redirectUnauthorized !== false && (process as any).client && res.status === 401 ) {
-          // return Promise.reject(err);
-          dispatch('auth/logout', opt.logoutOnError, { root: true });
+        if ( opt.redirectUnauthorized !== false && res.status === 401 ) {
+          if (isSingleProduct) {
+            dispatch('auth/logout', opt.logoutOnError, { root: true });
+          } else {
+            return Promise.reject(new RedirectToError('Auth failed, return user to epinio cluster list', `/epinio`));
+          }
         } else if (growlOnError) {
           dispatch('growl/fromError', { title: `Epinio Request to ${ opt.url }`, err }, { root: true });
         }
@@ -141,7 +140,7 @@ export default {
 
         return Promise.reject(err);
       });
-
+		
     function responseObject(res: any) {
       let out = res.data;
 
@@ -165,13 +164,21 @@ export default {
     }
   },
 
+  redirect(ctx: any, location: any) {
+    const router = (this as any).$router;
+
+    router.replace(location);
+  },
+
   async onLogout({ dispatch, commit }: any) {
     await dispatch(`unsubscribe`);
     await commit('reset');
   },
 
-  loadSchemas: ( ctx: any ) => {
-    const { commit, rootGetters } = ctx;
+  loadSchemas: async( ctx: any ) => {
+    const { commit, dispatch, rootGetters } = ctx;
+
+    const clusterId = rootGetters['clusterId'];
 
     const res = {
       data: [{
@@ -226,11 +233,41 @@ export default {
     };
 
     const spoofedSchemas = rootGetters['type-map/spoofedSchemas'](EPINIO_PRODUCT_NAME);
-    const excludeInstances = spoofedSchemas.filter((schema: any) => schema.id !== EPINIO_TYPES.INSTANCE);
+    const excludeInstances = spoofedSchemas.filter((schema: any) => schema.id !== EPINIO_TYPES.CLUSTER);
 
-    res.data = res.data.concat(excludeInstances);
+    const data = [
+      ...res.data,
+      ...excludeInstances,
+    ];
 
-    res.data.forEach((schema: any) => {
+    const isSingleProduct = ctx.getters['isSingleProduct'];
+
+    if (!isSingleProduct) {
+      try {
+        const schemas = await allHashSettled({
+          nodeMetrics: dispatch(
+            `cluster/request`, 
+            { url: `/k8s/clusters/${ clusterId }/v1/schemas/${ METRIC.NODE }` }, 
+            { root: true }
+          ),
+          deployments: dispatch(
+            `cluster/request`, 
+            { url: `/k8s/clusters/${ clusterId }/v1/schemas/${ WORKLOAD_TYPES.DEPLOYMENT }` }, 
+            { root: true }
+          )
+        });
+
+        Object.values(schemas).forEach((res: any ) => {
+          if (res.value) {
+            data.push(res.value);
+          }
+        });
+      } catch (e) {
+        console.debug(`Unable to fetch schema/s for epinio cluster: ${ clusterId }`, e);
+      }
+    }
+
+    data.forEach((schema: any) => {
       schema._id = normalizeType(schema.id);
       schema._group = normalizeType(schema.attributes?.group);
     });
@@ -238,7 +275,7 @@ export default {
     commit('loadAll', {
       ctx,
       type: SCHEMA,
-      data: res.data
+      data
     });
   },
 
@@ -270,7 +307,7 @@ export default {
     const cnsi = endpoints?.find((e: any) => e.name === EPINIO_STANDALONE_CLUSTER_NAME);
 
     if (!cnsi) {
-      console.warn('Unable to find the CNSI guid of the Epinio Endpoint');// eslint-disable-line no-console
+      console.warn('Unable to find the CNSI guid of the Epinio Endpoint');
     }
 
     commit('singleProductCNSI', cnsi);
@@ -316,4 +353,5 @@ export default {
 
     return info;
   },
+
 };
