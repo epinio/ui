@@ -39,6 +39,5 @@
     "@vue/eslint-config-standard": "5.1.2",
     "@vue/eslint-config-typescript": "^11.0.3",
     "globals": "^16.2.0"
-  },
-  "packageManager": "yarn@1.2.2"
+  }
 }
