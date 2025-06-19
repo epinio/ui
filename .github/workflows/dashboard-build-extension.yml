@@ -141,7 +141,7 @@ jobs:
           
       - name: Commit build
         run: |
-          git add ./dashboard/{assets,charts,extensions,index.yaml}
+          git add ./{assets,charts,extensions,index.yaml}
           git commit -a -m "${{ env.CI_COMMIT_MESSAGE }}"
           git push
 
