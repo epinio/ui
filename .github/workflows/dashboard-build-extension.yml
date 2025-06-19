@@ -90,6 +90,7 @@ jobs:
         shell: bash
         id: build_script
         run: |
+          yarn add @babel/plugin-transform-class-static-block --dev
           publish="yarn publish-pkgs -s ${{ github.repository }} -b ${{ inputs.target_branch }}"
 
           if [[ -n "${{ inputs.tagged_release }}" ]]; then
