@@ -12,7 +12,7 @@ defaults:
 
 jobs:
   build-extension-charts:
-    uses: epinio/ui/.github/workflows/build-extension-charts.yml@main
+    uses: epinio/ui/.github/workflows/dashboard-build-extension.yml@main
     permissions:
       actions: write
       contents: write
