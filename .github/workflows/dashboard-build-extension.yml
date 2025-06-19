@@ -142,7 +142,8 @@ jobs:
       - name: Commit build
         working-directory: ./
         run: |
-          git add ./{assets,charts,extensions,index.yaml}
+          cp -R ./dashboard/{assets,charts,extensions,index.yaml} ./
+          git add ./{assets,charts,extensions,index.yaml} --force
           git commit -a -m "${{ env.CI_COMMIT_MESSAGE }}"
           git push
 
