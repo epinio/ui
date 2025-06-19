@@ -73,6 +73,7 @@ jobs:
         with:
           cache: yarn
           node-version-file: '.nvmrc'
+          cache-dependency-path: dashboard/yarn.lock
 
       - name: Install dependencies
         run: yarn
