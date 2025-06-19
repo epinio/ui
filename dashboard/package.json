@@ -39,6 +39,7 @@
     "@types/vue": "^1.0.31",
     "@vue/eslint-config-standard": "5.1.2",
     "@vue/eslint-config-typescript": "^11.0.3",
-    "globals": "^16.2.0"
+    "globals": "^16.2.0",
+    "@babel/plugin-transform-class-static-block": "7.27.1"
   }
 }
