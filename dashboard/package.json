@@ -28,7 +28,8 @@
     "build-pkg": "./node_modules/@rancher/shell/scripts/build-pkg.sh",
     "serve-pkgs": "./node_modules/@rancher/shell/scripts/serve-pkgs",
     "publish-pkgs": "./node_modules/@rancher/shell/scripts/extension/publish",
-    "lint": "./node_modules/.bin/eslint --max-warnings 0 --ext .js,.ts,.vue ."
+    "lint": "./node_modules/.bin/eslint --max-warnings 0 --ext .js,.ts,.vue .",
+    "parse-tag-name": "./node_modules/@rancher/shell/scripts/extension/parse-tag-name"
   },
   "devDependencies": {
     "@babel/eslint-parser": "^7.22.5",
