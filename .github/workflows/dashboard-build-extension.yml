@@ -108,7 +108,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: charts
-          path: ./dashboard
+          path: ./dashboard/tmp
 
   release:
     name: Release Build
