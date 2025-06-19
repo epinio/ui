@@ -140,6 +140,7 @@ jobs:
           path: ./dashboard
           
       - name: Commit build
+        working-directory: ./
         run: |
           git add ./{assets,charts,extensions,index.yaml}
           git commit -a -m "${{ env.CI_COMMIT_MESSAGE }}"
