@@ -73,7 +73,7 @@ jobs:
         with:
           cache: yarn
           node-version-file: .nvmrc
-          cache-dependency-path: dashboard/yarn.lock
+          cache-dependency-path: '${{ env.APP_ROOT }}/yarn.lock'
 
       - name: Install dependencies
         run: yarn
@@ -108,7 +108,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: charts
-          path: tmp
+          path: ${{ env.APP_ROOT }}/tmp
 
   release:
     name: Release Build
@@ -137,10 +137,11 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: charts
-
+          path: ${{ env.APP_ROOT }}
+          
       - name: Commit build
         run: |
-          git add ./{assets,charts,extensions,index.yaml}
+          git add ${{ env.APP_ROOT }}/{assets,charts,extensions,index.yaml}
           git commit -a -m "${{ env.CI_COMMIT_MESSAGE }}"
           git push
 
