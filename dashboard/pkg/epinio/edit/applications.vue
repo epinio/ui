@@ -185,7 +185,6 @@ function validate(value: boolean, tab: string) {
     :errors="errors"
     :validation-passed="validationPassed"
     @error="(e : Error) => errors = epinioExceptionToErrorsArray(e)"
-    @finish="save"
   >
     <ResourceTabs
       mode="mode"
