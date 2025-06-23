@@ -6,10 +6,6 @@ import Checkbox from '@components/Form/Checkbox/Checkbox.vue';
 import LabeledSelect from '@shell/components/form/LabeledSelect.vue';
 import LabeledInput from '@components/Form/LabeledInput/LabeledInput.vue';
 
-interface Data {
-  valid: { [key: string]: boolean }
-}
-
 // Props
 const props = defineProps<{
   chart: { [key: string]: object };
@@ -24,7 +20,6 @@ const emit = defineEmits(['valid']);
 
 // Store
 const store = useStore();
-const t = store.getters['i18n/t'];
 
 // Reactive data
 const valid = ref<{ [key: string]: boolean }>({});

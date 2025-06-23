@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import { mapGetters, mapState, useStore } from 'vuex';
-import { Location, useRouter, useRoute } from 'vue-router';
+import { useStore } from 'vuex';
 import { ref, onMounted, computed, watch, nextTick, useAttrs } from 'vue';
 
 import { EPINIO_TYPES } from '../types';
@@ -14,28 +13,21 @@ import { epinioExceptionToErrorsArray } from '../utils/errors';
 import LabeledInput from '@components/Form/LabeledInput/LabeledInput.vue';
 import { validateKubernetesName } from '@shell/utils/validators/kubernetes-name';
 
-const props = defineProps<{
-  schema: object,
-  rows: array,
-}>();
+const props = defineProps<{ schema: object, rows: Array}>(); // eslint-disable-line @typescript-eslint/no-unused-vars
 
 const attrs = useAttrs();
 const store = useStore();
-const router = useRouter();
-const route = useRoute();
 const t = store.getters['i18n/t'];
 
-const errors = ref<array>([]);
+const errors = ref<Array>([]);
 const namespaceName = ref('namespaceName');
 const showCreateModal = ref<boolean>(false);
 const creatingNamespace = ref<boolean>(false);
 const touched = ref<boolean>(false);
 
 const mode: string = _CREATE;
-const submitted: boolean = false;
-const validFields: array = { name: false };
 const resource: string = EPINIO_TYPES.NAMESPACE;
-const value = ref<array>({ meta: { name: '' } });
+const value = ref<Array>({ meta: { name: '' } });
 
 const showPromptRemove = computed(() => { 
   return store.state['action-menu'].showPromptRemove
@@ -44,8 +36,8 @@ const showPromptRemove = computed(() => {
 const validationPassed = computed(() => {
   // Add here fields that need validation
   if (!creatingNamespace.value) {
-    errors.value = [];
-    errors.value = getNamespaceErrors(value.value.meta.name);
+    errors.value = []; // eslint-disable-line vue/no-side-effects-in-computed-properties
+    errors.value = getNamespaceErrors(value.value.meta.name); // eslint-disable-line vue/no-side-effects-in-computed-properties
   }
 
   return errors.value?.length === 0;
@@ -53,7 +45,7 @@ const validationPassed = computed(() => {
 
 onMounted(() => {
   // Opens the create namespace modal if the query is passed as query param
-  if (route.query.mode === 'openModal') {
+  if (store.$router.currentRoute._value.query.mode === 'openModal') {
     openCreateModal();
   }
 });
@@ -149,7 +141,7 @@ function getNamespaceErrors(name) {
       :schema="schema"
       :resource="resource"
     >
-      <template v-slot:createButton>
+      <template #createButton>
         <button
           class="btn role-primary"
           @click="openCreateModal"
@@ -179,22 +171,23 @@ function getNamespaceErrors(name) {
             v-clean-html="t('epinio.namespace.create')"
           />
         </template>
-        <template class="model-body" #body>
+        <template #body class="model-body">
           <LabeledInput
             ref="namespaceName"
             v-model:value="value.meta.name"
             :label="t('epinio.namespace.name')"
             :required="true"
           />
-          <Banner
-            v-if="touched"
-            v-for="(err, i) in errors"
-            :key="i"
-            color="error"
-            :label="err"
-          />
+          <div v-if="touched">
+            <Banner
+              v-for="(err, i) in errors"
+              :key="i"
+              color="error"
+              :label="err"
+            />
+          </div>
         </template>
-        <template class="model-actions" #actions>
+        <template #actions class="model-actions">
           <button
             class="btn role-secondary mr-10"
             @click="closeCreateModal"

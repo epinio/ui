@@ -1,8 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { useStore } from 'vuex';
-import { useRouter } from 'vue-router';
-// import { useI18n } from 'vue-i18n';
 
 import Loading from '@shell/components/Loading.vue';
 import ResourceTable from '@shell/components/ResourceTable.vue';
@@ -14,17 +12,14 @@ import EpinioCluster, { EpinioInfoPath } from '../models/cluster';
 import epinioAuth, { EpinioAuthTypes } from '../utils/auth';
 
 const store = useStore();
-const router = useRouter();
-const error = ref<Error | null>(null)
+const t = store.getters['i18n/t'];
+
 let currentCluster: EpinioCluster | null = null;
 let clusters: EpinioCluster[] = [];
 let clustersSchema: any = null;
 
-
-const t = store.getters['i18n/t'];
-
-
 const loading = ref(true);
+const error = ref<Error | null>(null)
 
 onMounted(async () => {
   loading.value = true
@@ -58,12 +53,11 @@ const login = async (c: EpinioCluster) =>{
   const isLoggedIn = await epinioAuth.isLoggedIn(c.createAuthConfig(EpinioAuthTypes.AGNOSTIC));
 
   if (isLoggedIn) {
-    router.push({
+    store.$router.push({
       name:   'epinio-c-cluster-dashboard',
       params: { cluster: c.id }
     });
   } else {
-    console.log('Not logged in');
     currentCluster = c;
     store.dispatch('cluster/promptModal', {
       component: 'LoginDialog',
@@ -143,9 +137,8 @@ const testCluster = (c: EpinioCluster) => {
     v-else-if="clusters.length === 0"
     class="root"
   >
-      <h2>Inside v else if</h2>
-    <!-- <h2>{{ t('epinio.instances.none.header') }}</h2>
-    <p>{{ t('epinio.instances.none.description') }}</p> -->
+    <h2>{{ t('epinio.instances.none.header') }}</h2>
+    <p>{{ t('epinio.instances.none.description') }}</p>
   </div>
   <div
     v-else

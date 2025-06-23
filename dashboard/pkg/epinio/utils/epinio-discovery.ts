@@ -40,7 +40,7 @@ class EpinioDiscovery {
           mgmtCluster: c
         }, { rootGetters: store.getters }));
       } catch (err) {
-        console.debug(`Skipping epinio discovery for ${ c.spec.displayName }:`, err); // eslint-disable-line no-console
+        console.debug(`Skipping epinio discovery for ${ c.spec.displayName }:`, err);
       }
     }
 

@@ -10,11 +10,9 @@ const props = defineProps<{
   linkText: string,
   description: string,
   slotTitle: string | null,
-}>()
+}>();
 
-const setLoading = computed(() => {
-  return !props.isLoaded ? 'loading' : '';
-})
+const setLoading = computed(() => { return !props.isLoaded ? 'loading' : ''; }); // eslint-disable-line @typescript-eslint/no-unused-vars
 </script>
 
 <template>

@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
 import axios from 'axios';
-import { useRouter } from 'vue-router';
+import { useStore } from 'vuex';
+import { ref, onMounted } from 'vue';
 
 import epinioAuth, { EpinioAuthTypes } from '../utils/auth';
 import { stringify, exceptionToErrorsArray } from '@shell/utils/error';
@@ -11,7 +11,11 @@ import { Banner } from '@components/Banner';
 import Password from '@shell/components/form/Password';
 import { LabeledInput } from '@components/Form/LabeledInput';
 
-const router = useRouter();
+const store = useStore();
+
+const emit = defineEmits<{
+  (e: 'close'): void
+}>();
 
 const props = defineProps<{
   cluster: EpinioCluster,
@@ -76,7 +80,10 @@ const login = async (provider: string) => {
     }
     props.cluster.loggedIn = true;
 
-    router.push({
+    //Ensure the store knows the dialog has been closed. 
+    emit('close');
+
+    store.$router.push({
       name:   'epinio-c-cluster-dashboard',
       params: { cluster: props.cluster.id }
     });

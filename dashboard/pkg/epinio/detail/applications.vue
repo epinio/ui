@@ -91,7 +91,7 @@ async function updateInstances(newInstances: number) {
 }
 
 function formatURL(str: string) {
-  const matchGit = str.match('^(https|git)(:\/\/|@)([^\/:]+)[\/:]([^\/:]+)\/(.+)(.git)*$');
+  const matchGit = str.match('^(https|git)(:\/\/|@)([^\/:]+)[\/:]([^\/:]+)\/(.+)(.git)*$'); // eslint-disable-line no-useless-escape
   return `${matchGit?.[4]}/${matchGit?.[5]}`;
 }
 
@@ -115,16 +115,12 @@ async function fetchCommits() {
 
 function setCommitDetails() {
   const { commit } = props.value.appSource.git;
-  const selectedCommit = preparedCommits.value.find((c) => c.commitId === commit) || orderedCommits[0];
+  const selectedCommit = preparedCommits.value.find((c) => c.commitId === commit);
 
   gitDeployment.value.deployedCommit = {
     short: selectedCommit?.commitId?.slice(0, 7),
     long: selectedCommit.commitId
   };
-}
-
-function formatDate(date: string, from: boolean) {
-  return from ? day(date).fromNow() : day(date).format('DD MMM YYYY');
 }
 
 const gitType = computed(() => props.value.appSource?.type || null);
@@ -209,7 +205,7 @@ const commitPosition = computed(() => {
     <div class="application-details">
       <ApplicationCard>
         <!-- Icon slot -->
-        <template v-slot:cardIcon>
+        <template #cardIcon>
           <i
             class="icon icon-fw"
             :class="sourceIcon"
@@ -217,7 +213,7 @@ const commitPosition = computed(() => {
         </template>
 
         <!-- Routes links slot -->
-        <template v-slot:top-left>
+        <template #top-left>
           <h1>Routes</h1>
           <ul>
             <li
@@ -243,7 +239,7 @@ const commitPosition = computed(() => {
         </template> -->
 
         <!-- Resources count slot -->
-        <template v-slot:resourcesCount>
+        <template #resourcesCount>
           <div>
             {{ value.envCount }} {{ t('epinio.applications.detail.counts.envVars') }}
           </div>
@@ -286,8 +282,8 @@ const commitPosition = computed(() => {
               />
               <div class="scale-instances">
                 <PlusMinus
-                  class="mt-15 mb-10"
                   v-model:value="value.desiredInstances"
+                  class="mt-15 mb-10"
                   :disabled="saving"
                   @minus="updateInstances(value.desiredInstances - 1)"
                   @plus="updateInstances(value.desiredInstances + 1)"
@@ -457,9 +453,9 @@ const commitPosition = computed(() => {
             <template #cell:sha="{row}">
               <div class="sortable-table-commit">
                 <Link
+                  v-model:value="row.sha"
                   :row="row"
                   url-key="htmlUrl"
-                  v-model:value="row.sha"
                 />
                 <i
                   v-if="row.commitId === gitDeployment.deployedCommit.long"

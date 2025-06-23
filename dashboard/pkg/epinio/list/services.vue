@@ -34,7 +34,7 @@ const rows = computed(() => {
     >
       <template #cell:boundApps="{ row }">
         <span v-if="row.applications.length">
-          <template :key="app.id" v-for="(app, index) in row.applications">
+          <template v-for="(app, index) in row.applications" :key="app.id">
             <LinkDetail
               :row="app"
               :value="app.meta.name"

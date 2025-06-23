@@ -1,25 +1,22 @@
 <script setup lang="ts">
 import { useStore } from 'vuex';
-import { useRouter } from 'vue-router';
-import { ref, reactive, computed, onMounted, watch } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 
 import EpinioConfiguration from '../models/configurations';
 import { useEpinioBindAppsMixin } from './bind-apps-mixin';
 import { epinioExceptionToErrorsArray } from '../utils/errors';
-import { EPINIO_TYPES, EpinioNamespace, EpinioCompRecord } from '../types';
+import { EPINIO_TYPES, EpinioNamespace } from '../types';
 
 import { sortBy } from '@shell/utils/sort';
 import { _EDIT } from '@shell/config/query-params';
 import Loading from '@shell/components/Loading.vue';
 import Banner from '@components/Banner/Banner.vue';
 import KeyValue from '@shell/components/form/KeyValue.vue';
-import CreateEditView from '@shell/mixins/create-edit-view';
 import CruResource from '@shell/components/CruResource.vue';
 import LabeledSelect from '@shell/components/form/LabeledSelect.vue';
 import NameNsDescription from '@shell/components/form/NameNsDescription.vue';
 import { validateKubernetesName } from '@shell/utils/validators/kubernetes-name';
 
-const router = useRouter();
 const store = useStore();
 const t = store.getters['i18n/t'];
 
@@ -44,7 +41,7 @@ const validationPassed = ref<boolean>(false);
 
 onMounted(async () => {
   props.value.meta.namespace = props.initialValue.meta.namespace || 
-    namespaces[0]?.metadata.name;
+    namespaces.value[0]?.metadata.name;
   props.value.data = { ...props.initialValue.configuration?.details };
   selectedApps.value = [...props.initialValue.configuration?.boundapps || []];
 
@@ -70,7 +67,7 @@ const done = () => {
     return;
   }
 
-  router.replace({
+  store.$router.replace({
     name:   doneRoute.value,
     params: doneParams.value || { resource: props.value.type },
   });
@@ -124,7 +121,7 @@ const updateValidation = () => {
   if (nameErrors.length === 0 && nsErrors.length === 0) {
     const dataValues = Object.entries(props.value?.data || {});
     
-    if (!!dataValues.length) {
+    if (!!dataValues.length) { // eslint-disable-line no-extra-boolean-cast
       validationPassed.value = true;
       return;
     }
@@ -150,7 +147,7 @@ watch(
 
 watch(
   () => props.value.data,
-  (newValue) => {
+  () => {
     updateValidation();
   },
   { deep: true }
@@ -178,13 +175,14 @@ watch(
     >
       {{ t('epinio.configurations.tableHeaders.service.tooltip') }}
     </Banner>
-    <Banner
-      v-if="errors.length > 0"
-      v-for="(err, i) in errors"
-      :key="i"
-      color="error"
-      :label="err"
-    />
+    <div v-if="errors.length > 0">
+      <Banner
+        v-for="(err, i) in errors"
+        :key="i"
+        color="error"
+        :label="err"
+      />
+    </div>
     <NameNsDescription
       name-key="name"
       namespace-key="namespace"

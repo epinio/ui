@@ -1,6 +1,6 @@
 <script>
-import { EPINIO_PRODUCT_NAME } from '../../../types';
-import { TAPP } from "../../../types";
+//import { EPINIO_PRODUCT_NAME } from '../../../types';
+//import { TAPP } from "../../../types";
 
 export default {
   beforeCreate() {

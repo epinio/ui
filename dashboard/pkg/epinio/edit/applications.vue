@@ -1,6 +1,5 @@
 <script lang="ts" setup>
-import { ref, reactive, computed, onMounted, watch } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { ref, reactive, computed, onMounted } from 'vue';
 import { useStore } from 'vuex';
 import Application from '../models/applications';
 import CruResource from '@shell/components/CruResource.vue';
@@ -32,8 +31,6 @@ const {
 } = useEpinioBindAppsMixin(props);
 
 const store = useStore();
-const route = useRoute();
-const router = useRouter();
 
 const t = store.getters['i18n/t'];
 
@@ -63,8 +60,8 @@ const steps = reactive([
   },
 ]);
 
-if (source.value.git && route.query?.commit) {
-  source.value.git.commit = route.query.commit as string;
+if (source.value.git && store.$router.currentRoute._value.query?.commit) {
+  source.value.git.commit = store.$router.currentRoute._value.query.commit as string;
 }
 
 onMounted(async () => {
@@ -77,7 +74,9 @@ onMounted(async () => {
   epinioInfo.value = (hash as { info: any }).info;
 });
 
-const shouldShowButtons = computed(() => (route.hash === '#source' ? 'hide-buttons-deploy' : ''));
+const shouldShowButtons = computed(
+  () => (store.$router.currentRoute._value.hash === '#source' ? 'hide-buttons-deploy' : '')
+);
 const showSourceTab = computed(() => {
   return props.mode === _EDIT
 });
@@ -88,7 +87,7 @@ const done = () => {
     return;
   }
 
-  router.replace({
+  store.$router.replace({
     name:   doneRoute.value,
     params: doneParams.value || { resource: props.value.type },
   });
@@ -137,11 +136,11 @@ function updateConfigurations(changes: EpinioAppBindings) {
 }
 
 function cancel() {
-  router.replace(props.value.listLocation);
+  store.$router.replace(props.value.listLocation);
 }
 
 function finish() {
-  router.replace(createEpinioRoute(`c-cluster-resource-id`, {
+  store.$router.replace(createEpinioRoute(`c-cluster-resource-id`, {
     cluster: store.getters['clusterId'],
     resource: props.value.type,
     id: `${props.value.meta.namespace}/${props.value.meta.name}`,

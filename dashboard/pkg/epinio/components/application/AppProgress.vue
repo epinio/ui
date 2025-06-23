@@ -1,6 +1,5 @@
 <script lang="ts" setup>
 import { ref, computed, watch, onMounted } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
 import { useStore } from 'vuex';
 
 import SortableTable from '@shell/components/SortableTable/index.vue';
@@ -10,8 +9,12 @@ import BadgeState from '@components/BadgeState/BadgeState.vue';
 import ApplicationAction, { APPLICATION_ACTION_TYPE } from '../../models/application-action';
 import { STATE, DESCRIPTION } from '@shell/config/table-headers';
 import {
-  EPINIO_TYPES, APPLICATION_ACTION_STATE, APPLICATION_SOURCE_TYPE, EpinioApplication, EpinioAppSource,
-  EpinioCompRecord, EpinioAppBindings
+  EPINIO_TYPES, 
+  APPLICATION_ACTION_STATE,
+  APPLICATION_SOURCE_TYPE,
+  EpinioApplication,
+  EpinioAppSource,
+  EpinioAppBindings
 } from '../../types';
 import type EpinioNamespace from '../../models/namespaces';
 
@@ -26,8 +29,6 @@ const props = defineProps<{
 const emit = defineEmits(['finished']);
 
 const store = useStore();
-const router = useRouter();
-const route = useRoute();
 
 const running = ref(false);
 const actions = ref<ApplicationAction[]>([]);
@@ -55,13 +56,11 @@ const actionHeaders = [
 ];
 
 const actionsToRun = computed(() => actions.value.filter(action => action.run));
-
 const namespaces = computed(() => store.getters['epinio/all'](EPINIO_TYPES.NAMESPACE));
-
 const fetchApp = async () => {
   try {
     await props.application.forceFetch();
-  } catch (err) {
+  } catch (err) { // eslint-disable-line @typescript-eslint/no-unused-vars
     // silent catch
   }
 };
@@ -93,7 +92,7 @@ watch(running, (neu, prev) => {
 });
 
 const createActions = async () => {
-  const REDEPLOY_SOURCE = router.currentRoute.value.hash === '#source';
+  const REDEPLOY_SOURCE = store.$router.currentRoute._value.hash === '#source';
 
   const coreArgs = {
     application: props.application,

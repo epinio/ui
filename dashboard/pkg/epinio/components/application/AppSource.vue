@@ -1,9 +1,7 @@
 <script setup lang="ts">
 
-import Vue, { PropType } from 'vue';
 import { ref, reactive, computed, onMounted, watch } from 'vue';
 import { useStore } from 'vuex';
-import { useRouter } from 'vue-router';
 import jsyaml from 'js-yaml';
 
 import Application from '../../models/applications';
@@ -16,7 +14,16 @@ import { sortBy } from '@shell/utils/sort';
 import { generateZip } from '@shell/utils/download';
 import Collapse from '@shell/components/Collapse.vue';
 import {
-  APPLICATION_SOURCE_TYPE, EpinioApplicationChartResource, EPINIO_TYPES, EpinioInfo, AppSourceArchive, AppSourceContainer, AppSourceGit, AppSourceGitUrl, AppSourceBuilderImage, EpinioAppSource, GitAPIData, EPINIO_APP_MANIFEST
+  APPLICATION_SOURCE_TYPE, 
+  EpinioApplicationChartResource, 
+  EpinioInfo, 
+  //AppSourceArchive, 
+  //AppSourceContainer, 
+  //AppSourceGit, 
+  //AppSourceGitUrl, 
+  //AppSourceBuilderImage, 
+  EpinioAppSource, 
+  EPINIO_APP_MANIFEST
 } from '../../types';
 import { EpinioAppInfo } from '../../types';
 import { _EDIT } from '@shell/config/query-params';
@@ -27,8 +34,7 @@ const GIT_BASE_URL = {
   [APPLICATION_SOURCE_TYPE.GIT_LAB]: 'https://gitlab.com',
 };
 
-
-interface Data {
+/*interface Data {
   open: boolean,
   archive: AppSourceArchive,
   container: AppSourceContainer,
@@ -38,7 +44,7 @@ interface Data {
   types: any[],
   type: APPLICATION_SOURCE_TYPE ;// || { } from the select component
   APPLICATION_SOURCE_TYPE: typeof APPLICATION_SOURCE_TYPE
-}
+}*/
 
 interface FileWithRelativePath extends File {
   // For some reason TS throws this as missing at transpile time .. so recreate it
@@ -48,7 +54,6 @@ interface FileWithRelativePath extends File {
 const DEFAULT_BUILD_PACK = 'paketobuildpacks/builder:full';
 
 const store = useStore();
-const router = useRouter();
 
 const t = store.getters['i18n/t'];
 
@@ -271,7 +276,7 @@ function onManifestFileSelected(file: string) {
       }
     };
 
-    router.replace({ query: { from: EPINIO_APP_MANIFEST } });
+    store.$router.replace({ query: { from: EPINIO_APP_MANIFEST } });
     update();
     updateAppInfo(appInfo);
     updateConfigurations(parsed.configuration.configurations || []);
@@ -468,10 +473,10 @@ onMounted(() => {
 
       <template v-if="showBuilderImage">
         <RadioGroup
+          v-model:value="builderImage.default"
           class="mt-20"
           name="defaultBuilderImage"
           data-testid="epinio_app-source_builder-select"
-          v-model:value="builderImage.default"
           :labels="[
             t('epinio.applications.steps.source.archive.builderimage.default'),
             t('epinio.applications.steps.source.archive.builderimage.custom')

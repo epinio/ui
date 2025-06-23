@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { useStore } from 'vuex';
 import { ref, computed, reactive, onMounted, watch } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
 
 import { 
   EPINIO_TYPES, 
@@ -25,11 +24,7 @@ import { validateKubernetesName } from '@shell/utils/validators/kubernetes-name'
 import isEqual from 'lodash/isEqual';
 import sortBy from 'lodash/sortBy';
 
-const EPINIO_SERVICE_PARAM = 'service';
-
 const store = useStore();
-const route = useRoute();
-const router = useRouter();
 const t = store.getters['i18n/t'];
 
 const props = defineProps<{
@@ -67,7 +62,7 @@ onMounted(async () => {
     return props.value.doneParams;
   }
 
-  const out = { ...route.params };
+  const out = { ...store.$router.currentRoute._value.params };
 
   delete out.namespace;
   delete out.id;
@@ -173,11 +168,11 @@ const showChartValues = computed(() => {
 });
 
 const done = () => {
-  if (!doneRoute) {
+  if (!doneRoute.value) {
     return;
   }
 
-  router.replace({
+  store.$router.replace({
     name:   doneRoute.value,
     params: doneParams.value || { resource: props.value.type },
   });
@@ -257,13 +252,14 @@ const resetChartValues = () => {
     @finish="save"
     @errors="e=>errors = e"
   >
-    <Banner
-      v-if="errors.length > 0"
-      v-for="(err, i) in errors"
-      :key="i"
-      color="error"
-      :label="err"
-    />
+    <div v-if="errors.length > 0">
+      <Banner
+        v-for="(err, i) in errors"
+        :key="i"
+        color="error"
+        :label="err"
+      />
+    </div>
     <NameNsDescription
       name-key="name"
       namespace-key="namespace"
