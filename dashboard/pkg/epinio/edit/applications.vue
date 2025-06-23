@@ -75,7 +75,7 @@ onMounted(async () => {
 });
 
 const shouldShowButtons = computed(
-  () => (store.$router.currentRoute._value.hash === '#source' ? 'hide-buttons-deploy' : '')
+  () => (store.$router.currentRoute.value.hash === '#source' ? 'hide-buttons-deploy' : '')
 );
 const showSourceTab = computed(() => {
   return props.mode === _EDIT
@@ -185,6 +185,7 @@ function validate(value: boolean, tab: string) {
     :errors="errors"
     :validation-passed="validationPassed"
     @error="(e : Error) => errors = epinioExceptionToErrorsArray(e)"
+    @finish="save"
   >
     <ResourceTabs
       mode="mode"
