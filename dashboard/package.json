@@ -1,6 +1,6 @@
 {
   "name": "epinio",
-  "version": "1.12.0-rc2",
+  "version": "1.12.0-rc3",
   "engines": {
     "node": ">=20"
   },
@@ -22,11 +22,11 @@
     "@types/lodash": "4.17.5"
   },
   "scripts": {
-    "dev": "NODE_ENV=dev ./node_modules/.bin/vue-cli-service serve",
-    "build": "./node_modules/.bin/vue-cli-service build",
+    "dev": "./patch-rancher-shell.sh dev",
+    "build": "./patch-rancher-shell.sh build",
     "clean": "./node_modules/@rancher/shell/scripts/clean",
-    "build-pkg": "./node_modules/@rancher/shell/scripts/build-pkg.sh",
-    "serve-pkgs": "./node_modules/@rancher/shell/scripts/serve-pkgs",
+    "build-pkg": "./patch-rancher-shell.sh build-pkg",
+    "serve-pkgs": "./patch-rancher-shell.sh serve-pkgs",
     "publish-pkgs": "./node_modules/@rancher/shell/scripts/extension/publish",
     "lint": "./node_modules/.bin/eslint --max-warnings 0 --ext .js,.ts,.vue .",
     "parse-tag-name": "./node_modules/@rancher/shell/scripts/extension/parse-tag-name"
