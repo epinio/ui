@@ -68,7 +68,6 @@ jobs:
         env:
           RANCHER_ENV: epinio
           EXCLUDES_PKG: rancher-components,harvester
-          EXCLUDE_OPERATOR_PKG: true
           OUTPUT_DIR: dist
           RELEASE_DIR: release
           ARTIFACT_NAME: rancher-dashboard-epinio-standalone
