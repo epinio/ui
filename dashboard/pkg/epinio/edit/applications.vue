@@ -75,7 +75,7 @@ onMounted(async () => {
 });
 
 const shouldShowButtons = computed(
-  () => (store.$router.currentRoute._value.hash === '#source' ? 'hide-buttons-deploy' : '')
+  () => (store.$router.currentRoute.value.hash === '#source' ? 'hide-buttons-deploy' : '')
 );
 const showSourceTab = computed(() => {
   return props.mode === _EDIT
