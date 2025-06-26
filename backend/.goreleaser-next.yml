@@ -184,10 +184,6 @@ sboms:
 
 # signs our docker images
 # https://goreleaser.com/customization/docker_sign
--
-  uses: sigstore/cosign-installer@v3.9.1
-  with:
-    cosign-release: 'v2.5.1'
     
 docker_signs:
   - cmd: cosign
