@@ -82,7 +82,7 @@ jobs:
 
       -
         name: Run GoReleaser Cross
-        run: ./backend/build/bk-release.sh release --rm-dist -f ./backend/.goreleaser-next.yml
+        run: ./backend/build/bk-release.sh release --clean -f ./backend/.goreleaser-next.yml
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           UI_BUNDLE_URL: "dev"
