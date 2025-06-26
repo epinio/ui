@@ -72,7 +72,7 @@ jobs:
           LOGIN_LOCALE_SELECTOR: false
       -
         name: Run GoReleaser Cross
-        run: ./backend/build/bk-release.sh release --rm-dist -f ./backend/.goreleaser.yml
+        run: ./backend/build/bk-release.sh release --clean -f ./backend/.goreleaser.yml
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           UI_BUNDLE_URL: ""
