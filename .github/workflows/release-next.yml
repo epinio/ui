@@ -76,6 +76,10 @@ jobs:
 
       #################
 
+      - 
+        name: Clear cosign TUF root cache
+        run: rm -rf ~/.cache/cosign/tuf
+
       -
         name: Run GoReleaser Cross
         run: ./backend/build/bk-release.sh release --rm-dist -f ./backend/.goreleaser-next.yml
