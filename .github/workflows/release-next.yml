@@ -84,6 +84,7 @@ jobs:
         name: Run GoReleaser Cross
         run: ./backend/build/bk-release.sh release --clean -f ./backend/.goreleaser-next.yml
         env:
+          COSIGN_LOG: debug
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           UI_BUNDLE_URL: "dev"
           # The "id-token: write" permission for the OIDC will set the ACTIONS_ID_TOKEN_REQUEST_URL and ACTIONS_ID_TOKEN_REQUEST_TOKEN
