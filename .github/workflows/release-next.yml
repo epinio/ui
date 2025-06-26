@@ -93,6 +93,8 @@ jobs:
           # See: https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/about-security-hardening-with-openid-connect#updating-your-actions-for-oidc
           ACTIONS_ID_TOKEN_REQUEST_URL: ${{ env.ACTIONS_ID_TOKEN_REQUEST_URL }}
           ACTIONS_ID_TOKEN_REQUEST_TOKEN: ${{ env.ACTIONS_ID_TOKEN_REQUEST_TOKEN }}
+          COSIGN_LOG: debug
+          TUF_ROOT: /tmp/tufroot
       -
         name: Verify signatures on the generated docker images and manifests
         id: verify_signatures
