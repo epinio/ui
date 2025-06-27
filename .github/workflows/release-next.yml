@@ -82,6 +82,8 @@ jobs:
         name: Generate key pair
         run: |
           cosign generate-key-pair github://epinio/ui
+        env: 
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       -
         name: Run GoReleaser Cross
