@@ -205,10 +205,10 @@ signs:
     certificate: '${artifact}.pem'
     args:
     - sign-blob
-    - '--key=cosign.key'
     - '--output-certificate=${certificate}'
     - '--output-signature=${signature}'
     - '${artifact}'
+    - '--bundle cosign.bundle'
     - '--yes' # needed on cosign 2.0.0+
     artifacts: checksum
     output: true
