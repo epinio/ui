@@ -12,7 +12,10 @@ env:
 jobs:
   release-next:
     runs-on: ubuntu-latest
-    permissions: write-all
+    permissions:
+      id-token: write   # This is the key for OIDC!
+      contents: write
+      packages: write
     steps:
       -
         name: Checkout
