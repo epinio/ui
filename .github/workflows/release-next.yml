@@ -81,17 +81,13 @@ jobs:
       - 
         name: Generate key pair
         run: |
-          cosign generate-key-pair cosign.key
-          # Upload the key as an artifact
-          echo "Uploading cosign.key as artifact"
-          mkdir -p $GITHUB_ENV
-          echo "COSIGN_KEY_PATH=cosign.key" >> $GITHUB_ENV
+          cosign generate-key-pair github://epinio/ui
 
       -
         name: Run GoReleaser Cross
         run: ./backend/build/bk-release.sh release --clean -f ./backend/.goreleaser-next.yml
         env:
-          COSIGN_KEY_PATH: ${{ secrets.COSIGN_KEY_PATH }}
+          COSIGN_KEY_PATH: github://epinio/ui
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           UI_BUNDLE_URL: "dev"
           # The "id-token: write" permission for the OIDC will set the ACTIONS_ID_TOKEN_REQUEST_URL and ACTIONS_ID_TOKEN_REQUEST_TOKEN
