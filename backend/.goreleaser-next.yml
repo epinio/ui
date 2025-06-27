@@ -191,8 +191,9 @@ docker_signs:
     output: true
     args:
     - 'sign'
+    - "--key=cosign.key"
+    - "--upload=false"
     - '${artifact}'
-    - '--key=github://epinio/ui'
     - "--yes" # needed on cosign 2.0.0+
 
 # signs the checksum file and other blobs. all files (including the sboms) are included in the
@@ -207,7 +208,6 @@ signs:
     - '--output-certificate=${certificate}'
     - '--output-signature=${signature}'
     - '${artifact}'
-    - '--key=github://epinio/ui'
     - "--yes" # needed on cosign 2.0.0+
   artifacts: checksum
   output: true
