@@ -12,10 +12,7 @@ env:
 jobs:
   release-next:
     runs-on: ubuntu-latest
-    permissions:
-      id-token: write   # This is the key for OIDC!
-      contents: write
-      packages: write
+    permissions: write-all
     steps:
       -
         name: Checkout
@@ -80,8 +77,7 @@ jobs:
 
       - 
         name: Generate key pair
-        run: |
-          cosign generate-key-pair github://epinio/ui
+        run: cosign generate-key-pair github://epinio/ui
         env: 
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
