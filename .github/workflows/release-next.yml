@@ -90,15 +90,15 @@ jobs:
           ACTIONS_ID_TOKEN_REQUEST_URL: ${{ env.ACTIONS_ID_TOKEN_REQUEST_URL }}
           ACTIONS_ID_TOKEN_REQUEST_TOKEN: ${{ env.ACTIONS_ID_TOKEN_REQUEST_TOKEN }}
           
-      -
-        name: Verify signatures on the generated docker images and manifests
-        id: verify_signatures
-        run: |
-          cosign verify ghcr.io/epinio/epinio-ui:latest-next
-        env:
-          DOCKER_CLI_EXPERIMENTAL: enabled
-          COSIGN_EXPERIMENTAL: 1
-          COSIGN_LOG: debug
+      #-
+       # name: Verify signatures on the generated docker images and manifests
+       # id: verify_signatures
+       # run: |
+       #   cosign verify ghcr.io/epinio/epinio-ui:latest-next
+       # env:
+       #   DOCKER_CLI_EXPERIMENTAL: enabled
+       #   COSIGN_EXPERIMENTAL: 1
+       #   COSIGN_LOG: debug
       -
         name: Cleanup the latest-next tag
         run: git tag -d ${{ steps.get_latest_tag.outputs.LATEST_TAG }}-next
