@@ -102,7 +102,7 @@ jobs:
         name: Sign Images
         id: sign_images
         run: |
-          cosign sign --key ./cosign.key ghcr.io/epinio/epinio-ui
+          cosign sign --key ./cosign.key ghcr.io/epinio/epinio-ui --yes
         env:
           COSIGN_PASSWORD: ${{secrets.COSIGN_PASSWORD}}
           
