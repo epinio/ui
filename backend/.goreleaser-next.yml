@@ -69,10 +69,10 @@ builds:
       - CXX=s390x-linux-gnu-g++
 
 changelog:
-  skip: false
+  disable: false
 
 snapshot:
-  name_template: "{{ incminor .Version }}-next"
+  version_template: "{{ incminor .Version }}-next"
 
 # docker build
 dockers:
