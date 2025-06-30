@@ -138,3 +138,4 @@ go-vendor-*.tgz
 dashboard/release
 
 cosign.key
+cosign.pub
