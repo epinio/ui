@@ -87,11 +87,7 @@ jobs:
 
       -
         name: Run GoReleaser Cross
-        uses: goreleaser/goreleaser-action@v6
-        with:
-          distribution: goreleaser
-          version: "~> v2"
-          args: release --config ./backend/.goreleaser-next.yml --clean
+        run: ./backend/build/bk-release.sh release --clean -f ./backend/.goreleaser-next.yml
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           COSIGN_PWD: ${{ secrets.COSIGN_PASSWORD }}
