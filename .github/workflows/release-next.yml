@@ -106,6 +106,9 @@ jobs:
         id: sign_images
         run: |
           cosign sign --key ./cosign.key ghcr.io/epinio/epinio-ui --yes
+          cosign sign --key ./cosign.key ghcr.io/epinio/epinio-ui:latest-next-amd64 --yes
+          cosign sign --key ./cosign.key ghcr.io/epinio/epinio-ui:latest-next-arm64v8 --yes
+          cosign sign --key ./cosign.key ghcr.io/epinio/epinio-ui:latest-next-s390x --yes
         env:
           COSIGN_PASSWORD: ${{secrets.COSIGN_PASSWORD}}
           
