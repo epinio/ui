@@ -188,9 +188,7 @@ sboms:
 docker_signs:
   - cmd: cosign
     artifacts: all
-    signature: "${artifact}.sig"
-    certificate: "${artifact}.pem"
-    output: true
+    stdin: '{{.Env.COSIGN_PWD}}'
     args:
     - 'sign'
     - '${artifact}@${digest}'
