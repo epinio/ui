@@ -1,6 +1,5 @@
 ---
 project_name: epinio-ui
-version: 2
 
 archives:
   - name_template: >-
@@ -9,10 +8,10 @@ archives:
       {{- if eq .Arch "amd64" }}x86_64
       {{- else }}{{ .Arch }}{{ end }}
       {{- if .Arm }}v{{ .Arm }}{{ end -}}
-    formats: [ 'binary' ]
+    format: binary
     format_overrides:
       - goos: windows
-        formats: [ 'zip' ]
+        format: zip
 
 before:
   hooks:
@@ -69,10 +68,10 @@ builds:
       - CXX=s390x-linux-gnu-g++
 
 changelog:
-  disable: false
+  skip: false
 
 snapshot:
-  version_template: "{{ incminor .Version }}-next"
+  name_template: "{{ incminor .Version }}-next"
 
 # docker build
 dockers:
