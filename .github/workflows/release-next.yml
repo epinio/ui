@@ -90,7 +90,7 @@ jobs:
         run: ./backend/build/bk-release.sh release --clean -f ./backend/.goreleaser-next.yml
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          COSIGN_PWD: ${{ secrets.COSIGN_PASSWORD }}
+          COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
           UI_BUNDLE_URL: "dev"
           # The "id-token: write" permission for the OIDC will set the ACTIONS_ID_TOKEN_REQUEST_URL and ACTIONS_ID_TOKEN_REQUEST_TOKEN
           # environment variables. Since we are running goreleaser-cross from a Docker image we need to pass those to the script and the container.
