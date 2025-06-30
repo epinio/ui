@@ -189,11 +189,7 @@ docker_signs:
   - cmd: cosign
     artifacts: all
     stdin: "{{ .Env.COSIGN_PASSWORD }}"
-    args:
-    - 'sign'
-    - "--key=cosign.key" 
-    - '${artifact}@${digest}'
-    - "--yes" # needed on cosign 2.0.0+
+    args: ['sign', "--key=cosign.key", "${artifact}@${digest}", "--yes"]
 
 # signs the checksum file and other blobs. all files (including the sboms) are included in the
 # checksum, so we don't need to sign each one if we don't want to
