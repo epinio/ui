@@ -79,10 +79,13 @@ jobs:
       ################
 
       - 
-        name: Write signing key to disk
+        name: Write Signing Key to Disk
         run: |
-          echo ${{ secrets.COSIGN_PRIVATE_KEY }} | base64 -d > cosign.key
-          echo ${{ secrets.COSIGN_PUBLIC_KEY }} | base64 -d > cosign.pub
+          'echo "$PRIVKEY" | base64 -d > cosign.key'
+          'echo "$PUBKEY" | base64 -d > cosign.pub'
+        env:
+          PRIVKEY: ${{ secrets.COSIGN_PRIVATE_KEY }}
+          PUBKEY: ${{ secrets.COSIGN_PUBLIC_KEY }}
         shell: bash
 
       -
