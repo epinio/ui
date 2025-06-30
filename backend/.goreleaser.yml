@@ -24,7 +24,7 @@ dist: /tmp/_dist
 
 # binary builds
 builds:
-  - main: ./backend/src/jetstream/
+  - main: ./backend/src/jetstream
   # amd64
   - id: epinio-ui-amd64
     dir: backend/src/jetstream
