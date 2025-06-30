@@ -17,17 +17,20 @@ before:
   hooks:
     - sh -c "cd backend/src/jetstream && go mod download"
 
+release:
+  disable: true
+
 dist: /tmp/_dist
 
 # binary builds
 builds:
-
+  - main: ./src/jetstream/
   # amd64
   - id: epinio-ui-amd64
     dir: backend/src/jetstream
     binary: epinio-ui
     ldflags:
-      - -w -s -X "main.appVersion={{ .Tag }}"
+      - -w -s -X "main.appVersion={{ incminor .Version }}-next"
     goos:
       - linux
     goarch:
@@ -41,7 +44,7 @@ builds:
     dir: backend/src/jetstream
     binary: epinio-ui
     ldflags:
-      - -w -s -X "main.appVersion={{ .Tag }}"
+      - -w -s -X "main.appVersion={{ incminor .Version }}-next"
     goos:
       - linux
     goarch:
@@ -55,7 +58,7 @@ builds:
     dir: backend/src/jetstream
     binary: epinio-ui
     ldflags:
-      - -w -s -X "main.appVersion={{ .Tag }}"
+      - -w -s -X "main.appVersion={{ incminor .Version }}-next"
     goos:
       - linux
     goarch:
@@ -68,7 +71,7 @@ changelog:
   skip: false
 
 snapshot:
-  name_template: "{{ .Tag }}-next"
+  name_template: "{{ incminor .Version }}-next"
 
 # docker build
 dockers:
@@ -80,39 +83,24 @@ dockers:
     use: buildx
     dockerfile: backend/Dockerfile
 
-    # IDs to filter the binaries/packages.
     ids:
     - epinio-ui-amd64
 
-    # Templates of the Docker image names.
     image_templates:
-    - "ghcr.io/epinio/epinio-ui:{{ .Tag }}-amd64"
-    - "ghcr.io/epinio/epinio-ui:latest-amd64"
+    - "ghcr.io/epinio/epinio-ui:{{ incminor .Version }}-next-amd64"
+    - "ghcr.io/epinio/epinio-ui:latest-next-amd64"
 
-    # Skips the docker push.
-    #skip_push: "true"
-
-    # Template of the docker build flags.
     build_flag_templates:
     - "--pull"
     - "--label=org.opencontainers.image.created={{.Date}}"
     - "--label=org.opencontainers.image.title={{.ProjectName}}"
     - "--label=org.opencontainers.image.revision={{.FullCommit}}"
-    - "--label=org.opencontainers.image.version={{.Version}}"
+    - "--label=org.opencontainers.image.version={{ incminor .Version }}-next"
     - "--label=epinio.io.ui.source={{.Env.UI_BUNDLE_URL}}"
     - "--label=org.opencontainers.image.source=https://github.com/epinio/ui"
     - "--build-arg=DIST_BINARY=epinio-ui"
     - "--platform=linux/amd64"
 
-    # If your Dockerfile copies files other than binaries and packages,
-    # you should list them here as well.
-    # Note that GoReleaser will create the same structure inside a temporary
-    # folder, so if you add `foo/bar.json` here, on your Dockerfile you can
-    # `COPY foo/bar.json /whatever.json`.
-    # Also note that the paths here are relative to the folder in which
-    # GoReleaser is being run (usually the repository root folder).
-    # This field does not support wildcards, you can add an entire folder here
-    # and use wildcards when you `COPY`/`ADD` in your Dockerfile.
     extra_files:
     - backend/ui/
 
@@ -123,39 +111,24 @@ dockers:
     use: buildx
     dockerfile: backend/Dockerfile
 
-    # IDs to filter the binaries/packages.
     ids:
     - epinio-ui-arm64
 
-    # Templates of the Docker image names.
     image_templates:
-    - "ghcr.io/epinio/epinio-ui:{{ .Tag }}-arm64v8"
-    - "ghcr.io/epinio/epinio-ui:latest-arm64v8"
+    - "ghcr.io/epinio/epinio-ui:{{ incminor .Version }}-next-arm64v8"
+    - "ghcr.io/epinio/epinio-ui:latest-next-arm64v8"
 
-    # Skips the docker push.
-    #skip_push: "true"
-
-    # Template of the docker build flags.
     build_flag_templates:
     - "--pull"
     - "--label=org.opencontainers.image.created={{.Date}}"
     - "--label=org.opencontainers.image.title={{.ProjectName}}"
     - "--label=org.opencontainers.image.revision={{.FullCommit}}"
-    - "--label=org.opencontainers.image.version={{.Version}}"
+    - "--label=org.opencontainers.image.version={{ incminor .Version }}-next"
     - "--label=epinio.io.ui.source={{.Env.UI_BUNDLE_URL}}"
     - "--label=org.opencontainers.image.source=https://github.com/epinio/ui"
     - "--build-arg=DIST_BINARY=epinio-ui"
     - "--platform=linux/arm64/v8"
 
-    # If your Dockerfile copies files other than binaries and packages,
-    # you should list them here as well.
-    # Note that GoReleaser will create the same structure inside a temporary
-    # folder, so if you add `foo/bar.json` here, on your Dockerfile you can
-    # `COPY foo/bar.json /whatever.json`.
-    # Also note that the paths here are relative to the folder in which
-    # GoReleaser is being run (usually the repository root folder).
-    # This field does not support wildcards, you can add an entire folder here
-    # and use wildcards when you `COPY`/`ADD` in your Dockerfile.
     extra_files:
     - backend/ui/
 
@@ -166,55 +139,35 @@ dockers:
     use: buildx
     dockerfile: backend/Dockerfile
 
-    # IDs to filter the binaries/packages.
     ids:
     - epinio-ui-s390x
 
-    # Templates of the Docker image names.
     image_templates:
-    - "ghcr.io/epinio/epinio-ui:{{ .Tag }}-s390x"
-    - "ghcr.io/epinio/epinio-ui:latest-s390x"
+    - "ghcr.io/epinio/epinio-ui:{{ incminor .Version }}-next-s390x"
+    - "ghcr.io/epinio/epinio-ui:latest-next-s390x"
 
-    # Skips the docker push.
-    #skip_push: "true"
-
-    # Template of the docker build flags.
     build_flag_templates:
     - "--pull"
     - "--label=org.opencontainers.image.created={{.Date}}"
     - "--label=org.opencontainers.image.title={{.ProjectName}}"
     - "--label=org.opencontainers.image.revision={{.FullCommit}}"
-    - "--label=org.opencontainers.image.version={{.Version}}"
+    - "--label=org.opencontainers.image.version={{ incminor .Version }}-next"
     - "--label=epinio.io.ui.source={{.Env.UI_BUNDLE_URL}}"
     - "--label=org.opencontainers.image.source=https://github.com/epinio/ui"
     - "--build-arg=DIST_BINARY=epinio-ui"
     - "--platform=linux/s390x"
 
-    # If your Dockerfile copies files other than binaries and packages,
-    # you should list them here as well.
-    # Note that GoReleaser will create the same structure inside a temporary
-    # folder, so if you add `foo/bar.json` here, on your Dockerfile you can
-    # `COPY foo/bar.json /whatever.json`.
-    # Also note that the paths here are relative to the folder in which
-    # GoReleaser is being run (usually the repository root folder).
-    # This field does not support wildcards, you can add an entire folder here
-    # and use wildcards when you `COPY`/`ADD` in your Dockerfile.
     extra_files:
     - backend/ui/
 
 docker_manifests:
-  -
-    name_template: "ghcr.io/epinio/epinio-ui:latest"
+  - id: epinio-ui
+    name_template: "ghcr.io/epinio/epinio-ui:latest-next"
+
     image_templates:
-    - ghcr.io/epinio/epinio-ui:{{ .Tag }}-amd64
-    - ghcr.io/epinio/epinio-ui:{{ .Tag }}-arm64v8
-    - ghcr.io/epinio/epinio-ui:{{ .Tag }}-s390x
-  -
-    name_template: "ghcr.io/epinio/epinio-ui:{{ .Tag }}"
-    image_templates:
-    - ghcr.io/epinio/epinio-ui:{{ .Tag }}-amd64
-    - ghcr.io/epinio/epinio-ui:{{ .Tag }}-arm64v8
-    - ghcr.io/epinio/epinio-ui:{{ .Tag }}-s390x
+    - ghcr.io/epinio/epinio-ui:{{ incminor .Version }}-next-amd64
+    - ghcr.io/epinio/epinio-ui:{{ incminor .Version }}-next-arm64v8
+    - ghcr.io/epinio/epinio-ui:{{ incminor .Version }}-next-s390x
 
 # Based on https://blog.goreleaser.com/goreleaser-and-software-supply-chain-security-e8917b26924b
 ##
@@ -231,30 +184,29 @@ sboms:
 
 # signs our docker images
 # https://goreleaser.com/customization/docker_sign
-
+    
 docker_signs:
   - cmd: cosign
-    env:
-    - COSIGN_EXPERIMENTAL=1
     artifacts: all
-    output: true
+    stdin: "{{ .Env.COSIGN_PWD }}"
     args:
     - 'sign'
-    - '${artifact}'
+    - "--key=cosign.key" 
+    - '${artifact}@${digest}'
+    - "--yes" # needed on cosign 2.0.0+
 
 # signs the checksum file and other blobs. all files (including the sboms) are included in the
 # checksum, so we don't need to sign each one if we don't want to
 # https://goreleaser.com/customization/sign
 
-signs:
-- cmd: cosign
-  env:
-  - COSIGN_EXPERIMENTAL=1
-  certificate: '${artifact}.pem'
-  args:
-    - sign-blob
-    - '--output-certificate=${certificate}'
-    - '--output-signature=${signature}'
-    - '${artifact}'
-  artifacts: checksum
-  output: true
+#signs:
+#- cmd: cosign
+#  certificate: '${artifact}.pem'
+#  args:
+#    - sign-blob
+#    - '${artifact}'
+#    - '--output-certificate=${certificate}'
+#    - '--output-signature=${signature}'
+#    - "--yes" # needed on cosign 2.0.0+
+#  artifacts: checksum
+#  output: true
