@@ -91,7 +91,7 @@ jobs:
         with:
           distribution: goreleaser
           version: latest
-          args: release
+          args: release --config ./backend/.goreleaser-next.yml --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           COSIGN_PWD: ${{ secrets.COSIGN_PASSWORD }}
