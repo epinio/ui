@@ -191,8 +191,8 @@ docker_signs:
     stdin: "{{ .Env.COSIGN_PWD }}"
     args:
     - 'sign'
+    - "--key=env://COSIGN_PRIVATE_KEY" 
     - '${artifact}@${digest}'
-    - "--key=cosign.key"
     - "--yes" # needed on cosign 2.0.0+
 
 # signs the checksum file and other blobs. all files (including the sboms) are included in the
