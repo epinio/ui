@@ -80,10 +80,13 @@ jobs:
 
       - 
         name: Write signing key to disk
-        run: 'echo "$KEY" > cosign.key'
+        run: |
+          'echo "$PRIVKEY" > cosign.key'
+          'echo "$PUBKEY" > cosign.pub'
         shell: bash
         env:
-          KEY: ${{ secrets.COSIGN_PRIVATE_KEY }}
+          PRIVKEY: ${{ secrets.COSIGN_PRIVATE_KEY }}
+          PUBKEY: ${{ secrets.COSIGN_PUBLIC_KEY }}
 
       -
         name: Run GoReleaser Cross
@@ -106,15 +109,16 @@ jobs:
         env:
           COSIGN_PASSWORD: ${{secrets.COSIGN_PASSWORD}}
           
-      #-
-       # name: Verify signatures on the generated docker images and manifests
-       # id: verify_signatures
-       # run: |
-       #   cosign verify ghcr.io/epinio/epinio-ui:latest-next
-       # env:
-       #   DOCKER_CLI_EXPERIMENTAL: enabled
-       #   COSIGN_EXPERIMENTAL: 1
-       #   COSIGN_LOG: debug
+      -
+        name: Verify signatures on the generated docker images and manifests
+        id: verify_signatures
+        run: |
+          cosign verify --key ./cosign.pub ghcr.io/epinio/epinio-ui:latest-next
+        env:
+          DOCKER_CLI_EXPERIMENTAL: enabled
+          COSIGN_EXPERIMENTAL: 1
+          COSIGN_LOG: debug
+          
       -
         name: Cleanup the latest-next tag
         run: git tag -d ${{ steps.get_latest_tag.outputs.LATEST_TAG }}-next
