@@ -188,7 +188,7 @@ sboms:
 docker_signs:
   - cmd: cosign
     artifacts: all
-    stdin: '{{ .Env.COSIGN_PWD }}'
+    stdin: "{{ .Env.COSIGN_PWD }}"
     args:
     - 'sign'
     - '${artifact}@${digest}'
