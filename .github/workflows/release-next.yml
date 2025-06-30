@@ -61,20 +61,20 @@ jobs:
         name: Tag current commit as latest-next
         run: git tag ${{ steps.get_latest_tag.outputs.LATEST_TAG }}-next
 
-      -
-        name: Build Epinio dashboard
-        # build the ui, move the build to `ui` in the workflow root (as per location when downloading from url)
-        run: |
-          ./.github/workflows/scripts/build-ui.sh
-          mv dashboard/$OUTPUT_DIR/$ARTIFACT_NAME backend/ui
-        env:
-          RANCHER_ENV: epinio
-          EXCLUDES_PKG: rancher-components,harvester
-          OUTPUT_DIR: dist
-          RELEASE_DIR: release
-          ARTIFACT_NAME: rancher-dashboard-epinio-standalone
-          NODE_OPTIONS: "--max-old-space-size=4096"
-          LOGIN_LOCALE_SELECTOR: false
+      #-
+      #  name: Build Epinio dashboard
+      #  # build the ui, move the build to `ui` in the workflow root (as per location when downloading from url)
+      #  run: |
+      #    ./.github/workflows/scripts/build-ui.sh
+      #    mv dashboard/$OUTPUT_DIR/$ARTIFACT_NAME backend/ui
+      #  env:
+      #    RANCHER_ENV: epinio
+      #    EXCLUDES_PKG: rancher-components,harvester
+      #    OUTPUT_DIR: dist
+      #    RELEASE_DIR: release
+      #    ARTIFACT_NAME: rancher-dashboard-epinio-standalone
+      #    NODE_OPTIONS: "--max-old-space-size=4096"
+      #    LOGIN_LOCALE_SELECTOR: false
 
       ################
 
