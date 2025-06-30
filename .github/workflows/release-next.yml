@@ -103,6 +103,8 @@ jobs:
         id: sign_images
         run: |
           cosign sign --key ./cosign.key ghcr.io/epinio/epinio-ui
+        env:
+          COSIGN_PASSWORD: ${{secrets.COSIGN_PASSWORD}}
           
       #-
        # name: Verify signatures on the generated docker images and manifests
