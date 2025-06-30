@@ -76,13 +76,7 @@ jobs:
           NODE_OPTIONS: "--max-old-space-size=4096"
           LOGIN_LOCALE_SELECTOR: false
 
-      #################
-    
-      - name: Write signing key to disk
-        run: 'echo "$KEY" > cosign.key'
-        shell: bash
-        env:
-          KEY: ${{  }}
+      ################
 
       -
         name: Run GoReleaser Cross
