@@ -113,7 +113,7 @@ jobs:
         name: Verify signatures on the generated docker images and manifests
         id: verify_signatures
         run: |
-          cosign verify --key ./cosign.pub ghcr.io/epinio/epinio-ui:latest-next
+          cosign verify --key ./cosign.pub ghcr.io/epinio/epinio-ui
         env:
           DOCKER_CLI_EXPERIMENTAL: enabled
           COSIGN_EXPERIMENTAL: 1
