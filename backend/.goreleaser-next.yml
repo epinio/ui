@@ -186,9 +186,12 @@ sboms:
 # https://goreleaser.com/customization/docker_sign
     
 docker_signs:
+  env:
+    - COSIGN_EXPERIMENTAL=1
   - artifacts: all
     stdin: "{{ .Env.COSIGN_PASSWORD }}"
     args: ['sign', "--key=cosign.key", "${artifact}@${digest}", "--yes"]
+  output: true
 
 # signs the checksum file and other blobs. all files (including the sboms) are included in the
 # checksum, so we don't need to sign each one if we don't want to
