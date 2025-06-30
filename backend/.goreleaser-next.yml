@@ -191,7 +191,7 @@ docker_signs:
     stdin: "{{ .Env.COSIGN_PWD }}"
     args:
     - 'sign'
-    - "--key=env://COSIGN_PRIVATE_KEY" 
+    - "--key=cosign.key" 
     - '${artifact}@${digest}'
     - "--yes" # needed on cosign 2.0.0+
 
