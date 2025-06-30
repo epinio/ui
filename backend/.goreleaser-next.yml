@@ -1,5 +1,6 @@
 ---
 project_name: epinio-ui
+version: 2
 
 archives:
   - name_template: >-
