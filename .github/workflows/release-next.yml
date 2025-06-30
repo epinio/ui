@@ -90,6 +90,7 @@ jobs:
         run: ./backend/build/bk-release.sh release --clean -f ./backend/.goreleaser-next.yml
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COSIGN_PRIVATE_KEY: ${{secrets.COSIGN_PRIVATE_KEY}}
           COSIGN_PWD: ${{ secrets.COSIGN_PASSWORD }}
           UI_BUNDLE_URL: "dev"
           # The "id-token: write" permission for the OIDC will set the ACTIONS_ID_TOKEN_REQUEST_URL and ACTIONS_ID_TOKEN_REQUEST_TOKEN
