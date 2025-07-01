@@ -93,7 +93,6 @@ jobs:
         run: ./backend/build/bk-release.sh release --clean -f ./backend/.goreleaser-next.yml
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
           UI_BUNDLE_URL: "dev"
           # The "id-token: write" permission for the OIDC will set the ACTIONS_ID_TOKEN_REQUEST_URL and ACTIONS_ID_TOKEN_REQUEST_TOKEN
           # environment variables. Since we are running goreleaser-cross from a Docker image we need to pass those to the script and the container.
@@ -117,10 +116,9 @@ jobs:
         id: verify_signatures
         run: |
           cosign verify --key ./cosign.pub ghcr.io/epinio/epinio-ui
-        env:
-          DOCKER_CLI_EXPERIMENTAL: enabled
-          COSIGN_EXPERIMENTAL: 1
-          COSIGN_LOG: debug
+          cosign verify --key ./cosign.pub ghcr.io/epinio/epinio-ui:latest-next-amd64
+          cosign verify --key ./cosign.pub ghcr.io/epinio/epinio-ui:latest-next-arm64v8
+          cosign verify --key ./cosign.pub ghcr.io/epinio/epinio-ui:latest-next-s390x
           
       -
         name: Cleanup the latest-next tag
