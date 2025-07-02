@@ -118,7 +118,7 @@ jobs:
         name: Repository Dispatch
         uses: peter-evans/repository-dispatch@v3
         with:
-          token: ${{ secrets.CHART_REPO_ACCESS_TOKEN }}
+          token: ${{ secrets.PAT }}
           repository: epinio/helm-charts
           event-type: epinio-ui-release
           client-payload: '{"ref": "${{ steps.get_tag.outputs.TAG }}"}'
