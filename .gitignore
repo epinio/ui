@@ -136,3 +136,6 @@ go-vendor-*.tgz
 # Build
 # Ensure goreleaser works by ignoring anything created in build process - https://goreleaser.com/errors/dirty/
 dashboard/release
+
+cosign.key
+cosign.pub

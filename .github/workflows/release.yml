@@ -38,9 +38,9 @@ jobs:
         name: Install yarn
         run: npm install  --global yarn
       -
-        uses: anchore/sbom-action/download-syft@v0.20.1
+        uses: anchore/sbom-action/download-syft@v0.20.2
       -
-        uses: sigstore/cosign-installer@v3.8.2
+        uses: sigstore/cosign-installer@v3.9.1
       -
         name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -69,9 +69,20 @@ jobs:
           ARTIFACT_NAME: rancher-dashboard-epinio-standalone
           NODE_OPTIONS: "--max-old-space-size=4096"
           LOGIN_LOCALE_SELECTOR: false
+
+      - 
+        name: Write Signing Key to Disk
+        run: |
+          echo "$PRIVKEY" > cosign.key
+          echo "$PUBKEY" > cosign.pub
+        env:
+          PRIVKEY: ${{ secrets.COSIGN_PRIVATE_KEY }}
+          PUBKEY: ${{ secrets.COSIGN_PUBLIC_KEY }}
+        shell: bash
+          
       -
         name: Run GoReleaser Cross
-        run: ./backend/build/bk-release.sh release --rm-dist -f ./backend/.goreleaser.yml
+        run: ./backend/build/bk-release.sh release --clean -f ./backend/.goreleaser.yml
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           UI_BUNDLE_URL: ""
@@ -81,14 +92,24 @@ jobs:
           ACTIONS_ID_TOKEN_REQUEST_URL: ${{ env.ACTIONS_ID_TOKEN_REQUEST_URL }}
           ACTIONS_ID_TOKEN_REQUEST_TOKEN: ${{ env.ACTIONS_ID_TOKEN_REQUEST_TOKEN }}
       -
+        name: Sign Images
+        id: sign_images
+        run: |
+          cosign sign --key ./cosign.key ghcr.io/epinio/epinio-ui --yes
+          cosign sign --key ./cosign.key ghcr.io/epinio/epinio-ui:latest-amd64 --yes
+          cosign sign --key ./cosign.key ghcr.io/epinio/epinio-ui:latest-arm64v8 --yes
+          cosign sign --key ./cosign.key ghcr.io/epinio/epinio-ui:latest-s390x --yes
+        env:
+          COSIGN_PASSWORD: ${{secrets.COSIGN_PASSWORD}}
+          
+      -
         name: Verify signatures on the generated docker images and manifests
         id: verify_signatures
         run: |
-          cosign verify ghcr.io/epinio/epinio-ui:${{ steps.get_tag.outputs.TAG }}
-          cosign verify ghcr.io/epinio/epinio-ui:latest
-        env:
-          DOCKER_CLI_EXPERIMENTAL: enabled
-          COSIGN_EXPERIMENTAL: 1
+          cosign verify --key ./cosign.pub ghcr.io/epinio/epinio-ui
+          cosign verify --key ./cosign.pub ghcr.io/epinio/epinio-ui:latest-amd64
+          cosign verify --key ./cosign.pub ghcr.io/epinio/epinio-ui:latest-arm64v8
+          cosign verify --key ./cosign.pub ghcr.io/epinio/epinio-ui:latest-s390x
 
       # Allow to release Epinio UI Helm chart automatically when we release Epinio.
       # The tag is sent to the Helm chart repo.
@@ -96,7 +117,7 @@ jobs:
         name: Repository Dispatch
         uses: peter-evans/repository-dispatch@v3
         with:
-          token: ${{ secrets.CHART_REPO_ACCESS_TOKEN }}
+          token: ${{ secrets.PAT }}
           repository: epinio/helm-charts
           event-type: epinio-ui-release
           client-payload: '{"ref": "${{ steps.get_tag.outputs.TAG }}"}'
