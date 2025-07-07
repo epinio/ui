@@ -3,6 +3,7 @@ import { onMounted, ref } from 'vue';
 import { useStore } from 'vuex';
 
 const store = useStore();
+const loading = ref<bool>(true);
 let redirectOpts = ref<object>({});
 const t = store.getters['i18n/t'];
 
@@ -48,6 +49,8 @@ onMounted(async () => {
       pkceCodeVerifier
     }
   };
+
+  loading.value = false;
 });
 
 function login() {
@@ -61,7 +64,7 @@ function login() {
       ref="btn"
       class="btn bg-primary"
       style="font-size: 18px;"
-      :disabled="!$fetchState?.pending"
+      :disabled="loading"
       @click="login"
     >
       {{ t('epinio.login.genericProvider') }}
