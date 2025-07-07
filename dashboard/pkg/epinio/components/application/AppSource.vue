@@ -51,7 +51,8 @@ interface FileWithRelativePath extends File {
    readonly webkitRelativePath: string;
 }
 
-const DEFAULT_BUILD_PACK = 'paketobuildpacks/builder:full';
+// Todo: Ensure this uses the same default as the backend.
+const DEFAULT_BUILD_PACK = 'paketobuildpacks/builder-jammy-full:latest';
 
 const store = useStore();
 
