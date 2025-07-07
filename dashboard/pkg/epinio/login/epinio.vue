@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
 import { useStore } from 'vuex';
-const t = store.getters['i18n/t'];
 
 const store = useStore();
 let redirectOpts = ref<object>({});
+const t = store.getters['i18n/t'];
 
 onMounted(async () => {
   /* Fetch the dex redirect url.
