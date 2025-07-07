@@ -7,6 +7,10 @@ const loading = ref<bool>(true);
 let redirectOpts = ref<object>({});
 const t = store.getters['i18n/t'];
 
+const props = defineProps<{ 
+  name: string;
+}>();
+
 onMounted(async () => {
   /* Fetch the dex redirect url.
   *
@@ -39,7 +43,7 @@ onMounted(async () => {
   redirectAsUrl.searchParams.delete('scope');
 
   redirectOpts.value = {
-    provider: name,
+    provider: props.name,
     redirectUrl: redirectAsUrl.toString(),
     scopes: scopes.split(' '), // Put it in the format expcted by the `redirectTo` action
     scopesJoinChar: ' ',
