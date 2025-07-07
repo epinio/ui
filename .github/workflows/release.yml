@@ -7,7 +7,7 @@ on:
 
 env:
   SETUP_GO_VERSION: '1.22'
-  SETUP_NODE_VERSION: '22'
+  SETUP_NODE_VERSION: 'current'
 
 jobs:
   release:
@@ -64,7 +64,6 @@ jobs:
         env:
           RANCHER_ENV: epinio
           EXCLUDES_PKG: rancher-components,harvester
-          EXCLUDE_OPERATOR_PKG: true
           OUTPUT_DIR: dist
           RELEASE_DIR: release
           ARTIFACT_NAME: rancher-dashboard-epinio-standalone
