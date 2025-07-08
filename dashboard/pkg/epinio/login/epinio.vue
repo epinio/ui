@@ -3,7 +3,7 @@ import { onMounted, ref } from 'vue';
 import { useStore } from 'vuex';
 
 const store = useStore();
-const loading = ref<bool>(true);
+const loading = ref<boolean>(true);
 let redirectOpts = ref<object>({});
 const t = store.getters['i18n/t'];
 
