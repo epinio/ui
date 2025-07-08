@@ -1,4 +1,5 @@
 {
+  "type": "module",
   "name": "epinio",
   "version": "v1.12.0-rc4",
   "engines": {
