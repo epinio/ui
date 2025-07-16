@@ -1,7 +1,7 @@
 import { MANAGEMENT } from '@shell/config/types';
 import { ingressFullPath } from '@shell/models/networking.k8s.io.ingress';
 import epinioAuth, { EpinioAuthTypes } from '../utils/auth';
-import EpinioCluster from '../models/cluster';
+import EpinioCluster from '../models/epiniomgmt/cluster';
 import { dashboardUrl } from './embedded-helpers';
 
 class EpinioDiscovery {

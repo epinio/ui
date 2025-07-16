@@ -8,7 +8,7 @@ import AsyncButton from '@shell/components/AsyncButton.vue';
 
 import { EPINIO_MGMT_STORE, EPINIO_TYPES } from '../types';
 import { _MERGE } from '@shell/plugins/dashboard-store/actions';
-import EpinioCluster, { EpinioInfoPath } from '../models/cluster';
+import EpinioCluster, { EpinioInfoPath } from '../models/epiniomgmt/cluster';
 import epinioAuth, { EpinioAuthTypes } from '../utils/auth';
 
 const store = useStore();
@@ -24,10 +24,10 @@ const error = ref<Error | null>(null)
 onMounted(async () => {
   loading.value = true
   try {
-    await store.dispatch(`${EPINIO_MGMT_STORE}/findAll`, { type: EPINIO_TYPES.CLUSTER })
+    await store.dispatch(`${EPINIO_MGMT_STORE}/findAll`, { type: EPINIO_TYPES.CLUSTER }, { root: true })
     clusters = store.getters[`${EPINIO_MGMT_STORE}/all`](EPINIO_TYPES.CLUSTER)
     clustersSchema = store.getters[`${EPINIO_MGMT_STORE}/schemaFor`](EPINIO_TYPES.CLUSTER)
-
+    
     clusters.forEach((c: EpinioCluster) => testCluster(c))
   } catch (err) {
     error.value = err as Error
@@ -50,6 +50,7 @@ const rediscover = async (buttonCb: (success: boolean) => void)  => {
 }
 
 const login = async (c: EpinioCluster) =>{
+  console.log("CLUSTER: ", (c as EpinioCluster));
   const isLoggedIn = await epinioAuth.isLoggedIn(c.createAuthConfig(EpinioAuthTypes.AGNOSTIC));
 
   if (isLoggedIn) {
@@ -91,7 +92,7 @@ const testCluster = (c: EpinioCluster) => {
       message:       'Contacting...'
     }
   });
-
+  
   store.dispatch(
     `epinio/request`, 
     { opt: { url: EpinioInfoPath, redirectUnauthorized: false }, clusterId: c.id }
