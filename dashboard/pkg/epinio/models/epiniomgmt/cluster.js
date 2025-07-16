@@ -1,39 +1,24 @@
 import Resource from '@shell/plugins/dashboard-store/resource-class';
-import { EPINIO_TYPES } from '../types';
-import epinioAuth, { EpinioAuthConfig, EpinioAuthLocalConfig, EpinioAuthTypes } from '../utils/auth';
-import { dashboardUrl } from '../utils/embedded-helpers';
+import { EPINIO_TYPES } from '../../types';
+import epinioAuth, { EpinioAuthTypes } from '../../utils/auth';
+import { dashboardUrl } from '../../utils/embedded-helpers';
 
 export const EpinioInfoPath = `/api/v1/info`;
 
 export default class EpinioCluster extends Resource {
-  type = EPINIO_TYPES.CLUSTER;
-
-  id: string;
-  name: string;
-  namespace: string;
-  state?: string;
-  metadata?: { state: { transitioning: boolean, error: boolean, message: string }};
-  loggedIn: boolean;
-  api: string;
-  mgmtCluster: any;
-  version?: string;
-  oidcEnabled: boolean = false;
-
-  constructor(data: {
-    id: string,
-    name: string,
-    namespace: string,
-    loggedIn: boolean,
-    api: string,
-    mgmtCluster: any,
-  }, ctx: any) {
+  constructor(data, ctx) {
     super(data, ctx);
+    this.type = EPINIO_TYPES.CLUSTER;
     this.id = data.id;
     this.name = data.name;
     this.namespace = data.namespace;
     this.api = data.api;
     this.loggedIn = data.loggedIn;
     this.mgmtCluster = data.mgmtCluster;
+    this.state = undefined;
+    this.metadata = undefined;
+    this.version = undefined;
+    this.oidcEnabled = false;
   }
 
   get availableActions() {
@@ -70,8 +55,8 @@ export default class EpinioCluster extends Resource {
     }
   }
 
-  createAuthConfig(type: EpinioAuthTypes, localConfig?: EpinioAuthLocalConfig): EpinioAuthConfig {
-    const config: EpinioAuthConfig = {
+  createAuthConfig(type, localConfig) {
+    const config = {
       type,
       epinioUrl: this.api,
       dexConfig: {
