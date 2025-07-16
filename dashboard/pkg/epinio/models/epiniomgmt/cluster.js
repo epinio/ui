@@ -1,11 +1,11 @@
-import NormanCluster from '@shell/models/cluster';
-import { EPINIO_TYPES } from '../types';
-import epinioAuth, { EpinioAuthTypes } from '../utils/auth';
-import { dashboardUrl } from '../utils/embedded-helpers';
+import Resource from '@shell/plugins/dashboard-store/resource-class';
+import { EPINIO_TYPES } from '../../types';
+import epinioAuth, { EpinioAuthTypes } from '../../utils/auth';
+import { dashboardUrl } from '../../utils/embedded-helpers';
 
 export const EpinioInfoPath = `/api/v1/info`;
 
-export default class EpinioCluster extends NormanCluster {
+export default class EpinioCluster extends Resource {
   constructor(data, ctx) {
     super(data, ctx);
     this.type = EPINIO_TYPES.CLUSTER;

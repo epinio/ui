@@ -10,7 +10,7 @@ import epinioAuth, { EpinioAuthTypes } from '../../utils/auth';
 import {
   EpinioInfo, EpinioVersion, EPINIO_MGMT_STORE, EPINIO_PRODUCT_NAME, EPINIO_STANDALONE_CLUSTER_NAME, EPINIO_TYPES
 } from '../../types';
-import EpinioCluster from '../../models/cluster';
+import EpinioCluster from '../../models/epiniomgmt/cluster';
 import { RedirectToError } from '@shell/utils/error';
 import { allHashSettled } from '@shell/utils/promise';
 
