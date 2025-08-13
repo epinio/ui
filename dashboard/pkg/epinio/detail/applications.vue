@@ -13,7 +13,7 @@ import { APPLICATION_MANIFEST_SOURCE_TYPE, EPINIO_TYPES, EPINIO_PRODUCT_NAME } f
 import ResourceTable from '@shell/components/ResourceTable.vue';
 import PlusMinus from '@shell/components/form/PlusMinus.vue';
 import { epinioExceptionToErrorsArray } from '../utils/errors';
-import ApplicationCard from '@components/RcItemCard/RcItemCard.vue';
+import ApplicationCard from '@shell/components/cards/ApplicationCard.vue';
 import Tabbed from '@shell/components/Tabbed/index.vue';
 import Tab from '@shell/components/Tabbed/Tab.vue';
 import SortableTable from '@shell/components/SortableTable/index.vue';
