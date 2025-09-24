@@ -48,21 +48,27 @@ class EpinioDiscovery {
   }
 
   private async findNamespace(store: any, clusterId: string): Promise<string> {
-    // Attempt to find the `epinio-server` deployment. This assumes the user had read rights to resources in the target namespace
-    const url = `/k8s/clusters/${ clusterId }/v1/apps.deployments?labelSelector=app.kubernetes.io/component%3Depinio,app.kubernetes.io/name%3Depinio-server`;
-    const deployments = await store.dispatch(`cluster/request`, { url }, { root: true });
+    const url = `/k8s/clusters/${clusterId}/v1/apps.deployments`;
 
-    if (!deployments?.data?.length) {
+    const deployments = await store.dispatch('cluster/request', { url }, { root: true });
+
+    const epinioDeployments = deployments?.data.filter((d: any) =>
+      d.metadata?.labels?.['app.kubernetes.io/component'] === 'epinio' &&
+      d.metadata?.labels?.['app.kubernetes.io/name'] === 'epinio-server'
+    );
+
+    if (epinioDeployments.length === 0) {
       return Promise.reject(new Error('Could not find epinio-server deployment'));
     }
 
-    if (deployments?.data.length > 1) {
+    if (epinioDeployments.length > 1) {
       return Promise.reject(new Error('Found too many epinio-server deployments'));
     }
 
-    return deployments.data[0].metadata.namespace;
+    return epinioDeployments[0].metadata.namespace;
   }
 }
+
 
 const epinioDiscovery = new EpinioDiscovery();
 
