@@ -38,7 +38,7 @@ jobs:
         name: Install yarn
         run: npm install  --global yarn
       -
-        uses: anchore/sbom-action/download-syft@v0.20.5
+        uses: anchore/sbom-action/download-syft@v0.20.7
       -
         uses: sigstore/cosign-installer@v3.10.0
         with:
