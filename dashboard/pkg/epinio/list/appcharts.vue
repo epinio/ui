@@ -2,7 +2,8 @@
 import { EPINIO_TYPES } from '../types';
 import { useStore } from 'vuex';
 import ResourceTable from '@shell/components/ResourceTable';
-import { ref, onMounted, computed, useAttrs } from 'vue';
+import { ref, onMounted, onUnmounted, computed, useAttrs } from 'vue';
+import { startPolling, stopPolling } from '../utils/polling';
 
 const pending = ref<boolean>(true);
 const props = defineProps<{ schema: object }>(); //eslint-disable-line @typescript-eslint/no-unused-vars
@@ -12,10 +13,15 @@ const attrs = useAttrs();
 
 onMounted(async () => {
   await store.dispatch(
-    `epinio/findAll`, 
+    `epinio/findAll`,
     { type: EPINIO_TYPES.APP_CHARTS }
   );
   pending.value = false;
+  startPolling(["appcharts"], store);
+});
+
+onUnmounted(() => {
+  stopPolling(["appcharts"]);
 });
 
 const rows = computed(() => {

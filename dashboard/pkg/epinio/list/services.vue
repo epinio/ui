@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { ref, onMounted, useAttrs, computed } from 'vue';
+import { ref, onMounted, onUnmounted, useAttrs, computed } from 'vue';
 
 import { EPINIO_TYPES } from '../types';
 import Loading from '@shell/components/Loading';
 import { useStore } from 'vuex';
 import ResourceTable from '@shell/components/ResourceTable';
+import { startPolling, stopPolling } from '../utils/polling';
 
 const pending = ref(true);
 const store = useStore();
@@ -14,11 +15,17 @@ onMounted(async () => {
   await Promise.all([
     store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.APP }),
     store.dispatch(
-      `epinio/findAll`, 
+      `epinio/findAll`,
       { type: EPINIO_TYPES.SERVICE_INSTANCE }
     ),
   ]);
   pending.value = false;
+
+  startPolling(["catalogservices", "namespaces", "applications"], store);
+});
+
+onUnmounted(() => {
+  stopPolling(["catalogservices", "namespaces", "applications"]);
 });
 
 const rows = computed(() => {

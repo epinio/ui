@@ -4,7 +4,8 @@ import { EPINIO_TYPES } from '../types';
 import Loading from '@shell/components/Loading';
 
 import { useStore } from 'vuex';
-import { ref, computed, onMounted, useAttrs } from 'vue';
+import { ref, computed, onMounted, onUnmounted, useAttrs } from 'vue';
+import { startPolling, stopPolling } from '../utils/polling';
 
 const store = useStore();
 const attrs = useAttrs();
@@ -19,6 +20,23 @@ onMounted(async () => {
   await store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.CONFIGURATION });
 
   pending.value = false;
+  startPolling([
+    "applications",
+    "namespaces",
+    "appcharts",
+    "configurations",
+    "services"
+  ], store);
+});
+
+onUnmounted(() => {
+  stopPolling([
+    "applications",
+    "namespaces",
+    "appcharts",
+    "configurations",
+    "services"
+  ]);
 });
 
 const rows = computed(() => {
