@@ -21,7 +21,7 @@ In order to safely develop the Epinio UI we weill need to setup a cluster and in
 
 ```
   global:
-    domain: '<ip>.nip.io'
+    domain: '<ip>.sslip.io'
   rancher:
     url: '<url of the location that serves the dashboard, for dev this would be https://localhost:8005>'
   server:
