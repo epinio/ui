@@ -20,8 +20,6 @@ import SortableTable from '@shell/components/SortableTable/index.vue';
 import AppGitDeployment from '../components/application/AppGitDeployment.vue';
 import Link from '@shell/components/formatter/Link.vue';
 import Banner from '@components/Banner/Banner.vue';
-import Masthead from '@shell/components/Resource/Detail/Masthead/index.vue';
-import Metadata from '@shell/components/Resource/Detail/Metadata/index.vue';
 
 day.extend(relativeTime);
 
