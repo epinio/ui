@@ -21,7 +21,7 @@ export function init($plugin: any, store: any) {
   } = $plugin.DSL(store, $plugin.name);
 
   const isEpinioSingleProduct = process.env.rancherEnv === 'epinio';
-  
+
   if (isEpinioSingleProduct) {
     store.dispatch('setIsSingleProduct', {
       logo:                require(`../assets/logo-epinio.svg`), // eslint-disable-line @typescript-eslint/no-require-imports
@@ -121,7 +121,7 @@ export function init($plugin: any, store: any) {
   virtualType({
     label:      store.getters['i18n/t']('epinio.intro.dashboard'),
     icon:       'dashboard',
-    group:      'Root',
+    //group:      'Root',
     namespaced: false,
     name:       EPINIO_TYPES.DASHBOARD,
     route:      createEpinioRoute('c-cluster-dashboard', { })
@@ -318,7 +318,7 @@ export function init($plugin: any, store: any) {
     AGE
   ]);
 
-  
+
 
   headers(EPINIO_TYPES.CONFIGURATION, [
     NAME,
