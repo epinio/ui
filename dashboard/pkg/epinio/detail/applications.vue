@@ -13,7 +13,7 @@ import { APPLICATION_MANIFEST_SOURCE_TYPE, EPINIO_TYPES, EPINIO_PRODUCT_NAME } f
 import ResourceTable from '@shell/components/ResourceTable.vue';
 import PlusMinus from '@shell/components/form/PlusMinus.vue';
 import { epinioExceptionToErrorsArray } from '../utils/errors';
-import ApplicationCard from '@shell/components/cards/ApplicationCard.vue';
+import ApplicationCard from '../components/application/AppCardDetail.vue';
 import Tabbed from '@shell/components/Tabbed/index.vue';
 import Tab from '@shell/components/Tabbed/Tab.vue';
 import SortableTable from '@shell/components/SortableTable/index.vue';
@@ -515,10 +515,9 @@ const commitPosition = computed(() => {
         </Tab>
       </Tabbed>
     </div>
-    
+
   </div>
 </template>
-
 
 <style lang="scss" scoped>
 .content {
@@ -725,5 +724,13 @@ const commitPosition = computed(() => {
 
 .redeploy-info {
   margin: 0;
+}
+
+.live-date{
+  color: red !important;
+}
+
+:deep(.spaced-row.metadata) {
+  display: none !important;
 }
 </style>

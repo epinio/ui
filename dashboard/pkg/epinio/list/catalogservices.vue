@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { useStore } from 'vuex'
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 
 import { EPINIO_TYPES } from '../types'
 
 import Loading from '@shell/components/Loading.vue'
 import SelectIconGrid from '@shell/components/SelectIconGrid.vue'
+import { startPolling, stopPolling } from '../utils/polling';
 
 const store = useStore()
 const props = defineProps<{ schema: object }>(); // eslint-disable-line @typescript-eslint/no-unused-vars
@@ -16,18 +17,24 @@ const searchQuery = ref(null);
 onMounted(async () => {
   await store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.CATALOG_SERVICE });
   pending.value = false;
-})
+
+  startPolling(["namespaces", "applications", "catalogservices", "services"], store);
+});
+
+onUnmounted(() => {
+  stopPolling(["namespaces", "applications", "catalogservices", "services"]);
+});
 
 const list = computed(() => {
   const catalogList = store.getters['epinio/all'](EPINIO_TYPES.CATALOG_SERVICE)
-  
+
   if (!searchQuery.value) {
     return catalogList;
   } else {
     const query = searchQuery.value.toLowerCase();
 
-    return catalogList.filter((e) => e?.chart.toLowerCase().includes(query) || 
-      e?.description.toLowerCase().includes(query) || 
+    return catalogList.filter((e) => e?.chart.toLowerCase().includes(query) ||
+      e?.description.toLowerCase().includes(query) ||
       e?.short_description.toLowerCase().includes(query));
   }
 })

@@ -140,7 +140,7 @@ export default {
 
         return Promise.reject(err);
       });
-		
+
     function responseObject(res: any) {
       let out = res.data;
 
@@ -201,7 +201,7 @@ export default {
         id:                EPINIO_TYPES.NAMESPACE,
         type:              'schema',
         links:             { collection: '/api/v1/namespaces' },
-        collectionMethods: ['get', 'post'],
+        collectionMethods: ['post', 'get'],
       }, {
         product:           EPINIO_PRODUCT_NAME,
         id:                EPINIO_TYPES.CATALOG_SERVICE,
@@ -246,13 +246,13 @@ export default {
       try {
         const schemas = await allHashSettled({
           nodeMetrics: dispatch(
-            `cluster/request`, 
-            { url: `/k8s/clusters/${ clusterId }/v1/schemas/${ METRIC.NODE }` }, 
+            `cluster/request`,
+            { url: `/k8s/clusters/${ clusterId }/v1/schemas/${ METRIC.NODE }` },
             { root: true }
           ),
           deployments: dispatch(
-            `cluster/request`, 
-            { url: `/k8s/clusters/${ clusterId }/v1/schemas/${ WORKLOAD_TYPES.DEPLOYMENT }` }, 
+            `cluster/request`,
+            { url: `/k8s/clusters/${ clusterId }/v1/schemas/${ WORKLOAD_TYPES.DEPLOYMENT }` },
             { root: true }
           )
         });

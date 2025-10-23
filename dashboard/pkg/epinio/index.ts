@@ -8,6 +8,7 @@ import epinioRoutes from './routing/epinio-routing';
 import epinioMgmtStore from './store/epinio-mgmt-store';
 import epinioStore from './store/epinio-store';
 import { createEpinioRoute } from './utils/custom-routing';
+import './assets/overrides.scss';
 
 const epinioObjAnnotations = [
   'epinio.io/app-container',
@@ -47,13 +48,13 @@ export default function(plugin: IPlugin) {
 
   // Add Vuex stores
   plugin.addDashboardStore(
-    epinioMgmtStore.config.namespace, 
-    epinioMgmtStore.specifics, 
+    epinioMgmtStore.config.namespace,
+    epinioMgmtStore.specifics,
     epinioMgmtStore.config,
   );
   plugin.addDashboardStore(
-    epinioStore.config.namespace, 
-    epinioStore.specifics, 
+    epinioStore.config.namespace,
+    epinioStore.specifics,
     epinioStore.config,
   );
 
