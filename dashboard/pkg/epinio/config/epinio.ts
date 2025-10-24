@@ -57,7 +57,7 @@ export function init($plugin: any, store: any) {
   // Internal Types
 
   //// Multi-cluster view
-  /*spoofedType({
+  spoofedType({
     label:             store.getters['type-map/labelFor']({ id: EPINIO_TYPES.CLUSTER }, 2),
     type:              EPINIO_TYPES.CLUSTER,
     product:           EPINIO_PRODUCT_NAME,
@@ -68,19 +68,8 @@ export function init($plugin: any, store: any) {
       collectionMethods: [],
       resourceFields:    {},
     }],
-    getInstances: async() => {
-      let retries = 0;
-      while (
-        retries < 20 &&
-        (!store.getters['management/schemaFor'] ||
-         !store.getters['management/schemaFor']('management.cattle.io.cluster'))
-      ) {
-        await new Promise(r => setTimeout(r, 100));
-        retries++;
-      }
-      return await EpinioDiscovery.discover(store);
-    },
-  });*/
+    getInstances: async() => await EpinioDiscovery.discover(store),
+  });
 
   configureType(EPINIO_TYPES.CLUSTER, {
     isCreatable: false,
