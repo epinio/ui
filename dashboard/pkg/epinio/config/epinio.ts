@@ -9,19 +9,6 @@ import { MULTI_CLUSTER } from '@shell/store/features';
 export const BLANK_CLUSTER = '_';
 
 export function init($plugin: any, store: any) {
-  const isNewDashboard =
-    !!store.getters['management/schemaFor'] &&
-    store.getters['management/schemaFor']('provisioning.cattle.io.cluster') === undefined;
-
-  if (isNewDashboard) {
-    console.debug('[Epinio] Detected Rancher 2.12+; deferring DSL registration.');
-    try {
-      store.dispatch('management/loadSchemas', null, { root: true });
-    } catch (e) {
-      console.warn('[Epinio] management/loadSchemas failed:', e);
-    }
-  }
-
   const {
     product,
     basicType,
