@@ -57,7 +57,7 @@ export function init($plugin: any, store: any) {
   // Internal Types
 
   //// Multi-cluster view
-  spoofedType({
+  /*spoofedType({
     label:             store.getters['type-map/labelFor']({ id: EPINIO_TYPES.CLUSTER }, 2),
     type:              EPINIO_TYPES.CLUSTER,
     product:           EPINIO_PRODUCT_NAME,
@@ -80,7 +80,7 @@ export function init($plugin: any, store: any) {
       }
       return await EpinioDiscovery.discover(store);
     },
-  });
+  });*/
 
   configureType(EPINIO_TYPES.CLUSTER, {
     isCreatable: false,
