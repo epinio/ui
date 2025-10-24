@@ -1,6 +1,6 @@
 {
   "name": "epinio",
-  "version": "v1.13.2-rc4",
+  "version": "v1.13.2-rc5",
   "engines": {
     "node": ">=20"
   },
