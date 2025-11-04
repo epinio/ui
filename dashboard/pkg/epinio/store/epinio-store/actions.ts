@@ -15,7 +15,7 @@ import {
   EPINIO_STANDALONE_CLUSTER_NAME,
   EPINIO_TYPES
 } from '../../types';
-import EpinioCluster from '../../models/epiniomgmt/cluster';
+import EpinioCluster from '../../models/epiniomgmt/epinio.io.management.cluster';
 import { RedirectToError } from '@shell/utils/error';
 import { allHashSettled } from '@shell/utils/promise';
 
@@ -40,6 +40,12 @@ export const epiniofy = (obj: any, schema: any, type: any) => ({
 });
 
 export default {
+
+  //Spoof the watch action as we moved polling to utils/polling.ts
+  watch({ rootGetters }: any, args: any) {
+    // No-op: return a resolved promise to keep callers happy
+    return Promise.resolve();
+  },
 
   remove({ commit }: any, obj: any ) {
     commit('remove', obj);

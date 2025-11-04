@@ -8,7 +8,7 @@ import AsyncButton from '@shell/components/AsyncButton.vue';
 
 import { EPINIO_MGMT_STORE, EPINIO_TYPES } from '../types';
 import { _MERGE } from '@shell/plugins/dashboard-store/actions';
-import EpinioCluster, { EpinioInfoPath } from '../models/epiniomgmt/cluster';
+import EpinioCluster, { EpinioInfoPath } from '../models/epiniomgmt/epinio.io.management.cluster';
 import epinioAuth, { EpinioAuthTypes } from '../utils/auth';
 
 const store = useStore();

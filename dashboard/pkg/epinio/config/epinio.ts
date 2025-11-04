@@ -121,7 +121,7 @@ export function init($plugin: any, store: any) {
   virtualType({
     label:      store.getters['i18n/t']('epinio.intro.dashboard'),
     icon:       'dashboard',
-    //group:      'Root',
+    group:      'Root',
     namespaced: false,
     name:       EPINIO_TYPES.DASHBOARD,
     route:      createEpinioRoute('c-cluster-dashboard', { })
@@ -186,7 +186,7 @@ export function init($plugin: any, store: any) {
   virtualType({
     label:      store.getters['i18n/t']('epinio.intro.about'),
     icon:       'dashboard',
-    // group:      'Root',
+    group:      'Root',
     namespaced: false,
     name:       EPINIO_TYPES.ABOUT,
     route:      createEpinioRoute('c-cluster-about', { })
@@ -317,8 +317,6 @@ export function init($plugin: any, store: any) {
     },
     AGE
   ]);
-
-
 
   headers(EPINIO_TYPES.CONFIGURATION, [
     NAME,

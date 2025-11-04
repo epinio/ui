@@ -6,14 +6,17 @@ import { Card } from '@components/Card';
 import Banner from '@components/Banner/Banner.vue';
 import { _CREATE } from '@shell/config/query-params';
 import AsyncButton from '@shell/components/AsyncButton';
-import ResourceTable from '@shell/components/ResourceTable';
+import PaginatedResourceTable from '@shell/components/PaginatedResourceTable';
 import Masthead from '@shell/components/ResourceList/Masthead';
 import { epinioExceptionToErrorsArray } from '../utils/errors';
 import LabeledInput from '@components/Form/LabeledInput/LabeledInput.vue';
 import { validateKubernetesName } from '@shell/utils/validators/kubernetes-name';
 import { startPolling, stopPolling } from '../utils/polling';
 
-const props = defineProps<{ schema: object, rows: Array}>(); // eslint-disable-line @typescript-eslint/no-unused-vars
+defineProps<{
+  schema: object,
+  rows: Array,
+}>(); // eslint-disable-line @typescript-eslint/no-unused-vars
 
 const attrs = useAttrs();
 const store = useStore();
@@ -156,13 +159,13 @@ function getNamespaceErrors(name) {
         </button>
       </template>
     </Masthead>
-    <ResourceTable
+    <PaginatedResourceTable
       v-bind="attrs"
       :rows="rows"
       :groupable="false"
       :schema="schema"
-      key-field="_key"
-      :useQueryParamsForSimpleFiltering="true"
+      ikey-field="_key"
+      paging
     />
     <div
       v-if="showCreateModal"
