@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { useStore } from 'vuex';
-import { 
-  ref, 
-  onMounted, 
-  onBeforeUnmount, 
-  computed, 
-  nextTick, 
+import {
+  ref,
+  onMounted,
+  onBeforeUnmount,
+  computed,
+  nextTick,
   PropType,
 } from 'vue';
 
@@ -155,6 +155,13 @@ const timeFormatStr = computed(() => {
 
 const getSocketUrl = async () => {
   const { url, token } = await getRootSocketUrl();
+
+
+  //const currentDate = new Date();
+  //const currentUnixTimestampMs = currentDate.getTime();
+  //const oneHourInMs = 60 * 60 * 1000;
+  //const futureUnixTimestampMs = currentUnixTimestampMs + oneHourInMs;
+
   return addParams(url, { follow: true, authtoken: token });
 };
 
@@ -188,7 +195,7 @@ const connect = async () => {
 
   socket.value.addEventListener(EVENT_MESSAGE, async (e: any) => {
     let parsedData;
-    
+
     try {
       parsedData = JSON.parse(e.detail.data);
     } catch (e) {
@@ -205,7 +212,7 @@ const connect = async () => {
       rawMsg: line,
     });
   });
-  
+
   socket.value.connect();
 };
 
