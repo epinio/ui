@@ -1,84 +1,102 @@
 <script>
-import { computed, defineComponent } from 'vue';
+import { ref, onMounted, onUnmounted, computed } from 'vue';
 import { useStore } from 'vuex';
 import { ToggleSwitch } from '@shell/rancher-components/Form/ToggleSwitch';
 
-export default defineComponent({
+export default {
   name: 'ThemeToggle',
   components: { ToggleSwitch },
+  
   setup() {
     const store = useStore();
     const localStorageKey = 'user-theme-preference';
+    const isDark = ref(false);
+    let bodyObserver = null;
     
-    // Apply them from localStorage execution and runs before the component mountss
-    (function applyStoredThemeImmediately() {
+    // Apply theme
+    const applyTheme = (themeName) => {
+      // Update DOM
+      document.documentElement.setAttribute('data-theme', themeName);
+      document.body.setAttribute('data-theme', themeName);
+      
+      // Update body class
+      const body = document.body;
+      body.classList.forEach(cls => {
+        if (cls.startsWith('theme-')) body.classList.remove(cls);
+      });
+      body.classList.add(`theme-${themeName}`);
+      
+      // Update store
+      store.dispatch('prefs/set', { key: 'theme', value: themeName });
+    };
+    
+    // Apply immediatel
+    (() => {
       const savedTheme = localStorage.getItem(localStorageKey);
       if (savedTheme === 'dark' || savedTheme === 'light') {
-        // apply right away
         document.documentElement.setAttribute('data-theme', savedTheme);
-        document.body.className = document.body.className.replace(/theme-\w+/g, '') + ` theme-${savedTheme}`;
+        document.body.classList.forEach(cls => {
+          if (cls.startsWith('theme-')) document.body.classList.remove(cls);
+        });
+        document.body.classList.add(`theme-${savedTheme}`);
         
-        // set in store to avoid blocking
         setTimeout(() => {
-          store.dispatch('prefs/set', {
-            key: 'theme',
-            value: savedTheme
-          });
+          store.dispatch('prefs/set', { key: 'theme', value: savedTheme });
         }, 0);
       }
     })();
     
-    // apply theme
-    const applyThemeToDocument = (themeName) => {
-      // Apply to html element
-      document.documentElement.setAttribute('data-theme', themeName);
+    // Initialize theme
+    const initTheme = () => {
+      const savedTheme = localStorage.getItem(localStorageKey);
       
-      // Apply to body class
-      const body = document.body;
-      // Remove any existing theme classes
-      body.className = body.className.replace(/theme-\w+/g, '').trim();
-      // Add new theme class
-      body.className += ` theme-${themeName}`;
+      if (savedTheme === 'dark' || savedTheme === 'light') {
+        isDark.value = savedTheme === 'dark';
+      } else {
+        // Use system preference
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        isDark.value = prefersDark;
+        localStorage.setItem(localStorageKey, prefersDark ? 'dark' : 'light');
+      }
       
-      // Set CSS variable for current theme
-      document.documentElement.style.setProperty('--current-theme', themeName);
+      applyTheme(isDark.value ? 'dark' : 'light');
     };
     
-    // Handle theme toggle
-    const theme = computed({
-      get() {
-        // check localStorage 1st for the source of truth
-        const savedTheme = localStorage.getItem(localStorageKey);
-        if (savedTheme === 'dark' || savedTheme === 'light') {
-          return savedTheme === 'dark';
-        }
-        
-        // Fall back to store only if localStorage is empty
-        const storeTheme = store.getters['prefs/theme'] || 'light';
-        return storeTheme === 'dark';
-      },
+    onMounted(() => {
+      initTheme();
       
-      set(value) {
-        // Determine new theme based on toggle value
+      // Watch for class changes
+      bodyObserver = new MutationObserver(() => {
+        const currentTheme = isDark.value ? 'dark' : 'light';
+        if (!document.body.classList.contains(`theme-${currentTheme}`)) {
+          applyTheme(currentTheme);
+        }
+      });
+      
+      bodyObserver.observe(document.body, { 
+        attributes: true, 
+        attributeFilter: ['class'] 
+      });
+    });
+    
+    onUnmounted(() => {
+      if (bodyObserver) bodyObserver.disconnect();
+    });
+    
+    // Toggle theme
+    const theme = computed({
+      get: () => isDark.value,
+      set: (value) => {
+        isDark.value = value;
         const newTheme = value ? 'dark' : 'light';
-        
-        // Save to localStorage
         localStorage.setItem(localStorageKey, newTheme);
-        
-        // Apply the theme visually
-        applyThemeToDocument(newTheme);
-        
-        // Update in store
-        store.dispatch('prefs/set', {
-          key: 'theme',
-          value: newTheme
-        });
+        applyTheme(newTheme);
       }
     });
     
     return { theme };
   }
-});
+};
 </script>
 
 <template>
