@@ -41,9 +41,7 @@ export const epiniofy = (obj: any, schema: any, type: any) => ({
 
 export default {
 
-  //Spoof the watch action as we moved polling to utils/polling.ts
-  watch({ rootGetters }: any, args: any) {
-    // No-op: return a resolved promise to keep callers happy
+  watch() {
     return Promise.resolve();
   },
 

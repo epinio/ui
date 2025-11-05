@@ -4,7 +4,11 @@ import { formatSi } from '@shell/utils/units';
 import { identity, pickBy } from 'lodash';
 import { epiniofy } from '../store/epinio-store/actions';
 import {
-  APPLICATION_ACTION_STATE, APPLICATION_SOURCE_TYPE, APPLICATION_PARTS, EPINIO_PRODUCT_NAME, EPINIO_TYPES
+  APPLICATION_ACTION_STATE,
+  APPLICATION_SOURCE_TYPE,
+  APPLICATION_PARTS,
+  EPINIO_PRODUCT_NAME,
+  EPINIO_TYPES
 } from '../types';
 import { createEpinioRoute } from '../utils/custom-routing';
 import EpinioNamespacedResource, { bulkRemove } from './epinio-namespaced-resource';
@@ -96,7 +100,7 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
     }
   }
 
-  get _availableActions() {
+  get availableActions() {
     const res = [];
 
     const isRunning = [STATES.RUNNING].includes(this.status);
@@ -509,8 +513,8 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
 
   trace(text, ...args) {
     console.log(
-      `### Application: ${ text }`, 
-      `${ this.meta.namespace }/${ this.meta.name }`, 
+      `### Application: ${ text }`,
+      `${ this.meta.namespace }/${ this.meta.name }`,
       args.length ? args : ''
     );
   }
@@ -837,7 +841,7 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
       fresh.forceFetch();
     }, `app ready replicas = desired`, 20000, 2000).catch((err) => {
       console.warn(
-        'Original timeout request failed, also failed to wait for pseudo deployed state', 
+        'Original timeout request failed, also failed to wait for pseudo deployed state',
         err
       );
       throw origError;

@@ -53,5 +53,4 @@ export function init($plugin: IPlugin, store: any) {
 
   // registering the defined pages as side-menu entries
   basicType([YOUR_K8S_RESOURCE_NAME, VIEW_RESOURCE_PAGE_NAME]);
-
 }
