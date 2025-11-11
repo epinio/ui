@@ -12,6 +12,27 @@ entries:
       catalog.cattle.io/ui-component: plugins
       catalog.cattle.io/ui-extensions-version: '>= 3.0.0 < 4.0.0'
     apiVersion: v2
+    appVersion: 1.13.2
+    created: "2025-11-11T14:51:02.532175736Z"
+    description: A Rancher Extension of The Application Development Engine for Kubernetes
+    digest: b864f375ab32803db353f19a14a5b2123af33fb7465ffa959f30d0355e2197c6
+    icon: https://raw.githubusercontent.com/epinio/ui/7e810f1c25cf44fa5a262329bb45274c2aebc0eb/dashboard/pkg/epinio/assets/logo-epinio.svg
+    name: epinio
+    type: application
+    urls:
+    - assets/epinio/epinio-1.13.2.tgz
+    version: 1.13.2
+  - annotations:
+      catalog.cattle.io/certified: rancher
+      catalog.cattle.io/display-name: Epinio
+      catalog.cattle.io/namespace: cattle-ui-plugin-system
+      catalog.cattle.io/os: linux
+      catalog.cattle.io/permits-os: linux, windows
+      catalog.cattle.io/rancher-version: '>= 2.10.0'
+      catalog.cattle.io/scope: management
+      catalog.cattle.io/ui-component: plugins
+      catalog.cattle.io/ui-extensions-version: '>= 3.0.0 < 4.0.0'
+    apiVersion: v2
     appVersion: 1.13.2-rc8
     created: "2025-11-06T02:27:23.634177274Z"
     description: A Rancher Extension of The Application Development Engine for Kubernetes
@@ -483,4 +504,4 @@ entries:
     urls:
     - assets/epinio/epinio-1.9.0-0.tgz
     version: 1.9.0-0
-generated: "2025-11-06T02:27:23.633572606Z"
+generated: "2025-11-11T14:51:02.531618339Z"
