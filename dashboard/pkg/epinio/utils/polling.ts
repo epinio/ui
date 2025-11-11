@@ -12,6 +12,10 @@ const polling: any = {};
 
 export function startPolling(types: string[], store: any): any {
   types.forEach((type) => {
+    if (store.getters['type-map/isSpoofed'](type) || polling[type]) {
+      // Ignore spoofed
+      return;
+    }
     polling[type] = new PollerSequential(
       async() => {
         await store.dispatch('epinio/findAll', { type, opt: { force: true, load: _MERGE } });
