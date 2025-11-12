@@ -70,6 +70,8 @@ jobs:
 
       - name: Install dependencies
         run: yarn
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push UI image
         run: |

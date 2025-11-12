@@ -77,6 +77,8 @@ jobs:
 
       - name: Install dependencies
         run: yarn
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Parse Extension Name
         if: github.ref_type == 'tag' || inputs.is_test == 'true'

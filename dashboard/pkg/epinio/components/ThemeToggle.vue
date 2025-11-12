@@ -1,16 +1,16 @@
 <script>
 import { ref, onMounted, onUnmounted, computed } from 'vue';
 import { useStore } from 'vuex';
-import { ToggleSwitch } from '@shell/rancher-components/Form/ToggleSwitch';
+import '@krumio/trailhand-ui/toggle-switch';
 
 export default {
   name: 'ThemeToggle',
-  components: { ToggleSwitch },
   
   setup() {
     const store = useStore();
     const localStorageKey = 'user-theme-preference';
     const isDark = ref(false);
+    const toggleRef = ref(null);
     let bodyObserver = null;
     
     // Apply theme
@@ -64,7 +64,13 @@ export default {
     
     onMounted(() => {
       initTheme();
-      
+
+      // Set properties directly on the web component
+      if (toggleRef.value) {
+        toggleRef.value.onLabel = 'Dark';
+        toggleRef.value.offLabel = 'Light';
+      }
+
       // Watch for class changes
       bodyObserver = new MutationObserver(() => {
         const currentTheme = isDark.value ? 'dark' : 'light';
@@ -72,10 +78,10 @@ export default {
           applyTheme(currentTheme);
         }
       });
-      
-      bodyObserver.observe(document.body, { 
-        attributes: true, 
-        attributeFilter: ['class'] 
+
+      bodyObserver.observe(document.body, {
+        attributes: true,
+        attributeFilter: ['class']
       });
     });
     
@@ -93,19 +99,24 @@ export default {
         applyTheme(newTheme);
       }
     });
-    
-    return { theme };
+
+    // Handle toggle change event from web component
+    const handleToggle = (event) => {
+      theme.value = event.detail.checked;
+    };
+
+    return { theme, handleToggle, toggleRef };
   }
 };
 </script>
 
 <template>
   <div class="theme-toggle">
-    <ToggleSwitch
-      v-model:value="theme"
-      :on-label="'Dark'"
-      :off-label="'Light'"
-    />
+    <toggle-switch
+      ref="toggleRef"
+      :checked="theme"
+      @toggle-change="handleToggle"
+    ></toggle-switch>
   </div>
 </template>
 

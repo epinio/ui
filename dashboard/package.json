@@ -5,6 +5,7 @@
     "node": ">=20"
   },
   "dependencies": {
+    "@krumio/trailhand-ui": "^1.0.0",
     "@rancher/shell": "3.0.5-rc.2",
     "@types/lodash": "^4.17.16",
     "eslint": "^9.28.0",
