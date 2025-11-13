@@ -1,7 +1,6 @@
 {
   "name": "epinio",
   "version": "v1.13.1",
-  "type": "module",
   "engines": {
     "node": ">=20"
   },
