@@ -62,7 +62,7 @@ export default function(plugin: IPlugin) {
 
   // Add theme toggle to header
   const ThemeToggle = require('./components/ThemeToggle.vue'); // eslint-disable-line @typescript-eslint/no-require-imports
-  plugin.register('component', 'NavHeaderRight', ThemeToggle.default || ThemeToggle); // eslint-disable-line @typescript-eslint/no-require-imports
+  plugin.register('component', 'NavHeaderRight', ThemeToggle.default || ThemeToggle);
 
   // Add hooks to Vue navigation world
   plugin.addNavHooks(onEnter, onLeave);
