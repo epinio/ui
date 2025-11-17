@@ -1,0 +1,125 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+env:
+  SETUP_GO_VERSION: '1.22'
+  SETUP_NODE_VERSION: '22'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write   # This is the key for OIDC!
+      contents: write
+      packages: write
+    steps:
+      -
+        name: Checkout
+        uses: actions/checkout@v5
+        with:
+          submodules: recursive
+          fetch-depth: 0
+      -
+        name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          cache: false
+          go-version: ${{ env.SETUP_GO_VERSION }}
+      -
+        name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.SETUP_NODE_VERSION }}
+      -
+        name: Install yarn
+        run: npm install  --global yarn
+      -
+        uses: anchore/sbom-action/download-syft@v0.20.7
+      -
+        uses: sigstore/cosign-installer@v3.10.0
+        with:
+          cosign-release: 'v2.5.1'
+      -
+        name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      -
+        name: Login to GitHub Docker Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      -
+        name: Get current tag
+        id: get_tag
+        run: echo "TAG=${GITHUB_REF/refs\/tags\//}" >> $GITHUB_OUTPUT
+      -
+        name: Build Epinio dashboard
+        # build the ui, move the build to `ui` in the workflow root (as per location when downloading from url)
+        run: |
+          ./.github/workflows/scripts/build-ui.sh
+          mv dashboard/$OUTPUT_DIR/$ARTIFACT_NAME backend/ui
+        env:
+          RANCHER_ENV: epinio
+          EXCLUDES_PKG: rancher-components,harvester
+          OUTPUT_DIR: dist
+          RELEASE_DIR: release
+          ARTIFACT_NAME: rancher-dashboard-epinio-standalone
+          NODE_OPTIONS: "--max-old-space-size=4096"
+          LOGIN_LOCALE_SELECTOR: false
+
+      - 
+        name: Write Signing Key to Disk
+        run: |
+          echo "$PRIVKEY" > cosign.key
+          echo "$PUBKEY" > cosign.pub
+        env:
+          PRIVKEY: ${{ secrets.COSIGN_PRIVATE_KEY }}
+          PUBKEY: ${{ secrets.COSIGN_PUBLIC_KEY }}
+        shell: bash
+          
+      -
+        name: Run GoReleaser Cross
+        run: ./backend/build/bk-release.sh release --clean -f ./backend/.goreleaser.yml
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          UI_BUNDLE_URL: ""
+          # The "id-token: write" permission for the OIDC will set the ACTIONS_ID_TOKEN_REQUEST_URL and ACTIONS_ID_TOKEN_REQUEST_TOKEN
+          # environment variables. Since we are running goreleaser-cross from a Docker image we need to pass those to the script and the container.
+          # See: https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/about-security-hardening-with-openid-connect#updating-your-actions-for-oidc
+          ACTIONS_ID_TOKEN_REQUEST_URL: ${{ env.ACTIONS_ID_TOKEN_REQUEST_URL }}
+          ACTIONS_ID_TOKEN_REQUEST_TOKEN: ${{ env.ACTIONS_ID_TOKEN_REQUEST_TOKEN }}
+      -
+        name: Sign Images
+        id: sign_images
+        run: |
+          cosign sign --key ./cosign.key ghcr.io/epinio/epinio-ui --yes
+          cosign sign --key ./cosign.key ghcr.io/epinio/epinio-ui:latest-amd64 --yes
+          cosign sign --key ./cosign.key ghcr.io/epinio/epinio-ui:latest-arm64v8 --yes
+          cosign sign --key ./cosign.key ghcr.io/epinio/epinio-ui:latest-s390x --yes
+        env:
+          COSIGN_PASSWORD: ${{secrets.COSIGN_PASSWORD}}
+          
+      -
+        name: Verify signatures on the generated docker images and manifests
+        id: verify_signatures
+        run: |
+          cosign verify --key ./cosign.pub ghcr.io/epinio/epinio-ui
+          cosign verify --key ./cosign.pub ghcr.io/epinio/epinio-ui:latest-amd64
+          cosign verify --key ./cosign.pub ghcr.io/epinio/epinio-ui:latest-arm64v8
+          cosign verify --key ./cosign.pub ghcr.io/epinio/epinio-ui:latest-s390x
+
+      # Allow to release Epinio UI Helm chart automatically when we release Epinio.
+      # The tag is sent to the Helm chart repo.
+      -
+        name: Repository Dispatch
+        uses: peter-evans/repository-dispatch@v4
+        with:
+          token: ${{ secrets.PAT }}
+          repository: epinio/helm-charts
+          event-type: epinio-ui-release
+          client-payload: '{"ref": "${{ steps.get_tag.outputs.TAG }}"}'

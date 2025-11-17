@@ -1,0 +1,31 @@
+{
+  "name": "epinio",
+  "description": "A Rancher Extension of The Application Development Engine for Kubernetes",
+  "version": "1.13.1",
+  "private": false,
+  "rancher": {
+    "annotations": {
+      "catalog.cattle.io/display-name": "Epinio",
+      "catalog.cattle.io/rancher-version": ">= 2.10.0",
+      "catalog.cattle.io/ui-extensions-version": ">= 3.0.0 < 4.0.0"
+    }
+  },
+  "icon": "https://raw.githubusercontent.com/epinio/ui/7e810f1c25cf44fa5a262329bb45274c2aebc0eb/dashboard/pkg/epinio/assets/logo-epinio.svg",
+  "scripts": {},
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "@vue/cli-plugin-babel": "~5.0.0",
+    "@vue/cli-plugin-typescript": "~5.0.0",
+    "@vue/cli-service": "~5.0.0"
+  },
+  "browserslist": [
+    "> 1%",
+    "last 2 versions",
+    "not dead"
+  ],
+  "dependencies": {
+    "vue-i18n": "^11.1.3"
+  }
+}

@@ -1,60 +1,21 @@
+![logo-epinio](https://github.com/user-attachments/assets/ddd30d0d-135b-49d8-b1c1-962a79128dc2)
+
 # Epinio UI
+This repository contains the UI for epinio. The UI consists of a Rancher Extension and a "ui backend" which helps support Epinio when it is in standalone mode by proxying requests or mocking them. 
 
-> Please note the UI is still in development and has not yet been fully released
+![image](https://github.com/user-attachments/assets/3dc1f1df-a5b0-48ca-838d-d26d5193ee23)
 
-# Install
+## Installing
+If you are looking to just install Epinio on a cluster, check out in depth documentation on the [Epinio website](https://docs.epinio.io/installation/install_epinio).
 
-The first distribution of the UI will be alongside the Rancher Dashboard. A [build process](./docs/developer/build-install.md) automatically makes a version of the Dashboard that contains the new Epinio UI.
+## Main Epinio Repository
+If you are looking for the main Epinio repo that contains the Epinio backend, that is in this [repository](https://github.com/epinio/epinio).
 
-## Pre-Requisites
+## Installing and Production
+Follow the instructions [here](docs/production.md).
 
-### Configure Epinio
-Epinio must be informed of the domain the UI is served on. This can be set by the access controll allow origin property  
-* when installing epinio (`helm install epinio-installer epinio/epinio-installer --values <filepath to below>.yaml`)
-  ```
-  domain: <see epinio docs>
-  user: <username of default user>
-  accessControlAllowOrigin: <domain>
-  server:
-    traceLevel: <0 low, 100 high>
-  ```
-* at run time (edit the `ACCESS_CONTROL_ALLOW_ORIGIN` env var of the `epinio/epinio-server` `deployment`)
-
-## Run the Epinio UI
-
-The `head` of the UI is `epinio-dev`. To use the latest stable UI with the examples below replace `epinio-dev` with `epinio-v0.3.6`.
-
-The Epinio UI needs to be served from an existing Rancher Dashboard. This can be done in the usual way when bringing up a Rancher instance or to one already running. So either ...
-
-### Apply build when installing Rancher
-Set two environment variables
-1. Set `CATTLE_UI_DASHBOARD_INDEX` to your build (plus `index.html`). For example `https://releases.rancher.com/dashboard/epinio-dev/index.html`
-1. Set `CATTLE_UI_OFFLINE_PREFERRED` to `false` to ensure Rancher serves the files from `CATTLE_UI_DASHBOARD_INDEX`
-
-So, for instance, if running docker apply the env vars via `-e`
-```
-docker run -d --restart=unless-stopped \
-  -p 80:80 -p 443:443 \
-  --privileged \
-  -e CATTLE_UI_DASHBOARD_INDEX=https://releases.rancher.com/dashboard/epinio-dev/index.html
-  -e CATTLE_UI_OFFLINE_PREFERRED=false
-  rancher/rancher:latest
-```
-
-### Apply build to a running Rancher
-
-> This process is currently unsupported due to https://github.com/epinio/ui/issues/129
-
-1. Open the Rancher UI, log in as an `admin` and go to `Global Settings`
-1. Set `ui-dashboard-index` to your build (plus `index.html`). For example `https://releases.rancher.com/dashboard/epinio-dev/index.html`
-1. Set `ui-offline-preferred` to `Remote` to ensure Rancher serves the files from `ui-dashboard-index`
-1. Refresh your browser
-
-# Import your Epinio Cluster
-
-Your epinio instance will be discovered from clusters that are known to Rancher. For example you could `Import` an existing cluster that has Epinio already installed on it, or you could create a cluster using Rancher and then install Epinio to it. Once Rancher is aware of the cluster that contains Epinio you should be able to navigate to 'Epinio' from the side nav and see your instance.
-
-# Troubleshooting
-- If you receive authentication errors it may mean your certificate is invalid. To work around this visit the <epinio url> in your browser and accept the usual certificate browser warning (you won't have to enter your credentials if prompted), then just return to Rancher and refresh your browser.
-
-
+## Development
+To get started with Epinio UI development step through the below guides to get up and running. 
+1. [Pre-Requisities](docs/pre-requisities.md)
+2. [Developing for the Epinio Rancher Extension](docs/developing-rancher-extension.md)
+3. [Developing for the Epinio Standalone application](docs/developing-standalone-application.md)

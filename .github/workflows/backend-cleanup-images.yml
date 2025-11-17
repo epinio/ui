@@ -1,0 +1,31 @@
+name: Backend - Delete old container images
+
+on:
+  workflow_dispatch:
+  # schedule:
+  #   - cron: "0 6 * * *"  # every day at 6 in the morning
+
+jobs:
+  clean-ghcr:
+    name: Delete old unused container images
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete dev containers older than a week
+        uses: snok/container-retention-policy@v3.0.1
+        with:
+          image-names: epinio-ui
+          cut-off: 1w
+          account: epinio
+          keep-n-most-recent: 1
+          image-tags: v*-[0-9]*-g*
+          tag-selection: both
+          token: ${{ secrets.IMG_CLEANUP_TOKEN }}
+      - name: Delete untagged containers older than a week
+        uses: snok/container-retention-policy@v3.0.1
+        with:
+          image-names: epinio-ui
+          cut-off: 1w
+          account: epinio
+          keep-n-most-recent: 1
+          token: ${{ secrets.IMG_CLEANUP_TOKEN }}
+          tag-selection: untagged
