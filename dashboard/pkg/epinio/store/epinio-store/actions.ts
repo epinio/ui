@@ -8,9 +8,14 @@ import { parse as parseUrl, stringify as unParseUrl } from '@shell/utils/url';
 import epinioAuth, { EpinioAuthTypes } from '../../utils/auth';
 
 import {
-  EpinioInfo, EpinioVersion, EPINIO_MGMT_STORE, EPINIO_PRODUCT_NAME, EPINIO_STANDALONE_CLUSTER_NAME, EPINIO_TYPES
+  EpinioInfo,
+  EpinioVersion,
+  EPINIO_MGMT_STORE,
+  EPINIO_PRODUCT_NAME,
+  EPINIO_STANDALONE_CLUSTER_NAME,
+  EPINIO_TYPES
 } from '../../types';
-import EpinioCluster from '../../models/epiniomgmt/cluster';
+import EpinioCluster from '../../models/epiniomgmt/epinio.io.management.cluster';
 import { RedirectToError } from '@shell/utils/error';
 import { allHashSettled } from '@shell/utils/promise';
 
@@ -35,6 +40,10 @@ export const epiniofy = (obj: any, schema: any, type: any) => ({
 });
 
 export default {
+
+  watch() {
+    return Promise.resolve();
+  },
 
   remove({ commit }: any, obj: any ) {
     commit('remove', obj);
@@ -140,7 +149,7 @@ export default {
 
         return Promise.reject(err);
       });
-		
+
     function responseObject(res: any) {
       let out = res.data;
 
@@ -201,7 +210,7 @@ export default {
         id:                EPINIO_TYPES.NAMESPACE,
         type:              'schema',
         links:             { collection: '/api/v1/namespaces' },
-        collectionMethods: ['get', 'post'],
+        collectionMethods: ['post', 'get'],
       }, {
         product:           EPINIO_PRODUCT_NAME,
         id:                EPINIO_TYPES.CATALOG_SERVICE,
@@ -246,13 +255,13 @@ export default {
       try {
         const schemas = await allHashSettled({
           nodeMetrics: dispatch(
-            `cluster/request`, 
-            { url: `/k8s/clusters/${ clusterId }/v1/schemas/${ METRIC.NODE }` }, 
+            `cluster/request`,
+            { url: `/k8s/clusters/${ clusterId }/v1/schemas/${ METRIC.NODE }` },
             { root: true }
           ),
           deployments: dispatch(
-            `cluster/request`, 
-            { url: `/k8s/clusters/${ clusterId }/v1/schemas/${ WORKLOAD_TYPES.DEPLOYMENT }` }, 
+            `cluster/request`,
+            { url: `/k8s/clusters/${ clusterId }/v1/schemas/${ WORKLOAD_TYPES.DEPLOYMENT }` },
             { root: true }
           )
         });

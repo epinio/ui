@@ -26,7 +26,7 @@ export const EPINIO_TYPES = {
   // Internal
   DASHBOARD:        'dashboard',
   ABOUT:            'about',
-  CLUSTER:          'cluster',
+  CLUSTER:          'epinio.io.management.cluster',
   APP_ACTION:       'application-action',
   APP_INSTANCE:     'application-instance',
 };
@@ -224,7 +224,7 @@ export interface EpinioInfo {
   default_builder_image: string,
   kube_version: string,
   platform: string,
-  version: string, 
+  version: string,
 }
 
 export interface EpinioVersion {

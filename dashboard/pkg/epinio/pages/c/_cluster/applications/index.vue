@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useStore } from 'vuex';
 
 import ResourceTable from '@shell/components/ResourceTable';
@@ -9,6 +9,8 @@ import LinkDetail from '@shell/components/formatter/LinkDetail';
 
 import { EPINIO_TYPES } from '../../../../types';
 import { createEpinioRoute } from '../../../../utils/custom-routing';
+
+import { startPolling, stopPolling } from '../../../../utils/polling';
 
 const store = useStore();
 
@@ -36,6 +38,26 @@ onMounted(async () => {
   store.dispatch('epinio/findAll', { type: EPINIO_TYPES.SERVICE_INSTANCE });
 
   pending.value = false;
+  startPolling(
+    [
+      'namespaces',
+      'applications',
+      'catalogservices',
+      'configurations',
+      'services',
+    ],
+    store
+  );
+});
+
+onUnmounted(() => {
+  stopPolling([
+    'namespaces',
+    'applications',
+    'catalogservices',
+    'configurations',
+    'services'
+  ]);
 });
 </script>
 

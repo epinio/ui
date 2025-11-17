@@ -1,11 +1,11 @@
 {
   "name": "epinio",
-  "version": "v1.13.1",
+  "version": "v1.13.2",
   "engines": {
     "node": ">=20"
   },
   "dependencies": {
-    "@rancher/shell": "3.0.5-rc.2",
+    "@rancher/shell": "3.0.7",
     "@types/lodash": "^4.17.16",
     "eslint": "^9.28.0",
     "eslint-config-prettier": "^10.1.5",

@@ -1,19 +1,22 @@
 <script setup lang="ts">
 import { useStore } from 'vuex';
-import { ref, onMounted, computed, watch, nextTick, useAttrs } from 'vue';
-
+import { ref, onMounted, onUnmounted, computed, watch, nextTick, useAttrs } from 'vue';
 import { EPINIO_TYPES } from '../types';
 import { Card } from '@components/Card';
 import Banner from '@components/Banner/Banner.vue';
 import { _CREATE } from '@shell/config/query-params';
 import AsyncButton from '@shell/components/AsyncButton';
-import ResourceTable from '@shell/components/ResourceTable';
+import PaginatedResourceTable from '@shell/components/PaginatedResourceTable';
 import Masthead from '@shell/components/ResourceList/Masthead';
 import { epinioExceptionToErrorsArray } from '../utils/errors';
 import LabeledInput from '@components/Form/LabeledInput/LabeledInput.vue';
 import { validateKubernetesName } from '@shell/utils/validators/kubernetes-name';
+import { startPolling, stopPolling } from '../utils/polling';
 
-const props = defineProps<{ schema: object, rows: Array}>(); // eslint-disable-line @typescript-eslint/no-unused-vars
+defineProps<{
+  schema: object,
+  rows: Array,
+}>();
 
 const attrs = useAttrs();
 const store = useStore();
@@ -29,7 +32,7 @@ const mode: string = _CREATE;
 const resource: string = EPINIO_TYPES.NAMESPACE;
 const value = ref<Array>({ meta: { name: '' } });
 
-const showPromptRemove = computed(() => { 
+const showPromptRemove = computed(() => {
   return store.state['action-menu'].showPromptRemove
 });
 
@@ -48,6 +51,12 @@ onMounted(() => {
   if (store.$router.currentRoute._value.query.mode === 'openModal') {
     openCreateModal();
   }
+
+  startPolling(["namespaces", "applications", "configurations"], store);
+});
+
+onUnmounted(() => {
+  stopPolling(["namespaces", "applications", "configurations"]);
 });
 
 watch(
@@ -55,7 +64,7 @@ watch(
   (newState, oldState) => {
     if (oldState === true && newState === false) {
       // Refetch apps when namespace is deleted
-      store.dispatch('findAll', { type: 'applications', opt: { force: true } });
+      //store.dispatch('findAll', { type: 'applications', opt: { force: true } });
     }
   }
 );
@@ -75,7 +84,7 @@ async function openCreateModal() {
   nextTick(() => namespaceName.value.focus());
   // Create a skeleton namespace
   value.value = await store.dispatch(
-    `epinio/create`, 
+    `epinio/create`,
     { type: EPINIO_TYPES.NAMESPACE },
   );
 }
@@ -110,10 +119,10 @@ function validateNamespace(name) {
 
 function getNamespaceErrors(name) {
   const kubernetesErrors = validateKubernetesName(
-    name || '', 
-    t('epinio.namespace.name'), 
-    store.getters, 
-    undefined, 
+    name || '',
+    t('epinio.namespace.name'),
+    store.getters,
+    undefined,
     [],
   );
 
@@ -124,8 +133,8 @@ function getNamespaceErrors(name) {
   const validateName = name.match(/[a-z0-9]([-a-z0-9]*[a-z0-9])?/);
 
   if (
-    !validateName || 
-    validateName[0] !== name && 
+    !validateName ||
+    validateName[0] !== name &&
     !errors.value.includes(t('epinio.namespace.validations.name'))
   ) {
     return [t('epinio.namespace.validations.name')];
@@ -150,13 +159,13 @@ function getNamespaceErrors(name) {
         </button>
       </template>
     </Masthead>
-    <ResourceTable
+    <PaginatedResourceTable
       v-bind="attrs"
       :rows="rows"
       :groupable="false"
       :schema="schema"
-      key-field="_key"
-      :useQueryParamsForSimpleFiltering="true"
+      ikey-field="_key"
+      paging
     />
     <div
       v-if="showCreateModal"

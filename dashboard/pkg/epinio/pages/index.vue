@@ -8,7 +8,7 @@ import AsyncButton from '@shell/components/AsyncButton.vue';
 
 import { EPINIO_MGMT_STORE, EPINIO_TYPES } from '../types';
 import { _MERGE } from '@shell/plugins/dashboard-store/actions';
-import EpinioCluster, { EpinioInfoPath } from '../models/epiniomgmt/cluster';
+import EpinioCluster, { EpinioInfoPath } from '../models/epiniomgmt/epinio.io.management.cluster';
 import epinioAuth, { EpinioAuthTypes } from '../utils/auth';
 
 const store = useStore();
@@ -27,7 +27,7 @@ onMounted(async () => {
     await store.dispatch(`${EPINIO_MGMT_STORE}/findAll`, { type: EPINIO_TYPES.CLUSTER }, { root: true })
     clusters = store.getters[`${EPINIO_MGMT_STORE}/all`](EPINIO_TYPES.CLUSTER)
     clustersSchema = store.getters[`${EPINIO_MGMT_STORE}/schemaFor`](EPINIO_TYPES.CLUSTER)
-    
+
     clusters.forEach((c: EpinioCluster) => testCluster(c))
   } catch (err) {
     error.value = err as Error
@@ -42,7 +42,7 @@ const canRediscover = () => {
 
 const rediscover = async (buttonCb: (success: boolean) => void)  => {
   await store.dispatch(
-    `${ EPINIO_MGMT_STORE }/findAll`, 
+    `${ EPINIO_MGMT_STORE }/findAll`,
     { type: EPINIO_TYPES.CLUSTER, opt: { force: true, load: _MERGE } },
   );
   clusters.forEach((c: EpinioCluster) => testCluster(c));
@@ -50,7 +50,6 @@ const rediscover = async (buttonCb: (success: boolean) => void)  => {
 }
 
 const login = async (c: EpinioCluster) =>{
-  console.log("CLUSTER: ", (c as EpinioCluster));
   const isLoggedIn = await epinioAuth.isLoggedIn(c.createAuthConfig(EpinioAuthTypes.AGNOSTIC));
 
   if (isLoggedIn) {
@@ -92,17 +91,17 @@ const testCluster = (c: EpinioCluster) => {
       message:       'Contacting...'
     }
   });
-  
+
   store.dispatch(
-    `epinio/request`, 
+    `epinio/request`,
     { opt: { url: EpinioInfoPath, redirectUnauthorized: false }, clusterId: c.id }
   )
   .then((res: any) => {
     c['version'] = res?.version;
     c['oidcEnabled'] = res?.oidc_enabled;
     setClusterState(
-      c, 
-      'available', 
+      c,
+      'available',
       { state: { transitioning: false, error: false, message: "" } },
     );
   })
@@ -112,7 +111,7 @@ const testCluster = (c: EpinioCluster) => {
         state: {
           transitioning: false,
           error:   true,
-          message: `Network Error. It may be that the certificate isn't trusted. 
+          message: `Network Error. It may be that the certificate isn't trusted.
             Click on the URL above if you'd like to bypass checks and then refresh`
         }
       });

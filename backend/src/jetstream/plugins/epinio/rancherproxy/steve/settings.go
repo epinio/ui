@@ -43,7 +43,7 @@ func NewDefaultSettings(ec echo.Context) *interfaces.Collection {
 	col.Data[2] = NewStringSettings(baseURL, "server-version", epinioVersion)
 	col.Data[3] = NewStringSettings(baseURL, "ui-theme", epinioTheme)
 	col.Data[4] = NewStringSettings(baseURL, "ui-favicon", GetFavicon())
-	col.Data[5] = NewStringSettings(baseURL, "ui-performance", "{}")
+	col.Data[5] = NewStringSettings(baseURL, "ui-performance", GetUiPerformanceSettings())
 
 	return &col
 }
@@ -62,6 +62,35 @@ func NewStringSettings(baseURL, id, value string) *interfaces.Setting {
 	setting.Links["self"] = fmt.Sprintf("%s/%s", baseURL, id)
 
 	return &setting
+}
+
+func GetUiPerformanceSettings() string {
+
+	raw := []byte(`{
+		"inactivity": {"enabled": false, "threshold": 900},
+		"incrementalLoading": {"enabled": false, "threshold": 1500},
+		"manualRefresh": {"enabled": false, "threshold": 1500},
+		"disableWebsocketNotification": false,
+		"garbageCollection": {
+			"enabled": false,
+			"enabledInterval": true,
+			"interval": 300,
+			"enabledOnNavigate": true,
+			"ageThreshold": 120,
+			"countThreshold": 500
+		},
+		"forceNsFilterV2": {"enabled": false},
+		"advancedWorker": {"enabled": false},
+		"kubeAPI": {
+			"warningHeader": {
+				"separator": "299 - ",
+				"notificationBlockList": ["299 - unknown field"]
+			}
+		},
+		"serverPagination": {"enabled": false, "useDefaultStores": true}
+	}`)
+	return string(raw)
+
 }
 
 func GetFavicon() string {

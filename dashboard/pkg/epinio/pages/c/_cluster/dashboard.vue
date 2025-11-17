@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Location } from 'vue-router';
 import { useStore } from 'vuex';
-import { ref, onMounted, computed, watch } from 'vue';
+import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
 import {
   EpinioApplicationResource,
   EpinioCatalogService,
@@ -19,6 +19,7 @@ import Banner from '@components/Banner/Banner.vue';
 import EpinioServiceModel from '../../../models/services';
 import { parseSi, createMemoryValues } from '@shell/utils/units';
 import { createEpinioRoute } from '../../../utils/custom-routing';
+import { startPolling, stopPolling } from '../../../utils/polling';
 import DashboardCard from '../../../components/dashboard/Cards.vue';
 import ConsumptionGauge from '@shell/components/ConsumptionGauge.vue';
 
@@ -208,6 +209,12 @@ const metricsDetails = computed(() => {
 onMounted(async () => {
   generateCards();
   await getVersionHash();
+
+  startPolling(['namespaces', 'applications', 'services'], store);
+});
+
+onUnmounted(() => {
+  stopPolling(['namespaces', 'applications', 'services']);
 });
 
 async function getVersionHash() {
