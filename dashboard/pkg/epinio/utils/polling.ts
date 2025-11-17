@@ -7,7 +7,7 @@ import { _MERGE } from '@shell/plugins/dashboard-store/actions';
 * polling on specific resource types as needed by particular lists or pages.
 */
 
-const pollingRate = 20000; //20 seconds
+const pollingRate = 30000; //30 seconds (reduced from 20s to minimize API calls)
 const polling: any = {};
 
 export function startPolling(types: string[], store: any): any {
