@@ -4,6 +4,7 @@ import { ref, computed, onMounted, watch } from 'vue';
 
 import EpinioConfiguration from '../models/configurations';
 import { useEpinioBindAppsMixin } from './bind-apps-mixin';
+import { useUnsavedChangesMixin } from './unsaved-changes-mixin';
 import { epinioExceptionToErrorsArray } from '../utils/errors';
 import { EPINIO_TYPES, EpinioNamespace } from '../types';
 
@@ -26,14 +27,16 @@ const props = defineProps<{
   mode: string,
 }>();
 
-const { 
+const {
   doneParams,
   doneRoute,
-  selectedApps, 
-  nsAppOptions, 
-  noApps, 
+  selectedApps,
+  nsAppOptions,
+  noApps,
   updateConfigurationAppBindings,
 } = useEpinioBindAppsMixin(props);
+
+const { setUnsavedChanges } = useUnsavedChangesMixin();
 
 const errors = ref<Array<any>>([]);
 const pending = ref<boolean>(true);
@@ -49,6 +52,11 @@ onMounted(async () => {
 
   pending.value = false;
 });
+
+// Track changes to mark as unsaved
+watch([() => props.value, selectedApps], () => {
+  setUnsavedChanges(true);
+}, { deep: true });
 
 const isEdit = computed(() => {
   return props.mode === _EDIT;
@@ -92,6 +100,7 @@ const save = async (saveCb: (success: boolean) => void) => {
       await props.value.forceFetch();
     }
 
+    setUnsavedChanges(false); // Clear unsaved changes after successful save
     saveCb(true);
     done();
   } catch (err) {
