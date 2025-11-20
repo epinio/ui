@@ -123,7 +123,10 @@ const login = async (provider: string) => {
       v-if="selectedAuthType === PROVIDER_TYPES.LOCAL"
       class="local"
     >
-      <form>
+      <form
+        class="login-form"
+        @submit.prevent="!busy && login(PROVIDER_TYPES.LOCAL)"
+      >
         <div class="mb-20">
           <LabeledInput
             id="username"
@@ -140,16 +143,16 @@ const login = async (provider: string) => {
             :required="true"
           />
         </div>
+        <button
+          ref="btn"
+          type="submit"
+          class="btn bg-primary"
+          :class="{'disabled': busy}"
+          style="font-size: 18px;"
+          >
+          {{ t(cluster.oidcEnabled ? 'login.loginWithLocal' : 'epinio.login.login') }}
+        </button>
       </form>
-      <button
-        ref="btn"
-        class="btn bg-primary"
-        :class="{'disabled': busy}"
-        style="font-size: 18px;"
-        @click="!busy && login(PROVIDER_TYPES.LOCAL)"
-      >
-        {{ t(cluster.oidcEnabled ? 'login.loginWithLocal' : 'epinio.login.login') }}
-      </button>
     </div>
 
     <div
@@ -187,8 +190,13 @@ $min-width: 400px;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-
   min-height: 240px;
+
+  .login-form {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
 
   .banner {
     min-width: $min-width;

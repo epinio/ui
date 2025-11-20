@@ -16,7 +16,7 @@ import { startPolling, stopPolling } from '../utils/polling';
 defineProps<{
   schema: object,
   rows: Array,
-}>(); // eslint-disable-line @typescript-eslint/no-unused-vars
+}>();
 
 const attrs = useAttrs();
 const store = useStore();

@@ -38,11 +38,12 @@ onMounted(async () => {
   store.dispatch('epinio/findAll', { type: EPINIO_TYPES.SERVICE_INSTANCE });
 
   pending.value = false;
+  // Removed 'catalogservices' - catalog services are static and don't need frequent polling
+  // They're loaded on initial mount if needed, but don't change frequently
   startPolling(
     [
       'namespaces',
       'applications',
-      'catalogservices',
       'configurations',
       'services',
     ],
@@ -54,7 +55,6 @@ onUnmounted(() => {
   stopPolling([
     'namespaces',
     'applications',
-    'catalogservices',
     'configurations',
     'services'
   ]);
