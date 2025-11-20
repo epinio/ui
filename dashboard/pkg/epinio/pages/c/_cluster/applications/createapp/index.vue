@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, reactive, onBeforeMount, computed } from 'vue';
+import { ref, reactive, onBeforeMount, computed, watch } from 'vue';
 import { useStore } from 'vuex';
 import Loading from '@shell/components/Loading.vue';
 import Wizard from '@shell/components/Wizard.vue';
@@ -13,8 +13,11 @@ import { _CREATE } from '@shell/config/query-params';
 import { EpinioAppInfo, EpinioAppBindings, EpinioAppSource, EPINIO_TYPES } from '../../../../../types';
 import { createEpinioRoute } from '../../../../../utils/custom-routing';
 import { allHash } from '@shell/utils/promise';
+import { useUnsavedChangesMixin } from '../../../../../edit/unsaved-changes-mixin';
 
 const store = useStore();
+
+const { setUnsavedChanges } = useUnsavedChangesMixin();
 
 const loading = ref(true);
 const value = ref<any>(null);
@@ -77,6 +80,11 @@ onBeforeMount(async () => {
   loading.value = false;
 });
 
+// Track changes to mark as unsaved
+watch([source, bindings, value], () => {
+  setUnsavedChanges(true);
+}, { deep: true });
+
 // Methods
 function set(obj: Record<string, any>, changes: Record<string, any>) {
   Object.entries(changes).forEach(([key, val]) => {
@@ -133,6 +141,7 @@ function cancel() {
 }
 
 function finish() {
+  setUnsavedChanges(false); // Clear unsaved changes when app is deployed
   const route = createEpinioRoute('c-cluster-resource-id', {
     cluster: store.getters['clusterId'],
     resource: value.value.type,

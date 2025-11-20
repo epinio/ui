@@ -41,6 +41,8 @@ typeDescription:
   appcharts: Application Charts define kube resources created by your application. Templates for active applications cannot be changed
   catalogservices: Catalog Services provide additional, common functionality to applications. For example an instance of a database Catalog Service can be bound to an application.
 asyncButton:
+  discard:
+    action: Discard Changes
   export:
     action: Export
     success: Exported
@@ -381,6 +383,10 @@ epinio:
     login: Log in
     genericProvider: Log in with Auth Provider
     useGenericProvider: Use Auth Provider
+  unsavedChanges:
+    title: Unsaved Changes
+    message: You have unsaved changes. Are you sure you want to leave this page?
+    discard: Discard Changes
 model:
   authConfig:
     provider:
