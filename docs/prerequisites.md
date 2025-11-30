@@ -1,5 +1,5 @@
 ## Prerequisites
-In order to safely develop the Epinio UI, we will need to set up a cluster and install Epinio on it. 
+To safely develop the Epinio UI, we will need to set up a cluster and install Epinio on it. 
 
 ### Setting up a cluster 
 1. We can use Minikube, k3d, etc to do this. For these instructions, we will use Minikube. Go ahead and install Minikube.
