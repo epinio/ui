@@ -24,15 +24,10 @@ In order to safely develop the Epinio UI we weill need to setup a cluster and in
     domain: '<ip>.sslip.io'
   rancher:
     url: '<url of the location that serves the dashboard, for dev this would be https://localhost:8005>'
-  server:
-    traceLevel: 100
-  #dex:
-  #  ui:
-  #    redirectURI: '<the location that serves the dashboard + '/verify-auth', for dev this would be https://localhost:8005/verify-auth>'
 ```
 
 6. [Install Epinio](https://docs.epinio.io/installation/install_epinio)
 
   6a. Note once you hit the installation step for epinio its self, you can suplement the command with `helm install epinio -n epinio --create-namespace epinio/epinio -f epinio-values.yaml` to target your newly create helm values file. 
 
-Congrats you have completed all of the pre-requisites to develop Epinio! Check out how to get started with the [Epinio Rancher Extension](https://github.com/epinio/ui/blob/doc/1.12-updates/docs/developer/developing-rancher-extension.md) or [Standalone Application](https://github.com/epinio/ui/blob/doc/1.12-updates/docs/developer/developing-standalone-application.md). Looking forward to your first PR!
+Congrats you have completed all of the pre-requisites to develop Epinio! Check out how to get started with the [Epinio Rancher Extension](./developing-rancher-extension.md) or [Standalone Application](./developing-standalone-application.md). Looking forward to your first PR!
