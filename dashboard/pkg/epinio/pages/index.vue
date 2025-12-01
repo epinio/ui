@@ -3,8 +3,10 @@ import { ref, onMounted } from 'vue';
 import { useStore } from 'vuex';
 
 import Loading from '@shell/components/Loading.vue';
-import ResourceTable from '@shell/components/ResourceTable.vue';
+import DataTable from '../components/tables/DataTable.vue';
+import type { DataTableColumn } from '../components/tables/types';
 import AsyncButton from '@shell/components/AsyncButton.vue';
+import Link from '@shell/components/formatter/Link.vue';
 
 import { EPINIO_MGMT_STORE, EPINIO_TYPES } from '../types';
 import { _MERGE } from '@shell/plugins/dashboard-store/actions';
@@ -126,6 +128,26 @@ const testCluster = (c: EpinioCluster) => {
     }
   });
 }
+
+const columns: DataTableColumn[] = [
+  {
+    field: 'stateDisplay',
+    label: 'State',
+    width: '100px'
+  },
+  {
+    field: 'name',
+    label: 'Name'
+  },
+  {
+    field: 'api',
+    label: 'API'
+  },
+  {
+    field: 'version',
+    label: 'Version'
+  }
+];
 </script>
 
 <template>
@@ -145,21 +167,20 @@ const testCluster = (c: EpinioCluster) => {
     class="root"
   >
     <div class="epinios-table">
-      <h2>{{ t('epinio.instances.header') }}</h2>
-      <ResourceTable
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <h2>{{ t('epinio.instances.header') }}</h2>
+        <AsyncButton
+          mode="refresh"
+          size="sm"
+          :disabled="!canRediscover()"
+          style="display:inline-flex"
+          @click="rediscover"
+        />
+      </div>
+      <DataTable
         :rows="clusters"
-        :schema="clustersSchema"
-        :table-actions="false"
+        :columns="columns"
       >
-        <template #header-left>
-          <AsyncButton
-            mode="refresh"
-            size="sm"
-            :disabled="!canRediscover"
-            style="display:inline-flex"
-            @click="rediscover"
-          />
-        </template>
         <template #cell:name="{row}">
           <div class="epinio-row">
             <a
@@ -183,7 +204,7 @@ const testCluster = (c: EpinioCluster) => {
             </template>
           </div>
         </template>
-      </ResourceTable>
+      </DataTable>
 
     </div>
 

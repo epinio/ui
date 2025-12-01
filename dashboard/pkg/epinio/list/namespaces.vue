@@ -6,7 +6,8 @@ import { Card } from '@components/Card';
 import Banner from '@components/Banner/Banner.vue';
 import { _CREATE } from '@shell/config/query-params';
 import AsyncButton from '@shell/components/AsyncButton';
-import PaginatedResourceTable from '@shell/components/PaginatedResourceTable';
+import DataTable from '../components/tables/DataTable.vue';
+import type { DataTableColumn } from '../components/tables/types';
 import Masthead from '@shell/components/ResourceList/Masthead';
 import { epinioExceptionToErrorsArray } from '../utils/errors';
 import LabeledInput from '@components/Form/LabeledInput/LabeledInput.vue';
@@ -142,6 +143,26 @@ function getNamespaceErrors(name) {
 
   return [];
 }
+
+const columns: DataTableColumn[] = [
+  {
+    field: 'meta.name',
+    label: 'Name'
+  },
+  {
+    field: 'appCount',
+    label: 'Applications'
+  },
+  {
+    field: 'configCount',
+    label: 'Configurations'
+  },
+  {
+    field: 'meta.created',
+    label: 'Age',
+    formatter: 'age'
+  }
+];
 </script>
 
 <template>
@@ -159,13 +180,10 @@ function getNamespaceErrors(name) {
         </button>
       </template>
     </Masthead>
-    <PaginatedResourceTable
-      v-bind="attrs"
+    <DataTable
       :rows="rows"
-      :groupable="false"
-      :schema="schema"
-      ikey-field="_key"
-      paging
+      :columns="columns"
+      key-field="_key"
     />
     <div
       v-if="showCreateModal"
