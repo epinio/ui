@@ -135,8 +135,6 @@ onUnmounted(() => {
       <DataTable
         :rows="apps"
         :columns="columns"
-        :searchable="false"
-        :paginated="false"
       >
         <template #cell:route="{ row }">
           <span v-if="row.routes && row.routes.length" class="route">
