@@ -16,6 +16,6 @@ Follow the instructions [here](docs/production.md).
 
 ## Development
 To get started with Epinio UI development, step through the guides below to get up and running. 
-1. [Pre-Requisities](docs/prerequisites.md)
+1. [Prerequisites](docs/prerequisites.md)
 2. [Developing for the Epinio Rancher Extension](docs/developing-rancher-extension.md)
 3. [Developing for the Epinio Standalone application](docs/developing-standalone-application.md)
