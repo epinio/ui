@@ -63,5 +63,6 @@ SESSION_STORE_EXPIRY=1440
 
 ## Running Epinio UI
 
-1. Run `EXCLUDES_PKG=harvester,rancher-components RANCHER_ENV=epinio API=https://localhost:5443 yarn dev`.
-2. Navigate to the address displayed in your terminal; it should be something like `localhost:8005`.
+1. Navigate to the `dashboard` directory. 
+2. Run `EXCLUDES_PKG=harvester,rancher-components RANCHER_ENV=epinio API=https://localhost:5443 yarn dev`.
+3. Navigate to the address displayed in your terminal; it should be something like `localhost:8005`.
