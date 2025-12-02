@@ -1,15 +1,15 @@
 <script setup lang="ts">
 import { EPINIO_TYPES } from '../types';
 import { useStore } from 'vuex';
-import ResourceTable from '@shell/components/ResourceTable';
-import { ref, onMounted, onUnmounted, computed, useAttrs } from 'vue';
+import DataTable from '../components/tables/DataTable.vue';
+import type { DataTableColumn } from '../components/tables/types';
+import { ref, onMounted, onUnmounted, computed } from 'vue';
 import { startPolling, stopPolling } from '../utils/polling';
 
 const pending = ref<boolean>(true);
-const props = defineProps<{ schema: object }>(); //eslint-disable-line @typescript-eslint/no-unused-vars
+defineProps<{ schema: object }>(); // Keep for compatibility
 
 const store = useStore();
-const attrs = useAttrs();
 
 onMounted(async () => {
   await store.dispatch(
@@ -27,14 +27,32 @@ onUnmounted(() => {
 const rows = computed(() => {
   return store.getters['epinio/all'](EPINIO_TYPES.APP_CHARTS);
 });
+
+const columns: DataTableColumn[] = [
+  {
+    field: 'meta.name',
+    label: 'Name'
+  },
+  {
+    field: 'description',
+    label: 'Description'
+  },
+  {
+    field: 'helm_chart',
+    label: 'Helm Chart'
+  },
+  {
+    field: 'meta.created',
+    label: 'Age',
+    formatter: 'age'
+  }
+];
 </script>
 
 <template>
-  <ResourceTable
-    v-bind="attrs"
+  <DataTable
     :rows="rows"
-    :schema="schema"
+    :columns="columns"
     :loading="pending"
-    :table-actions="false"
   />
 </template>
