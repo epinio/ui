@@ -203,13 +203,14 @@ const connect = async () => {
       return;
     }
 
-    const { PodName, Message } = parsedData;
+    const { PodName, ContainerName, Message, Timestamp } = parsedData;
 
-    const line = `[${ PodName }] ${ Message }`;
+    const line = `[${ PodName }] ${ ContainerName } ${ Message }`;
     backlog.value.push({
       id:     lastId.value++,
       msg:    props.ansiToHtml ? ansiup.ansi_to_html(line) : line,
       rawMsg: line,
+      time:   Timestamp || null,
     });
   });
 
