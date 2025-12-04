@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { ref, reactive, computed, onMounted } from 'vue';
+import { ref, reactive, computed, onMounted, watch } from 'vue';
 import { useStore } from 'vuex';
 import Application from '../models/applications';
 import CruResource from '@shell/components/CruResource.vue';
@@ -10,6 +10,7 @@ import AppInfo from '../components/application/AppInfo.vue';
 import AppConfiguration from '../components/application/AppConfiguration.vue';
 import { epinioExceptionToErrorsArray } from '../utils/errors';
 import { useEpinioBindAppsMixin } from './bind-apps-mixin';
+import { useUnsavedChangesMixin } from './unsaved-changes-mixin';
 
 import Wizard from '@shell/components/Wizard.vue';
 import { createEpinioRoute } from '../utils/custom-routing';
@@ -25,10 +26,12 @@ const props = defineProps<{
   mode: string;
 }>();
 
-const { 
+const {
   doneParams,
   doneRoute,
 } = useEpinioBindAppsMixin(props);
+
+const { setUnsavedChanges } = useUnsavedChangesMixin();
 
 const store = useStore();
 
@@ -74,6 +77,11 @@ onMounted(async () => {
   epinioInfo.value = (hash as { info: any }).info;
 });
 
+// Track changes to mark as unsaved
+watch([bindings, source], () => {
+  setUnsavedChanges(true);
+}, { deep: true });
+
 const shouldShowButtons = computed(
   () => (store.$router.currentRoute.value.hash === '#source' ? 'hide-buttons-deploy' : '')
 );
@@ -110,6 +118,7 @@ async function save(saveCb: (success: boolean) => void) {
     );
 
     await props.value.forceFetch();
+    setUnsavedChanges(false); // Clear unsaved changes after successful save
     saveCb(true);
     done();
   } catch (err) {

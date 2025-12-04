@@ -210,11 +210,12 @@ onMounted(async () => {
   generateCards();
   await getVersionHash();
 
-  startPolling(['namespaces', 'applications', 'services'], store);
+  // Poll only essential resources for dashboard - services catalog changes infrequently
+  startPolling(['namespaces', 'applications'], store);
 });
 
 onUnmounted(() => {
-  stopPolling(['namespaces', 'applications', 'services']);
+  stopPolling(['namespaces', 'applications']);
 });
 
 async function getVersionHash() {
