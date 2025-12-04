@@ -1,13 +1,13 @@
-If you haven't already completed the [pre-requisities](https://github.com/epinio/ui/blob/doc/1.12-updates/docs/developer/pre-requisities.md), do those now. 
+If you haven't already completed the [prerequisites](./prerequisites.md), do those now. 
 
 # Getting The Epinio Standalone Instance Running
 
 ## Running the UI Backend
 
-1. Ensure your epinio instance is running, which is detailed in the [pre-requisities](https://github.com/epinio/ui/blob/doc/1.12-updates/docs/developer/pre-requisities.md) page.
-2. Ensure you have golang installed. 
+1. Ensure your epinio instance is running, which is detailed in the [prerequisites](./prerequisites.md) page.
+2. Ensure you have Go installed. 
 3. Clone the repository `git clone git@github.com:epinio/ui.git`.
-4. Navigate to the the `backend/src/jetstream` and run `npm run build-backend`.
+4. Navigate to the `backend/src/jetstream` and run `npm run build-backend`.
 5. Create a `config.properties` file for the backend. You can use the example below to get started.
 ```
 # Database connectivity environment variables
@@ -59,9 +59,10 @@ AUTH_ENDPOINT_TYPE=epinio
 SESSION_STORE_EXPIRY=1440
 ```
 6. Run the backend server `./jetstream`.
-7. The backend should startup and give an address with the port `:5443`.
+7. The backend should start up and give an address with the port `:5443`.
 
 ## Running Epinio UI
 
-1. Run `EXCLUDES_PKG=harvester,rancher-components RANCHER_ENV=epinio API=https://localhost:5443 yarn dev`.
-2. Navigate to the the address displayed in your terminal, it should be something like `localhost:8005`.
+1. Navigate to the `dashboard` directory. 
+2. Run `EXCLUDES_PKG=harvester,rancher-components RANCHER_ENV=epinio API=https://localhost:5443 yarn dev`.
+3. Navigate to the address displayed in your terminal; it should be something like `localhost:8005`.
