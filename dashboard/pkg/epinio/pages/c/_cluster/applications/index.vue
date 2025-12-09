@@ -7,6 +7,7 @@ import type { DataTableColumn } from '../../../../components/tables/types';
 import Loading from '@shell/components/Loading';
 import Masthead from '@shell/components/ResourceList/Masthead';
 import LinkDetail from '@shell/components/formatter/LinkDetail.vue';
+import BadgeStateFormatter from '@shell/components/formatter/BadgeStateFormatter.vue';
 
 import { EPINIO_TYPES } from '../../../../types';
 import { createEpinioRoute } from '../../../../utils/custom-routing';
@@ -70,7 +71,7 @@ const columns: DataTableColumn[] = [
     label: 'Last Deployed by'
   },
   {
-    field: 'meta.created',
+    field: 'meta.createdAt',
     label: 'Age',
     formatter: 'age'
   }
@@ -136,6 +137,12 @@ onUnmounted(() => {
         :rows="apps"
         :columns="columns"
       >
+        <template #cell:stateDisplay="{ row }">
+          <BadgeStateFormatter
+            :row="row"
+            :value="row.stateDisplay"
+          />
+        </template>
         <template #cell:route="{ row }">
           <span v-if="row.routes && row.routes.length" class="route">
             <template

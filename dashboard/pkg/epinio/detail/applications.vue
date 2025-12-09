@@ -12,6 +12,7 @@ import ConsumptionGauge from '@shell/components/ConsumptionGauge.vue';
 import { APPLICATION_MANIFEST_SOURCE_TYPE, EPINIO_TYPES } from '../types';
 import DataTable from '../components/tables/DataTable.vue';
 import type { DataTableColumn } from '../components/tables/types';
+import BadgeStateFormatter from '@shell/components/formatter/BadgeStateFormatter.vue';
 import PlusMinus from '@shell/components/form/PlusMinus.vue';
 import { epinioExceptionToErrorsArray } from '../utils/errors';
 import ApplicationCard from '../components/application/AppCardDetail.vue';
@@ -51,7 +52,7 @@ const instanceColumns: DataTableColumn[] = [
     label: 'Name'
   },
   {
-    field: 'meta.created',
+    field: 'meta.createdAt',
     label: 'Age',
     formatter: 'age'
   }
@@ -76,7 +77,7 @@ const serviceColumns: DataTableColumn[] = [
     label: 'Service Version'
   },
   {
-    field: 'metadata.created_at',
+    field: 'meta.createdAt',
     label: 'Age',
     formatter: 'age'
   }
@@ -93,7 +94,7 @@ const configColumns: DataTableColumn[] = [
     label: 'Name'
   },
   {
-    field: 'metadata.created_at',
+    field: 'meta.createdAt',
     label: 'Age',
     formatter: 'age'
   }
@@ -512,7 +513,14 @@ const commitPosition = computed(() => {
             :rows="value.instances"
             :searchable="false"
             :paginated="false"
-          />
+          >
+            <template #cell:stateDisplay="{ row }">
+              <BadgeStateFormatter
+                :row="row"
+                :value="row.stateDisplay"
+              />
+            </template>
+          </DataTable>
         </Tab>
         <Tab
           label-key="epinio.applications.detail.tables.services"
@@ -524,7 +532,14 @@ const commitPosition = computed(() => {
             :rows="value.services"
             :searchable="false"
             :paginated="false"
-          />
+          >
+            <template #cell:stateDisplay="{ row }">
+              <BadgeStateFormatter
+                :row="row"
+                :value="row.stateDisplay"
+              />
+            </template>
+          </DataTable>
         </Tab>
         <Tab
           label-key="epinio.applications.detail.tables.configs"
@@ -536,7 +551,14 @@ const commitPosition = computed(() => {
             :rows="value.baseConfigurations"
             :searchable="false"
             :paginated="false"
-          />
+          >
+            <template #cell:stateDisplay="{ row }">
+              <BadgeStateFormatter
+                :row="row"
+                :value="row.stateDisplay"
+              />
+            </template>
+          </DataTable>
         </Tab>
       </Tabbed>
     </div>

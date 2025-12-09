@@ -3,6 +3,7 @@ import { EPINIO_TYPES } from '../types';
 import { useStore } from 'vuex';
 import DataTable from '../components/tables/DataTable.vue';
 import type { DataTableColumn } from '../components/tables/types';
+import BadgeStateFormatter from '@shell/components/formatter/BadgeStateFormatter.vue';
 import { ref, onMounted, onUnmounted, computed } from 'vue';
 import { startPolling, stopPolling } from '../utils/polling';
 
@@ -42,7 +43,7 @@ const columns: DataTableColumn[] = [
     label: 'Helm Chart'
   },
   {
-    field: 'meta.created',
+    field: 'meta.createdAt',
     label: 'Age',
     formatter: 'age'
   }
@@ -54,5 +55,12 @@ const columns: DataTableColumn[] = [
     :rows="rows"
     :columns="columns"
     :loading="pending"
-  />
+  >
+    <template #cell:stateDisplay="{ row }">
+      <BadgeStateFormatter
+        :row="row"
+        :value="row.stateDisplay"
+      />
+    </template>
+  </DataTable>
 </template>

@@ -3,6 +3,7 @@ import DataTable from '../components/tables/DataTable.vue';
 import type { DataTableColumn } from '../components/tables/types';
 import { EPINIO_TYPES } from '../types';
 import LinkDetail from '@shell/components/formatter/LinkDetail.vue';
+import BadgeStateFormatter from '@shell/components/formatter/BadgeStateFormatter.vue';
 
 import { useStore } from 'vuex';
 import { ref, computed, onMounted, onUnmounted } from 'vue';
@@ -67,7 +68,7 @@ const columns: DataTableColumn[] = [
     label: 'Variable Count'
   },
   {
-    field: 'meta.created',
+    field: 'meta.createdAt',
     label: 'Age',
     formatter: 'age'
   }
@@ -80,6 +81,12 @@ const columns: DataTableColumn[] = [
     :columns="columns"
     :loading="pending"
   >
+    <template #cell:stateDisplay="{ row }">
+      <BadgeStateFormatter
+        :row="row"
+        :value="row.stateDisplay"
+      />
+    </template>
     <template #cell:service="{ row }">
       <LinkDetail
         v-if="row.service"
