@@ -472,6 +472,19 @@ defineExpose({
       text-align: center;
       vertical-align: middle;
     }
+
+    // Badge state styling
+    :deep(.badge-state) {
+      display: inline-block;
+      max-width: 100%;
+      position: relative;
+      max-width: 110px;
+      font-size: .85em;
+      vertical-align: middle;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
   }
 
   &__empty {
