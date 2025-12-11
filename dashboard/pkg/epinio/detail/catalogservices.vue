@@ -1,17 +1,20 @@
 <script setup lang="ts">
 import { useStore } from 'vuex';
-import { ref, computed, onMounted } from 'vue';
+import { ref, onMounted } from 'vue';
 
 import EpinioCatalogServiceModel from '../models/catalogservices';
-import { EPINIO_PRODUCT_NAME, EPINIO_TYPES } from '../types';
+import { EPINIO_TYPES } from '../types';
 
-import ResourceTable from '@shell/components/ResourceTable.vue';
+import DataTable from '../components/tables/DataTable.vue';
+import type { DataTableColumn } from '../components/tables/types';
+import BadgeStateFormatter from '@shell/components/formatter/BadgeStateFormatter.vue';
+import LinkDetail from '@shell/components/formatter/LinkDetail.vue';
 
 const store = useStore();
 
 const t = store.getters['i18n/t'];
 
-const props = defineProps<{ value: EpinioCatalogServiceModel }>(); // eslint-disable-line @typescript-eslint/no-unused-vars
+const props = defineProps<{ value: EpinioCatalogServiceModel }>();
 
 const pending = ref<boolean>(true);
 
@@ -20,28 +23,68 @@ onMounted(async () => {
   pending.value = false;
 });
 
-const servicesSchema = computed(() => {
-  return store.getters[`${ EPINIO_PRODUCT_NAME }/schemaFor`](EPINIO_TYPES.SERVICE_INSTANCE);
-});
-
-const servicesHeaders = computed(() => {
-  return store.getters['type-map/headersFor'](servicesSchema.value);
-});
+const columns: DataTableColumn[] = [
+  {
+    field: 'stateDisplay',
+    label: 'State',
+    width: '100px'
+  },
+  {
+    field: 'nameDisplay',
+    label: 'Name'
+  },
+  {
+    field: 'metadata.namespace',
+    label: 'Namespace'
+  },
+  {
+    field: 'catalog_service',
+    label: 'Service',
+    sortable: false
+  },
+  {
+    field: 'catalog_service_version',
+    label: 'Service Version'
+  },
+  {
+    field: 'boundApps',
+    label: 'Bound Apps',
+    sortable: false
+  },
+  {
+    field: 'metadata.created_at',
+    label: 'Age',
+    formatter: 'age'
+  }
+];
 </script>
 
 <template>
   <div>
     <h2 class="mt-20">
-      {{ t('epinio.catalogService.detail.servicesTitle', { catalogService: value.name }) }}
+      {{ t('epinio.catalogService.detail.servicesTitle', { catalogService: props.value.name }) }}
     </h2>
-    <ResourceTable
-      :schema="servicesSchema"
-      :rows="value.services"
+    <DataTable
+      :rows="props.value.services"
+      :columns="columns"
       :loading="pending"
-      :headers="servicesHeaders"
     >
+      <template #cell:stateDisplay="{ row }">
+        <BadgeStateFormatter
+          :row="row"
+          :value="row.stateDisplay"
+        />
+      </template>
+      <template #cell:catalog_service="{ row }">
+        <LinkDetail
+          v-if="row.serviceLocation"
+          :row="row.serviceLocation"
+          :value="row.catalog_service"
+        />
+        <span v-else>{{ row.catalog_service }}</span>
+      </template>
       <template #cell:boundApps="{ row }">
-        <span v-if="row.applications.length">
+        <span v-if="row.applications && row.applications.length">
           <template v-for="(app, index) in row.applications" :key="app.id">
             <LinkDetail
               :row="app"
@@ -59,6 +102,6 @@ const servicesHeaders = computed(() => {
         >&nbsp;</span>
       </template>
 
-    </ResourceTable>
+    </DataTable>
   </div>
 </template>

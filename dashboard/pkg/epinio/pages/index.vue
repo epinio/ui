@@ -3,8 +3,11 @@ import { ref, onMounted } from 'vue';
 import { useStore } from 'vuex';
 
 import Loading from '@shell/components/Loading.vue';
-import ResourceTable from '@shell/components/ResourceTable.vue';
+import DataTable from '../components/tables/DataTable.vue';
+import type { DataTableColumn } from '../components/tables/types';
 import AsyncButton from '@shell/components/AsyncButton.vue';
+import Link from '@shell/components/formatter/Link.vue';
+import BadgeStateFormatter from '@shell/components/formatter/BadgeStateFormatter.vue';
 
 import { EPINIO_MGMT_STORE, EPINIO_TYPES } from '../types';
 import { _MERGE } from '@shell/plugins/dashboard-store/actions';
@@ -16,7 +19,7 @@ const t = store.getters['i18n/t'];
 
 let currentCluster: EpinioCluster | null = null;
 let clusters: EpinioCluster[] = [];
-let clustersSchema: any = null;
+//let clustersSchema: any = null;
 
 const loading = ref(true);
 const error = ref<Error | null>(null)
@@ -26,7 +29,7 @@ onMounted(async () => {
   try {
     await store.dispatch(`${EPINIO_MGMT_STORE}/findAll`, { type: EPINIO_TYPES.CLUSTER }, { root: true })
     clusters = store.getters[`${EPINIO_MGMT_STORE}/all`](EPINIO_TYPES.CLUSTER)
-    clustersSchema = store.getters[`${EPINIO_MGMT_STORE}/schemaFor`](EPINIO_TYPES.CLUSTER)
+    //clustersSchema = store.getters[`${EPINIO_MGMT_STORE}/schemaFor`](EPINIO_TYPES.CLUSTER)
 
     clusters.forEach((c: EpinioCluster) => testCluster(c))
   } catch (err) {
@@ -126,6 +129,26 @@ const testCluster = (c: EpinioCluster) => {
     }
   });
 }
+
+const columns: DataTableColumn[] = [
+  {
+    field: 'stateDisplay',
+    label: 'State',
+    width: '100px'
+  },
+  {
+    field: 'name',
+    label: 'Name'
+  },
+  {
+    field: 'api',
+    label: 'API'
+  },
+  {
+    field: 'version',
+    label: 'Version'
+  }
+];
 </script>
 
 <template>
@@ -145,20 +168,28 @@ const testCluster = (c: EpinioCluster) => {
     class="root"
   >
     <div class="epinios-table">
-      <h2>{{ t('epinio.instances.header') }}</h2>
-      <ResourceTable
+      <div style="justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <h2>{{ t('epinio.instances.header') }}</h2>
+        <AsyncButton
+          mode="refresh"
+          size="sm"
+          :disabled="!canRediscover()"
+          style="display:inline-flex;"
+          @click="rediscover"
+        />
+      </div>
+      <DataTable
         :rows="clusters"
-        :schema="clustersSchema"
-        :table-actions="false"
+        :columns="columns"
+        :searchable="false"
       >
-        <template #header-left>
-          <AsyncButton
-            mode="refresh"
-            size="sm"
-            :disabled="!canRediscover"
-            style="display:inline-flex"
-            @click="rediscover"
-          />
+        <template #cell:stateDisplay="{row}">
+          <div class="epinio-row">
+            <BadgeStateFormatter
+              :row="row"
+              :value="row.stateDisplay"
+            />
+          </div>
         </template>
         <template #cell:name="{row}">
           <div class="epinio-row">
@@ -183,7 +214,7 @@ const testCluster = (c: EpinioCluster) => {
             </template>
           </div>
         </template>
-      </ResourceTable>
+      </DataTable>
 
     </div>
 

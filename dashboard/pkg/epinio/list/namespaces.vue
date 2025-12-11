@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { useStore } from 'vuex';
-import { ref, onMounted, onUnmounted, computed, watch, nextTick, useAttrs } from 'vue';
+import { ref, onMounted, onUnmounted, computed, watch, nextTick } from 'vue';
 import { EPINIO_TYPES } from '../types';
 import { Card } from '@components/Card';
 import Banner from '@components/Banner/Banner.vue';
 import { _CREATE } from '@shell/config/query-params';
 import AsyncButton from '@shell/components/AsyncButton';
-import PaginatedResourceTable from '@shell/components/PaginatedResourceTable';
+import DataTable from '../components/tables/DataTable.vue';
+import type { DataTableColumn } from '../components/tables/types';
+import BadgeStateFormatter from '@shell/components/formatter/BadgeStateFormatter.vue';
 import Masthead from '@shell/components/ResourceList/Masthead';
 import { epinioExceptionToErrorsArray } from '../utils/errors';
 import LabeledInput from '@components/Form/LabeledInput/LabeledInput.vue';
@@ -16,9 +18,9 @@ import { startPolling, stopPolling } from '../utils/polling';
 defineProps<{
   schema: object,
   rows: Array,
-}>(); // eslint-disable-line @typescript-eslint/no-unused-vars
+}>();
 
-const attrs = useAttrs();
+//const attrs = useAttrs();
 const store = useStore();
 const t = store.getters['i18n/t'];
 
@@ -142,6 +144,26 @@ function getNamespaceErrors(name) {
 
   return [];
 }
+
+const columns: DataTableColumn[] = [
+  {
+    field: 'meta.name',
+    label: 'Name'
+  },
+  {
+    field: 'appCount',
+    label: 'Applications'
+  },
+  {
+    field: 'configCount',
+    label: 'Configurations'
+  },
+  {
+    field: 'meta.createdAt',
+    label: 'Age',
+    formatter: 'age'
+  }
+];
 </script>
 
 <template>
@@ -159,14 +181,18 @@ function getNamespaceErrors(name) {
         </button>
       </template>
     </Masthead>
-    <PaginatedResourceTable
-      v-bind="attrs"
+    <DataTable
       :rows="rows"
-      :groupable="false"
-      :schema="schema"
-      ikey-field="_key"
-      paging
-    />
+      :columns="columns"
+      key-field="_key"
+    >
+      <template #cell:stateDisplay="{ row }">
+        <BadgeStateFormatter
+          :row="row"
+          :value="row.stateDisplay"
+        />
+      </template>
+    </DataTable>
     <div
       v-if="showCreateModal"
       class="modal"

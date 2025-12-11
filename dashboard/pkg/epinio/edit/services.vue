@@ -2,14 +2,15 @@
 import { useStore } from 'vuex';
 import { ref, computed, reactive, onMounted, watch } from 'vue';
 
-import { 
-  EPINIO_TYPES, 
-  EpinioNamespace, 
+import {
+  EPINIO_TYPES,
+  EpinioNamespace,
   EpinioCatalogService,
 } from '../types';
 import ServiceInstance from '../models/services';
 import { objValuesToString } from '../utils/settings';
 import { useEpinioBindAppsMixin } from './bind-apps-mixin';
+import { useUnsavedChangesMixin } from './unsaved-changes-mixin';
 import { epinioExceptionToErrorsArray } from '../utils/errors';
 import ChartValues from '../components/settings/ChartValues.vue';
 import EpinioCatalogServiceModel from '../models/catalogservices';
@@ -33,12 +34,14 @@ const props = defineProps<{
   mode: string,
 }>();
 
-const { 
-  selectedApps, 
-  nsAppOptions, 
-  noApps, 
+const {
+  selectedApps,
+  nsAppOptions,
+  noApps,
   updateServiceInstanceAppBindings,
 } = useEpinioBindAppsMixin(props);
+
+const { setUnsavedChanges } = useUnsavedChangesMixin();
 
 const doneRoute = ref<string>('');
 const pending = ref<boolean>(true);
@@ -90,6 +93,11 @@ watch(
     return selectedApps.value = [];
   }
 );
+
+// Track changes to mark as unsaved
+watch([() => props.value, selectedApps, chartValues], () => {
+  setUnsavedChanges(true);
+}, { deep: true });
 
 const catalogServices = computed(() => {
   return store.getters['epinio/all'](EPINIO_TYPES.CATALOG_SERVICE);
@@ -199,10 +207,11 @@ const save = async (saveCb: (success: boolean) => void) => {
         await updateServiceInstanceAppBindings(props.value);
       }
       await store.dispatch(
-        'epinio/findAll', 
+        'epinio/findAll',
         { type: props.value.type, opt: { force: true }},
       );
 
+      setUnsavedChanges(false); // Clear after successful save
       saveCb(true);
       done();
     }
@@ -213,7 +222,8 @@ const save = async (saveCb: (success: boolean) => void) => {
       }
       await updateServiceInstanceAppBindings(props.value);
       await props.value.forceFetch();
-       
+
+      setUnsavedChanges(false); // Clear after successful save
       saveCb(true);
       done();
 

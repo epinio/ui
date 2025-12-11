@@ -33,7 +33,7 @@ func NewDefaultSettings(ec echo.Context) *interfaces.Collection {
 
 	epinioTheme := os.Getenv(epinioTheme)
 	if epinioTheme == "" {
-		epinioTheme = "light"
+		epinioTheme = ""
 	}
 
 	col.Data = make([]interface{}, 6)

@@ -14,6 +14,13 @@ context=$1
 # 1. During the setup process the user has already completed the first login.
 # 2. Epinio does not require the banner as there is not one in the application.
 # 3. Epinio does not require custom errors as of now.
+file_path='./node_modules/@rancher/shell/store/auth.js'
+
+old_string="scopes = \[joinStringList(scopes\[0\], opt.scopes)\];"
+new_string="scopes = opt.scopes;"
+
+sed -i "s|$old_string|$new_string|g" "$file_path"
+
 file_path='./node_modules/@rancher/shell/pages/auth/login.vue'
 
 old_string="const { value } = await this.\$store.dispatch('management/find', { type: MANAGEMENT.SETTING, id: SETTING.BANNERS });"
@@ -48,6 +55,7 @@ replacement='  return "2.13.2";'
 sed -i "${start},${end}c\\
 ${replacement}
 " "$file_path"
+
 
 # Run the yarn command the user was expecting to run.
 if [ "$context" == "dev" ]; then
