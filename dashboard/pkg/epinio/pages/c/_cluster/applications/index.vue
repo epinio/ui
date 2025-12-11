@@ -6,7 +6,7 @@ import DataTable from '../../../../components/tables/DataTable.vue';
 import type { DataTableColumn } from '../../../../components/tables/types';
 import Loading from '@shell/components/Loading';
 import Masthead from '@shell/components/ResourceList/Masthead';
-import LinkDetail from '@shell/components/formatter/LinkDetail.vue';
+//import LinkDetail from '@shell/components/formatter/LinkDetail.vue';
 import BadgeStateFormatter from '@shell/components/formatter/BadgeStateFormatter.vue';
 
 import { EPINIO_TYPES } from '../../../../types';

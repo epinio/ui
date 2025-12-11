@@ -19,7 +19,7 @@ const t = store.getters['i18n/t'];
 
 let currentCluster: EpinioCluster | null = null;
 let clusters: EpinioCluster[] = [];
-let clustersSchema: any = null;
+//let clustersSchema: any = null;
 
 const loading = ref(true);
 const error = ref<Error | null>(null)
@@ -29,7 +29,7 @@ onMounted(async () => {
   try {
     await store.dispatch(`${EPINIO_MGMT_STORE}/findAll`, { type: EPINIO_TYPES.CLUSTER }, { root: true })
     clusters = store.getters[`${EPINIO_MGMT_STORE}/all`](EPINIO_TYPES.CLUSTER)
-    clustersSchema = store.getters[`${EPINIO_MGMT_STORE}/schemaFor`](EPINIO_TYPES.CLUSTER)
+    //clustersSchema = store.getters[`${EPINIO_MGMT_STORE}/schemaFor`](EPINIO_TYPES.CLUSTER)
 
     clusters.forEach((c: EpinioCluster) => testCluster(c))
   } catch (err) {

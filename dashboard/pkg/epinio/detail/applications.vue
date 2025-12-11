@@ -187,7 +187,7 @@ const gitCommitsColumns = computed<DataTableColumn[]>(() => [
     width: '100px'
   },
   {
-    field: 'author.login',
+    field: 'author_login',
     label: t(`gitPicker.${gitType.value}.tableHeaders.author.label`),
     width: '190px'
   },
@@ -457,7 +457,7 @@ const commitPosition = computed(() => {
             :paginated="true"
             :rows-per-page="10"
           >
-            <template #cell:author.login="{row}">
+            <template #cell:author_login="{row}">
               <div class="sortable-table-avatar">
                 <template v-if="row.author">
                   <img

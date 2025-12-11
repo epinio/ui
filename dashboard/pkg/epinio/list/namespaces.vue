@@ -20,7 +20,7 @@ defineProps<{
   rows: Array,
 }>();
 
-const attrs = useAttrs();
+//const attrs = useAttrs();
 const store = useStore();
 const t = store.getters['i18n/t'];
 
