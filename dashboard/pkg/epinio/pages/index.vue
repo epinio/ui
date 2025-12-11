@@ -222,13 +222,13 @@ const createOrUpdateTable = () => {
     class="root"
   >
     <div class="epinios-table">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+      <div style="justify-content: space-between; align-items: center; margin-bottom: 1rem;">
         <h2>{{ t('epinio.instances.header') }}</h2>
         <AsyncButton
           mode="refresh"
           size="sm"
           :disabled="!canRediscover()"
-          style="display:inline-flex"
+          style="display:inline-flex;"
           @click="rediscover"
         />
       </div>
