@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useStore } from 'vuex';
-import { ref, onMounted, onUnmounted, computed, watch, nextTick, useAttrs } from 'vue';
+import { ref, onMounted, onUnmounted, computed, watch, nextTick } from 'vue';
 import { EPINIO_TYPES } from '../types';
 import { Card } from '@components/Card';
 import Banner from '@components/Banner/Banner.vue';
