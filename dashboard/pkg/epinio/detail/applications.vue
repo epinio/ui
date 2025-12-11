@@ -9,14 +9,15 @@ import SimpleBox from '@shell/components/SimpleBox.vue';
 import { GitUtils } from '@shell/utils/git';
 import { isArray } from '@shell/utils/array';
 import ConsumptionGauge from '@shell/components/ConsumptionGauge.vue';
-import { APPLICATION_MANIFEST_SOURCE_TYPE, EPINIO_TYPES, EPINIO_PRODUCT_NAME } from '../types';
-import ResourceTable from '@shell/components/ResourceTable.vue';
+import { APPLICATION_MANIFEST_SOURCE_TYPE, EPINIO_TYPES } from '../types';
+import DataTable from '../components/tables/DataTable.vue';
+import type { DataTableColumn } from '../components/tables/types';
+import BadgeStateFormatter from '@shell/components/formatter/BadgeStateFormatter.vue';
 import PlusMinus from '@shell/components/form/PlusMinus.vue';
 import { epinioExceptionToErrorsArray } from '../utils/errors';
 import ApplicationCard from '../components/application/AppCardDetail.vue';
 import Tabbed from '@shell/components/Tabbed/index.vue';
 import Tab from '@shell/components/Tabbed/Tab.vue';
-import SortableTable from '@shell/components/SortableTable/index.vue';
 import AppGitDeployment from '../components/application/AppGitDeployment.vue';
 import Link from '@shell/components/formatter/Link.vue';
 import Banner from '@components/Banner/Banner.vue';
@@ -40,26 +41,64 @@ const gitDeployment = ref({
   commits: null as any
 });
 
-const appInstanceSchema = store.getters[`${EPINIO_PRODUCT_NAME}/schemaFor`](EPINIO_TYPES.APP_INSTANCE);
-const servicesSchema = store.getters[`${EPINIO_PRODUCT_NAME}/schemaFor`](EPINIO_TYPES.SERVICE_INSTANCE);
-const servicesHeaders = store.getters['type-map/headersFor'](servicesSchema);
-const configsSchema = store.getters[`${EPINIO_PRODUCT_NAME}/schemaFor`](EPINIO_TYPES.CONFIGURATION);
-const configsHeaders = store.getters['type-map/headersFor'](configsSchema);
+const instanceColumns: DataTableColumn[] = [
+  {
+    field: 'stateDisplay',
+    label: 'State',
+    width: '100px'
+  },
+  {
+    field: 'name',
+    label: 'Name'
+  },
+  {
+    field: 'meta.createdAt',
+    label: 'Age',
+    formatter: 'age'
+  }
+];
 
-const appInstance = {
-  schema: appInstanceSchema,
-  headers: store.getters['type-map/headersFor'](appInstanceSchema)
-};
+const serviceColumns: DataTableColumn[] = [
+  {
+    field: 'stateDisplay',
+    label: 'State',
+    width: '100px'
+  },
+  {
+    field: 'nameDisplay',
+    label: 'Name'
+  },
+  {
+    field: 'catalog_service',
+    label: 'Service'
+  },
+  {
+    field: 'catalog_service_version',
+    label: 'Service Version'
+  },
+  {
+    field: 'meta.createdAt',
+    label: 'Age',
+    formatter: 'age'
+  }
+];
 
-const services = {
-  schema: servicesSchema,
-  headers: servicesHeaders.filter((h: any) => !['namespace', 'boundApps'].includes(h.name))
-};
-
-const configs = {
-  schema: configsSchema,
-  headers: configsHeaders.filter((h: any) => !['namespace', 'boundApps', 'service'].includes(h.name))
-};
+const configColumns: DataTableColumn[] = [
+  {
+    field: 'stateDisplay',
+    label: 'State',
+    width: '100px'
+  },
+  {
+    field: 'nameDisplay',
+    label: 'Name'
+  },
+  {
+    field: 'meta.createdAt',
+    label: 'Age',
+    formatter: 'age'
+  }
+];
 
 const commitActions = [{
   action: 'editFromCommit',
@@ -141,33 +180,26 @@ const preparedCommits = computed(() => {
   }));
 });
 
-const commitsHeaders = computed(() => [
+const gitCommitsColumns = computed<DataTableColumn[]>(() => [
   {
-    name: 'sha',
+    field: 'sha',
     label: t(`gitPicker.${gitType.value}.tableHeaders.sha.label`),
-    width: 100
+    width: '100px'
   },
   {
-    name: 'author',
+    field: 'author.login',
     label: t(`gitPicker.${gitType.value}.tableHeaders.author.label`),
-    width: 190,
-    value: 'author.login',
-    sort: 'author.login'
+    width: '190px'
   },
   {
-    name: 'message',
-    label: t(`gitPicker.${gitType.value}.tableHeaders.message.label`),
-    value: 'message',
-    sort: 'message'
+    field: 'message',
+    label: t(`gitPicker.${gitType.value}.tableHeaders.message.label`)
   },
   {
-    name: 'date',
-    width: 220,
+    field: 'date',
     label: t(`gitPicker.${gitType.value}.tableHeaders.date.label`),
-    value: 'date',
-    sort: ['date:desc'],
-    formatter: 'Date',
-    defaultSort: true
+    width: '220px',
+    formatter: 'dateTime'
   }
 ]);
 
@@ -410,26 +442,22 @@ const commitPosition = computed(() => {
           name="gitCommits"
           :weight="2"
         >
-          <SortableTable
+          <Banner
+            color="info"
+            class="redeploy-info"
+          >
+            {{ t('epinio.applications.detail.deployment.commits.redeploy') }}
+          </Banner>
+          <DataTable
             v-if="preparedCommits"
             :rows="preparedCommits"
-            :headers="commitsHeaders"
-            mode="view"
+            :columns="gitCommitsColumns"
             key-field="sha"
-            :search="true"
-            :paging="true"
-            :table-actions="false"
+            :searchable="true"
+            :paginated="true"
             :rows-per-page="10"
           >
-            <template #header-left>
-              <Banner
-                color="info"
-                class="redeploy-info"
-              >
-                {{ t('epinio.applications.detail.deployment.commits.redeploy') }}
-              </Banner>
-            </template>
-            <template #cell:author="{row}">
+            <template #cell:author.login="{row}">
               <div class="sortable-table-avatar">
                 <template v-if="row.author">
                   <img
@@ -464,7 +492,7 @@ const commitPosition = computed(() => {
                 />
               </div>
             </template>
-          </SortableTable>
+          </DataTable>
         </Tab>
       </Tabbed>
     </div>
@@ -480,38 +508,57 @@ const commitPosition = computed(() => {
           name="instances"
           :weight="3"
         >
-          <ResourceTable
-            :schema="appInstance.schema"
-            :headers="appInstance.headers"
+          <DataTable
+            :columns="instanceColumns"
             :rows="value.instances"
-            :table-actions="false"
-          />
+            :searchable="false"
+            :paginated="false"
+          >
+            <template #cell:stateDisplay="{ row }">
+              <BadgeStateFormatter
+                :row="row"
+                :value="row.stateDisplay"
+              />
+            </template>
+          </DataTable>
         </Tab>
         <Tab
           label-key="epinio.applications.detail.tables.services"
           name="services"
           :weight="2"
         >
-          <ResourceTable
-            :schema="services.schema"
-            :headers="services.headers"
+          <DataTable
+            :columns="serviceColumns"
             :rows="value.services"
-            :namespaced="false"
-            :table-actions="false"
-          />
+            :searchable="false"
+            :paginated="false"
+          >
+            <template #cell:stateDisplay="{ row }">
+              <BadgeStateFormatter
+                :row="row"
+                :value="row.stateDisplay"
+              />
+            </template>
+          </DataTable>
         </Tab>
         <Tab
           label-key="epinio.applications.detail.tables.configs"
           name="configs"
           :weight="1"
         >
-          <ResourceTable
-            :schema="configs.schema"
-            :headers="configs.headers"
+          <DataTable
+            :columns="configColumns"
             :rows="value.baseConfigurations"
-            :namespaced="false"
-            :table-actions="false"
-          />
+            :searchable="false"
+            :paginated="false"
+          >
+            <template #cell:stateDisplay="{ row }">
+              <BadgeStateFormatter
+                :row="row"
+                :value="row.stateDisplay"
+              />
+            </template>
+          </DataTable>
         </Tab>
       </Tabbed>
     </div>

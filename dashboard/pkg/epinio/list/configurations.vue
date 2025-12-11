@@ -1,16 +1,17 @@
 <script setup lang="ts">
-import ResourceTable from '@shell/components/ResourceTable';
+import DataTable from '../components/tables/DataTable.vue';
+import type { DataTableColumn } from '../components/tables/types';
 import { EPINIO_TYPES } from '../types';
-import Loading from '@shell/components/Loading';
+import LinkDetail from '@shell/components/formatter/LinkDetail.vue';
+import BadgeStateFormatter from '@shell/components/formatter/BadgeStateFormatter.vue';
 
 import { useStore } from 'vuex';
-import { ref, computed, onMounted, onUnmounted, useAttrs } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { startPolling, stopPolling } from '../utils/polling';
 
 const store = useStore();
-const attrs = useAttrs();
 
-const props = defineProps<{ schema: object }>(); // eslint-disable-line @typescript-eslint/no-unused-vars
+defineProps<{ schema: object }>(); // Keep for compatibility
 
 const pending = ref<boolean>(true);
 
@@ -42,46 +43,79 @@ onUnmounted(() => {
 const rows = computed(() => {
   return store.getters['epinio/all'](EPINIO_TYPES.CONFIGURATION);
 });
+
+const columns: DataTableColumn[] = [
+  {
+    field: 'nameDisplay',
+    label: 'Name'
+  },
+  {
+    field: 'meta.namespace',
+    label: 'Namespace'
+  },
+  {
+    field: 'boundApps',
+    label: 'Bound Apps',
+    sortable: false
+  },
+  {
+    field: 'service',
+    label: 'Service',
+    sortable: false
+  },
+  {
+    field: 'variableCount',
+    label: 'Variable Count'
+  },
+  {
+    field: 'meta.createdAt',
+    label: 'Age',
+    formatter: 'age'
+  }
+];
 </script>
 
 <template>
-  <Loading v-if="pending" />
-  <div v-else>
-    <ResourceTable
-      v-bind="attrs"
-      :rows="rows"
-      :schema="schema"
-    >
-      <template #cell:service="{ row }">
-        <LinkDetail
-          v-if="row.service"
-          :key="row.service.id"
-          :row="row.service"
-          :value="row.service.meta.name"
-        />
-        <span
-          v-else
-          class="text-muted"
-        >&nbsp;</span>
-      </template>
-      <template #cell:boundApps="{ row }">
-        <span v-if="row.applications.length">
-          <template v-for="(app, index) in row.applications" :key="app.id">
-            <LinkDetail
-              :row="app"
-              :value="app.meta.name"
-            />
-            <span
-              v-if="index < row.applications.length - 1"
-              :key="app.id + 'i'"
-            >, </span>
-          </template>
-        </span>
-        <span
-          v-else
-          class="text-muted"
-        >&nbsp;</span>
-      </template>
-    </ResourceTable>
-  </div>
+  <DataTable
+    :rows="rows"
+    :columns="columns"
+    :loading="pending"
+  >
+    <template #cell:stateDisplay="{ row }">
+      <BadgeStateFormatter
+        :row="row"
+        :value="row.stateDisplay"
+      />
+    </template>
+    <template #cell:service="{ row }">
+      <LinkDetail
+        v-if="row.service"
+        :key="row.service.id"
+        :row="row.service"
+        :value="row.service.meta.name"
+      />
+      <span
+        v-else
+        class="text-muted"
+      >&nbsp;</span>
+    </template>
+    <template #cell:boundApps="{ row }">
+      <span v-if="row.applications && row.applications.length">
+        <template v-for="(app, index) in row.applications" :key="app.id">
+          <LinkDetail
+            :row="app"
+            :value="app.meta.name"
+          />
+          <span
+            v-if="index < row.applications.length - 1"
+            :key="app.id + 'i'"
+          >, </span>
+        </template>
+      </span>
+      <span
+        v-else
+        class="text-muted"
+      >&nbsp;</span>
+    </template>
+  </DataTable>
 </template>
