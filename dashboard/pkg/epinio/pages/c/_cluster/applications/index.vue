@@ -1,13 +1,12 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
 import { useStore } from 'vuex';
+import '@krumio/trailhand-ui/Components/data-table.js';
+import '@krumio/trailhand-ui/Components/action-menu.js';
 
-import DataTable from '../../../../components/tables/DataTable.vue';
 import type { DataTableColumn } from '../../../../components/tables/types';
 import Loading from '@shell/components/Loading';
 import Masthead from '@shell/components/ResourceList/Masthead';
-import LinkDetail from '@shell/components/formatter/LinkDetail.vue';
-import BadgeStateFormatter from '@shell/components/formatter/BadgeStateFormatter.vue';
 
 import { EPINIO_TYPES } from '../../../../types';
 import { createEpinioRoute } from '../../../../utils/custom-routing';
@@ -47,6 +46,14 @@ const groupedByNamespace = computed(() => {
 
 const pending = ref(true);
 
+// Custom formatter for routes
+const formatRoutes = (value: any, row: any) => {
+  if (!row.routes || row.routes.length === 0) {
+    return '-';
+  }
+  return row.routes.map((route: string) => `https://${route}`).join(', ');
+};
+
 const columns: DataTableColumn[] = [
   {
     field: 'stateDisplay',
@@ -62,9 +69,10 @@ const columns: DataTableColumn[] = [
     label: 'Status'
   },
   {
-    field: 'route',
+    field: 'routes',
     label: 'Routes',
-    sortable: false
+    sortable: false,
+    formatter: formatRoutes
   },
   {
     field: 'deployment.username',
@@ -77,6 +85,48 @@ const columns: DataTableColumn[] = [
   }
 ];
 
+// Store references to table elements for each namespace
+const tableRefs = ref<Record<string, HTMLElement>>({});
+
+// Function to create/update table for a namespace
+const createOrUpdateTable = (namespace: string, apps: any[]) => {
+  const container = tableRefs.value[namespace];
+  if (!container) return;
+
+  // Remove existing table if any
+  container.innerHTML = '';
+
+  // Create new table element
+  const tableElement = document.createElement('data-table');
+  (tableElement as any).columns = columns;
+  (tableElement as any).rows = apps;
+  (tableElement as any).rowActions = true; // Enable actions
+  container.appendChild(tableElement);
+
+  // Listen for action menu events
+  tableElement.addEventListener('action-click', ((event: CustomEvent) => {
+    const { action, resource } = event.detail;
+    handleAction(action, resource);
+  }) as EventListener);
+};
+
+// Handle action menu clicks
+const handleAction = (action: any, resource: any) => {
+  // action.action is the method name (e.g., 'showAppShell')
+  const actionMethod = action.action;
+  if (resource && actionMethod && typeof resource[actionMethod] === 'function') {
+    resource[actionMethod]();
+  }
+};
+
+// Watch for changes in grouped data
+watch(groupedByNamespace, async (newGroups) => {
+  await nextTick();
+  Object.keys(newGroups).forEach(namespace => {
+    createOrUpdateTable(namespace, newGroups[namespace]);
+  });
+}, { deep: true });
+
 onMounted(async () => {
   await store.dispatch('epinio/findAll', { type: EPINIO_TYPES.APP });
   // Non-blocking fetch
@@ -84,6 +134,13 @@ onMounted(async () => {
   store.dispatch('epinio/findAll', { type: EPINIO_TYPES.SERVICE_INSTANCE });
 
   pending.value = false;
+
+  // Create tables after data is loaded
+  await nextTick();
+  Object.keys(groupedByNamespace.value).forEach(namespace => {
+    createOrUpdateTable(namespace, groupedByNamespace.value[namespace]);
+  });
+
   // Removed 'catalogservices' - catalog services are static and don't need frequent polling
   // They're loaded on initial mount if needed, but don't change frequently
   startPolling(
@@ -133,39 +190,7 @@ onUnmounted(() => {
         Namespace: <span class="namespace-name">{{ namespace }}</span>
       </h3>
 
-      <DataTable
-        :rows="apps"
-        :columns="columns"
-      >
-        <template #cell:stateDisplay="{ row }">
-          <BadgeStateFormatter
-            :row="row"
-            :value="row.stateDisplay"
-          />
-        </template>
-        <template #cell:route="{ row }">
-          <span v-if="row.routes && row.routes.length" class="route">
-            <template
-              v-for="(route, index) in row.routes"
-              :key="route.id || route"
-            >
-              <a
-                v-if="row.state === 'running'"
-                :href="`https://${route}`"
-                target="_blank"
-                rel="noopener noreferrer nofollow"
-              >
-                {{ `https://${route}` }}
-              </a>
-              <span v-else>
-                {{ `https://${route}` }}
-              </span>
-              <span v-if="index !== row.routes.length - 1">, </span>
-            </template>
-          </span>
-          <span v-else class="text-muted">&nbsp;</span>
-        </template>
-      </DataTable>
+      <div :ref="el => { if (el) tableRefs[namespace] = el as HTMLElement }"></div>
     </div>
   </div>
 </template>

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import '@krumio/trailhand-ui/Components/data-table.js';
+import '@krumio/trailhand-ui/Components/action-menu.js';
 import { useStore } from 'vuex';
 import { ref, onMounted, onUnmounted, computed, watch, nextTick, useAttrs } from 'vue';
 import { EPINIO_TYPES } from '../types';
@@ -6,16 +8,15 @@ import { Card } from '@components/Card';
 import Banner from '@components/Banner/Banner.vue';
 import { _CREATE } from '@shell/config/query-params';
 import AsyncButton from '@shell/components/AsyncButton';
-import DataTable from '../components/tables/DataTable.vue';
 import type { DataTableColumn } from '../components/tables/types';
-import BadgeStateFormatter from '@shell/components/formatter/BadgeStateFormatter.vue';
 import Masthead from '@shell/components/ResourceList/Masthead';
 import { epinioExceptionToErrorsArray } from '../utils/errors';
 import LabeledInput from '@components/Form/LabeledInput/LabeledInput.vue';
 import { validateKubernetesName } from '@shell/utils/validators/kubernetes-name';
 import { startPolling, stopPolling } from '../utils/polling';
+import { createDataTable, setupActionListener } from '../utils/table-helpers';
 
-defineProps<{
+const props = defineProps<{
   schema: object,
   rows: Array,
 }>();
@@ -24,15 +25,16 @@ const attrs = useAttrs();
 const store = useStore();
 const t = store.getters['i18n/t'];
 
-const errors = ref<Array>([]);
+const errors = ref<Array<any>>([]);
 const namespaceName = ref('namespaceName');
 const showCreateModal = ref<boolean>(false);
 const creatingNamespace = ref<boolean>(false);
 const touched = ref<boolean>(false);
+const tableContainer = ref<HTMLElement | null>(null);
 
 const mode: string = _CREATE;
 const resource: string = EPINIO_TYPES.NAMESPACE;
-const value = ref<Array>({ meta: { name: '' } });
+const value = ref<any>({ meta: { name: '' } });
 
 const showPromptRemove = computed(() => {
   return store.state['action-menu'].showPromptRemove
@@ -48,11 +50,32 @@ const validationPassed = computed(() => {
   return errors.value?.length === 0;
 });
 
+// Create and update table
+const createOrUpdateTable = () => {
+  if (!tableContainer.value) return;
+
+  tableContainer.value.innerHTML = '';
+
+  const tableElement = createDataTable(columns, props.rows);
+  setupActionListener(tableElement);
+  tableContainer.value.appendChild(tableElement);
+};
+
+// Watch for data changes
+watch(() => props.rows, async () => {
+  await nextTick();
+  createOrUpdateTable();
+}, { deep: true });
+
 onMounted(() => {
   // Opens the create namespace modal if the query is passed as query param
   if (store.$router.currentRoute._value.query.mode === 'openModal') {
     openCreateModal();
   }
+
+  nextTick(() => {
+    createOrUpdateTable();
+  });
 
   startPolling(["namespaces", "applications", "configurations"], store);
 });
@@ -181,18 +204,7 @@ const columns: DataTableColumn[] = [
         </button>
       </template>
     </Masthead>
-    <DataTable
-      :rows="rows"
-      :columns="columns"
-      key-field="_key"
-    >
-      <template #cell:stateDisplay="{ row }">
-        <BadgeStateFormatter
-          :row="row"
-          :value="row.stateDisplay"
-        />
-      </template>
-    </DataTable>
+    <div ref="tableContainer"></div>
     <div
       v-if="showCreateModal"
       class="modal"

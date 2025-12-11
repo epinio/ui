@@ -1,19 +1,85 @@
 <script setup lang="ts">
-import DataTable from '../components/tables/DataTable.vue';
+import '@krumio/trailhand-ui/Components/data-table.js';
+import '@krumio/trailhand-ui/Components/action-menu.js';
 import type { DataTableColumn } from '../components/tables/types';
 import { EPINIO_TYPES } from '../types';
-import LinkDetail from '@shell/components/formatter/LinkDetail.vue';
-import BadgeStateFormatter from '@shell/components/formatter/BadgeStateFormatter.vue';
 
 import { useStore } from 'vuex';
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
 import { startPolling, stopPolling } from '../utils/polling';
+import { createDataTable, setupActionListener } from '../utils/table-helpers';
 
 const store = useStore();
 
 defineProps<{ schema: object }>(); // Keep for compatibility
 
 const pending = ref<boolean>(true);
+const tableContainer = ref<HTMLElement | null>(null);
+
+const rows = computed(() => {
+  return store.getters['epinio/all'](EPINIO_TYPES.CONFIGURATION);
+});
+
+// Custom formatters
+const formatBoundApps = (value: any, row: any) => {
+  if (!row.applications || row.applications.length === 0) {
+    return '-';
+  }
+  return row.applications.map((app: any) => app.meta.name).join(', ');
+};
+
+const formatService = (value: any, row: any) => {
+  return row.service ? row.service.meta.name : '-';
+};
+
+const columns: DataTableColumn[] = [
+  {
+    field: 'nameDisplay',
+    label: 'Name'
+  },
+  {
+    field: 'meta.namespace',
+    label: 'Namespace'
+  },
+  {
+    field: 'boundApps',
+    label: 'Bound Apps',
+    sortable: false,
+    formatter: formatBoundApps
+  },
+  {
+    field: 'service',
+    label: 'Service',
+    sortable: false,
+    formatter: formatService
+  },
+  {
+    field: 'variableCount',
+    label: 'Variable Count'
+  },
+  {
+    field: 'meta.createdAt',
+    label: 'Age',
+    formatter: 'age'
+  }
+];
+
+// Create and update table
+const createOrUpdateTable = () => {
+  if (!tableContainer.value) return;
+
+  tableContainer.value.innerHTML = '';
+
+  const tableElement = createDataTable(columns, rows.value);
+  setupActionListener(tableElement);
+  tableContainer.value.appendChild(tableElement);
+};
+
+// Watch for data changes
+watch(rows, async () => {
+  await nextTick();
+  createOrUpdateTable();
+}, { deep: true });
 
 onMounted(async () => {
   store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.APP });
@@ -21,6 +87,10 @@ onMounted(async () => {
   await store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.CONFIGURATION });
 
   pending.value = false;
+
+  await nextTick();
+  createOrUpdateTable();
+
   startPolling([
     "applications",
     "namespaces",
@@ -39,83 +109,9 @@ onUnmounted(() => {
     "services"
   ]);
 });
-
-const rows = computed(() => {
-  return store.getters['epinio/all'](EPINIO_TYPES.CONFIGURATION);
-});
-
-const columns: DataTableColumn[] = [
-  {
-    field: 'nameDisplay',
-    label: 'Name'
-  },
-  {
-    field: 'meta.namespace',
-    label: 'Namespace'
-  },
-  {
-    field: 'boundApps',
-    label: 'Bound Apps',
-    sortable: false
-  },
-  {
-    field: 'service',
-    label: 'Service',
-    sortable: false
-  },
-  {
-    field: 'variableCount',
-    label: 'Variable Count'
-  },
-  {
-    field: 'meta.createdAt',
-    label: 'Age',
-    formatter: 'age'
-  }
-];
 </script>
 
 <template>
-  <DataTable
-    :rows="rows"
-    :columns="columns"
-    :loading="pending"
-  >
-    <template #cell:stateDisplay="{ row }">
-      <BadgeStateFormatter
-        :row="row"
-        :value="row.stateDisplay"
-      />
-    </template>
-    <template #cell:service="{ row }">
-      <LinkDetail
-        v-if="row.service"
-        :key="row.service.id"
-        :row="row.service"
-        :value="row.service.meta.name"
-      />
-      <span
-        v-else
-        class="text-muted"
-      >&nbsp;</span>
-    </template>
-    <template #cell:boundApps="{ row }">
-      <span v-if="row.applications && row.applications.length">
-        <template v-for="(app, index) in row.applications" :key="app.id">
-          <LinkDetail
-            :row="app"
-            :value="app.meta.name"
-          />
-          <span
-            v-if="index < row.applications.length - 1"
-            :key="app.id + 'i'"
-          >, </span>
-        </template>
-      </span>
-      <span
-        v-else
-        class="text-muted"
-      >&nbsp;</span>
-    </template>
-  </DataTable>
+  <div v-if="pending">Loading...</div>
+  <div v-else ref="tableContainer"></div>
 </template>

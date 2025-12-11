@@ -1,17 +1,18 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import '@krumio/trailhand-ui/Components/data-table.js';
+import '@krumio/trailhand-ui/Components/action-menu.js';
+import { ref, onMounted, nextTick, watch } from 'vue';
 import { useStore } from 'vuex';
 
 import Loading from '@shell/components/Loading.vue';
-import DataTable from '../components/tables/DataTable.vue';
 import type { DataTableColumn } from '../components/tables/types';
 import AsyncButton from '@shell/components/AsyncButton.vue';
-import Link from '@shell/components/formatter/Link.vue';
 
 import { EPINIO_MGMT_STORE, EPINIO_TYPES } from '../types';
 import { _MERGE } from '@shell/plugins/dashboard-store/actions';
 import EpinioCluster, { EpinioInfoPath } from '../models/epiniomgmt/epinio.io.management.cluster';
 import epinioAuth, { EpinioAuthTypes } from '../utils/auth';
+import { createDataTable, setupActionListener } from '../utils/table-helpers';
 
 const store = useStore();
 const t = store.getters['i18n/t'];
@@ -21,7 +22,8 @@ let clusters: EpinioCluster[] = [];
 let clustersSchema: any = null;
 
 const loading = ref(true);
-const error = ref<Error | null>(null)
+const error = ref<Error | null>(null);
+const tableContainer = ref<HTMLElement | null>(null);
 
 onMounted(async () => {
   loading.value = true
@@ -35,8 +37,16 @@ onMounted(async () => {
     error.value = err as Error
   } finally {
     loading.value = false
+    await nextTick();
+    createOrUpdateTable();
   }
 })
+
+// Watch for clusters changes
+watch(() => clusters, async () => {
+  await nextTick();
+  createOrUpdateTable();
+}, { deep: true });
 
 const canRediscover = () => {
   return !clusters.find((c: EpinioCluster) => c.state === 'updating');
@@ -106,6 +116,8 @@ const testCluster = (c: EpinioCluster) => {
       'available',
       { state: { transitioning: false, error: false, message: "" } },
     );
+    // Trigger table update
+    createOrUpdateTable();
   })
   .catch((e: Error) => {
     if (e.message === 'Network Error') {
@@ -126,8 +138,25 @@ const testCluster = (c: EpinioCluster) => {
         }
       });
     }
+    // Trigger table update
+    createOrUpdateTable();
   });
 }
+
+// Custom formatters
+const formatName = (value: any, row: any) => {
+  if (row.state === 'available') {
+    return `<a style="cursor: pointer;" data-cluster-id="${row.id}">${row.name}</a>`;
+  }
+  return row.name;
+};
+
+const formatApi = (value: any, row: any) => {
+  if (row.state !== 'available') {
+    return `<a href="${row.infoUrl}" target="_blank" rel="noopener noreferrer">${row.api}</a>`;
+  }
+  return row.api;
+};
 
 const columns: DataTableColumn[] = [
   {
@@ -137,17 +166,43 @@ const columns: DataTableColumn[] = [
   },
   {
     field: 'name',
-    label: 'Name'
+    label: 'Name',
+    formatter: formatName
   },
   {
     field: 'api',
-    label: 'API'
+    label: 'API',
+    formatter: formatApi
   },
   {
     field: 'version',
     label: 'Version'
   }
 ];
+
+// Create and update table
+const createOrUpdateTable = () => {
+  if (!tableContainer.value) return;
+
+  tableContainer.value.innerHTML = '';
+
+  const tableElement = createDataTable(columns, clusters);
+  setupActionListener(tableElement);
+  tableContainer.value.appendChild(tableElement);
+
+  // Add click listener for name links
+  tableContainer.value.addEventListener('click', (e: Event) => {
+    const target = e.target as HTMLElement;
+    if (target.tagName === 'A' && target.hasAttribute('data-cluster-id')) {
+      e.preventDefault();
+      const clusterId = target.getAttribute('data-cluster-id');
+      const cluster = clusters.find((c: EpinioCluster) => c.id === clusterId);
+      if (cluster) {
+        login(cluster);
+      }
+    }
+  });
+};
 </script>
 
 <template>
@@ -177,34 +232,7 @@ const columns: DataTableColumn[] = [
           @click="rediscover"
         />
       </div>
-      <DataTable
-        :rows="clusters"
-        :columns="columns"
-      >
-        <template #cell:name="{row}">
-          <div class="epinio-row">
-            <a
-              v-if="row.state === 'available'"
-              @click="login(row)"
-            >{{ row.name }}</a>
-            <template v-else>
-              {{ row.name }}
-            </template>
-          </div>
-        </template>
-        <template #cell:api="{row}">
-          <div class="epinio-row">
-            <Link
-              v-if="row.state !== 'available'"
-              :row="row"
-              :value="{ text: row.api, url: row.infoUrl }"
-            />
-            <template v-else>
-              {{ row.api }}
-            </template>
-          </div>
-        </template>
-      </DataTable>
+      <div ref="tableContainer"></div>
 
     </div>
 

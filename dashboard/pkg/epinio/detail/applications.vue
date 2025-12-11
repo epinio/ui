@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { ref, computed, defineProps, onMounted } from 'vue';
+import '@krumio/trailhand-ui/Components/data-table.js';
+import '@krumio/trailhand-ui/Components/action-menu.js';
+import { ref, computed, onMounted, nextTick, watch } from 'vue';
 import { useStore } from 'vuex';
 import day from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
@@ -10,17 +12,15 @@ import { GitUtils } from '@shell/utils/git';
 import { isArray } from '@shell/utils/array';
 import ConsumptionGauge from '@shell/components/ConsumptionGauge.vue';
 import { APPLICATION_MANIFEST_SOURCE_TYPE, EPINIO_TYPES } from '../types';
-import DataTable from '../components/tables/DataTable.vue';
 import type { DataTableColumn } from '../components/tables/types';
-import BadgeStateFormatter from '@shell/components/formatter/BadgeStateFormatter.vue';
 import PlusMinus from '@shell/components/form/PlusMinus.vue';
 import { epinioExceptionToErrorsArray } from '../utils/errors';
 import ApplicationCard from '../components/application/AppCardDetail.vue';
 import Tabbed from '@shell/components/Tabbed/index.vue';
 import Tab from '@shell/components/Tabbed/Tab.vue';
 import AppGitDeployment from '../components/application/AppGitDeployment.vue';
-import Link from '@shell/components/formatter/Link.vue';
 import Banner from '@components/Banner/Banner.vue';
+import { createDataTable, setupActionListener } from '../utils/table-helpers';
 
 day.extend(relativeTime);
 
@@ -31,6 +31,11 @@ const props = defineProps<{
 }>();
 
 const store = useStore();
+
+const gitCommitsTableContainer = ref<HTMLElement | null>(null);
+const instancesTableContainer = ref<HTMLElement | null>(null);
+const servicesTableContainer = ref<HTMLElement | null>(null);
+const configsTableContainer = ref<HTMLElement | null>(null);
 
 const t = store.getters['i18n/t'];
 
@@ -115,6 +120,14 @@ onMounted(async () => {
     await fetchRepoDetails();
     setCommitDetails();
   }
+
+  await nextTick();
+  createOrUpdateInstancesTable();
+  createOrUpdateServicesTable();
+  createOrUpdateConfigsTable();
+  if (preparedCommits.value.length) {
+    createOrUpdateGitCommitsTable();
+  }
 });
 
 async function updateInstances(newInstances: number) {
@@ -180,29 +193,6 @@ const preparedCommits = computed(() => {
   }));
 });
 
-const gitCommitsColumns = computed<DataTableColumn[]>(() => [
-  {
-    field: 'sha',
-    label: t(`gitPicker.${gitType.value}.tableHeaders.sha.label`),
-    width: '100px'
-  },
-  {
-    field: 'author.login',
-    label: t(`gitPicker.${gitType.value}.tableHeaders.author.label`),
-    width: '190px'
-  },
-  {
-    field: 'message',
-    label: t(`gitPicker.${gitType.value}.tableHeaders.message.label`)
-  },
-  {
-    field: 'date',
-    label: t(`gitPicker.${gitType.value}.tableHeaders.date.label`),
-    width: '220px',
-    formatter: 'dateTime'
-  }
-]);
-
 const sourceIcon = computed(() => props.value.appSourceInfo?.icon || 'icon-epinio');
 
 const commitPosition = computed(() => {
@@ -230,6 +220,132 @@ const commitPosition = computed(() => {
     position: idx
   };
 });
+
+// Custom formatters for git commits table
+const formatAuthorLogin = (value: any, row: any) => {
+  if (row.author) {
+    return `
+      <div class="sortable-table-avatar" style="display: flex; align-items: center;">
+        <img src="${row.author.avatarUrl}" alt="" style="width: 30px; height: 30px; border-radius: 4px; margin-right: 10px;">
+        <a href="${row.author.htmlUrl}" target="_blank" rel="nofollow noopener noreferrer">${row.author.name}</a>
+      </div>
+    `;
+  }
+  return t(`gitPicker.${gitType.value}.tableHeaders.author.unknown`);
+};
+
+const formatSha = (value: any, row: any) => {
+  const isDeployed = row.commitId === gitDeployment.value.deployedCommit.long;
+  const deployedIcon = isDeployed
+    ? `<i class="icon icon-fw icon-commit" title="${t('epinio.applications.detail.deployment.details.git.deployed')}"></i>`
+    : '';
+  return `
+    <div class="sortable-table-commit" style="display: flex;">
+      <a href="${row.htmlUrl}" target="_blank" rel="noopener noreferrer">${row.sha}</a>
+      ${deployedIcon}
+    </div>
+  `;
+};
+
+// Create and update tables
+const createOrUpdateGitCommitsTable = () => {
+  if (!gitCommitsTableContainer.value || !preparedCommits.value.length) return;
+
+  gitCommitsTableContainer.value.innerHTML = '';
+
+  const cols = [
+    {
+      field: 'sha',
+      label: t(`gitPicker.${gitType.value}.tableHeaders.sha.label`),
+      width: '100px',
+      formatter: formatSha
+    },
+    {
+      field: 'author.login',
+      label: t(`gitPicker.${gitType.value}.tableHeaders.author.label`),
+      width: '190px',
+      formatter: formatAuthorLogin
+    },
+    {
+      field: 'message',
+      label: t(`gitPicker.${gitType.value}.tableHeaders.message.label`)
+    },
+    {
+      field: 'date',
+      label: t(`gitPicker.${gitType.value}.tableHeaders.date.label`),
+      width: '220px',
+      formatter: 'dateTime'
+    }
+  ];
+
+  const tableElement = createDataTable(cols, preparedCommits.value, {
+    searchable: true,
+    paginated: true,
+    rowsPerPage: 10
+  });
+  setupActionListener(tableElement);
+  gitCommitsTableContainer.value.appendChild(tableElement);
+};
+
+const createOrUpdateInstancesTable = () => {
+  if (!instancesTableContainer.value) return;
+
+  instancesTableContainer.value.innerHTML = '';
+
+  const tableElement = createDataTable(instanceColumns, props.value.instances || [], {
+    searchable: false,
+    paginated: false
+  });
+  setupActionListener(tableElement);
+  instancesTableContainer.value.appendChild(tableElement);
+};
+
+const createOrUpdateServicesTable = () => {
+  if (!servicesTableContainer.value) return;
+
+  servicesTableContainer.value.innerHTML = '';
+
+  const tableElement = createDataTable(serviceColumns, props.value.services || [], {
+    searchable: false,
+    paginated: false
+  });
+  setupActionListener(tableElement);
+  servicesTableContainer.value.appendChild(tableElement);
+};
+
+const createOrUpdateConfigsTable = () => {
+  if (!configsTableContainer.value) return;
+
+  configsTableContainer.value.innerHTML = '';
+
+  const tableElement = createDataTable(configColumns, props.value.baseConfigurations || [], {
+    searchable: false,
+    paginated: false
+  });
+  setupActionListener(tableElement);
+  configsTableContainer.value.appendChild(tableElement);
+};
+
+// Watch for data changes
+watch(() => props.value.instances, async () => {
+  await nextTick();
+  createOrUpdateInstancesTable();
+}, { deep: true });
+
+watch(() => props.value.services, async () => {
+  await nextTick();
+  createOrUpdateServicesTable();
+}, { deep: true });
+
+watch(() => props.value.baseConfigurations, async () => {
+  await nextTick();
+  createOrUpdateConfigsTable();
+}, { deep: true });
+
+watch(preparedCommits, async () => {
+  await nextTick();
+  createOrUpdateGitCommitsTable();
+}, { deep: true });
 </script>
 
 <template>
@@ -448,51 +564,7 @@ const commitPosition = computed(() => {
           >
             {{ t('epinio.applications.detail.deployment.commits.redeploy') }}
           </Banner>
-          <DataTable
-            v-if="preparedCommits"
-            :rows="preparedCommits"
-            :columns="gitCommitsColumns"
-            key-field="sha"
-            :searchable="true"
-            :paginated="true"
-            :rows-per-page="10"
-          >
-            <template #cell:author.login="{row}">
-              <div class="sortable-table-avatar">
-                <template v-if="row.author">
-                  <img
-                    :src="row.author.avatarUrl"
-                    alt=""
-                  >
-                  <a
-                    :href="row.author.htmlUrl"
-                    target="_blank"
-                    rel="nofollow noopener noreferrer"
-                  >
-                    {{ row.author.name }}
-                  </a>
-                </template>
-                <template v-else>
-                  {{ t(`gitPicker.${ gitType }.tableHeaders.author.unknown`) }}
-                </template>
-              </div>
-            </template>
-
-            <template #cell:sha="{row}">
-              <div class="sortable-table-commit">
-                <Link
-                  v-model:value="row.sha"
-                  :row="row"
-                  url-key="htmlUrl"
-                />
-                <i
-                  v-if="row.commitId === gitDeployment.deployedCommit.long"
-                  v-tooltip="t('epinio.applications.detail.deployment.details.git.deployed')"
-                  class="icon icon-fw icon-commit"
-                />
-              </div>
-            </template>
-          </DataTable>
+          <div ref="gitCommitsTableContainer"></div>
         </Tab>
       </Tabbed>
     </div>
@@ -508,57 +580,21 @@ const commitPosition = computed(() => {
           name="instances"
           :weight="3"
         >
-          <DataTable
-            :columns="instanceColumns"
-            :rows="value.instances"
-            :searchable="false"
-            :paginated="false"
-          >
-            <template #cell:stateDisplay="{ row }">
-              <BadgeStateFormatter
-                :row="row"
-                :value="row.stateDisplay"
-              />
-            </template>
-          </DataTable>
+          <div ref="instancesTableContainer"></div>
         </Tab>
         <Tab
           label-key="epinio.applications.detail.tables.services"
           name="services"
           :weight="2"
         >
-          <DataTable
-            :columns="serviceColumns"
-            :rows="value.services"
-            :searchable="false"
-            :paginated="false"
-          >
-            <template #cell:stateDisplay="{ row }">
-              <BadgeStateFormatter
-                :row="row"
-                :value="row.stateDisplay"
-              />
-            </template>
-          </DataTable>
+          <div ref="servicesTableContainer"></div>
         </Tab>
         <Tab
           label-key="epinio.applications.detail.tables.configs"
           name="configs"
           :weight="1"
         >
-          <DataTable
-            :columns="configColumns"
-            :rows="value.baseConfigurations"
-            :searchable="false"
-            :paginated="false"
-          >
-            <template #cell:stateDisplay="{ row }">
-              <BadgeStateFormatter
-                :row="row"
-                :value="row.stateDisplay"
-              />
-            </template>
-          </DataTable>
+          <div ref="configsTableContainer"></div>
         </Tab>
       </Tabbed>
     </div>

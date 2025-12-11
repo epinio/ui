@@ -1,16 +1,17 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed } from 'vue';
+import { ref, onMounted, onUnmounted, computed, nextTick, watch } from 'vue';
+import '@krumio/trailhand-ui/Components/data-table.js';
+import '@krumio/trailhand-ui/Components/action-menu.js';
 
 import { EPINIO_TYPES } from '../types';
-import DataTable from '../components/tables/DataTable.vue';
 import type { DataTableColumn } from '../components/tables/types';
-import LinkDetail from '@shell/components/formatter/LinkDetail.vue';
-import BadgeStateFormatter from '@shell/components/formatter/BadgeStateFormatter.vue';
 import { useStore } from 'vuex';
 import { startPolling, stopPolling } from '../utils/polling';
+import { createDataTable, setupActionListener } from '../utils/table-helpers';
 
 const pending = ref(true);
 const store = useStore();
+const tableContainer = ref<HTMLElement | null>(null);
 
 onMounted(async () => {
   await Promise.all([
@@ -34,6 +35,14 @@ onUnmounted(() => {
 const rows = computed(() => {
   return store.getters['epinio/all'](EPINIO_TYPES.SERVICE_INSTANCE);
 });
+
+// Custom formatters
+const formatBoundApps = (value: any, row: any) => {
+  if (!row.applications || row.applications.length === 0) {
+    return '-';
+  }
+  return row.applications.map((app: any) => app.meta.name).join(', ');
+};
 
 const columns: DataTableColumn[] = [
   {
@@ -61,7 +70,8 @@ const columns: DataTableColumn[] = [
   {
     field: 'boundApps',
     label: 'Bound Apps',
-    sortable: false
+    sortable: false,
+    formatter: formatBoundApps
   },
   {
     field: 'meta.createdAt',
@@ -69,45 +79,44 @@ const columns: DataTableColumn[] = [
     formatter: 'age'
   }
 ];
+
+// Create and update table
+const createOrUpdateTable = () => {
+  if (!tableContainer.value) return;
+
+  tableContainer.value.innerHTML = '';
+
+  const tableElement = createDataTable(columns, rows.value);
+  setupActionListener(tableElement);
+  tableContainer.value.appendChild(tableElement);
+};
+
+// Watch for data changes
+watch(rows, async () => {
+  await nextTick();
+  createOrUpdateTable();
+}, { deep: true });
+
+onMounted(async () => {
+  await Promise.all([
+    store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.APP }),
+    store.dispatch(
+      `epinio/findAll`,
+      { type: EPINIO_TYPES.SERVICE_INSTANCE }
+    ),
+  ]);
+  pending.value = false;
+
+  await nextTick();
+  createOrUpdateTable();
+
+  // Catalog services are static - only poll on initial load, not continuously
+  // They're loaded above but don't need frequent updates
+  startPolling(["namespaces", "applications"], store);
+});
 </script>
 <template>
-  <DataTable
-    :rows="rows"
-    :columns="columns"
-    :loading="pending"
-  >
-    <template #cell:stateDisplay="{ row }">
-      <BadgeStateFormatter
-        :row="row"
-        :value="row.stateDisplay"
-      />
-    </template>
-    <template #cell:catalog_service="{ row }">
-      <LinkDetail
-        v-if="row.serviceLocation"
-        :row="row.serviceLocation"
-        :value="row.catalog_service"
-      />
-      <span v-else>{{ row.catalog_service }}</span>
-    </template>
-    <template #cell:boundApps="{ row }">
-      <span v-if="row.applications && row.applications.length">
-        <template v-for="(app, index) in row.applications" :key="app.id">
-          <LinkDetail
-            :row="app"
-            :value="app.meta.name"
-          />
-          <span
-            v-if="index < row.applications.length - 1"
-            :key="app.id + 'i'"
-          >, </span>
-        </template>
-      </span>
-      <span
-        v-else
-        class="text-muted"
-      >&nbsp;</span>
-    </template>
-  </DataTable>
+  <div v-if="pending">Loading...</div>
+  <div v-else ref="tableContainer"></div>
 </template>
 

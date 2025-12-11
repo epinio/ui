@@ -1,29 +1,20 @@
 <script setup lang="ts">
-import { EPINIO_TYPES } from '../types';
-import { useStore } from 'vuex';
-import DataTable from '../components/tables/DataTable.vue';
+import '@krumio/trailhand-ui/Components/data-table.js';
+import '@krumio/trailhand-ui/Components/action-menu.js';
 import type { DataTableColumn } from '../components/tables/types';
-import BadgeStateFormatter from '@shell/components/formatter/BadgeStateFormatter.vue';
-import { ref, onMounted, onUnmounted, computed } from 'vue';
-import { startPolling, stopPolling } from '../utils/polling';
+import { EPINIO_TYPES } from '../types';
 
-const pending = ref<boolean>(true);
-defineProps<{ schema: object }>(); // Keep for compatibility
+import { useStore } from 'vuex';
+import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
+import { startPolling, stopPolling } from '../utils/polling';
+import { createDataTable, setupActionListener } from '../utils/table-helpers';
 
 const store = useStore();
 
-onMounted(async () => {
-  await store.dispatch(
-    `epinio/findAll`,
-    { type: EPINIO_TYPES.APP_CHARTS }
-  );
-  pending.value = false;
-  startPolling(["appcharts"], store);
-});
+defineProps<{ schema: object }>(); // Keep for compatibility
 
-onUnmounted(() => {
-  stopPolling(["appcharts"]);
-});
+const pending = ref<boolean>(true);
+const tableContainer = ref<HTMLElement | null>(null);
 
 const rows = computed(() => {
   return store.getters['epinio/all'](EPINIO_TYPES.APP_CHARTS);
@@ -48,19 +39,41 @@ const columns: DataTableColumn[] = [
     formatter: 'age'
   }
 ];
+
+// Create and update table
+const createOrUpdateTable = () => {
+  if (!tableContainer.value) return;
+
+  tableContainer.value.innerHTML = '';
+
+  const tableElement = createDataTable(columns, rows.value);
+  setupActionListener(tableElement);
+  tableContainer.value.appendChild(tableElement);
+};
+
+// Watch for data changes
+watch(rows, async () => {
+  await nextTick();
+  createOrUpdateTable();
+}, { deep: true });
+
+onMounted(async () => {
+  await store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.APP_CHARTS });
+
+  pending.value = false;
+
+  await nextTick();
+  createOrUpdateTable();
+
+  startPolling(["appcharts"], store);
+});
+
+onUnmounted(() => {
+  stopPolling(["appcharts"]);
+});
 </script>
 
 <template>
-  <DataTable
-    :rows="rows"
-    :columns="columns"
-    :loading="pending"
-  >
-    <template #cell:stateDisplay="{ row }">
-      <BadgeStateFormatter
-        :row="row"
-        :value="row.stateDisplay"
-      />
-    </template>
-  </DataTable>
+  <div v-if="pending">Loading...</div>
+  <div v-else ref="tableContainer"></div>
 </template>
