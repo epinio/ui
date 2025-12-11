@@ -7,6 +7,7 @@ import DataTable from '../components/tables/DataTable.vue';
 import type { DataTableColumn } from '../components/tables/types';
 import AsyncButton from '@shell/components/AsyncButton.vue';
 import Link from '@shell/components/formatter/Link.vue';
+import BadgeStateFormatter from '@shell/components/formatter/BadgeStateFormatter.vue';
 
 import { EPINIO_MGMT_STORE, EPINIO_TYPES } from '../types';
 import { _MERGE } from '@shell/plugins/dashboard-store/actions';
@@ -167,20 +168,29 @@ const columns: DataTableColumn[] = [
     class="root"
   >
     <div class="epinios-table">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+      <div style="justify-content: space-between; align-items: center; margin-bottom: 1rem;">
         <h2>{{ t('epinio.instances.header') }}</h2>
         <AsyncButton
           mode="refresh"
           size="sm"
           :disabled="!canRediscover()"
-          style="display:inline-flex"
+          style="display:inline-flex;"
           @click="rediscover"
         />
       </div>
       <DataTable
         :rows="clusters"
         :columns="columns"
+        :searchable="false"
       >
+        <template #cell:stateDisplay="{row}">
+          <div class="epinio-row">
+            <BadgeStateFormatter
+              :row="row"
+              :value="row.stateDisplay"
+            />
+          </div>
+        </template>
         <template #cell:name="{row}">
           <div class="epinio-row">
             <a
