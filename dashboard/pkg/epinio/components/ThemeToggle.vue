@@ -6,30 +6,30 @@ import { ToggleSwitch } from '@shell/rancher-components/Form/ToggleSwitch';
 export default {
   name: 'ThemeToggle',
   components: { ToggleSwitch },
-  
+
   setup() {
     const store = useStore();
     const localStorageKey = 'user-theme-preference';
     const isDark = ref(false);
     let bodyObserver = null;
-    
+
     // Apply theme
     const applyTheme = (themeName) => {
       // Update DOM
       document.documentElement.setAttribute('data-theme', themeName);
       document.body.setAttribute('data-theme', themeName);
-      
+
       // Update body class
       const body = document.body;
       body.classList.forEach(cls => {
         if (cls.startsWith('theme-')) body.classList.remove(cls);
       });
       body.classList.add(`theme-${themeName}`);
-      
+
       // Update store
       store.dispatch('prefs/set', { key: 'theme', value: themeName });
     };
-    
+
     // Apply immediatel
     (() => {
       const savedTheme = localStorage.getItem(localStorageKey);
@@ -39,17 +39,17 @@ export default {
           if (cls.startsWith('theme-')) document.body.classList.remove(cls);
         });
         document.body.classList.add(`theme-${savedTheme}`);
-        
+
         setTimeout(() => {
           store.dispatch('prefs/set', { key: 'theme', value: savedTheme });
         }, 0);
       }
     })();
-    
+
     // Initialize theme
     const initTheme = () => {
       const savedTheme = localStorage.getItem(localStorageKey);
-      
+
       if (savedTheme === 'dark' || savedTheme === 'light') {
         isDark.value = savedTheme === 'dark';
       } else {
@@ -58,13 +58,12 @@ export default {
         isDark.value = prefersDark;
         localStorage.setItem(localStorageKey, prefersDark ? 'dark' : 'light');
       }
-      
+
       applyTheme(isDark.value ? 'dark' : 'light');
     };
-    
+
     onMounted(() => {
       initTheme();
-      
       // Watch for class changes
       bodyObserver = new MutationObserver(() => {
         const currentTheme = isDark.value ? 'dark' : 'light';
@@ -72,17 +71,17 @@ export default {
           applyTheme(currentTheme);
         }
       });
-      
-      bodyObserver.observe(document.body, { 
-        attributes: true, 
-        attributeFilter: ['class'] 
+
+      bodyObserver.observe(document.body, {
+        attributes: true,
+        attributeFilter: ['class']
       });
     });
-    
+
     onUnmounted(() => {
       if (bodyObserver) bodyObserver.disconnect();
     });
-    
+
     // Toggle theme
     const theme = computed({
       get: () => isDark.value,
@@ -93,14 +92,16 @@ export default {
         applyTheme(newTheme);
       }
     });
-    
-    return { theme };
+
+    const isEpinioSingleProduct = process.env.rancherEnv === "epinio";
+
+    return { theme, isEpinioSingleProduct };
   }
 };
 </script>
 
 <template>
-  <div class="theme-toggle">
+  <div v-if="isEpinioSingleProduct" class="theme-toggle">
     <ToggleSwitch
       v-model:value="theme"
       :on-label="'Dark'"

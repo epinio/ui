@@ -50,12 +50,8 @@ const columns: DataTableColumn[] = [
     label: 'Name'
   },
   {
-    field: 'meta.namespace',
-    label: 'Namespace'
-  },
-  {
     field: 'boundApps',
-    label: 'Bound Apps',
+    label: 'Bound Applications',
     sortable: false
   },
   {
@@ -65,7 +61,11 @@ const columns: DataTableColumn[] = [
   },
   {
     field: 'variableCount',
-    label: 'Variable Count'
+    label: 'No. of Variables'
+  },
+  {
+    field: 'meta.createdBy',
+    label: 'Created By'
   },
   {
     field: 'meta.createdAt',
@@ -85,6 +85,12 @@ const columns: DataTableColumn[] = [
       <BadgeStateFormatter
         :row="row"
         :value="row.stateDisplay"
+      />
+    </template>
+    <template #cell:nameDisplay="{ row }">
+      <LinkDetail
+        :row="row"
+        :value="row.nameDisplay"
       />
     </template>
     <template #cell:service="{ row }">

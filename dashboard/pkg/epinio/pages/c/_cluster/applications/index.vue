@@ -6,7 +6,7 @@ import DataTable from '../../../../components/tables/DataTable.vue';
 import type { DataTableColumn } from '../../../../components/tables/types';
 import Loading from '@shell/components/Loading';
 import Masthead from '@shell/components/ResourceList/Masthead';
-//import LinkDetail from '@shell/components/formatter/LinkDetail.vue';
+import LinkDetail from '@shell/components/formatter/LinkDetail.vue';
 import BadgeStateFormatter from '@shell/components/formatter/BadgeStateFormatter.vue';
 
 import { EPINIO_TYPES } from '../../../../types';
@@ -67,8 +67,18 @@ const columns: DataTableColumn[] = [
     sortable: false
   },
   {
+    field: 'boundConfigs',
+    label: 'Bound Configs',
+    sortable: false
+  },
+  {
+    field: 'boundServices',
+    label: 'Bound Services',
+    sortable: false
+  },
+  {
     field: 'deployment.username',
-    label: 'Last Deployed by'
+    label: 'Last Deployed By'
   },
   {
     field: 'meta.createdAt',
@@ -143,6 +153,12 @@ onUnmounted(() => {
             :value="row.stateDisplay"
           />
         </template>
+        <template #cell:nameDisplay="{ row }">
+          <LinkDetail
+            :row="row"
+            :value="row.nameDisplay"
+          />
+        </template>
         <template #cell:route="{ row }">
           <span v-if="row.routes && row.routes.length" class="route">
             <template
@@ -164,6 +180,42 @@ onUnmounted(() => {
             </template>
           </span>
           <span v-else class="text-muted">&nbsp;</span>
+        </template>
+        <template #cell:boundConfigs="{ row }">
+          <span v-if="row.allConfigurations && row.allConfigurations.length">
+            <template v-for="(config, index) in row.allConfigurations" :key="config.id">
+              <LinkDetail
+                :row="config"
+                :value="config.meta.name"
+              />
+              <span
+                v-if="index < row.allConfigurations.length - 1"
+                :key="config.id + 'i'"
+              >, </span>
+            </template>
+          </span>
+          <span
+            v-else
+            class="text-muted"
+          >&nbsp;</span>
+        </template>
+        <template #cell:boundServices="{ row }">
+          <span v-if="row.services && row.services.length">
+            <template v-for="(service, index) in row.services" :key="service.id">
+              <LinkDetail
+                :row="service"
+                :value="service.meta.name"
+              />
+              <span
+                v-if="index < row.services.length - 1"
+                :key="service.id + 'i'"
+              >, </span>
+            </template>
+          </span>
+          <span
+            v-else
+            class="text-muted"
+          >&nbsp;</span>
         </template>
       </DataTable>
     </div>
