@@ -2,6 +2,33 @@
  * Helper utilities for working with trailhand-ui data-table component
  */
 
+import type { Router } from 'vue-router';
+
+/**
+ * Create a link resolver function for data-table columns
+ * This resolves Vue Router route objects to URL strings
+ * @param router - Vue Router instance
+ * @param locationProperty - Property path to the route location (e.g., 'detailLocation', 'namespaceLocation')
+ * @returns A function that can be used as a column's link property
+ */
+export function createLinkResolver(router: Router, locationProperty: string) {
+  return (row: any) => {
+    // Support nested properties like 'service.detailLocation'
+    const location = locationProperty.split('.').reduce((obj, key) => obj?.[key], row);
+
+    if (location) {
+      try {
+        const resolved = router.resolve(location);
+        return resolved.href;
+      } catch (e) {
+        console.error(`Failed to resolve route for ${locationProperty}:`, e);
+        return null;
+      }
+    }
+    return null;
+  };
+}
+
 /**
  * Create a data-table element with the given configuration
  * @param columns - Column definitions
@@ -60,5 +87,23 @@ export function setupActionListener(
   tableElement.addEventListener('action-click', ((event: CustomEvent) => {
     const { action, resource } = event.detail;
     handler(action, resource);
+  }) as EventListener);
+}
+
+/**
+ * Setup navigation event listener on a table element
+ * This handles link clicks and navigates using Vue Router instead of page reloads
+ * @param tableElement - The table element
+ * @param router - Vue Router instance
+ */
+export function setupNavigationListener(
+  tableElement: HTMLElement,
+  router: Router
+): void {
+  tableElement.addEventListener('navigate', ((event: CustomEvent) => {
+    const { url } = event.detail;
+    if (url) {
+      router.push(url);
+    }
   }) as EventListener);
 }

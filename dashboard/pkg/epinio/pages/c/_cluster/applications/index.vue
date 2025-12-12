@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
 import { useStore } from 'vuex';
+import { useRouter } from 'vue-router';
 import '@krumio/trailhand-ui/Components/data-table.js';
 import '@krumio/trailhand-ui/Components/action-menu.js';
 
@@ -12,8 +13,10 @@ import { EPINIO_TYPES } from '../../../../types';
 import { createEpinioRoute } from '../../../../utils/custom-routing';
 
 import { startPolling, stopPolling } from '../../../../utils/polling';
+import { createLinkResolver, setupNavigationListener } from '../../../../utils/table-helpers';
 
 const store = useStore();
+const router = useRouter();
 const t = store.getters['i18n/t'];
 
 const resource = EPINIO_TYPES.APP;
@@ -46,12 +49,26 @@ const groupedByNamespace = computed(() => {
 
 const pending = ref(true);
 
-// Custom formatter for routes
-const formatRoutes = (value: any, row: any) => {
+// Custom formatters
+const formatRoutes = (_value: any, row: any) => {
   if (!row.routes || row.routes.length === 0) {
     return '-';
   }
-  return row.routes.map((route: string) => `https://${route}`).join(', ');
+  return row.routes.map((route: string) => route).join(', ');
+};
+
+const formatBoundConfigs = (_value: any, row: any) => {
+  if (!row.allConfigurations || row.allConfigurations.length === 0) {
+    return '-';
+  }
+  return row.allConfigurations.map((config: any) => config.meta.name).join(', ');
+};
+
+const formatBoundServices = (_value: any, row: any) => {
+  if (!row.services || row.services.length === 0) {
+    return '-';
+  }
+  return row.services.map((service: any) => service.meta.name).join(', ');
 };
 
 const columns: DataTableColumn[] = [
@@ -62,7 +79,8 @@ const columns: DataTableColumn[] = [
   },
   {
     field: 'nameDisplay',
-    label: 'Name'
+    label: 'Name',
+    link: createLinkResolver(router, 'detailLocation')
   },
   {
     field: 'deployment.status',
@@ -75,8 +93,20 @@ const columns: DataTableColumn[] = [
     formatter: formatRoutes
   },
   {
+    field: 'boundConfigs',
+    label: 'Bound Configs',
+    sortable: false,
+    formatter: formatBoundConfigs
+  },
+  {
+    field: 'boundServices',
+    label: 'Bound Services',
+    sortable: false,
+    formatter: formatBoundServices
+  },
+  {
     field: 'deployment.username',
-    label: 'Last Deployed by'
+    label: 'Last Deployed By'
   },
   {
     field: 'meta.createdAt',
@@ -108,6 +138,9 @@ const createOrUpdateTable = (namespace: string, apps: any[]) => {
     const { action, resource } = event.detail;
     handleAction(action, resource);
   }) as EventListener);
+
+  // Listen for navigation events
+  setupNavigationListener(tableElement, router);
 };
 
 // Handle action menu clicks

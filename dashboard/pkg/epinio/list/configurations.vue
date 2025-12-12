@@ -5,11 +5,13 @@ import type { DataTableColumn } from '../components/tables/types';
 import { EPINIO_TYPES } from '../types';
 
 import { useStore } from 'vuex';
+import { useRouter } from 'vue-router';
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
 import { startPolling, stopPolling } from '../utils/polling';
-import { createDataTable, setupActionListener } from '../utils/table-helpers';
+import { createDataTable, setupActionListener, setupNavigationListener, createLinkResolver } from '../utils/table-helpers';
 
 const store = useStore();
+const router = useRouter();
 
 defineProps<{ schema: object }>(); // Keep for compatibility
 
@@ -28,22 +30,15 @@ const formatBoundApps = (value: any, row: any) => {
   return row.applications.map((app: any) => app.meta.name).join(', ');
 };
 
-const formatService = (value: any, row: any) => {
-  return row.service ? row.service.meta.name : '-';
-};
-
 const columns: DataTableColumn[] = [
   {
     field: 'nameDisplay',
-    label: 'Name'
-  },
-  {
-    field: 'meta.namespace',
-    label: 'Namespace'
+    label: 'Name',
+    link: createLinkResolver(router, 'detailLocation')
   },
   {
     field: 'boundApps',
-    label: 'Bound Apps',
+    label: 'Bound Applications',
     sortable: false,
     formatter: formatBoundApps
   },
@@ -51,11 +46,18 @@ const columns: DataTableColumn[] = [
     field: 'service',
     label: 'Service',
     sortable: false,
-    formatter: formatService
+    link: createLinkResolver(router, 'service.detailLocation'),
+    formatter: (_value: any, row: any) => {
+      return row.service ? row.service.meta.name : '-';
+    }
   },
   {
     field: 'variableCount',
-    label: 'Variable Count'
+    label: 'No. of Variables'
+  },
+  {
+    field: 'meta.createdBy',
+    label: 'Created By'
   },
   {
     field: 'meta.createdAt',
@@ -72,6 +74,7 @@ const createOrUpdateTable = () => {
 
   const tableElement = createDataTable(columns, rows.value);
   setupActionListener(tableElement);
+  setupNavigationListener(tableElement, router);
   tableContainer.value.appendChild(tableElement);
 };
 

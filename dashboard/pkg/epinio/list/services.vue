@@ -6,11 +6,13 @@ import '@krumio/trailhand-ui/Components/action-menu.js';
 import { EPINIO_TYPES } from '../types';
 import type { DataTableColumn } from '../components/tables/types';
 import { useStore } from 'vuex';
+import { useRouter } from 'vue-router';
 import { startPolling, stopPolling } from '../utils/polling';
-import { createDataTable, setupActionListener } from '../utils/table-helpers';
+import { createDataTable, setupActionListener, setupNavigationListener, createLinkResolver } from '../utils/table-helpers';
 
 const pending = ref(true);
 const store = useStore();
+const router = useRouter();
 const tableContainer = ref<HTMLElement | null>(null);
 
 onMounted(async () => {
@@ -37,7 +39,7 @@ const rows = computed(() => {
 });
 
 // Custom formatters
-const formatBoundApps = (value: any, row: any) => {
+const formatBoundApps = (_value: any, row: any) => {
   if (!row.applications || row.applications.length === 0) {
     return '-';
   }
@@ -52,24 +54,22 @@ const columns: DataTableColumn[] = [
   },
   {
     field: 'nameDisplay',
-    label: 'Name'
-  },
-  {
-    field: 'metadata.namespace',
-    label: 'Namespace'
+    label: 'Name',
+    link: createLinkResolver(router, 'detailLocation')
   },
   {
     field: 'catalog_service',
-    label: 'Service',
-    sortable: false
+    label: 'Catalog Service',
+    sortable: false,
+    link: createLinkResolver(router, 'serviceLocation')
   },
   {
     field: 'catalog_service_version',
-    label: 'Service Version'
+    label: 'Catalog Service Version'
   },
   {
     field: 'boundApps',
-    label: 'Bound Apps',
+    label: 'Bound Applications',
     sortable: false,
     formatter: formatBoundApps
   },
@@ -88,6 +88,7 @@ const createOrUpdateTable = () => {
 
   const tableElement = createDataTable(columns, rows.value);
   setupActionListener(tableElement);
+  setupNavigationListener(tableElement, router);
   tableContainer.value.appendChild(tableElement);
 };
 

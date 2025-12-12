@@ -179,7 +179,7 @@ const columns: DataTableColumn[] = [
   },
   {
     field: 'configCount',
-    label: 'Configurations'
+    label: 'Configs'
   },
   {
     field: 'meta.createdAt',

@@ -84,6 +84,22 @@ export interface DataTableColumn {
   formatter?: string | ((value: any, row: DataTableRow) => any);
 
   /**
+   * Link URL for the column. Can be:
+   * - A string field name to access the URL from row data
+   * - A function (row) => URL string
+   * When provided, the cell value will be rendered as a clickable link
+   * @param row - The entire row object
+   * @returns The URL for the link
+   */
+  link?: string | ((row: DataTableRow) => string | null | undefined);
+
+  /**
+   * Target attribute for links (default: '_self')
+   * Use '_blank' to open links in a new tab
+   */
+  linkTarget?: '_self' | '_blank' | '_parent' | '_top';
+
+  /**
    * Custom sort function for this column
    * @param a - First row to compare
    * @param b - Second row to compare

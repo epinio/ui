@@ -2,15 +2,17 @@
 import '@krumio/trailhand-ui/Components/data-table.js';
 import '@krumio/trailhand-ui/Components/action-menu.js';
 import { useStore } from 'vuex';
+import { useRouter } from 'vue-router';
 import { ref, onMounted, nextTick, watch } from 'vue';
 
 import EpinioCatalogServiceModel from '../models/catalogservices';
 import { EPINIO_TYPES } from '../types';
 
 import type { DataTableColumn } from '../components/tables/types';
-import { createDataTable, setupActionListener } from '../utils/table-helpers';
+import { createDataTable, setupActionListener, setupNavigationListener, createLinkResolver } from '../utils/table-helpers';
 
 const store = useStore();
+const router = useRouter();
 
 const t = store.getters['i18n/t'];
 
@@ -34,21 +36,13 @@ watch(() => props.value.services, async () => {
 }, { deep: true });
 
 // Custom formatters
-const formatCatalogService = (value: any, row: any) => {
-  if (row.serviceLocation) {
-    const url = row.serviceLocation.detailLocation;
-    return `<a href="${url}">${row.catalog_service}</a>`; // TODO: this is not displaying correctly as the web component does not render HTML inside cells
-  }
-  return row.catalog_service;
-};
-
-const formatBoundApps = (value: any, row: any) => {
+const formatBoundApps = (_value: any, row: any) => {
   if (row.applications && row.applications.length) {
     return row.applications
-      .map((app: any) => `<a href="${app.detailLocation}">${app.meta.name}</a>`)
+      .map((app: any) => app.meta.name)
       .join(', ');
   }
-  return '<span class="text-muted">&nbsp;</span>'; // TODO: this is not displaying correctly as the web component does not render HTML inside cells
+  return '-';
 };
 
 const columns: DataTableColumn[] = [
@@ -59,25 +53,22 @@ const columns: DataTableColumn[] = [
   },
   {
     field: 'nameDisplay',
-    label: 'Name'
-  },
-  {
-    field: 'metadata.namespace',
-    label: 'Namespace'
+    label: 'Name',
+    link: createLinkResolver(router, 'detailLocation')
   },
   {
     field: 'catalog_service',
-    label: 'Service',
+    label: 'Catalog Service',
     sortable: false,
-    formatter: formatCatalogService
+    link: createLinkResolver(router, 'serviceLocation')
   },
   {
     field: 'catalog_service_version',
-    label: 'Service Version'
+    label: 'Catalog Service Version'
   },
   {
     field: 'boundApps',
-    label: 'Bound Apps',
+    label: 'Bound Applications',
     sortable: false,
     formatter: formatBoundApps
   },
@@ -96,6 +87,7 @@ const createOrUpdateTable = () => {
 
   const tableElement = createDataTable(columns, props.value.services || []);
   setupActionListener(tableElement);
+  setupNavigationListener(tableElement, router);
   tableContainer.value.appendChild(tableElement);
 };
 </script>
