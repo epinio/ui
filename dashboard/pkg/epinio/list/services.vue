@@ -46,21 +46,17 @@ const columns: DataTableColumn[] = [
     label: 'Name'
   },
   {
-    field: 'metadata.namespace',
-    label: 'Namespace'
-  },
-  {
     field: 'catalog_service',
-    label: 'Service',
+    label: 'Catalog Service',
     sortable: false
   },
   {
     field: 'catalog_service_version',
-    label: 'Service Version'
+    label: 'Catalog Service Version'
   },
   {
     field: 'boundApps',
-    label: 'Bound Apps',
+    label: 'Bound Applications',
     sortable: false
   },
   {
@@ -82,10 +78,16 @@ const columns: DataTableColumn[] = [
         :value="row.stateDisplay"
       />
     </template>
+    <template #cell:nameDisplay="{ row }">
+      <LinkDetail
+        :row="row"
+        :value="row.nameDisplay"
+      />
+    </template>
     <template #cell:catalog_service="{ row }">
       <LinkDetail
         v-if="row.serviceLocation"
-        :row="row.serviceLocation"
+        :row="{ detailLocation: row.serviceLocation }"
         :value="row.catalog_service"
       />
       <span v-else>{{ row.catalog_service }}</span>

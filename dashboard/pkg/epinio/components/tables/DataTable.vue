@@ -449,7 +449,7 @@ defineExpose({
     border-bottom: 1px solid var(--border);
 
     &:hover {
-      background-color: var(--sortable-table-row-hover-bg);
+      background-color: var(--sortable-table-hover-bg);
     }
 
     &:last-child {
@@ -539,7 +539,7 @@ defineExpose({
     }
 
     &:hover:not(:disabled) {
-      background-color: var(--sortable-table-row-hover-bg);
+      background-color: var(--sortable-table-hover-bg);
       border-color: var(--link);
     }
 
