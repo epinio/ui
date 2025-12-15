@@ -87,7 +87,7 @@ const columns: DataTableColumn[] = [
     <template #cell:catalog_service="{ row }">
       <LinkDetail
         v-if="row.serviceLocation"
-        :row="row.serviceLocation"
+        :row="{ detailLocation: row.serviceLocation }"
         :value="row.catalog_service"
       />
       <span v-else>{{ row.catalog_service }}</span>
