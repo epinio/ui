@@ -1,7 +1,7 @@
 {
   "name": "epinio",
   "description": "A Rancher Extension of The Application Development Engine for Kubernetes",
-  "version": "1.13.3-rc2",
+  "version": "1.13.5",
   "private": false,
   "rancher": {
     "annotations": {
