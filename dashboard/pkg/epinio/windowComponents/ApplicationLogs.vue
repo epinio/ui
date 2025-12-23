@@ -70,8 +70,8 @@ const body = ref<HTMLElement>(null);
 
 // Time-based filter parameters
 const tail = ref<number | null>(null); // Number of lines to show
-const since = ref<string>(''); // Duration like "1h", "30m", "24h"
-const sinceTime = ref<string>(''); // ISO datetime string from native input
+const since = ref<string | null>(null); // Duration like "1h", "30m", "24h"
+const sinceTime = ref<string | null>(null); // ISO datetime string from native input
 
 const ansiup = new AnsiUp();
 const timestamps = store.getters['prefs/get'](LOGS_TIME);
@@ -226,6 +226,18 @@ const connect = async () => {
     const { PodName, ContainerName, Message, Timestamp } = parsedData;
 
     const line = `[${ PodName }] ${ ContainerName } ${ Message }`;
+
+    // If logs are being filtered, make sure there are no old lines, and
+    // ensure there aren't repeat lines.
+    if (
+      tail.value != undefined ||
+      since.value != undefined ||
+      sinceTime.value != undefined
+    ) {
+      lines.value.length = 0;
+    }
+    isApplyingFilters.value = false;
+
     backlog.value.push({
       id:     lastId.value++,
       msg:    props.ansiToHtml ? ansiup.ansi_to_html(line) : line,
@@ -318,11 +330,21 @@ const applyFilters = async () => {
       sinceTime.value = '';
     }
 
-    await connect();
-  } finally {
-    setTimeout(() => {
-      isApplyingFilters.value = false;
-    }, 1000);
+    const payload = {
+      type: 'filter_params',
+      params: {
+        tail: tail.value,
+        since: since.value,
+        since_time: sinceTime.value,
+      }
+    };
+
+    const payload_string = JSON.stringify(payload);
+
+    socket.value.send(payload_string);
+
+  } catch (e) {
+    console.error('Error applying log filters:', e);
   }
 };
 </script>
