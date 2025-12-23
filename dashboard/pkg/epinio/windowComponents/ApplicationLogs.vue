@@ -445,13 +445,27 @@ const applyFilters = async () => {
                     <small class="text-muted">Use this OR Since above</small>
                   </div>
 
-                  <button
-                    class="btn btn-sm bg-primary mt-10"
-                    :disabled="isApplyingFilters"
-                    @click="applyFilters"
-                  >
-                    {{ isApplyingFilters ? 'Applying...' : 'Apply Filters' }}
-                  </button>
+                  <div>
+                    <button
+                      class="btn btn-sm bg-primary mt-10"
+                      :disabled="isApplyingFilters"
+                      @click="applyFilters"
+                    >
+                      {{ isApplyingFilters ? 'Applying...' : 'Apply Filters' }}
+                    </button>
+                    <button
+                      class="btn btn-sm bg-warning mt-10 ml-5"
+                      :disabled="!tail && !since && !sinceTime"
+                      @click="
+                        tail = null;
+                        since = null;
+                        sinceTime = null;
+                        applyFilters();
+                      "
+                    >
+                      Clear Filters
+                    </button>
+                  </div>
                 </div>
               </template>
             </VDropdown>
