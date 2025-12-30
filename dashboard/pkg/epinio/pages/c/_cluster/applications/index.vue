@@ -32,14 +32,24 @@ const rows = computed(() => store.getters['epinio/all'](resource));
 
 // Group applications by namespace
 const groupedByNamespace = computed(() => {
+  // Access the cache key to trigger namespace filter changes
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const cacheKey = store.state.activeNamespaceCacheKey;
+  const activeNamespaces = store.state.activeNamespaceCache;
+
   const groups: Record<string, any[]> = {};
 
   rows.value.forEach((app: any) => {
     const namespace = app.meta?.namespace || 'default';
-    if (!groups[namespace]) {
-      groups[namespace] = [];
+
+    // Only include this namespace if it's in the active filter
+    // If no filter is active or filter is empty, show all namespaces
+    if (!activeNamespaces || Object.keys(activeNamespaces).length === 0 || activeNamespaces[namespace]) {
+      if (!groups[namespace]) {
+        groups[namespace] = [];
+      }
+      groups[namespace].push(app);
     }
-    groups[namespace].push(app);
   });
 
   return groups;
