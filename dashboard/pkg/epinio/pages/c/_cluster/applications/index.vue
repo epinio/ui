@@ -33,6 +33,7 @@ const rows = computed(() => store.getters['epinio/all'](resource));
 // Group applications by namespace
 const groupedByNamespace = computed(() => {
   // Access the cache key to trigger namespace filter changes
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const cacheKey = store.state.activeNamespaceCacheKey;
   const activeNamespaces = store.state.activeNamespaceCache;
 

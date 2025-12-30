@@ -45,6 +45,7 @@ const store = useStore();
 // Apply namespace filter first
 const namespaceFilteredRows = computed<DataTableRow[]>(() => {
   // Access the cache key to trigger namespace filter changes
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const cacheKey = store.state.activeNamespaceCacheKey;
   const activeNamespaces = store.state.activeNamespaceCache;
 
