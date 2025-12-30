@@ -3,6 +3,7 @@ import { ref, computed, watch } from 'vue';
 import type { DataTableColumn, DataTableRow, SortDirection } from './types';
 import { dataTableFormatters } from './types';
 import ActionMenu from '@shell/components/ActionMenuShell.vue';
+import { useStore } from 'vuex';
 
 interface Props {
   columns: DataTableColumn[];
@@ -39,15 +40,39 @@ const searchQuery = ref('');
 const currentPage = ref(1);
 const sortColumn = ref<string | null>(null);
 const sortDirection = ref<SortDirection>('asc');
+const store = useStore();
+
+// Apply namespace filter first
+const namespaceFilteredRows = computed<DataTableRow[]>(() => {
+  // Access the cache key to trigger namespace filter changes
+  const cacheKey = store.state.activeNamespaceCacheKey;
+  const activeNamespaces = store.state.activeNamespaceCache;
+
+  // If no namespace filter exists, or if it's empty (no namespaces loaded yet), show all rows
+  if (!activeNamespaces || Object.keys(activeNamespaces).length === 0) {
+    return props.rows;
+  }
+
+  // Filter rows by namespace
+  return props.rows.filter((row: any) => {
+    const namespace = row.meta?.namespace;
+    // If row has no namespace, show it by default
+    if (!namespace) {
+      return true;
+    }
+    // Check if this namespace is in the active filter
+    return activeNamespaces[namespace];
+  });
+});
 
 // Computed: Filtered rows based on search
 const filteredRows = computed<DataTableRow[]>(() => {
   if (!searchQuery.value || !props.searchable) {
-    return props.rows;
+    return namespaceFilteredRows.value;
   }
 
   const query = searchQuery.value.toLowerCase();
-  return props.rows.filter(row => {
+  return namespaceFilteredRows.value.filter(row => {
     return props.columns.some(column => {
       if (column.searchable === false) {
         return false;
