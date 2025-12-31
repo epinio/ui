@@ -29,25 +29,85 @@ export default {
       return;
     }
 
-    // Load management style schemas
-    const spoofedSchemas = rootGetters['type-map/spoofedSchemas'](EPINIO_PRODUCT_NAME);
-    const instances = spoofedSchemas.find((schema: any) => schema.id === EPINIO_TYPES.CLUSTER);
+    try {
+      // Load management style schemas
+      const spoofedSchemas = rootGetters['type-map/spoofedSchemas'](EPINIO_PRODUCT_NAME);
+      const instances = spoofedSchemas?.find((schema: any) => schema.id === EPINIO_TYPES.CLUSTER);
 
-    const res = { data: [instances] };
+      if (!instances) {
+        console.warn('Epinio cluster schema not found in spoofed schemas');
+        // Still mark as ready to prevent infinite retries
+        commit('managementChanged', { ready: true });
+        return;
+      }
 
-    res.data.forEach((schema) => {
-      schema._id = normalizeType(schema.id);
-      schema._group = normalizeType(schema.attributes?.group);
-    });
+      const res = { data: [instances] };
 
-    commit('loadAll', {
-      ctx,
-      type: SCHEMA,
-      data: res.data
-    });
+      res.data.forEach((schema) => {
+        if (schema) {
+          schema._id = normalizeType(schema.id);
+          schema._group = normalizeType(schema.attributes?.group);
+        }
+      });
 
-    // dispatch('loadSchemas')
-    commit('managementChanged', { ready: true });
+      // Register schema in epiniomgmt store
+      commit('loadAll', {
+        ctx,
+        type: SCHEMA,
+        data: res.data.filter((s: any) => s) // Filter out any undefined entries
+      });
+
+      // Also create a schema with management.cattle.io.cluster ID for Rancher Shell compatibility
+      // Rancher Shell's management store looks for this specific ID
+      const managementSchema = {
+        ...instances,
+        id: 'management.cattle.io.cluster', // Rancher Shell expects this ID
+        _id: normalizeType('management.cattle.io.cluster'),
+        links: {
+          collection: '/epinio/rancher/v1/management.cattle.io.cluster',
+          self: '/epinio/rancher/v1/management.cattle.io.cluster'
+        }
+      };
+
+      // Try to register in management store
+      try {
+        const { dispatch, rootState } = ctx;
+        // Directly commit to management store if it exists
+        if (rootState.management) {
+          const managementCtx = {
+            ...ctx,
+            commit: (type: string, payload: any) => {
+              if (type === 'loadAll' && payload.type === SCHEMA) {
+                // Manually add schema to management store
+                rootState.management.allSchemas = rootState.management.allSchemas || {};
+                rootState.management.all = rootState.management.all || {};
+                payload.data.forEach((schema: any) => {
+                  if (schema && schema.id) {
+                    const normalizedId = normalizeType(schema.id);
+                    rootState.management.allSchemas[normalizedId] = schema;
+                  }
+                });
+              }
+            }
+          };
+          commit.call(managementCtx, 'loadAll', {
+            ctx: managementCtx,
+            type: SCHEMA,
+            data: [managementSchema]
+          });
+        }
+      } catch (e) {
+        // Management store might not be available yet, that's OK
+        console.debug('Could not register schema in management store (this is OK):', e);
+      }
+
+      // dispatch('loadSchemas')
+      commit('managementChanged', { ready: true });
+    } catch (err) {
+      console.error('Error loading management schemas:', err);
+      // Mark as ready anyway to prevent infinite retries
+      commit('managementChanged', { ready: true });
+    }
   },
 
   watch() {

@@ -67,6 +67,14 @@ export function init($plugin: any, store: any) {
       type:              'schema',
       collectionMethods: [],
       resourceFields:    {},
+      links:             {
+        collection: '/epinio/rancher/v1/management.cattle.io.cluster',
+        self:       '/epinio/rancher/v1/management.cattle.io.cluster'
+      },
+      // Also register as management.cattle.io.cluster for Rancher Shell compatibility
+      attributes:        {
+        group: 'management.cattle.io'
+      }
     }],
     getInstances: async() => await EpinioDiscovery.discover(store),
   });

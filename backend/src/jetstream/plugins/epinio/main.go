@@ -8,6 +8,7 @@ import (
 
 	epinioDex "github.com/epinio/ui/backend/src/jetstream/plugins/epinio/dex"
 	eInterfaces "github.com/epinio/ui/backend/src/jetstream/plugins/epinio/interfaces"
+	epinioApi "github.com/epinio/ui/backend/src/jetstream/plugins/epinio/rancherproxy/api"
 	normanProxy "github.com/epinio/ui/backend/src/jetstream/plugins/epinio/rancherproxy/norman"
 	steveProxy "github.com/epinio/ui/backend/src/jetstream/plugins/epinio/rancherproxy/steve"
 	epinio_utils "github.com/epinio/ui/backend/src/jetstream/plugins/epinio/utils"
@@ -238,6 +239,11 @@ func (epinio *Epinio) AddRootGroupRoutes(echoGroup *echo.Group) {
 	dexGroup.GET("/redirectUrl", func(c echo.Context) error {
 		return epinioDex.RedirectUrl(c, epinio.portalProxy)
 	})
+
+	// Epinio API
+	epinioApiGroup := epinioGroup.Group("/api/v1")
+	epinioApiGroup.Use(p.SessionMiddleware())
+	epinioApiGroup.POST("/install", epinioApi.InstallEpinio)
 
 }
 

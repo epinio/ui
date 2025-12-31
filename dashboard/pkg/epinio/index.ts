@@ -72,6 +72,10 @@ export default function(plugin: IPlugin) {
   const UnsavedChangesDialog = require('./dialog/UnsavedChangesDialog.vue'); // eslint-disable-line @typescript-eslint/no-require-imports
   plugin.register('component', 'UnsavedChangesDialog', UnsavedChangesDialog.default || UnsavedChangesDialog);
 
+  // Register install dialog
+  const InstallDialog = require('./dialog/InstallDialog.vue'); // eslint-disable-line @typescript-eslint/no-require-imports
+  plugin.register('component', 'InstallDialog', InstallDialog.default || InstallDialog);
+
   // Add action button in the menu of each object belonging to Epinio's applications
   plugin.addAction(
     ActionLocation.TABLE,
