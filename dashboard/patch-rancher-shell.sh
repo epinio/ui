@@ -56,6 +56,12 @@ sed -i "${start},${end}c\\
 ${replacement}
 " "$file_path"
 
+# Patch dashboard-store getters to handle missing schemas gracefully
+# This prevents "Unknown schema" errors when Epinio schemas aren't loaded yet
+if [ -f "./patch-management-getters.js" ]; then
+  node ./patch-management-getters.js
+fi
+
 
 # Run the yarn command the user was expecting to run.
 if [ "$context" == "dev" ]; then

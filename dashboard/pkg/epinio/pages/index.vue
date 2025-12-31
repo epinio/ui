@@ -27,12 +27,21 @@ const error = ref<Error | null>(null)
 onMounted(async () => {
   loading.value = true
   try {
+    // Ensure management schemas are loaded before trying to find clusters
+    try {
+      await store.dispatch(`${EPINIO_MGMT_STORE}/loadManagement`, {}, { root: true })
+    } catch (loadErr) {
+      console.warn('Error loading management schemas, continuing anyway:', loadErr)
+      // Continue even if loadManagement fails
+    }
+    
     await store.dispatch(`${EPINIO_MGMT_STORE}/findAll`, { type: EPINIO_TYPES.CLUSTER }, { root: true })
-    clusters = store.getters[`${EPINIO_MGMT_STORE}/all`](EPINIO_TYPES.CLUSTER)
+    clusters = store.getters[`${EPINIO_MGMT_STORE}/all`](EPINIO_TYPES.CLUSTER) || []
     //clustersSchema = store.getters[`${EPINIO_MGMT_STORE}/schemaFor`](EPINIO_TYPES.CLUSTER)
 
     clusters.forEach((c: EpinioCluster) => testCluster(c))
   } catch (err) {
+    console.error('Error loading clusters:', err)
     error.value = err as Error
   } finally {
     loading.value = false
@@ -119,14 +128,39 @@ const testCluster = (c: EpinioCluster) => {
         }
       });
     } else {
-      setClusterState(c, 'error', {
-        state: {
-          transitioning: false,
-          error:   true,
-          message: `Failed to check the ready state: ${ e }`
-        }
-      });
+      // Check if Epinio is not installed (404 or connection refused typically means not installed)
+      const isNotInstalled = e.message.includes('404') || 
+                             e.message.includes('connection refused') ||
+                             e.message.includes('ECONNREFUSED');
+      
+      if (isNotInstalled) {
+        setClusterState(c, 'not-installed', {
+          state: {
+            transitioning: false,
+            error: false,
+            message: "Epinio is not installed on this cluster"
+          }
+        });
+      } else {
+        setClusterState(c, 'error', {
+          state: {
+            transitioning: false,
+            error:   true,
+            message: `Failed to check the ready state: ${ e }`
+          }
+        });
+      }
     }
+  });
+}
+
+const showInstallDialog = (c: EpinioCluster) => {
+  currentCluster = c;
+  store.dispatch('cluster/promptModal', {
+    component: 'InstallDialog',
+    componentProps: {
+      cluster: currentCluster,
+    },
   });
 }
 
@@ -147,6 +181,11 @@ const columns: DataTableColumn[] = [
   {
     field: 'version',
     label: 'Version'
+  },
+  {
+    field: 'actions',
+    label: 'Actions',
+    width: '150px'
   }
 ];
 </script>
@@ -200,6 +239,17 @@ const columns: DataTableColumn[] = [
             <template v-else>
               {{ row.name }}
             </template>
+          </div>
+        </template>
+        <template #cell:actions="{row}">
+          <div class="epinio-row">
+            <button
+              v-if="row.state === 'not-installed' || row.state === 'error'"
+              class="btn btn-sm btn-primary"
+              @click="showInstallDialog(row)"
+            >
+              {{ t('epinio.instances.none.installButton') }}
+            </button>
           </div>
         </template>
         <template #cell:api="{row}">

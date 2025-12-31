@@ -99,6 +99,20 @@ epinio:
     none:
       header: No instances of Epinio were found
       description: To view an Epinio cluster be sure to import a Cluster where one is installed
+      installButton: Install Epinio
+    install:
+      title: Install Epinio
+      description: Install Epinio on this cluster with a single click
+      domainLabel: Domain
+      domainPlaceholder: mydomain.example.com
+      domainRequired: Domain is required
+      skipCertManager: Skip cert-manager installation
+      skipIngress: Skip ingress controller installation
+      installing: Installing Epinio...
+      success: Epinio installed successfully!
+      error: Failed to install Epinio
+      installButton: Install
+      cancelButton: Cancel
     tableHeaders:
       api: URL
       version: Version
