@@ -48,7 +48,7 @@ const columns: DataTableColumn[] = [
     sortable: false
   },
   {
-    field: 'meta.createdAt',
+    field: 'metadata.created_at',
     label: 'Age',
     formatter: 'age'
   }
