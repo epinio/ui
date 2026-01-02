@@ -44,6 +44,36 @@ export const dataTableFormatters = {
   dateTime: (value: any): string => {
     if (!value) return '-';
     return new Date(value).toLocaleString();
+  },
+
+  /**
+   * Format memory bytes using SI units (B, KiB, MiB, GiB, TiB)
+   * Same logic as formatSi from @shell/utils/units with binary units
+   */
+  memory: (value: any): string => {
+    if (!value || value === 0) return '0 B';
+
+    const units = ['B', 'KiB', 'MiB', 'GiB', 'TiB'];
+    let unitIndex = 0;
+    let val = Number(value);
+
+    while (val >= 1024 && unitIndex < units.length - 1) {
+      val /= 1024;
+      unitIndex++;
+    }
+
+    return `${val.toFixed(2)} ${units[unitIndex]}`;
+  },
+
+  /**
+   * Format milliCPUs as a decimal number
+   * Same logic as used in the application model's _instanceStats
+   */
+  milliCPUs: (value: any): string => {
+    if (!value || value === 0) return '0';
+
+    const formatted = Number(value).toFixed(2);
+    return formatted === '0.00' ? '0' : formatted;
   }
 };
 
