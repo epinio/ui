@@ -62,7 +62,7 @@ export const dataTableFormatters = {
       unitIndex++;
     }
 
-    return `${val.toFixed(2)} ${units[unitIndex]}`;
+    return `${Math.round(val)} ${units[unitIndex]}`;
   },
 
   /**
@@ -72,8 +72,8 @@ export const dataTableFormatters = {
   milliCPUs: (value: any): string => {
     if (!value || value === 0) return '0';
 
-    const formatted = Number(value).toFixed(2);
-    return formatted === '0.00' ? '0' : formatted;
+    const formatted = Math.round(Number(value)).toString();
+    return formatted === '0' ? '0' : formatted;
   }
 };
 
