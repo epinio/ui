@@ -107,7 +107,7 @@ const configColumns: DataTableColumn[] = [
     label: 'No. of Variables'
   },
   {
-    field: 'createdBy',
+    field: 'configuration.user',
     label: 'Created By'
   },
   {
