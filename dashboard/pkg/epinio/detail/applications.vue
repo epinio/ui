@@ -66,7 +66,7 @@ const instanceColumns: DataTableColumn[] = [
     label: 'Restarts'
   },
   {
-    field: 'meta.createdAt',
+    field: 'createdAt',
     label: 'Age',
     formatter: 'age'
   }
@@ -127,6 +127,7 @@ const commitActions = [{
 onMounted(async () => {
   await store.dispatch('epinio/findAll', { type: EPINIO_TYPES.SERVICE_INSTANCE });
   await store.dispatch('epinio/findAll', { type: EPINIO_TYPES.CONFIGURATION });
+  console.log('instances data', props.value.instances);
 
   if (props.value.appSource.git) {
     await fetchRepoDetails();
