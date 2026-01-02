@@ -52,6 +52,20 @@ const instanceColumns: DataTableColumn[] = [
     label: 'Name'
   },
   {
+    field: 'millicpus',
+    label: 'Mill CPUs',
+    formatter: 'milliCPUs'
+  },
+  {
+    field: 'memoryBytes',
+    label: 'RAM',
+    formatter: 'memory'
+  },
+  {
+    field: 'restarts',
+    label: 'Restarts'
+  },
+  {
     field: 'meta.createdAt',
     label: 'Age',
     formatter: 'age'
@@ -70,11 +84,11 @@ const serviceColumns: DataTableColumn[] = [
   },
   {
     field: 'catalog_service',
-    label: 'Service'
+    label: 'Catalog Service'
   },
   {
     field: 'catalog_service_version',
-    label: 'Service Version'
+    label: 'Catalog Service Version'
   },
   {
     field: 'meta.createdAt',
@@ -85,13 +99,16 @@ const serviceColumns: DataTableColumn[] = [
 
 const configColumns: DataTableColumn[] = [
   {
-    field: 'stateDisplay',
-    label: 'State',
-    width: '100px'
-  },
-  {
     field: 'nameDisplay',
     label: 'Name'
+  },
+  {
+    field: 'variableCount',
+    label: 'No. of Variables'
+  },
+  {
+    field: 'createdBy',
+    label: 'Created By'
   },
   {
     field: 'meta.createdAt',
