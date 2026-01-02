@@ -127,7 +127,6 @@ const commitActions = [{
 onMounted(async () => {
   await store.dispatch('epinio/findAll', { type: EPINIO_TYPES.SERVICE_INSTANCE });
   await store.dispatch('epinio/findAll', { type: EPINIO_TYPES.CONFIGURATION });
-  console.log('instances data', props.value.instances);
 
   if (props.value.appSource.git) {
     await fetchRepoDetails();
