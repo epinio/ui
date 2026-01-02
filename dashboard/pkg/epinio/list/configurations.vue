@@ -64,7 +64,7 @@ const columns: DataTableColumn[] = [
     label: 'No. of Variables'
   },
   {
-    field: 'meta.createdBy',
+    field: 'configuration.user',
     label: 'Created By'
   },
   {

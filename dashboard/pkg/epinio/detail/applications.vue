@@ -52,7 +52,21 @@ const instanceColumns: DataTableColumn[] = [
     label: 'Name'
   },
   {
-    field: 'meta.createdAt',
+    field: 'millicpus',
+    label: 'Mill CPUs',
+    formatter: 'milliCPUs'
+  },
+  {
+    field: 'memoryBytes',
+    label: 'RAM',
+    formatter: 'memory'
+  },
+  {
+    field: 'restarts',
+    label: 'Restarts'
+  },
+  {
+    field: 'createdAt',
     label: 'Age',
     formatter: 'age'
   }
@@ -70,11 +84,11 @@ const serviceColumns: DataTableColumn[] = [
   },
   {
     field: 'catalog_service',
-    label: 'Service'
+    label: 'Catalog Service'
   },
   {
     field: 'catalog_service_version',
-    label: 'Service Version'
+    label: 'Catalog Service Version'
   },
   {
     field: 'meta.createdAt',
@@ -85,13 +99,16 @@ const serviceColumns: DataTableColumn[] = [
 
 const configColumns: DataTableColumn[] = [
   {
-    field: 'stateDisplay',
-    label: 'State',
-    width: '100px'
-  },
-  {
     field: 'nameDisplay',
     label: 'Name'
+  },
+  {
+    field: 'variableCount',
+    label: 'No. of Variables'
+  },
+  {
+    field: 'configuration.user',
+    label: 'Created By'
   },
   {
     field: 'meta.createdAt',
@@ -285,17 +302,11 @@ const commitPosition = computed(() => {
       </ApplicationCard>
     </div>
 
-    <h3
-      v-if="value.deployment"
-      class="mt-20"
-    >
+    <h3 class="mt-20">
       {{ t('epinio.applications.detail.deployment.label') }}
     </h3>
 
-    <div
-      v-if="value.deployment"
-      class="deployment"
-    >
+    <div class="deployment">
       <!-- Source information -->
       <Tabbed>
         <Tab
@@ -427,7 +438,7 @@ const commitPosition = computed(() => {
                     <span v-else>{{ d.value }}</span>
                   </li>
 
-                  <li>
+                  <li v-if="value.deployment">
                     <h4>{{ t('epinio.applications.tableHeaders.deployedBy') }}</h4>
                     <span> {{ value.deployment.username }}</span>
                   </li>
