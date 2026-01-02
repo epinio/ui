@@ -93,6 +93,7 @@ export default {
       }
     });
 
+  // eslint-disable-next-line no-undef
     const isEpinioSingleProduct = process.env.rancherEnv === "epinio";
 
     return { theme, isEpinioSingleProduct };
