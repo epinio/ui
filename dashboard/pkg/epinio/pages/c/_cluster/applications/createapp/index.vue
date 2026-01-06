@@ -182,6 +182,7 @@ function finish() {
       <template #basics>
         <AppInfo
           :application="value"
+          :source="source"
           :mode="mode"
           @change="updateInfo"
           @valid="(val) => steps[1].ready = val"
