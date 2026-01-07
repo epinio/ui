@@ -4,6 +4,7 @@ import Dashboard from "../pages/c/_cluster/dashboard.vue";
 import ListApp from "../pages/c/_cluster/applications/index.vue";
 import CreateApp from "../pages/c/_cluster/applications/createapp/index.vue";
 import AboutEpinio from "../pages/c/_cluster/about.vue";
+import SupportBundle from "../pages/c/_cluster/support-bundle.vue";
 import ListEpinioResource from '../pages/c/_cluster/_resource/index.vue';
 import CreateEpinioResource from '../pages/c/_cluster/_resource/create.vue';
 import ViewEpinioResource from '../pages/c/_cluster/_resource/_id.vue';
@@ -61,6 +62,12 @@ const routes = [
     name: `${EPINIO_PRODUCT_NAME}-c-cluster-about`,
     path: `/:product/c/:cluster/about`,
     component: AboutEpinio,
+    meta,
+  },
+  {
+    name: `${EPINIO_PRODUCT_NAME}-c-cluster-support-bundle`,
+    path: `/:product/c/:cluster/support-bundle`,
+    component: SupportBundle,
     meta,
   },
   {

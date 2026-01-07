@@ -76,6 +76,43 @@ epinio:
     getStarted: Get started
     issues: Issues
     about: About
+  supportBundle:
+    title: Support Bundle
+    description: Download logs from all Epinio components for troubleshooting purposes. <strong>Note:</strong> Admin access required. Bundle may contain sensitive information.
+    downloadButton: Download Support Bundle
+    generating: Collecting logs from Epinio components...
+    progressDetails: This may take 1-2 minutes. Please do not close this page.
+    downloadStarted: Support bundle download started
+    downloadSuccess: 'Support bundle download started: {filename}'
+    downloadError: Failed to download support bundle
+    errors:
+      INVALID_TAIL: Tail parameter must be a number between 1 and 10000
+      AUTH_REQUIRED: Authentication required. Please log in.
+      ADMIN_REQUIRED: Admin access required to download support bundles.
+      SERVER_ERROR: Failed to generate support bundle. Please try again later.
+      INVALID_PARAMS: Invalid parameters. Please check your input and try again.
+      NETWORK_ERROR: Network error. Please check your connection and try again.
+      TIMEOUT: Request timed out. The support bundle may be large. Please try again.
+      DOWNLOAD_FAILED: Failed to save support bundle. Please check your browser download settings.
+      INVALID_RESPONSE: Invalid response received from server. Please try again.
+      GENERIC_ERROR: Failed to download support bundle. Please try again.
+    showOptions: Show Options
+    hideOptions: Hide Options
+    includeAppLogs: Include Application Logs
+    includeAppLogsTooltip: Include logs from all Epinio applications. This may significantly increase bundle size.
+    largeBundleWarning: ⚠️ Including application logs may create a large bundle (100MB+). This may take several minutes to generate and download.
+    tailLines: Lines per log
+    tailLinesTooltip: Number of log lines to include from each component (1-10000)
+    tailError: Tail parameter must be between 1 and 10000
+    whatsIncluded: What's included in the bundle
+    includes:
+      serverLogs: Epinio server logs (current and previous containers)
+      uiLogs: Epinio UI logs (current and previous containers)
+      stagingLogs: Recent staging job logs (last 24 hours)
+      minioLogs: Minio logs
+      registryLogs: Container registry logs
+      appLogs: Application logs (when requested)
+    warning: This bundle may contain sensitive information. Please handle it securely and only share with trusted support personnel.
     cards:
       namespaces:
         linkText: Create Namespace

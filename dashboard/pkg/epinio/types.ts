@@ -26,6 +26,7 @@ export const EPINIO_TYPES = {
   // Internal
   DASHBOARD:        'dashboard',
   ABOUT:            'about',
+  SUPPORT_BUNDLE:   'support-bundle',
   CLUSTER:          'epinio.io.management.cluster',
   APP_ACTION:       'application-action',
   APP_INSTANCE:     'application-instance',

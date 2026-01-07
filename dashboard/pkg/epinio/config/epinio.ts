@@ -192,6 +192,15 @@ export function init($plugin: any, store: any) {
     route:      createEpinioRoute('c-cluster-about', { })
   });
 
+  virtualType({
+    label:      store.getters['i18n/t']('epinio.supportBundle.title'),
+    icon:       'download',
+    group:      'Root',
+    namespaced: false,
+    name:       EPINIO_TYPES.SUPPORT_BUNDLE,
+    route:      createEpinioRoute('c-cluster-support-bundle', { })
+  });
+
   // Side Nav
   weightType(EPINIO_TYPES.CATALOG_SERVICE, 150, true);
   weightType(EPINIO_TYPES.SERVICE_INSTANCE, 151, true);
@@ -209,7 +218,8 @@ export function init($plugin: any, store: any) {
 
   if (isEpinioSingleProduct) {
     basicType([
-      EPINIO_TYPES.ABOUT
+      EPINIO_TYPES.ABOUT,
+      EPINIO_TYPES.SUPPORT_BUNDLE
     ], ABOUT);
   }
 
