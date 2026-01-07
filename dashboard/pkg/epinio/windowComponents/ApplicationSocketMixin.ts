@@ -15,7 +15,7 @@ export function useApplicationSocketMixin(props: any) {
 
   const getRootSocketUrl = async () => {
     const { token } = await store.dispatch(
-      `epinio/request`, 
+      `epinio/request`,
       { opt: { url: '/api/v1/authtoken' } },
     );
 
@@ -31,7 +31,7 @@ export function useApplicationSocketMixin(props: any) {
     } else {
       const currentClusterId = store.getters['clusterId'];
       const currentCluster = store.getters[`${ EPINIO_MGMT_STORE }/byId`](
-        EPINIO_TYPES.CLUSTER, 
+        EPINIO_TYPES.CLUSTER,
         currentClusterId,
       );
 
