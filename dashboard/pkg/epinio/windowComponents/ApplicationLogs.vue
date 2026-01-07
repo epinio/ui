@@ -67,6 +67,7 @@ const timerFlush = ref<object>(null);
 const isFollowing = ref<boolean>(false);
 const active = ref<boolean>(true);
 const body = ref<HTMLElement>(null);
+const isApplyingFilters = ref<boolean>(false);
 
 // Time-based filter parameters
 const tail = ref<number | null>(null); // Number of lines to show
@@ -188,8 +189,10 @@ const getSocketUrl = async () => {
 };
 
 const connect = async () => {
+  console.log('Connecting to application logs socket...');
   // Disconnect existing socket and clear logs
   if (socket.value) {
+    console.log('Disconnecting existing socket...');
     await socket.value.disconnect();
     socket.value = null;
   }
@@ -236,7 +239,11 @@ const connect = async () => {
     ) {
       lines.value.length = 0;
     }
-    isApplyingFilters.value = false;
+
+    if (line == "[]  ___FILTER_COMPLETE___") {
+      isApplyingFilters.value = false;
+      return;
+    }
 
     backlog.value.push({
       id:     lastId.value++,
@@ -306,36 +313,32 @@ const cleanup = () => {
   clearInterval(timerFlush.value);
 };
 
-const isApplyingFilters = ref<boolean>(false);
-const lastApplyTime = ref<number>(0);
-
 const applyFilters = async () => {
   // Prevent multiple simultaneous reconnections
   if (isApplyingFilters.value) {
     return;
   }
 
-  // Debounce: prevent rapid reconnection
-  const timeSinceLastApply = Date.now() - lastApplyTime.value;
-  if (timeSinceLastApply < 2000) {
-    return;
-  }
-
-  lastApplyTime.value = Date.now();
   isApplyingFilters.value = true;
 
   try {
     // Clear conflicting filters
     if (sinceTime.value && since.value) {
-      sinceTime.value = '';
+      sinceTime.value = undefined;
+    }
+
+    let sinceTimeParsed = undefined;
+    if (sinceTime.value) {
+      sinceTimeParsed = new Date(sinceTime.value).toISOString();
     }
 
     const payload = {
       type: 'filter_params',
       params: {
+        follow: false,
         tail: tail.value,
         since: since.value,
-        since_time: sinceTime.value,
+        since_time: sinceTimeParsed,
       }
     };
 
