@@ -7,9 +7,14 @@ if (!process.env.API && !process.env.RANCHER_ENV) {
   process.env.API = process.env.API.replace('https://', 'http://');
 }
 
-const config = require('@rancher/shell/vue.config'); // eslint-disable-line @typescript-eslint/no-var-requires
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+import config from '@rancher/shell/vue.config.js';
 
-module.exports = config(__dirname, {
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+export default config(__dirname, {
   excludes: [],
   // excludes: ['fleet', 'example']
 });
