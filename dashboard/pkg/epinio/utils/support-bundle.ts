@@ -50,7 +50,7 @@ export class SupportBundleError extends Error {
  * @throws {SupportBundleError} If network error occurs
  */
 export async function downloadSupportBundle(
-  store: any, // eslint-disable-line @typescript-eslint/no-explicit-any
+  store: any,
   options: SupportBundleOptions = {}
 ): Promise<{ filename: string }> {
   const {
@@ -122,11 +122,11 @@ export async function downloadSupportBundle(
         // Decode URL-encoded filenames
         try {
           filename = decodeURIComponent(filename);
-        } catch (e) {
+        } catch {
           // If decoding fails, use the original filename
         }
         // Sanitize filename - remove path components and dangerous characters
-        filename = filename.replace(/[\/\\:*?"<>|]/g, '_').replace(/^\.+/, '');
+        filename = filename.replace(/[/\\:*?"<>|]/g, '_').replace(/^\.+/, '');
         // Ensure we have a valid filename
         if (!filename || filename.length === 0) {
           filename = 'epinio-support-bundle.tar.gz';

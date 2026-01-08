@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onUnmounted } from 'vue';
 import { useStore } from 'vuex';
-import { downloadSupportBundle, SupportBundleOptions, SupportBundleError, SupportBundleErrorCode } from '../../../utils/support-bundle';
+import { downloadSupportBundle, SupportBundleOptions, SupportBundleError } from '../../../utils/support-bundle';
 import Checkbox from '@components/Form/Checkbox/Checkbox.vue';
 import LabeledInput from '@components/Form/LabeledInput/LabeledInput.vue';
 import Banner from '@components/Banner/Banner.vue';
@@ -119,6 +119,7 @@ onUnmounted(() => {
       class="mb-20"
     >
       <template #default>
+        <!-- eslint-disable-next-line vue/no-v-html -->
         <div v-html="t('epinio.supportBundle.description')" />
       </template>
     </Banner>
