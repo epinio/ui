@@ -7,6 +7,7 @@ import {
   computed,
   nextTick,
   PropType,
+  watch,
 } from 'vue';
 
 import Socket, {
@@ -31,6 +32,17 @@ import { useApplicationSocketMixin } from './ApplicationSocketMixin';
 
 const store = useStore();
 const t = store.getters['i18n/t'];
+
+interface ContainerInfo {
+  name: string;
+  podName: string;
+  isInitContainer: boolean;
+}
+
+interface LogFilters {
+  includeContainers: string[];
+  excludeContainers: string[];
+}
 
 const props = defineProps({
   application: {
@@ -72,7 +84,18 @@ const ansiup = new AnsiUp();
 const timestamps = store.getters['prefs/get'](LOGS_TIME);
 const wrap = ref<boolean>(store.getters['prefs/get'](LOGS_WRAP));
 
+// Container filtering state
+const availableContainers = ref<ContainerInfo[]>([]);
+const selectedContainers = ref<Set<string>>(new Set());
+const excludedContainers = ref<Set<string>>(new Set());
+const filterMode = ref<'include' | 'exclude'>('exclude');
+const containerFilterOpen = ref<boolean>(false);
+const containerSearch = ref<string>('');
+const loadingContainers = ref<boolean>(false);
+
 onMounted(async () => {
+  await fetchContainers();
+  // Connect after containers are fetched so filters can be applied
   await connect();
   let boundUpdateFollowing = updateFollowing.bind(body);
   body.value.addEventListener('scroll', boundUpdateFollowing);
@@ -156,13 +179,21 @@ const timeFormatStr = computed(() => {
 const getSocketUrl = async () => {
   const { url, token } = await getRootSocketUrl();
 
+  const params: any = {
+    follow: true,
+    authtoken: token
+  };
 
-  //const currentDate = new Date();
-  //const currentUnixTimestampMs = currentDate.getTime();
-  //const oneHourInMs = 60 * 60 * 1000;
-  //const futureUnixTimestampMs = currentUnixTimestampMs + oneHourInMs;
+  // Add container filter parameters
+  if (filterMode.value === 'include' && selectedContainers.value.size > 0) {
+    params.include_containers = Array.from(selectedContainers.value).join(',');
+  }
+  
+  if (excludedContainers.value.size > 0) {
+    params.exclude_containers = Array.from(excludedContainers.value).join(',');
+  }
 
-  return addParams(url, { follow: true, authtoken: token });
+  return addParams(url, params);
 };
 
 const connect = async () => {
@@ -204,6 +235,23 @@ const connect = async () => {
     }
 
     const { PodName, ContainerName, Message, Timestamp } = parsedData;
+
+    // Extract container name from log data if not already discovered
+    // This is especially important for staging logs where pods API may not be available
+    if (ContainerName) {
+      const existingContainer = availableContainers.value.find(c => c.name === ContainerName);
+      if (!existingContainer) {
+        availableContainers.value.push({
+          name: ContainerName,
+          podName: PodName || '',
+          isInitContainer: false, // We can't determine this from log data
+        });
+        // If we were loading containers, mark as complete once we find at least one
+        if (loadingContainers.value && availableContainers.value.length > 0) {
+          loadingContainers.value = false;
+        }
+      }
+    }
 
     const line = `[${ PodName }] ${ ContainerName } ${ Message }`;
     backlog.value.push({
@@ -273,6 +321,196 @@ const cleanup = () => {
 
   clearInterval(timerFlush.value);
 };
+
+// Check if this is a staging log endpoint
+const isStagingLog = computed(() => {
+  return props.endpoint?.includes('/staging/') || props.endpoint?.includes('/wapi/v1');
+});
+
+// Extract stage ID from endpoint if it's a staging log
+const stageId = computed(() => {
+  if (!isStagingLog.value || !props.endpoint) {
+    return null;
+  }
+  const match = props.endpoint.match(/\/staging\/([^/]+)/);
+  return match ? match[1] : null;
+});
+
+// Container discovery
+const fetchContainers = async () => {
+  if (!props.application) {
+    return;
+  }
+
+  loadingContainers.value = true;
+  try {
+    const namespace = props.application.meta?.namespace || 'default';
+    const appName = props.application.nameDisplay || props.application.metadata?.name;
+
+    if (!appName) {
+      return;
+    }
+
+    // For staging logs, we can't easily fetch pods via the application pods API
+    // Containers will be discovered from incoming log data as a fallback
+    if (isStagingLog.value) {
+      // Staging logs: containers will be discovered from incoming log data
+      // Keep loading state true so the filter button shows, but indicate discovery from logs
+      // The loading will be set to false once containers are discovered from log messages
+      return;
+    }
+
+    // Try to fetch pods for the application
+    const podsUrl = `/api/v1/namespaces/${namespace}/applications/${appName}/pods`;
+    const response = await store.dispatch('epinio/request', {
+      opt: { url: podsUrl }
+    });
+
+    const containers: ContainerInfo[] = [];
+    const pods = response?.data || [];
+
+    pods.forEach((pod: any) => {
+      // Extract init containers
+      if (pod.spec?.initContainers) {
+        pod.spec.initContainers.forEach((container: any) => {
+          containers.push({
+            name: container.name,
+            podName: pod.metadata?.name || '',
+            isInitContainer: true,
+          });
+        });
+      }
+
+      // Extract regular containers
+      if (pod.spec?.containers) {
+        pod.spec.containers.forEach((container: any) => {
+          containers.push({
+            name: container.name,
+            podName: pod.metadata?.name || '',
+            isInitContainer: false,
+          });
+        });
+      }
+    });
+
+    // Remove duplicates (same container name across pods)
+    const uniqueContainers = Array.from(
+      new Map(containers.map(c => [c.name, c])).values()
+    );
+
+    availableContainers.value = uniqueContainers;
+
+    // Auto-exclude common sidecars on first load
+    if (excludedContainers.value.size === 0) {
+      const commonSidecars = ['istio-proxy', 'linkerd-proxy', 'linkerd-init'];
+      commonSidecars.forEach(sidecar => {
+        if (uniqueContainers.some(c => c.name === sidecar)) {
+          excludedContainers.value.add(sidecar);
+        }
+      });
+    }
+  } catch (error) {
+    console.warn('Failed to fetch containers:', error);
+    // If pods API doesn't exist, try to extract from log data as fallback
+  } finally {
+    loadingContainers.value = false;
+  }
+};
+
+// Container filtering functions
+const toggleContainer = (containerName: string) => {
+  if (filterMode.value === 'include') {
+    if (selectedContainers.value.has(containerName)) {
+      selectedContainers.value.delete(containerName);
+    } else {
+      selectedContainers.value.add(containerName);
+    }
+  } else {
+    if (excludedContainers.value.has(containerName)) {
+      excludedContainers.value.delete(containerName);
+    } else {
+      excludedContainers.value.add(containerName);
+    }
+  }
+  applyFilters();
+};
+
+const applyFilters = async () => {
+  // Reconnect with new filters
+  await connect();
+};
+
+const clearFilters = () => {
+  selectedContainers.value.clear();
+  excludedContainers.value.clear();
+  applyFilters();
+};
+
+const applyPreset = (preset: 'hide-sidecars' | 'show-all' | 'show-app-only') => {
+  if (preset === 'show-all') {
+    clearFilters();
+    return;
+  }
+
+  if (preset === 'hide-sidecars') {
+    excludedContainers.value.clear();
+    const sidecarPatterns = ['istio-', 'linkerd-'];
+    availableContainers.value.forEach(container => {
+      if (sidecarPatterns.some(pattern => container.name.startsWith(pattern))) {
+        excludedContainers.value.add(container.name);
+      }
+    });
+  } else if (preset === 'show-app-only') {
+    // Exclude all sidecars, show only app containers
+    excludedContainers.value.clear();
+    const sidecarPatterns = ['istio-', 'linkerd-', 'envoy-'];
+    availableContainers.value.forEach(container => {
+      if (sidecarPatterns.some(pattern => container.name.startsWith(pattern))) {
+        excludedContainers.value.add(container.name);
+      }
+    });
+  }
+
+  applyFilters();
+};
+
+const isContainerSelected = (containerName: string): boolean => {
+  if (filterMode.value === 'include') {
+    return selectedContainers.value.has(containerName);
+  } else {
+    return excludedContainers.value.has(containerName);
+  }
+};
+
+const filteredContainers = computed(() => {
+  if (!containerSearch.value) {
+    return availableContainers.value;
+  }
+
+  const searchLower = containerSearch.value.toLowerCase();
+  return availableContainers.value.filter(c =>
+    c.name.toLowerCase().includes(searchLower) ||
+    c.podName.toLowerCase().includes(searchLower)
+  );
+});
+
+const activeFilterCount = computed(() => {
+  if (filterMode.value === 'include') {
+    return selectedContainers.value.size;
+  } else {
+    return excludedContainers.value.size;
+  }
+});
+
+const isSidecar = (containerName: string): boolean => {
+  const sidecarPatterns = ['istio-', 'linkerd-', 'envoy-'];
+  return sidecarPatterns.some(pattern => containerName.startsWith(pattern));
+};
+
+// Watch for filter changes and reconnect
+watch([selectedContainers, excludedContainers, filterMode], () => {
+  // Debounce: reconnect will be called by applyFilters
+}, { deep: true });
 </script>
 
 <template>
@@ -294,6 +532,138 @@ const cleanup = () => {
             placement="top"
             placeholder="Filter by Instance"
           />
+
+          <VDropdown
+            v-if="availableContainers.length > 0 || loadingContainers"
+            v-model:open="containerFilterOpen"
+            placement="bottom-start"
+            class="ml-5"
+          >
+            <button
+              class="btn bg-primary container-filter-btn"
+              :class="{'has-filters': activeFilterCount > 0}"
+            >
+              <i class="icon icon-filter" />
+              <span v-if="activeFilterCount > 0" class="filter-badge">{{ activeFilterCount }}</span>
+              <span class="filter-btn-text">Containers</span>
+            </button>
+            <template #popper>
+              <div class="container-filter-panel">
+                <div class="filter-header">
+                  <h4>Container Filter</h4>
+                  <div class="filter-mode-toggle">
+                    <button
+                      class="btn btn-sm"
+                      :class="{'bg-primary': filterMode === 'include'}"
+                      @click="filterMode = 'include'"
+                    >
+                      Include
+                    </button>
+                    <button
+                      class="btn btn-sm"
+                      :class="{'bg-primary': filterMode === 'exclude'}"
+                      @click="filterMode = 'exclude'"
+                    >
+                      Exclude
+                    </button>
+                  </div>
+                </div>
+
+                <div class="filter-presets">
+                  <button
+                    class="btn btn-sm bg-secondary"
+                    @click="applyPreset('hide-sidecars')"
+                  >
+                    Hide Sidecars
+                  </button>
+                  <button
+                    class="btn btn-sm bg-secondary"
+                    @click="applyPreset('show-app-only')"
+                  >
+                    Show App Only
+                  </button>
+                  <button
+                    class="btn btn-sm bg-secondary"
+                    @click="applyPreset('show-all')"
+                  >
+                    Show All
+                  </button>
+                </div>
+
+                <div class="filter-search">
+                  <input
+                    v-model="containerSearch"
+                    class="input-sm"
+                    type="search"
+                    placeholder="Search containers..."
+                  />
+                </div>
+
+                <div class="container-list">
+                  <div
+                    v-if="loadingContainers && availableContainers.length === 0"
+                    class="text-muted p-10 text-center"
+                  >
+                    <i class="icon icon-spinner icon-spin" />
+                    Discovering containers from logs...
+                  </div>
+                  <template v-else>
+                    <div
+                      v-for="container in filteredContainers"
+                      :key="container.name"
+                      class="container-item"
+                      :class="{
+                        'is-sidecar': isSidecar(container.name),
+                        'is-selected': isContainerSelected(container.name)
+                      }"
+                      @click="toggleContainer(container.name)"
+                    >
+                      <Checkbox
+                        :value="isContainerSelected(container.name)"
+                        :label="container.name"
+                        @update:value="toggleContainer(container.name)"
+                      />
+                      <span
+                        v-if="container.isInitContainer"
+                        class="badge badge-sm bg-info"
+                      >
+                        init
+                      </span>
+                      <span
+                        v-if="isSidecar(container.name)"
+                        class="badge badge-sm bg-secondary"
+                      >
+                        sidecar
+                      </span>
+                    </div>
+                    <div
+                      v-if="filteredContainers.length === 0 && !loadingContainers"
+                      class="text-muted p-10 text-center"
+                    >
+                      No containers found
+                    </div>
+                  </template>
+                </div>
+
+                <div class="filter-footer">
+                  <button
+                    class="btn btn-sm"
+                    @click="clearFilters"
+                  >
+                    Clear Filters
+                  </button>
+                  <div class="filter-summary">
+                    <span v-if="filterMode === 'include'">
+                      Showing {{ selectedContainers.size }} of {{ availableContainers.length }} containers
+                    </span>
+                    <span v-else>
+                      Excluding {{ excludedContainers.size }} of {{ availableContainers.length }} containers
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </template>
+          </VDropdown>
 
           <button
             class="btn bg-primary ml-5"
@@ -375,9 +745,12 @@ const cleanup = () => {
                 />
               </tr>
             </template>
-            <tr v-else-if="search">
+            <tr v-else-if="search || activeFilterCount > 0">
               <td colspan="2" class="msg text-muted">
                 {{t('wm.containerLogs.noMatch')}}
+                <span v-if="activeFilterCount > 0" class="filter-indicator">
+                  ({{ filterMode === 'include' ? 'Including' : 'Excluding' }} {{ activeFilterCount }} container{{ activeFilterCount !== 1 ? 's' : '' }})
+                </span>
               </td>
             </tr>
             <tr v-else>
@@ -493,6 +866,146 @@ const cleanup = () => {
 
   .title-left {
     display: flex;
+  }
+
+  .container-filter-btn {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+
+    &.has-filters {
+      border: 1px solid var(--primary);
+    }
+
+    .filter-badge {
+      position: absolute;
+      top: -5px;
+      right: -5px;
+      background: var(--error);
+      color: white;
+      border-radius: 50%;
+      width: 18px;
+      height: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: bold;
+    }
+
+    .filter-btn-text {
+      white-space: nowrap;
+    }
+  }
+
+  .container-filter-panel {
+    min-width: 300px;
+    max-width: 400px;
+    max-height: 500px;
+    display: flex;
+    flex-direction: column;
+    background: var(--body-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 10px;
+
+    .filter-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+
+      h4 {
+        margin: 0;
+        font-size: 14px;
+      }
+
+      .filter-mode-toggle {
+        display: flex;
+        gap: 5px;
+
+        .btn {
+          padding: 4px 8px;
+          font-size: 12px;
+        }
+      }
+    }
+
+    .filter-presets {
+      display: flex;
+      gap: 5px;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+
+      .btn {
+        padding: 4px 8px;
+        font-size: 11px;
+      }
+    }
+
+    .filter-search {
+      margin-bottom: 10px;
+
+      input {
+        width: 100%;
+      }
+    }
+
+    .container-list {
+      flex: 1;
+      overflow-y: auto;
+      max-height: 250px;
+      margin-bottom: 10px;
+
+      .container-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 8px;
+        cursor: pointer;
+        border-radius: 4px;
+        transition: background-color 0.2s;
+
+        &:hover {
+          background-color: var(--hover-bg);
+        }
+
+        &.is-selected {
+          background-color: var(--primary-hover-bg);
+        }
+
+        &.is-sidecar {
+          opacity: 0.8;
+        }
+
+        .badge {
+          font-size: 10px;
+          padding: 2px 6px;
+        }
+      }
+    }
+
+    .filter-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-top: 10px;
+      border-top: 1px solid var(--border);
+
+      .filter-summary {
+        font-size: 11px;
+        color: var(--muted);
+      }
+    }
+  }
+
+  .filter-indicator {
+    display: block;
+    margin-top: 5px;
+    font-size: 12px;
   }
 </style>
 
