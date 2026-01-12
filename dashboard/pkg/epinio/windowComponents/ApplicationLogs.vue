@@ -67,6 +67,12 @@ const timerFlush = ref<object>(null);
 const isFollowing = ref<boolean>(false);
 const active = ref<boolean>(true);
 const body = ref<HTMLElement>(null);
+const isApplyingFilters = ref<boolean>(false);
+
+// Time-based filter parameters
+const tail = ref<number | null>(null); // Number of lines to show
+const since = ref<string | null>(null); // Duration like "1h", "30m", "24h"
+const sinceTime = ref<string | null>(null); // ISO datetime string from native input
 
 const ansiup = new AnsiUp();
 const timestamps = store.getters['prefs/get'](LOGS_TIME);
@@ -156,29 +162,46 @@ const timeFormatStr = computed(() => {
 const getSocketUrl = async () => {
   const { url, token } = await getRootSocketUrl();
 
+  // Build params object with time-based filters
+  const params: any = {
+    follow: true,
+    authtoken: token
+  };
 
-  //const currentDate = new Date();
-  //const currentUnixTimestampMs = currentDate.getTime();
-  //const oneHourInMs = 60 * 60 * 1000;
-  //const futureUnixTimestampMs = currentUnixTimestampMs + oneHourInMs;
+  // Add optional filter parameters if they have values
+  if (tail.value !== null && tail.value > 0) {
+    params.tail = tail.value;
+  }
 
-  return addParams(url, { follow: true, authtoken: token });
+  // Add time-based filters (since_seconds or since duration)
+  if (sinceTime.value) {
+    const selectedTime = new Date(sinceTime.value).getTime();
+    const secondsAgo = Math.floor((Date.now() - selectedTime) / 1000);
+
+    if (secondsAgo > 0) {
+      params.since_seconds = secondsAgo;
+    }
+  } else if (since.value) {
+    params.since = since.value; // Duration like "1h", "30m", "24h"
+  }
+
+  return addParams(url, params);
 };
 
 const connect = async () => {
+  console.log('Connecting to application logs socket...');
+  // Disconnect existing socket and clear logs
   if (socket.value) {
+    console.log('Disconnecting existing socket...');
     await socket.value.disconnect();
     socket.value = null;
-    lines.value = [];
   }
-
   lines.value = [];
 
   const url = await getSocketUrl();
+
   socket.value = new Socket(url, true, 0);
-  socket.value.setAutoReconnectUrl(async() => {
-    return await getSocketUrl();
-  });
+  socket.value.setAutoReconnectUrl(getSocketUrl);
 
   socket.value.addEventListener(EVENT_CONNECTED, () => {
     isOpen.value = true;
@@ -190,7 +213,7 @@ const connect = async () => {
 
   socket.value.addEventListener(EVENT_CONNECT_ERROR, (e: any) => {
     isOpen.value = false;
-    console.error('Connect Error', e);
+    console.error('WebSocket Connect Error', e);
   });
 
   socket.value.addEventListener(EVENT_MESSAGE, async (e: any) => {
@@ -206,6 +229,22 @@ const connect = async () => {
     const { PodName, ContainerName, Message, Timestamp } = parsedData;
 
     const line = `[${ PodName }] ${ ContainerName } ${ Message }`;
+
+    // If logs are being filtered, make sure there are no old lines, and
+    // ensure there aren't repeat lines.
+    if (
+      tail.value != undefined ||
+      since.value != undefined ||
+      sinceTime.value != undefined
+    ) {
+      lines.value.length = 0;
+    }
+
+    if (line == "[]  ___FILTER_COMPLETE___") {
+      isApplyingFilters.value = false;
+      return;
+    }
+
     backlog.value.push({
       id:     lastId.value++,
       msg:    props.ansiToHtml ? ansiup.ansi_to_html(line) : line,
@@ -273,6 +312,44 @@ const cleanup = () => {
 
   clearInterval(timerFlush.value);
 };
+
+const applyFilters = async () => {
+  // Prevent multiple simultaneous reconnections
+  if (isApplyingFilters.value) {
+    return;
+  }
+
+  isApplyingFilters.value = true;
+
+  try {
+    // Clear conflicting filters
+    if (sinceTime.value && since.value) {
+      sinceTime.value = undefined;
+    }
+
+    let sinceTimeParsed = undefined;
+    if (sinceTime.value) {
+      sinceTimeParsed = new Date(sinceTime.value).toISOString();
+    }
+
+    const payload = {
+      type: 'filter_params',
+      params: {
+        follow: false,
+        tail: tail.value,
+        since: since.value,
+        since_time: sinceTimeParsed,
+      }
+    };
+
+    const payload_string = JSON.stringify(payload);
+
+    socket.value.send(payload_string);
+
+  } catch (e) {
+    console.error('Error applying log filters:', e);
+  }
+};
 </script>
 
 <template>
@@ -324,6 +401,78 @@ const cleanup = () => {
               {{t(isOpen ? 'wm.connection.connected' : 'wm.connection.disconnected')}}
             </span>
           </div>
+          <div class="log-action ml-5">
+            <VDropdown placement="top-end">
+              <button class="btn bg-primary">
+                <i class="icon icon-gear" />
+              </button>
+              <template #popper>
+                <div class="filter-popup">
+                  <Checkbox
+                    v-model:value="wrap"
+                    :label="t('wm.containerLogs.wrap')"
+                    @update:value="toggleWrap"
+                  />
+
+                  <div class="filter-section">
+                    <label class="text-label">Tail (number of lines)</label>
+                    <input
+                      v-model.number="tail"
+                      type="number"
+                      class="form-control"
+                      placeholder="e.g., 100"
+                      min="1"
+                    >
+                  </div>
+
+                  <div class="filter-section">
+                    <label class="text-label">Since (duration)</label>
+                    <input
+                      v-model="since"
+                      type="text"
+                      class="form-control"
+                      placeholder="e.g., 1h, 30m, 24h"
+                      :disabled="!!sinceTime"
+                    >
+                    <small class="text-muted">Use this OR Since Time below</small>
+                  </div>
+
+                  <div class="filter-section">
+                    <label class="text-label">Since Time (absolute date)</label>
+                    <input
+                      v-model="sinceTime"
+                      type="datetime-local"
+                      class="form-control"
+                      :disabled="!!since"
+                    >
+                    <small class="text-muted">Use this OR Since above</small>
+                  </div>
+
+                  <div>
+                    <button
+                      class="btn btn-sm bg-primary mt-10"
+                      :disabled="isApplyingFilters"
+                      @click="applyFilters"
+                    >
+                      {{ isApplyingFilters ? 'Applying...' : 'Apply Filters' }}
+                    </button>
+                    <button
+                      class="btn btn-sm bg-warning mt-10 ml-5"
+                      :disabled="!tail && !since && !sinceTime"
+                      @click="
+                        tail = null;
+                        since = null;
+                        sinceTime = null;
+                        applyFilters();
+                      "
+                    >
+                      Clear Filters
+                    </button>
+                  </div>
+                </div>
+              </template>
+            </VDropdown>
+          </div>
           <div class="log-action  ml-5">
             <input
               v-model="search"
@@ -331,20 +480,6 @@ const cleanup = () => {
               type="search"
               :placeholder="t('wm.containerLogs.search')"
             >
-          </div>
-          <div class="log-action ml-5">
-            <VDropdown placement="top">
-              <button class="btn bg-primary">
-                <i class="icon icon-gear" />
-              </button>
-              <template #popper>
-                <Checkbox
-                  v-model:value="wrap"
-                  :label="t('wm.containerLogs.wrap')"
-                  @update:value="toggleWrap"
-                />
-              </template>
-            </VDropdown>
           </div>
         </div>
       </div>
@@ -486,8 +621,49 @@ const cleanup = () => {
   }
 
   .filter-popup {
+    padding: 10px;
+    width: 280px;
+    position: relative;
+    overflow: visible;
+
     > * {
       margin-bottom: 10px;
+    }
+
+    .filter-section {
+      margin-top: 15px;
+
+      .text-label {
+        display: block;
+        margin-bottom: 5px;
+        font-size: 12px;
+        font-weight: 600;
+      }
+
+      .form-control {
+        width: 100%;
+        padding: 5px 10px;
+        border: 1px solid var(--border);
+        border-radius: 3px;
+        background-color: var(--input-bg);
+        color: var(--input-text);
+
+        &:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+      }
+
+      .text-muted {
+        display: block;
+        margin-top: 3px;
+        font-size: 11px;
+        opacity: 0.7;
+      }
+    }
+
+    .mt-10 {
+      margin-top: 10px;
     }
   }
 

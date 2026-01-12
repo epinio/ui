@@ -15,3 +15,24 @@
 #yaml-tab{
   display: none !important;
 }
+
+.bg-warning {
+  &.btn {
+    // Force dark text in light mode for better contrast with yellow background
+    color: var(--darkest, #141419) !important;
+
+    &:hover {
+      color: var(--darkest, #141419) !important;
+      background: var(--warning-hover-bg);
+    }
+
+    &:active {
+      color: var(--darkest, #141419) !important;
+      background: var(--warning-active-bg);
+    }
+
+    &:disabled {
+      opacity: 0.6;
+    }
+  }
+}
