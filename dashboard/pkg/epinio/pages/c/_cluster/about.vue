@@ -233,10 +233,9 @@ const downloadSupportBundle = async() => {
           :disabled="supportBundleLoading"
         />
         <Checkbox
-          :value="includeApps"
+          v-model:value="includeApps"
           :label="t('epinio.supportBundle.includeApps')"
           :disabled="supportBundleLoading"
-          @input="includeApps = $event"
         />
       </div>
 
