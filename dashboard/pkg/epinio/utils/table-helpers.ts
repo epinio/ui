@@ -3,6 +3,7 @@
  */
 
 import type { Router } from 'vue-router';
+import type { Store } from 'vuex';
 
 /**
  * Create a link resolver function for data-table columns
@@ -106,4 +107,34 @@ export function setupNavigationListener(
       router.push(url);
     }
   }) as EventListener);
+}
+
+/**
+ * Apply namespace filtering to a list of rows
+ * Uses the Vuex store's activeNamespaceCache to filter rows by namespace
+ * @param store - Vuex store instance
+ * @param allRows - All rows to filter
+ * @returns Filtered rows based on active namespace selection
+ */
+export function applyNamespaceFilter(store: Store<any>, allRows: any[]): any[] {
+  // Access the cache key to trigger reactivity on namespace filter changes
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const cacheKey = store.state.activeNamespaceCacheKey;
+  const activeNamespaces = store.state.activeNamespaceCache;
+
+  // If no namespace filter exists, or if it's empty (no namespaces loaded yet), show all rows
+  if (!activeNamespaces || Object.keys(activeNamespaces).length === 0) {
+    return allRows;
+  }
+
+  // Filter rows by namespace
+  return allRows.filter((row: any) => {
+    const namespace = row.meta?.namespace;
+    // If row has no namespace, show it by default
+    if (!namespace) {
+      return true;
+    }
+    // Check if this namespace is in the active filter
+    return activeNamespaces[namespace];
+  });
 }

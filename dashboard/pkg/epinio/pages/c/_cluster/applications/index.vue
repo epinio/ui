@@ -2,8 +2,8 @@
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
 import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
-import '@krumio/trailhand-ui/Components/data-table.js';
-import '@krumio/trailhand-ui/Components/action-menu.js';
+import '@krumio/trailhand-ui/data-table';
+import '@krumio/trailhand-ui/action-menu';
 
 import type { DataTableColumn } from '../../../../components/tables/types';
 import Loading from '@shell/components/Loading';
@@ -13,7 +13,7 @@ import { EPINIO_TYPES } from '../../../../types';
 import { createEpinioRoute } from '../../../../utils/custom-routing';
 
 import { startPolling, stopPolling } from '../../../../utils/polling';
-import { createLinkResolver, setupNavigationListener } from '../../../../utils/table-helpers';
+import { createLinkResolver, setupNavigationListener, applyNamespaceFilter } from '../../../../utils/table-helpers';
 
 const store = useStore();
 const router = useRouter();
@@ -34,9 +34,10 @@ const rows = computed(() => store.getters['epinio/all'](resource));
 
 // Group applications by namespace
 const groupedByNamespace = computed(() => {
+  const filteredRows = applyNamespaceFilter(store, rows.value);
   const groups: Record<string, any[]> = {};
 
-  rows.value.forEach((app: any) => {
+  filteredRows.forEach((app: any) => {
     const namespace = app.meta?.namespace || 'default';
     if (!groups[namespace]) {
       groups[namespace] = [];

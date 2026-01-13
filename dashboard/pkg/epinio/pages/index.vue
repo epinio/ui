@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import '@krumio/trailhand-ui/Components/data-table.js';
-import '@krumio/trailhand-ui/Components/action-menu.js';
+import '@krumio/trailhand-ui/data-table';
+import '@krumio/trailhand-ui/action-menu';
 import { ref, onMounted, nextTick, watch } from 'vue';
 import { useStore } from 'vuex';
 

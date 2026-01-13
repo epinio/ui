@@ -1,13 +1,13 @@
 <script setup lang="ts">
-import '@krumio/trailhand-ui/Components/data-table.js';
-import '@krumio/trailhand-ui/Components/action-menu.js';
+import '@krumio/trailhand-ui/data-table';
+import '@krumio/trailhand-ui/action-menu';
 import type { DataTableColumn } from '../components/tables/types';
 import { EPINIO_TYPES } from '../types';
 
 import { useStore } from 'vuex';
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
 import { startPolling, stopPolling } from '../utils/polling';
-import { createDataTable, setupActionListener } from '../utils/table-helpers';
+import { createDataTable, setupActionListener, applyNamespaceFilter } from '../utils/table-helpers';
 
 const store = useStore();
 
@@ -17,7 +17,8 @@ const pending = ref<boolean>(true);
 const tableContainer = ref<HTMLElement | null>(null);
 
 const rows = computed(() => {
-  return store.getters['epinio/all'](EPINIO_TYPES.APP_CHARTS);
+  const allRows = store.getters['epinio/all'](EPINIO_TYPES.APP_CHARTS);
+  return applyNamespaceFilter(store, allRows);
 });
 
 const columns: DataTableColumn[] = [

@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import '@krumio/trailhand-ui/Components/data-table.js';
-import '@krumio/trailhand-ui/Components/action-menu.js';
+import '@krumio/trailhand-ui/data-table';
+import '@krumio/trailhand-ui/action-menu';
 import type { DataTableColumn } from '../components/tables/types';
 import { EPINIO_TYPES } from '../types';
 
@@ -8,7 +8,7 @@ import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
 import { startPolling, stopPolling } from '../utils/polling';
-import { createDataTable, setupActionListener, setupNavigationListener, createLinkResolver } from '../utils/table-helpers';
+import { createDataTable, setupActionListener, setupNavigationListener, createLinkResolver, applyNamespaceFilter } from '../utils/table-helpers';
 
 const store = useStore();
 const router = useRouter();
@@ -19,7 +19,8 @@ const pending = ref<boolean>(true);
 const tableContainer = ref<HTMLElement | null>(null);
 
 const rows = computed(() => {
-  return store.getters['epinio/all'](EPINIO_TYPES.CONFIGURATION);
+  const allRows = store.getters['epinio/all'](EPINIO_TYPES.CONFIGURATION);
+  return applyNamespaceFilter(store, allRows);
 });
 
 // Custom formatters
@@ -56,7 +57,7 @@ const columns: DataTableColumn[] = [
     label: 'No. of Variables'
   },
   {
-    field: 'meta.createdBy',
+    field: 'configuration.user',
     label: 'Created By'
   },
   {

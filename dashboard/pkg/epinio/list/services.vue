@@ -1,14 +1,14 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed, nextTick, watch } from 'vue';
-import '@krumio/trailhand-ui/Components/data-table.js';
-import '@krumio/trailhand-ui/Components/action-menu.js';
+import '@krumio/trailhand-ui/data-table';
+import '@krumio/trailhand-ui/action-menu';
 
 import { EPINIO_TYPES } from '../types';
 import type { DataTableColumn } from '../components/tables/types';
 import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
 import { startPolling, stopPolling } from '../utils/polling';
-import { createDataTable, setupActionListener, setupNavigationListener, createLinkResolver } from '../utils/table-helpers';
+import { createDataTable, setupActionListener, setupNavigationListener, createLinkResolver, applyNamespaceFilter } from '../utils/table-helpers';
 
 const pending = ref(true);
 const store = useStore();
@@ -35,7 +35,8 @@ onUnmounted(() => {
 });
 
 const rows = computed(() => {
-  return store.getters['epinio/all'](EPINIO_TYPES.SERVICE_INSTANCE);
+  const allRows = store.getters['epinio/all'](EPINIO_TYPES.SERVICE_INSTANCE);
+  return applyNamespaceFilter(store, allRows);
 });
 
 // Custom formatters

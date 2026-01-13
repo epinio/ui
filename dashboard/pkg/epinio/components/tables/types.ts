@@ -44,6 +44,34 @@ export const dataTableFormatters = {
   dateTime: (value: any): string => {
     if (!value) return '-';
     return new Date(value).toLocaleString();
+  },
+
+  /**
+   * Format memory bytes to human readable format (B, KB, MB, GB, TB)
+   */
+  memory: (value: any): string => {
+    if (!value || value === 0) return '0 B';
+
+    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    let val = Number(value);
+    let unitIndex = 0;
+
+    while (val >= 1024 && unitIndex < units.length - 1) {
+      val = val / 1024;
+      unitIndex++;
+    }
+
+    return `${Math.round(val)} ${units[unitIndex]}`;
+  },
+
+  /**
+   * Format millicpus value
+   */
+  milliCPUs: (value: any): string => {
+    if (!value || value === 0) return '0';
+
+    const formatted = Math.round(Number(value)).toString();
+    return formatted === '0' ? '0' : formatted;
   }
 };
 
