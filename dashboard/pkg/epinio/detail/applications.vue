@@ -302,11 +302,17 @@ const commitPosition = computed(() => {
       </ApplicationCard>
     </div>
 
-    <h3 class="mt-20">
+    <h3
+      v-if="value.deployment"
+      class="mt-20"
+    >
       {{ t('epinio.applications.detail.deployment.label') }}
     </h3>
 
-    <div class="deployment">
+    <div
+      v-if="value.deployment"
+      class="deployment"
+    >
       <!-- Source information -->
       <Tabbed>
         <Tab
@@ -438,7 +444,7 @@ const commitPosition = computed(() => {
                     <span v-else>{{ d.value }}</span>
                   </li>
 
-                  <li v-if="value.deployment">
+                  <li>
                     <h4>{{ t('epinio.applications.tableHeaders.deployedBy') }}</h4>
                     <span> {{ value.deployment.username }}</span>
                   </li>

@@ -243,17 +243,15 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
   }
 
   get desiredInstances() {
-    return this.deployment?.desiredreplicas ?? this.configuration?.instances ?? 0;
+    return this.deployment?.desiredreplicas;
   }
 
   set desiredInstances(neu) {
-    if (this.deployment) {
-      this.deployment.desiredreplicas = neu;
-    }
+    this.deployment.desiredreplicas = neu;
   }
 
   get readyInstances() {
-    return this.deployment?.readyreplicas ?? 0;
+    return this.deployment?.readyreplicas;
   }
 
   get cpu() {
