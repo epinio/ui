@@ -37,6 +37,8 @@ const store = useStore();
 
 const t = store.getters['i18n/t'];
 
+console.log('////////////////////// appplications.vue props.value:', props.value);
+
 const bindings = reactive<EpinioAppBindings>({ configurations: [], services: [] });
 const source = ref<EpinioAppSource>(props.value.appSource);
 const errors = ref<string[]>([]);
