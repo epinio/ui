@@ -9,7 +9,10 @@ export const bulkRemove = async(items, opt = {}) => {
     opt.url = model.linkFor('self').replace(/\/[^\/]+$/, '?'); // eslint-disable-line no-useless-escape
   }
   opt.method = 'delete';
-  opt.data = JSON.stringify({ unmounted: true });
+
+  // Check if any items have the deleteImage flag set
+  const deleteImage = items.some(item => item._deleteImage);
+  opt.data = JSON.stringify({ unmounted: true, ...(deleteImage && { deleteImage: true }) });
 
   // Separates the resources by namespace
   const _byNamespace = items.reduce((acc, cur) => {
