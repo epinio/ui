@@ -73,17 +73,8 @@ const emit = defineEmits<{
 }>();
 
 // Defaults
-const defaultBuilderImage = ref(props.info?.default_builder_image || DEFAULT_BUILD_PACK);
+const defaultBuilderImage = ref(props.info?.default_builder_image || DEFAULT_BUILD_PACK); 
 const builderImageValue = ref(props.source?.builderImage || defaultBuilderImage.value);
-
-// console.log('props:', JSON.stringify(props)); 
-console.log('//////////////////// AppSource props.application', props.application);
-console.log('//////////////////// AppSource props.source:', (props.source));
-console.log('//////////////////// AppSource props.source:', (props.source?.builderImage));
-// console.log('props.source?.builderImage?.value :', props.source?.builderImage?.value);
-// console.log('//////////////////// AppSource props.application.staging.builderImage:', props.application.staging.builder);
-// console.log('Default Builder Image:', defaultBuilderImage.value);
-// console.log('Builder Image Value:', builderImageValue.value);
 
 // Reactive State
 const open = ref(false);
@@ -211,7 +202,7 @@ function onImageType(defaultImage: boolean) {
   }
   builderImage.default = defaultImage;
   update();
-}
+} 
 
 function gitUpdate({ repo, selectedAccOrOrg, branch, commit, sourceData }: any) {
   if (!!selectedAccOrOrg && !!repo && !!commit && !!branch) {
