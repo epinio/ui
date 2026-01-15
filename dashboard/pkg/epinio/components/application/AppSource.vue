@@ -73,8 +73,8 @@ const emit = defineEmits<{
 }>();
 
 // Defaults
-const defaultBuilderImage = ref(props.info?.default_builder_image || DEFAULT_BUILD_PACK);
-const builderImageValue = ref(props.source?.builderImage?.value || defaultBuilderImage.value);
+const defaultBuilderImage = ref(props.info?.default_builder_image || DEFAULT_BUILD_PACK); 
+const builderImageValue = ref(props.source?.builderImage || defaultBuilderImage.value);
 
 // Reactive State
 const open = ref(false);
@@ -197,10 +197,12 @@ function updateConfigurations(configs: string[]) {
 function onImageType(defaultImage: boolean) {
   if (defaultImage) {
     builderImage.value = defaultBuilderImage.value;
+  } else {
+    builderImage.value = builderImageValue.value;
   }
   builderImage.default = defaultImage;
   update();
-}
+} 
 
 function gitUpdate({ repo, selectedAccOrOrg, branch, commit, sourceData }: any) {
   if (!!selectedAccOrOrg && !!repo && !!commit && !!branch) {
@@ -484,7 +486,7 @@ onMounted(() => {
           ]"
           :options="[true, false]"
           :label-key="'epinio.applications.steps.source.archive.builderimage.label'"
-          @input="onImageType"
+          @update:value="onImageType"
         />
         <LabeledInput
           v-model:value="builderImage.value"
