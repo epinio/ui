@@ -61,7 +61,7 @@ const emit = defineEmits<{
 }>();
 
 // Defaults
-const defaultBuilderImage = ref(props.info?.default_builder_image || DEFAULT_BUILD_PACK);
+const defaultBuilderImage = ref(props.info?.default_builder_image || DEFAULT_BUILD_PACK); 
 const builderImageValue = ref(props.source?.builderImage || defaultBuilderImage.value);
 
 // Reactive State
@@ -190,7 +190,7 @@ function onImageType(defaultImage: boolean) {
   }
   builderImage.default = defaultImage;
   update();
-}
+} 
 
 function gitUpdate({ repo, selectedAccOrOrg, branch, commit, sourceData }: any) {
   if (!!selectedAccOrOrg && !!repo && !!commit && !!branch) {

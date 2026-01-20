@@ -37,8 +37,6 @@ const store = useStore();
 
 const t = store.getters['i18n/t'];
 
-console.log('////////////////////// appplications.vue props.value:', props.value);
-
 const bindings = reactive<EpinioAppBindings>({ configurations: [], services: [] });
 const source = ref<EpinioAppSource>(props.value.appSource);
 const errors = ref<string[]>([]);
@@ -75,7 +73,6 @@ onMounted(async () => {
     charts: store.dispatch('epinio/findAll', { type: EPINIO_TYPES.APP_CHARTS }),
     info: store.dispatch('epinio/info'),
   });
-
   epinioInfo.value = (hash as { info: any }).info;
 });
 
@@ -221,7 +218,7 @@ function validate(value: boolean, tab: string) {
           >
             <template #source>
               <AppSource
-                v-if="source"
+                v-if="source && epinioInfo"
                 :application="value"
                 :source="source"
                 :mode="mode"
