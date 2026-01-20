@@ -306,7 +306,8 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
       git:       isGitRepo(source.type) ? source[source.type] : null,
       gitUrl:    source.git_url,
       container: source.container_url,
-      archive:   source.archive
+      archive:   source.archive,
+      builderImage: source.builderImage,
     };
   }
 
