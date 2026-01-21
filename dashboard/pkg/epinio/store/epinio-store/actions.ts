@@ -6,6 +6,7 @@ import { NAMESPACE_FILTERS } from '@shell/store/prefs';
 import { createNamespaceFilterKeyWithId } from '@shell/utils/namespace-filter';
 import { parse as parseUrl, stringify as unParseUrl } from '@shell/utils/url';
 import epinioAuth, { EpinioAuthTypes } from '../../utils/auth';
+import { isQuotaExceededError, getQuotaExceededMessage } from '../../utils/errors';
 
 import {
   EpinioInfo,
@@ -139,6 +140,15 @@ export default {
           } else {
             return Promise.reject(new RedirectToError('Auth failed, return user to epinio cluster list', `/epinio`));
           }
+        } else if (isQuotaExceededError(err)) {
+          // Quota exceeded error - can be HTTP 500 (with QuotaExceeded in body) or HTTP 507
+          // Show a prominent error notification with actionable guidance
+          const message = getQuotaExceededMessage(err);
+          dispatch('growl/error', {
+            title:   'Storage Quota Exceeded',
+            message: `${message}\n\nPlease delete unused applications or contact your administrator to increase storage quota.`,
+            timeout: 10000, // Show for 10 seconds
+          }, { root: true });
         } else if (growlOnError) {
           dispatch('growl/fromError', { title: `Epinio Request to ${ opt.url }`, err }, { root: true });
         }
