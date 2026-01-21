@@ -178,7 +178,7 @@ const moveBooleansToFront = (settingsObj: any) => {
         :description-hidden="true"
         :value="{metadata: values.meta}"
         :mode="props.mode"
-        @change="update"
+        @update:value="update"
         @createNamespace="ns => values.meta.namespace = ns"
       />
     </div>
