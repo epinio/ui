@@ -545,12 +545,11 @@ watch([selectedContainers, excludedContainers, filterMode], () => {
             >
               <i class="icon icon-filter" />
               <span v-if="activeFilterCount > 0" class="filter-badge">{{ activeFilterCount }}</span>
-              <span class="filter-btn-text">Containers</span>
+              Containers
             </button>
             <template #popper>
               <div class="container-filter-panel">
                 <div class="filter-header">
-                  <h4>Container Filter</h4>
                   <div class="filter-mode-toggle">
                     <button
                       class="btn btn-sm"
@@ -569,27 +568,6 @@ watch([selectedContainers, excludedContainers, filterMode], () => {
                   </div>
                 </div>
 
-                <div class="filter-presets">
-                  <button
-                    class="btn btn-sm bg-secondary"
-                    @click="applyPreset('hide-sidecars')"
-                  >
-                    Hide Sidecars
-                  </button>
-                  <button
-                    class="btn btn-sm bg-secondary"
-                    @click="applyPreset('show-app-only')"
-                  >
-                    Show App Only
-                  </button>
-                  <button
-                    class="btn btn-sm bg-secondary"
-                    @click="applyPreset('show-all')"
-                  >
-                    Show All
-                  </button>
-                </div>
-
                 <div class="filter-search">
                   <input
                     v-model="containerSearch"
@@ -597,6 +575,27 @@ watch([selectedContainers, excludedContainers, filterMode], () => {
                     type="search"
                     placeholder="Search containers..."
                   />
+                </div>
+
+                <div class="filter-presets">
+                  <button
+                    class="btn btn-sm"
+                    @click="applyPreset('hide-sidecars')"
+                  >
+                    Hide Sidecars
+                  </button>
+                  <button
+                    class="btn btn-sm"
+                    @click="applyPreset('show-app-only')"
+                  >
+                    Show App Only
+                  </button>
+                  <button
+                    class="btn btn-sm"
+                    @click="applyPreset('show-all')"
+                  >
+                    Show All
+                  </button>
                 </div>
 
                 <div class="container-list">
@@ -893,10 +892,6 @@ watch([selectedContainers, excludedContainers, filterMode], () => {
       font-size: 11px;
       font-weight: bold;
     }
-
-    .filter-btn-text {
-      white-space: nowrap;
-    }
   }
 
   .container-filter-panel {
@@ -905,31 +900,35 @@ watch([selectedContainers, excludedContainers, filterMode], () => {
     max-height: 500px;
     display: flex;
     flex-direction: column;
-    background: var(--body-bg);
-    border: 1px solid var(--border);
+    background: #A8B7E2;
+    border: 1px solid #2E3034;
     border-radius: 4px;
     padding: 10px;
+    color: #2E3034;
 
     .filter-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
       margin-bottom: 10px;
       padding-bottom: 10px;
-      border-bottom: 1px solid var(--border);
-
-      h4 {
-        margin: 0;
-        font-size: 14px;
-      }
+      border-bottom: 1px solid #2E3034;
 
       .filter-mode-toggle {
         display: flex;
         gap: 5px;
+      }
+    }
 
-        .btn {
-          padding: 4px 8px;
-          font-size: 12px;
+    .filter-search {
+      margin-bottom: 10px;
+
+      input {
+        width: 100%;
+        background: white;
+        color: #2E3034;
+        border: 1px solid #2E3034;
+
+        &::placeholder {
+          color: #2E3034;
+          opacity: 0.6;
         }
       }
     }
@@ -939,19 +938,6 @@ watch([selectedContainers, excludedContainers, filterMode], () => {
       gap: 5px;
       margin-bottom: 10px;
       flex-wrap: wrap;
-
-      .btn {
-        padding: 4px 8px;
-        font-size: 11px;
-      }
-    }
-
-    .filter-search {
-      margin-bottom: 10px;
-
-      input {
-        width: 100%;
-      }
     }
 
     .container-list {
@@ -959,6 +945,7 @@ watch([selectedContainers, excludedContainers, filterMode], () => {
       overflow-y: auto;
       max-height: 250px;
       margin-bottom: 10px;
+      color: #2E3034;
 
       .container-item {
         display: flex;
@@ -968,17 +955,28 @@ watch([selectedContainers, excludedContainers, filterMode], () => {
         cursor: pointer;
         border-radius: 4px;
         transition: background-color 0.2s;
+        color: #2E3034;
 
         &:hover {
-          background-color: var(--hover-bg);
+          background-color: rgba(255, 255, 255, 0.3);
         }
 
         &.is-selected {
-          background-color: var(--primary-hover-bg);
+          background-color: rgba(255, 255, 255, 0.5);
         }
 
         &.is-sidecar {
           opacity: 0.8;
+        }
+
+        :deep(*) {
+          color: #2E3034;
+        }
+
+        :deep(.checkbox-label),
+        :deep(label),
+        :deep(span:not(.badge)) {
+          color: #2E3034 !important;
         }
 
         .badge {
@@ -993,11 +991,11 @@ watch([selectedContainers, excludedContainers, filterMode], () => {
       justify-content: space-between;
       align-items: center;
       padding-top: 10px;
-      border-top: 1px solid var(--border);
+      border-top: 1px solid #2E3034;
 
       .filter-summary {
         font-size: 11px;
-        color: var(--muted);
+        color: #2E3034;
       }
     }
   }
