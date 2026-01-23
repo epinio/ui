@@ -92,6 +92,7 @@ const filterMode = ref<'include' | 'exclude'>('exclude');
 const containerFilterOpen = ref<boolean>(false);
 const containerSearch = ref<string>('');
 const loadingContainers = ref<boolean>(false);
+const showAppLogs = ref<boolean>(true);
 
 onMounted(async () => {
   await fetchContainers();
@@ -122,14 +123,48 @@ const instanceChoicesWithNone = computed(() => {
 });
 
 const filtered = computed(() => {
+  let filteredLines = lines.value;
+
+  // Filter out excluded containers from existing logs
+  if (excludedContainers.value.size > 0) {
+    filteredLines = filteredLines.filter(line => {
+      // Extract container name from log line format: [PodName] ContainerName Message
+      const match = line.rawMsg.match(/\[[^\]]+\]\s+(\S+)\s+/);
+      if (match && match[1]) {
+        const containerName = match[1];
+        return !excludedContainers.value.has(containerName);
+      }
+      return true; // Keep line if we can't parse container name
+    });
+  }
+
+  // Filter out app logs if showAppLogs is false
+  if (!showAppLogs.value) {
+    filteredLines = filteredLines.filter(line => {
+      // Extract container name from log line format: [PodName] ContainerName Message
+      const match = line.rawMsg.match(/\[[^\]]+\]\s+(\S+)\s+/);
+      if (match && match[1]) {
+        const containerName = match[1];
+        const isSidecarContainer = isSidecar(containerName);
+        // App logs are from containers that are NOT sidecars
+        // Keep only sidecar logs when app logs are hidden
+        if (!isSidecarContainer) {
+          console.log(`[Filtered] Hiding app log from existing logs, container: ${containerName}`);
+        }
+        return isSidecarContainer;
+      }
+      return true; // Keep line if we can't parse container name
+    });
+  }
+
   if (!search.value && !instance.value) {
-    return lines.value;
+    return filteredLines;
   }
 
   const re = new RegExp(escapeRegex(search.value), 'img');
   const out = [];
 
-  for (const line of lines.value) {
+  for (const line of filteredLines) {
     let msg = line.rawMsg;
 
     if (instance.value) {
@@ -196,14 +231,18 @@ const getSocketUrl = async () => {
   return addParams(url, params);
 };
 
-const connect = async () => {
+const connect = async (preserveLogs = false) => {
   if (socket.value) {
     await socket.value.disconnect();
     socket.value = null;
-    lines.value = [];
+    if (!preserveLogs) {
+      lines.value = [];
+    }
   }
 
-  lines.value = [];
+  if (!preserveLogs) {
+    lines.value = [];
+  }
 
   const url = await getSocketUrl();
   socket.value = new Socket(url, true, 0);
@@ -235,6 +274,17 @@ const connect = async () => {
     }
 
     const { PodName, ContainerName, Message, Timestamp } = parsedData;
+
+    // Filter out excluded containers client-side as a safety measure
+    if (ContainerName && excludedContainers.value.has(ContainerName)) {
+      return; // Skip this log if container is excluded
+    }
+
+    // Filter out app logs if showAppLogs is false
+    // App logs are from containers that are NOT sidecars
+    if (!showAppLogs.value && ContainerName && !isSidecar(ContainerName)) {
+      return; // Skip this log if it's an app log and app logs are hidden
+    }
 
     // Extract container name from log data if not already discovered
     // This is especially important for staging logs where pods API may not be available
@@ -399,16 +449,6 @@ const fetchContainers = async () => {
     );
 
     availableContainers.value = uniqueContainers;
-
-    // Auto-exclude common sidecars on first load
-    if (excludedContainers.value.size === 0) {
-      const commonSidecars = ['istio-proxy', 'linkerd-proxy', 'linkerd-init'];
-      commonSidecars.forEach(sidecar => {
-        if (uniqueContainers.some(c => c.name === sidecar)) {
-          excludedContainers.value.add(sidecar);
-        }
-      });
-    }
   } catch (error) {
     console.warn('Failed to fetch containers:', error);
     // If pods API doesn't exist, try to extract from log data as fallback
@@ -418,26 +458,23 @@ const fetchContainers = async () => {
 };
 
 // Container filtering functions
-const toggleContainer = (containerName: string) => {
-  if (filterMode.value === 'include') {
-    if (selectedContainers.value.has(containerName)) {
-      selectedContainers.value.delete(containerName);
-    } else {
-      selectedContainers.value.add(containerName);
-    }
+const toggleContainer = (containerName: string, checked: boolean) => {
+  // checked = true means show logs (not excluded)
+  // checked = false means hide logs (excluded)
+  if (checked) {
+    // Checkbox is checked - remove from exclusion list to show logs
+    excludedContainers.value.delete(containerName);
   } else {
-    if (excludedContainers.value.has(containerName)) {
-      excludedContainers.value.delete(containerName);
-    } else {
-      excludedContainers.value.add(containerName);
-    }
+    // Checkbox is unchecked - add to exclusion list to hide logs
+    excludedContainers.value.add(containerName);
   }
   applyFilters();
 };
 
 const applyFilters = async () => {
-  // Reconnect with new filters
-  await connect();
+  // Reconnect with new filters, but preserve existing logs
+  // Filter existing logs client-side while waiting for new filtered logs
+  await connect(true);
 };
 
 const clearFilters = () => {
@@ -446,49 +483,21 @@ const clearFilters = () => {
   applyFilters();
 };
 
-const applyPreset = (preset: 'hide-sidecars' | 'show-all' | 'show-app-only') => {
-  if (preset === 'show-all') {
-    clearFilters();
-    return;
-  }
-
-  if (preset === 'hide-sidecars') {
-    excludedContainers.value.clear();
-    const sidecarPatterns = ['istio-', 'linkerd-'];
-    availableContainers.value.forEach(container => {
-      if (sidecarPatterns.some(pattern => container.name.startsWith(pattern))) {
-        excludedContainers.value.add(container.name);
-      }
-    });
-  } else if (preset === 'show-app-only') {
-    // Exclude all sidecars, show only app containers
-    excludedContainers.value.clear();
-    const sidecarPatterns = ['istio-', 'linkerd-', 'envoy-'];
-    availableContainers.value.forEach(container => {
-      if (sidecarPatterns.some(pattern => container.name.startsWith(pattern))) {
-        excludedContainers.value.add(container.name);
-      }
-    });
-  }
-
-  applyFilters();
-};
-
 const isContainerSelected = (containerName: string): boolean => {
-  if (filterMode.value === 'include') {
-    return selectedContainers.value.has(containerName);
-  } else {
-    return excludedContainers.value.has(containerName);
-  }
+  // Checked = not excluded (default all checked)
+  return !excludedContainers.value.has(containerName);
 };
 
 const filteredContainers = computed(() => {
+  // Only show sidecar containers
+  const sidecarContainers = availableContainers.value.filter(c => isSidecar(c.name));
+  
   if (!containerSearch.value) {
-    return availableContainers.value;
+    return sidecarContainers;
   }
 
   const searchLower = containerSearch.value.toLowerCase();
-  return availableContainers.value.filter(c =>
+  return sidecarContainers.filter(c =>
     c.name.toLowerCase().includes(searchLower) ||
     c.podName.toLowerCase().includes(searchLower)
   );
@@ -503,9 +512,11 @@ const activeFilterCount = computed(() => {
 });
 
 const isSidecar = (containerName: string): boolean => {
-  const sidecarPatterns = ['istio-', 'linkerd-', 'envoy-'];
+  if (!containerName) return false;
+  const sidecarPatterns = ['istio-', 'linkerd-', 'envoy-', 'sidecar-'];
   return sidecarPatterns.some(pattern => containerName.startsWith(pattern));
 };
+
 
 // Watch for filter changes and reconnect
 watch([selectedContainers, excludedContainers, filterMode], () => {
@@ -549,25 +560,6 @@ watch([selectedContainers, excludedContainers, filterMode], () => {
             </button>
             <template #popper>
               <div class="container-filter-panel">
-                <div class="filter-header">
-                  <div class="filter-mode-toggle">
-                    <button
-                      class="btn btn-sm"
-                      :class="{'bg-primary': filterMode === 'include'}"
-                      @click="filterMode = 'include'"
-                    >
-                      Include
-                    </button>
-                    <button
-                      class="btn btn-sm"
-                      :class="{'bg-primary': filterMode === 'exclude'}"
-                      @click="filterMode = 'exclude'"
-                    >
-                      Exclude
-                    </button>
-                  </div>
-                </div>
-
                 <div class="filter-search">
                   <input
                     v-model="containerSearch"
@@ -577,25 +569,12 @@ watch([selectedContainers, excludedContainers, filterMode], () => {
                   />
                 </div>
 
-                <div class="filter-presets">
-                  <button
-                    class="btn btn-sm"
-                    @click="applyPreset('hide-sidecars')"
-                  >
-                    Hide Sidecars
-                  </button>
-                  <button
-                    class="btn btn-sm"
-                    @click="applyPreset('show-app-only')"
-                  >
-                    Show App Only
-                  </button>
-                  <button
-                    class="btn btn-sm"
-                    @click="applyPreset('show-all')"
-                  >
-                    Show All
-                  </button>
+                <div class="filter-app-checkbox">
+                  <Checkbox
+                    :value="showAppLogs"
+                    label="app"
+                    @update:value="(checked: boolean) => showAppLogs = checked"
+                  />
                 </div>
 
                 <div class="container-list">
@@ -613,26 +592,20 @@ watch([selectedContainers, excludedContainers, filterMode], () => {
                       class="container-item"
                       :class="{
                         'is-sidecar': isSidecar(container.name),
-                        'is-selected': isContainerSelected(container.name)
+                        'is-selected': isContainerSelected(container.name),
+                        'active-nav': isContainerSelected(container.name)
                       }"
-                      @click="toggleContainer(container.name)"
                     >
                       <Checkbox
                         :value="isContainerSelected(container.name)"
                         :label="container.name"
-                        @update:value="toggleContainer(container.name)"
+                        @update:value="(checked) => toggleContainer(container.name, checked)"
                       />
                       <span
                         v-if="container.isInitContainer"
                         class="badge badge-sm bg-info"
                       >
                         init
-                      </span>
-                      <span
-                        v-if="isSidecar(container.name)"
-                        class="badge badge-sm bg-secondary"
-                      >
-                        sidecar
                       </span>
                     </div>
                     <div
@@ -645,19 +618,8 @@ watch([selectedContainers, excludedContainers, filterMode], () => {
                 </div>
 
                 <div class="filter-footer">
-                  <button
-                    class="btn btn-sm"
-                    @click="clearFilters"
-                  >
-                    Clear Filters
-                  </button>
-                  <div class="filter-summary">
-                    <span v-if="filterMode === 'include'">
-                      Showing {{ selectedContainers.size }} of {{ availableContainers.length }} containers
-                    </span>
-                    <span v-else>
-                      Excluding {{ excludedContainers.size }} of {{ availableContainers.length }} containers
-                    </span>
+                  <div class="filter-instruction">
+                    Uncheck the container name to exclude their logs.
                   </div>
                 </div>
               </div>
@@ -900,44 +862,24 @@ watch([selectedContainers, excludedContainers, filterMode], () => {
     max-height: 500px;
     display: flex;
     flex-direction: column;
-    background: #A8B7E2;
-    border: 1px solid #2E3034;
+    background: var(--body-bg);
+    border: 1px solid var(--border);
     border-radius: 4px;
     padding: 10px;
-    color: #2E3034;
+    color: var(--body-text);
 
-    .filter-header {
-      margin-bottom: 10px;
-      padding-bottom: 10px;
-      border-bottom: 1px solid #2E3034;
-
-      .filter-mode-toggle {
-        display: flex;
-        gap: 5px;
-      }
-    }
 
     .filter-search {
       margin-bottom: 10px;
 
       input {
         width: 100%;
-        background: white;
-        color: #2E3034;
-        border: 1px solid #2E3034;
-
-        &::placeholder {
-          color: #2E3034;
-          opacity: 0.6;
-        }
       }
     }
 
-    .filter-presets {
-      display: flex;
-      gap: 5px;
+    .filter-app-checkbox {
       margin-bottom: 10px;
-      flex-wrap: wrap;
+      padding: 6px 8px;
     }
 
     .container-list {
@@ -945,7 +887,6 @@ watch([selectedContainers, excludedContainers, filterMode], () => {
       overflow-y: auto;
       max-height: 250px;
       margin-bottom: 10px;
-      color: #2E3034;
 
       .container-item {
         display: flex;
@@ -955,28 +896,25 @@ watch([selectedContainers, excludedContainers, filterMode], () => {
         cursor: pointer;
         border-radius: 4px;
         transition: background-color 0.2s;
-        color: #2E3034;
+        color: var(--body-text);
 
         &:hover {
-          background-color: rgba(255, 255, 255, 0.3);
+          background-color: var(--hover-bg);
         }
 
-        &.is-selected {
-          background-color: rgba(255, 255, 255, 0.5);
+        &.is-selected,
+        &.active-nav {
+          background-color: var(--body-bg);
+          color: var(--body-text);
         }
 
         &.is-sidecar {
           opacity: 0.8;
         }
 
-        :deep(*) {
-          color: #2E3034;
-        }
-
-        :deep(.checkbox-label),
         :deep(label),
-        :deep(span:not(.badge)) {
-          color: #2E3034 !important;
+        :deep(.checkbox-label) {
+          color: var(--body-text);
         }
 
         .badge {
@@ -988,14 +926,14 @@ watch([selectedContainers, excludedContainers, filterMode], () => {
 
     .filter-footer {
       display: flex;
-      justify-content: space-between;
-      align-items: center;
+      flex-direction: column;
       padding-top: 10px;
-      border-top: 1px solid #2E3034;
+      border-top: 1px solid var(--border);
 
-      .filter-summary {
-        font-size: 11px;
-        color: #2E3034;
+      .filter-instruction {
+        font-size: 12px;
+        color: var(--body-text);
+        line-height: 1.4;
       }
     }
   }
