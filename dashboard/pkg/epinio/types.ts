@@ -12,6 +12,8 @@ export const EPINIO_PRODUCT_NAME = 'epinio';
 
 export const EPINIO_MGMT_STORE = 'epiniomgmt';
 
+export const EPINIO_SERVICE_PARAM = 'catalogservice';
+
 // // An endpoint with this name is automatically created by the standalone backend
 export const EPINIO_STANDALONE_CLUSTER_NAME = 'default';
 
