@@ -7,7 +7,6 @@ import {
   computed,
   nextTick,
   PropType,
-  watch,
 } from 'vue';
 
 import Socket, {
@@ -37,11 +36,6 @@ interface ContainerInfo {
   name: string;
   podName: string;
   isInitContainer: boolean;
-}
-
-interface LogFilters {
-  includeContainers: string[];
-  excludeContainers: string[];
 }
 
 const props = defineProps({
@@ -79,24 +73,28 @@ const timerFlush = ref<object>(null);
 const isFollowing = ref<boolean>(false);
 const active = ref<boolean>(true);
 const body = ref<HTMLElement>(null);
+const isApplyingFilters = ref<boolean>(false);
 
-const ansiup = new AnsiUp();
-const timestamps = store.getters['prefs/get'](LOGS_TIME);
-const wrap = ref<boolean>(store.getters['prefs/get'](LOGS_WRAP));
+// Time-based filter parameters
+const tail = ref<number | null>(null); // Number of lines to show
+const since = ref<string | null>(null); // Duration like "1h", "30m", "24h"
+const sinceTime = ref<string | null>(null); // ISO datetime string from native input
 
 // Container filtering state
 const availableContainers = ref<ContainerInfo[]>([]);
 const selectedContainers = ref<Set<string>>(new Set());
 const excludedContainers = ref<Set<string>>(new Set());
 const filterMode = ref<'include' | 'exclude'>('exclude');
-const containerFilterOpen = ref<boolean>(false);
 const containerSearch = ref<string>('');
 const loadingContainers = ref<boolean>(false);
 const showAppLogs = ref<boolean>(true);
 
+const ansiup = new AnsiUp();
+const timestamps = store.getters['prefs/get'](LOGS_TIME);
+const wrap = ref<boolean>(store.getters['prefs/get'](LOGS_WRAP));
+
 onMounted(async () => {
   await fetchContainers();
-  // Connect after containers are fetched so filters can be applied
   await connect();
   let boundUpdateFollowing = updateFollowing.bind(body);
   body.value.addEventListener('scroll', boundUpdateFollowing);
@@ -120,6 +118,27 @@ const instanceChoicesWithNone = computed(() => {
       value: null
     }
   ];
+});
+
+// Compute active filter count
+const activeFilterCount = computed(() => {
+  if (filterMode.value === 'include') {
+    return selectedContainers.value.size;
+  } else {
+    return excludedContainers.value.size;
+  }
+});
+
+// Filter containers for the search
+const filteredContainers = computed(() => {
+  if (!containerSearch.value) {
+    return availableContainers.value;
+  }
+  const searchLower = containerSearch.value.toLowerCase();
+  return availableContainers.value.filter(c =>
+    c.name.toLowerCase().includes(searchLower) ||
+    c.podName.toLowerCase().includes(searchLower)
+  );
 });
 
 const filtered = computed(() => {
@@ -146,11 +165,7 @@ const filtered = computed(() => {
       if (match && match[1]) {
         const containerName = match[1];
         const isSidecarContainer = isSidecar(containerName);
-        // App logs are from containers that are NOT sidecars
         // Keep only sidecar logs when app logs are hidden
-        if (!isSidecarContainer) {
-          console.log(`[Filtered] Hiding app log from existing logs, container: ${containerName}`);
-        }
         return isSidecarContainer;
       }
       return true; // Keep line if we can't parse container name
@@ -214,16 +229,34 @@ const timeFormatStr = computed(() => {
 const getSocketUrl = async () => {
   const { url, token } = await getRootSocketUrl();
 
+  // Build params object with time-based filters
   const params: any = {
     follow: true,
     authtoken: token
   };
 
+  // Add optional time-based filter parameters if they have values
+  if (tail.value !== null && tail.value > 0) {
+    params.tail = tail.value;
+  }
+
+  // Add time-based filters (since_seconds or since duration)
+  if (sinceTime.value) {
+    const selectedTime = new Date(sinceTime.value).getTime();
+    const secondsAgo = Math.floor((Date.now() - selectedTime) / 1000);
+
+    if (secondsAgo > 0) {
+      params.since_seconds = secondsAgo;
+    }
+  } else if (since.value) {
+    params.since = since.value; // Duration like "1h", "30m", "24h"
+  }
+
   // Add container filter parameters
   if (filterMode.value === 'include' && selectedContainers.value.size > 0) {
     params.include_containers = Array.from(selectedContainers.value).join(',');
   }
-  
+
   if (excludedContainers.value.size > 0) {
     params.exclude_containers = Array.from(excludedContainers.value).join(',');
   }
@@ -231,24 +264,20 @@ const getSocketUrl = async () => {
   return addParams(url, params);
 };
 
-const connect = async (preserveLogs = false) => {
+const connect = async () => {
+  console.log('Connecting to application logs socket...');
+  // Disconnect existing socket and clear logs
   if (socket.value) {
+    console.log('Disconnecting existing socket...');
     await socket.value.disconnect();
     socket.value = null;
-    if (!preserveLogs) {
-      lines.value = [];
-    }
   }
-
-  if (!preserveLogs) {
-    lines.value = [];
-  }
+  lines.value = [];
 
   const url = await getSocketUrl();
+
   socket.value = new Socket(url, true, 0);
-  socket.value.setAutoReconnectUrl(async() => {
-    return await getSocketUrl();
-  });
+  socket.value.setAutoReconnectUrl(getSocketUrl);
 
   socket.value.addEventListener(EVENT_CONNECTED, () => {
     isOpen.value = true;
@@ -260,7 +289,7 @@ const connect = async (preserveLogs = false) => {
 
   socket.value.addEventListener(EVENT_CONNECT_ERROR, (e: any) => {
     isOpen.value = false;
-    console.error('Connect Error', e);
+    console.error('WebSocket Connect Error', e);
   });
 
   socket.value.addEventListener(EVENT_MESSAGE, async (e: any) => {
@@ -304,6 +333,12 @@ const connect = async (preserveLogs = false) => {
     }
 
     const line = `[${ PodName }] ${ ContainerName } ${ Message }`;
+
+    if (line == "[]  ___FILTER_COMPLETE___") {
+      isApplyingFilters.value = false;
+      return;
+    }
+
     backlog.value.push({
       id:     lastId.value++,
       msg:    props.ansiToHtml ? ansiup.ansi_to_html(line) : line,
@@ -372,156 +407,167 @@ const cleanup = () => {
   clearInterval(timerFlush.value);
 };
 
-// Check if this is a staging log endpoint
-const isStagingLog = computed(() => {
-  return props.endpoint?.includes('/staging/') || props.endpoint?.includes('/wapi/v1');
-});
+const clearFilters = () => {
+  tail.value = null;
+  since.value = null;
+  sinceTime.value = null;
+  applyFilters();
+};
 
-// Extract stage ID from endpoint if it's a staging log
-const stageId = computed(() => {
-  if (!isStagingLog.value || !props.endpoint) {
-    return null;
-  }
-  const match = props.endpoint.match(/\/staging\/([^/]+)/);
-  return match ? match[1] : null;
-});
-
-// Container discovery
-const fetchContainers = async () => {
-  if (!props.application) {
+const applyFilters = async () => {
+  // Prevent multiple simultaneous reconnections
+  if (isApplyingFilters.value) {
     return;
   }
 
+  isApplyingFilters.value = true;
+
+  // Clear existing lines before applying new filters to prevent duplicates
+  lines.value = [];
+  backlog.value = [];
+
+  try {
+    // Clear conflicting filters
+    if (sinceTime.value && since.value) {
+      sinceTime.value = undefined;
+    }
+
+    let sinceTimeParsed = undefined;
+    if (sinceTime.value) {
+      sinceTimeParsed = new Date(sinceTime.value).toISOString();
+    }
+
+    // Build filter params including container filters
+    const filterParams: any = {
+      follow: false,
+      tail: tail.value,
+      since: since.value,
+      since_time: sinceTimeParsed,
+    };
+
+    // Add container filter parameters
+    if (filterMode.value === 'include' && selectedContainers.value.size > 0) {
+      filterParams.include_containers = Array.from(selectedContainers.value).join(',');
+    }
+
+    if (excludedContainers.value.size > 0) {
+      filterParams.exclude_containers = Array.from(excludedContainers.value).join(',');
+    }
+
+    const payload = {
+      type: 'filter_params',
+      params: filterParams
+    };
+
+    const payload_string = JSON.stringify(payload);
+
+    socket.value.send(payload_string);
+
+    // Safety timeout: reset flag after 5 seconds even if marker not received
+    setTimeout(() => {
+      if (isApplyingFilters.value) {
+        console.warn('Filter complete marker not received, resetting flag');
+        isApplyingFilters.value = false;
+      }
+    }, 5000);
+
+  } catch (e) {
+    console.error('Error applying log filters:', e);
+    isApplyingFilters.value = false;
+  }
+};
+
+// Container filtering functions
+const fetchContainers = async () => {
   loadingContainers.value = true;
   try {
-    const namespace = props.application.meta?.namespace || 'default';
-    const appName = props.application.nameDisplay || props.application.metadata?.name;
+    const namespace = props.application?.meta?.namespace;
+    const appName = props.application?.meta?.name;
 
-    if (!appName) {
+    if (!namespace || !appName) {
+      console.warn('Missing namespace or app name for container fetch');
       return;
     }
 
-    // For staging logs, we can't easily fetch pods via the application pods API
-    // Containers will be discovered from incoming log data as a fallback
-    if (isStagingLog.value) {
-      // Staging logs: containers will be discovered from incoming log data
-      // Keep loading state true so the filter button shows, but indicate discovery from logs
-      // The loading will be set to false once containers are discovered from log messages
-      return;
-    }
-
-    // Try to fetch pods for the application
-    const podsUrl = `/api/v1/namespaces/${namespace}/applications/${appName}/pods`;
-    const response = await store.dispatch('epinio/request', {
-      opt: { url: podsUrl }
+    const res = await store.dispatch('epinio/request', {
+      url: `/api/v1/namespaces/${ namespace }/applications/${ appName }/pods`
     });
 
     const containers: ContainerInfo[] = [];
-    const pods = response?.data || [];
 
-    pods.forEach((pod: any) => {
-      // Extract init containers
-      if (pod.spec?.initContainers) {
-        pod.spec.initContainers.forEach((container: any) => {
-          containers.push({
-            name: container.name,
-            podName: pod.metadata?.name || '',
-            isInitContainer: true,
-          });
-        });
+    if (res && res.data) {
+      for (const pod of res.data) {
+        const podName = pod.name;
+
+        // Add main containers
+        if (pod.containers) {
+          for (const container of pod.containers) {
+            containers.push({
+              name: container.name,
+              podName,
+              isInitContainer: false,
+            });
+          }
+        }
+
+        // Add init containers
+        if (pod.init_containers) {
+          for (const container of pod.init_containers) {
+            containers.push({
+              name: container.name,
+              podName,
+              isInitContainer: true,
+            });
+          }
+        }
       }
+    }
 
-      // Extract regular containers
-      if (pod.spec?.containers) {
-        pod.spec.containers.forEach((container: any) => {
-          containers.push({
-            name: container.name,
-            podName: pod.metadata?.name || '',
-            isInitContainer: false,
-          });
-        });
-      }
-    });
-
-    // Remove duplicates (same container name across pods)
-    const uniqueContainers = Array.from(
-      new Map(containers.map(c => [c.name, c])).values()
-    );
-
-    availableContainers.value = uniqueContainers;
-  } catch (error) {
-    console.warn('Failed to fetch containers:', error);
-    // If pods API doesn't exist, try to extract from log data as fallback
+    availableContainers.value = containers;
+  } catch (e) {
+    console.error('Error fetching containers:', e);
   } finally {
     loadingContainers.value = false;
   }
 };
 
-// Container filtering functions
-const toggleContainer = (containerName: string, checked: boolean) => {
-  // checked = true means show logs (not excluded)
-  // checked = false means hide logs (excluded)
-  if (checked) {
-    // Checkbox is checked - remove from exclusion list to show logs
-    excludedContainers.value.delete(containerName);
+const isSidecar = (containerName: string): boolean => {
+  const sidecarPrefixes = ['linkerd-', 'istio-'];
+  return sidecarPrefixes.some(prefix => containerName.startsWith(prefix));
+};
+
+const toggleContainer = (containerName: string) => {
+  if (filterMode.value === 'include') {
+    if (selectedContainers.value.has(containerName)) {
+      selectedContainers.value.delete(containerName);
+    } else {
+      selectedContainers.value.add(containerName);
+    }
+    selectedContainers.value = new Set(selectedContainers.value);
   } else {
-    // Checkbox is unchecked - add to exclusion list to hide logs
-    excludedContainers.value.add(containerName);
+    if (excludedContainers.value.has(containerName)) {
+      excludedContainers.value.delete(containerName);
+    } else {
+      excludedContainers.value.add(containerName);
+    }
+    excludedContainers.value = new Set(excludedContainers.value);
   }
-  applyFilters();
-};
-
-const applyFilters = async () => {
-  // Reconnect with new filters, but preserve existing logs
-  // Filter existing logs client-side while waiting for new filtered logs
-  await connect(true);
-};
-
-const clearFilters = () => {
-  selectedContainers.value.clear();
-  excludedContainers.value.clear();
-  applyFilters();
 };
 
 const isContainerSelected = (containerName: string): boolean => {
-  // Checked = not excluded (default all checked)
-  return !excludedContainers.value.has(containerName);
-};
-
-const filteredContainers = computed(() => {
-  // Only show sidecar containers
-  const sidecarContainers = availableContainers.value.filter(c => isSidecar(c.name));
-  
-  if (!containerSearch.value) {
-    return sidecarContainers;
-  }
-
-  const searchLower = containerSearch.value.toLowerCase();
-  return sidecarContainers.filter(c =>
-    c.name.toLowerCase().includes(searchLower) ||
-    c.podName.toLowerCase().includes(searchLower)
-  );
-});
-
-const activeFilterCount = computed(() => {
   if (filterMode.value === 'include') {
-    return selectedContainers.value.size;
+    return selectedContainers.value.has(containerName);
   } else {
-    return excludedContainers.value.size;
+    return excludedContainers.value.has(containerName);
   }
-});
-
-const isSidecar = (containerName: string): boolean => {
-  if (!containerName) return false;
-  const sidecarPatterns = ['istio-', 'linkerd-', 'envoy-', 'sidecar-'];
-  return sidecarPatterns.some(pattern => containerName.startsWith(pattern));
 };
 
-
-// Watch for filter changes and reconnect
-watch([selectedContainers, excludedContainers, filterMode], () => {
-  // Debounce: reconnect will be called by applyFilters
-}, { deep: true });
+const clearContainerFilters = () => {
+  selectedContainers.value.clear();
+  excludedContainers.value.clear();
+  selectedContainers.value = new Set();
+  excludedContainers.value = new Set();
+};
 </script>
 
 <template>
@@ -544,82 +590,85 @@ watch([selectedContainers, excludedContainers, filterMode], () => {
             placeholder="Filter by Instance"
           />
 
-          <VDropdown
-            v-if="availableContainers.length > 0 || loadingContainers"
-            v-model:open="containerFilterOpen"
-            placement="bottom-start"
-            class="ml-5"
-          >
+          <!-- Container Filter Button -->
+          <VDropdown placement="bottom-start" :distance="6">
             <button
-              class="btn bg-primary container-filter-btn"
-              :class="{'has-filters': activeFilterCount > 0}"
+              class="btn bg-primary ml-5 container-filter-btn"
+              :class="{ 'has-filters': activeFilterCount > 0 }"
             >
-              <i class="icon icon-filter" />
+              Container Filter
               <span v-if="activeFilterCount > 0" class="filter-badge">{{ activeFilterCount }}</span>
-              Containers
             </button>
             <template #popper>
               <div class="container-filter-panel">
                 <div class="filter-search">
                   <input
                     v-model="containerSearch"
+                    type="text"
                     class="input-sm"
-                    type="search"
                     placeholder="Search containers..."
-                  />
+                  >
                 </div>
 
+                <!-- Show/Hide App Logs Checkbox -->
                 <div class="filter-app-checkbox">
                   <Checkbox
-                    :value="showAppLogs"
-                    label="app"
-                    @update:value="(checked: boolean) => showAppLogs = checked"
+                    v-model:value="showAppLogs"
+                    label="Show App Logs"
                   />
                 </div>
 
-                <div class="container-list">
+                <div v-if="loadingContainers" class="text-center p-10">
+                  Loading containers...
+                </div>
+                <div v-else-if="filteredContainers.length === 0" class="text-center p-10">
+                  No containers found
+                </div>
+                <div v-else class="container-list">
                   <div
-                    v-if="loadingContainers && availableContainers.length === 0"
-                    class="text-muted p-10 text-center"
+                    v-for="container in filteredContainers"
+                    :key="`${container.podName}-${container.name}`"
+                    class="container-item"
+                    :class="{
+                      'is-selected': isContainerSelected(container.name),
+                      'is-sidecar': isSidecar(container.name)
+                    }"
+                    @click="toggleContainer(container.name)"
                   >
-                    <i class="icon icon-spinner icon-spin" />
-                    Discovering containers from logs...
+                    <Checkbox
+                      :model-value="isContainerSelected(container.name)"
+                      :label="container.name"
+                    />
+                    <span v-if="isSidecar(container.name)" class="badge badge-sm bg-warning">
+                      Sidecar
+                    </span>
+                    <span v-if="container.isInitContainer" class="badge badge-sm bg-info">
+                      Init
+                    </span>
                   </div>
-                  <template v-else>
-                    <div
-                      v-for="container in filteredContainers"
-                      :key="container.name"
-                      class="container-item"
-                      :class="{
-                        'is-sidecar': isSidecar(container.name),
-                        'is-selected': isContainerSelected(container.name),
-                        'active-nav': isContainerSelected(container.name)
-                      }"
-                    >
-                      <Checkbox
-                        :value="isContainerSelected(container.name)"
-                        :label="container.name"
-                        @update:value="(checked) => toggleContainer(container.name, checked)"
-                      />
-                      <span
-                        v-if="container.isInitContainer"
-                        class="badge badge-sm bg-info"
-                      >
-                        init
-                      </span>
-                    </div>
-                    <div
-                      v-if="filteredContainers.length === 0 && !loadingContainers"
-                      class="text-muted p-10 text-center"
-                    >
-                      No containers found
-                    </div>
-                  </template>
                 </div>
 
                 <div class="filter-footer">
-                  <div class="filter-instruction">
-                    Uncheck the container name to exclude their logs.
+                  <p class="filter-instruction">
+                    {{ filterMode === 'include'
+                      ? 'Selected containers will be included in logs'
+                      : 'Selected containers will be excluded from logs' }}
+                  </p>
+                  <div class="mt-10">
+                    <button
+                      class="btn btn-sm bg-primary"
+                      :disabled="activeFilterCount === 0 || isApplyingFilters"
+                      @click="applyFilters"
+                    >
+                      {{ isApplyingFilters ? 'Applying...' : 'Apply Filters' }}
+                    </button>
+                    <button
+                      class="btn btn-sm bg-warning ml-5"
+                      :disabled="activeFilterCount === 0"
+                      @click="clearContainerFilters(); applyFilters();"
+                    >
+                      Clear
+                    </button>
                   </div>
                 </div>
               </div>
@@ -655,6 +704,73 @@ watch([selectedContainers, excludedContainers, filterMode], () => {
               {{t(isOpen ? 'wm.connection.connected' : 'wm.connection.disconnected')}}
             </span>
           </div>
+          <div class="log-action ml-5">
+            <VDropdown placement="top-end">
+              <button class="btn bg-primary">
+                <i class="icon icon-gear" />
+              </button>
+              <template #popper>
+                <div class="filter-popup">
+                  <Checkbox
+                    v-model:value="wrap"
+                    :label="t('wm.containerLogs.wrap')"
+                    @update:value="toggleWrap"
+                  />
+
+                  <div class="filter-section">
+                    <label class="text-label">Tail (number of lines)</label>
+                    <input
+                      v-model.number="tail"
+                      type="number"
+                      class="form-control"
+                      placeholder="e.g., 100"
+                      min="1"
+                    >
+                  </div>
+
+                  <div class="filter-section">
+                    <label class="text-label">Since (duration)</label>
+                    <input
+                      v-model="since"
+                      type="text"
+                      class="form-control"
+                      placeholder="e.g., 1h, 30m, 24h"
+                      :disabled="!!sinceTime"
+                    >
+                    <small class="text-muted">Use this OR Since Time below</small>
+                  </div>
+
+                  <div class="filter-section">
+                    <label class="text-label">Since Time (absolute date)</label>
+                    <input
+                      v-model="sinceTime"
+                      type="datetime-local"
+                      class="form-control"
+                      :disabled="!!since"
+                    >
+                    <small class="text-muted">Use this OR Since above</small>
+                  </div>
+
+                  <div>
+                    <button
+                      class="btn btn-sm bg-primary mt-10"
+                      :disabled="isApplyingFilters"
+                      @click="applyFilters"
+                    >
+                      {{ isApplyingFilters ? 'Applying...' : 'Apply Filters' }}
+                    </button>
+                    <button
+                      class="btn btn-sm bg-warning mt-10 ml-5"
+                      :disabled="!tail && !since && !sinceTime"
+                      @click="clearFilters();"
+                    >
+                      Clear Filters
+                    </button>
+                  </div>
+                </div>
+              </template>
+            </VDropdown>
+          </div>
           <div class="log-action  ml-5">
             <input
               v-model="search"
@@ -662,20 +778,6 @@ watch([selectedContainers, excludedContainers, filterMode], () => {
               type="search"
               :placeholder="t('wm.containerLogs.search')"
             >
-          </div>
-          <div class="log-action ml-5">
-            <VDropdown placement="top">
-              <button class="btn bg-primary">
-                <i class="icon icon-gear" />
-              </button>
-              <template #popper>
-                <Checkbox
-                  v-model:value="wrap"
-                  :label="t('wm.containerLogs.wrap')"
-                  @update:value="toggleWrap"
-                />
-              </template>
-            </VDropdown>
           </div>
         </div>
       </div>
@@ -747,9 +849,6 @@ watch([selectedContainers, excludedContainers, filterMode], () => {
       flex-direction: row;
     }
   }
-  // .title-left {
-
-  // }
 
   .logs-container {
     height: 100%;
@@ -820,8 +919,49 @@ watch([selectedContainers, excludedContainers, filterMode], () => {
   }
 
   .filter-popup {
+    padding: 10px;
+    width: 280px;
+    position: relative;
+    overflow: visible;
+
     > * {
       margin-bottom: 10px;
+    }
+
+    .filter-section {
+      margin-top: 15px;
+
+      .text-label {
+        display: block;
+        margin-bottom: 5px;
+        font-size: 12px;
+        font-weight: 600;
+      }
+
+      .form-control {
+        width: 100%;
+        padding: 5px 10px;
+        border: 1px solid var(--border);
+        border-radius: 3px;
+        background-color: var(--input-bg);
+        color: var(--input-text);
+
+        &:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+      }
+
+      .text-muted {
+        display: block;
+        margin-top: 3px;
+        font-size: 11px;
+        opacity: 0.7;
+      }
+    }
+
+    .mt-10 {
+      margin-top: 10px;
     }
   }
 
@@ -944,4 +1084,3 @@ watch([selectedContainers, excludedContainers, filterMode], () => {
     font-size: 12px;
   }
 </style>
-

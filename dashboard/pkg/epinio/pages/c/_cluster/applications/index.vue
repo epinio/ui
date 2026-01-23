@@ -52,6 +52,10 @@ const groupedByNamespace = computed(() => {
     }
   });
 
+  if (Object.keys(groups).length === 0) {
+    groups['workspace'] = [];
+  }
+
   return groups;
 });
 
