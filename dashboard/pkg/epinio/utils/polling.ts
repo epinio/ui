@@ -24,7 +24,9 @@ export function startPolling(types: string[], store: any): any {
       pollingRate,
       5
     );
-    polling[type].start();
+    if (polling[type] !== undefined) {
+      polling[type].start();
+    }
   });
 }
 
