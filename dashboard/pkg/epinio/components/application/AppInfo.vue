@@ -65,10 +65,10 @@ const valid = computed(() => {
     [],
   );
   const validNamespace = nsErrors.length === 0;
-  const validInstances = typeof Number(values.value.configuration?.instances) !== 'string' && 
+  const validInstances = typeof Number(values.value.configuration?.instances) !== 'string' &&
     values.value.configuration?.instances >= 0;
-  
-  return validName && validNamespace && validInstances && 
+
+  return validName && validNamespace && validInstances &&
     Object.values(validSettings.value).every((v) => !!v);
 });
 
@@ -106,11 +106,12 @@ const generateDefaultName = () => {
     // Append random string to the end of the base name
     if (baseName) {
       const randomSuffix = Math.random().toString(36).substring(2, 8);
-      return `${baseName}-${randomSuffix}`;
+      return `${baseName}-${randomSuffix}`.toLowerCase();
     }
 
     return '';
   } catch (e) {
+    console.log(e);
     return '';
   }
 };
@@ -169,7 +170,7 @@ const populateOnEdit = async () => {
   // We need to fetch the chart settings on edit mode.
   if (isEdit.value || props.mode === 'view') {
     const chartList = await store.dispatch(
-      'epinio/findAll', 
+      'epinio/findAll',
       { type: EPINIO_TYPES.APP_CHARTS },
     );
 
