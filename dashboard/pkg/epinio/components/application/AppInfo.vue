@@ -213,14 +213,12 @@ const moveBooleansToFront = (settingsObj: any) => {
     <div class="col">
       <NameNsDescription
         data-testid="epinio_app-info_name-ns"
-        name-key="name"
-        namespace-key="namespace"
         :namespaces-override="namespaceNames"
         :create-namespace-override="true"
         :description-hidden="true"
-        :value="values.meta"
+        :value="{metadata: values.meta}"
         :mode="props.mode"
-        @change="update"
+        @update:value="update"
         @createNamespace="ns => values.meta.namespace = ns"
       />
     </div>

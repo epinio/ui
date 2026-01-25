@@ -59,6 +59,11 @@ onMounted(async () => {
 
   pending.value = false;
 
+  const catalogQuery = store.$router.currentRoute._value.query.catalogservice;
+  if (catalogQuery && !props.value.catalog_service) {
+    props.value.catalog_service = catalogQuery as string;
+  }
+
   //Needed doneParams/doneRoute but the mixin that generates these is a rancher
   //shell mixin, copied parts needed, will move to composable function as needed.
   if (props.value?.doneParams) {

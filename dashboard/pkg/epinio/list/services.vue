@@ -24,11 +24,11 @@ onMounted(async () => {
 
   // Catalog services are static - only poll on initial load, not continuously
   // They're loaded above but don't need frequent updates
-  startPolling(["namespaces", "applications"], store);
+  startPolling(["namespaces", "applications", "services"], store);
 });
 
 onUnmounted(() => {
-  stopPolling(["namespaces", "applications"]);
+  stopPolling(["namespaces", "applications", "services"]);
 });
 
 const rows = computed(() => {

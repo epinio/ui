@@ -226,6 +226,15 @@ onUnmounted(() => {
               >, </span>
             </template>
           </span>
+          <span v-else-if="row.configuration.services && row.configuration.services.length">
+            <template v-for="(service, index) in row.configuration.services" :key="service">
+              <span>{{ service }}</span>
+              <span
+                v-if="index < row.configuration.services.length - 1"
+                :key="service + 'i'"
+              >, </span>
+            </template>
+          </span>
           <span
             v-else
             class="text-muted"
