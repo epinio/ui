@@ -272,6 +272,7 @@ const connect = async () => {
     await socket.value.disconnect();
     socket.value = null;
   }
+  backlog.value = [];
   lines.value = [];
 
   const url = await getSocketUrl();
@@ -333,6 +334,13 @@ const connect = async () => {
     }
 
     const line = `[${ PodName }] ${ ContainerName } ${ Message }`;
+
+    if (line == "[]  ___FILTER_START___") {
+      // Clear existing logs before new filtered logs arrive
+      lines.value = [];
+      backlog.value = [];
+      return;
+    }
 
     if (line == "[]  ___FILTER_COMPLETE___") {
       isApplyingFilters.value = false;
@@ -438,9 +446,14 @@ const applyFilters = async () => {
     }
 
     // Build filter params including container filters
+    // If no filters are active, resume following mode
+    // If filters are active, use one-shot mode (follow: false)
+    const hasTimeFilters = tail.value != null || since.value != null || sinceTime.value != null;
+    const hasContainerFilters = (filterMode.value === 'include' && selectedContainers.value.size > 0) || excludedContainers.value.size > 0;
+
     const filterParams: any = {
-      follow: false,
-      tail: tail.value,
+      follow: !hasTimeFilters && !hasContainerFilters, // Follow only when no filters
+      tail: tail.value != null ? tail.value : (!hasTimeFilters && !hasContainerFilters ? 10000 : null),
       since: since.value,
       since_time: sinceTimeParsed,
     };
@@ -595,6 +608,7 @@ const clearContainerFilters = () => {
             <button
               class="btn bg-primary ml-5 container-filter-btn"
               :class="{ 'has-filters': activeFilterCount > 0 }"
+              @click="toggleContainer(container.name, !isContainerSelected(container.name))"
             >
               Container Filter
               <span v-if="activeFilterCount > 0" class="filter-badge">{{ activeFilterCount }}</span>
