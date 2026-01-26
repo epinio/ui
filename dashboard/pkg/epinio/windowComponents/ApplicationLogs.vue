@@ -87,7 +87,6 @@ const excludedContainers = ref<Set<string>>(new Set());
 const filterMode = ref<'include' | 'exclude'>('exclude');
 const containerSearch = ref<string>('');
 const loadingContainers = ref<boolean>(false);
-const showAppLogs = ref<boolean>(true);
 
 const ansiup = new AnsiUp();
 const timestamps = store.getters['prefs/get'](LOGS_TIME);
@@ -152,21 +151,6 @@ const filtered = computed(() => {
       if (match && match[1]) {
         const containerName = match[1];
         return !excludedContainers.value.has(containerName);
-      }
-      return true; // Keep line if we can't parse container name
-    });
-  }
-
-  // Filter out app logs if showAppLogs is false
-  if (!showAppLogs.value) {
-    filteredLines = filteredLines.filter(line => {
-      // Extract container name from log line format: [PodName] ContainerName Message
-      const match = line.rawMsg.match(/\[[^\]]+\]\s+(\S+)\s+/);
-      if (match && match[1]) {
-        const containerName = match[1];
-        const isSidecarContainer = isSidecar(containerName);
-        // Keep only sidecar logs when app logs are hidden
-        return isSidecarContainer;
       }
       return true; // Keep line if we can't parse container name
     });
@@ -308,12 +292,6 @@ const connect = async () => {
     // Filter out excluded containers client-side as a safety measure
     if (ContainerName && excludedContainers.value.has(ContainerName)) {
       return; // Skip this log if container is excluded
-    }
-
-    // Filter out app logs if showAppLogs is false
-    // App logs are from containers that are NOT sidecars
-    if (!showAppLogs.value && ContainerName && !isSidecar(ContainerName)) {
-      return; // Skip this log if it's an app log and app logs are hidden
     }
 
     // Extract container name from log data if not already discovered
@@ -619,14 +597,6 @@ const clearContainerFilters = () => {
                     class="input-sm"
                     placeholder="Search containers..."
                   >
-                </div>
-
-                <!-- Show/Hide App Logs Checkbox -->
-                <div class="filter-app-checkbox">
-                  <Checkbox
-                    v-model:value="showAppLogs"
-                    label="Show App Logs"
-                  />
                 </div>
 
                 <div v-if="loadingContainers" class="text-center p-10">
