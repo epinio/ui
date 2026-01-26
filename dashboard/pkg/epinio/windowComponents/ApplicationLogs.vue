@@ -261,7 +261,7 @@ const connect = async () => {
 
   const url = await getSocketUrl();
 
-  socket.value = new Socket(url, true, 0);
+  socket.value = new Socket(url, true, 600000);
   socket.value.setAutoReconnectUrl(getSocketUrl);
 
   socket.value.addEventListener(EVENT_CONNECTED, () => {
