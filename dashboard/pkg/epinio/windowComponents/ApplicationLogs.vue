@@ -265,6 +265,8 @@ const connect = async () => {
   socket.value.setAutoReconnectUrl(getSocketUrl);
 
   socket.value.addEventListener(EVENT_CONNECTED, () => {
+    lines.value = [];
+    backlog.value = [];
     isOpen.value = true;
   });
 
