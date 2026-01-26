@@ -29,6 +29,7 @@ const t = store.getters['i18n/t'];
 const props = defineProps<{
   application: Application;
   mode: string;
+  source?: any;
 }>();
 
 // Emit function
@@ -64,10 +65,10 @@ const valid = computed(() => {
     [],
   );
   const validNamespace = nsErrors.length === 0;
-  const validInstances = typeof Number(values.value.configuration?.instances) !== 'string' && 
+  const validInstances = typeof Number(values.value.configuration?.instances) !== 'string' &&
     values.value.configuration?.instances >= 0;
-  
-  return validName && validNamespace && validInstances && 
+
+  return validName && validNamespace && validInstances &&
     Object.values(validSettings.value).every((v) => !!v);
 });
 
@@ -77,11 +78,51 @@ const showApplicationVariables = computed(() => {
 
 const isEdit = computed(() => props.mode === _EDIT);
 
+// Generate a default name for new applications
+const generateDefaultName = () => {
+  try {
+    // Use source prop if available (create mode), otherwise try appSource (edit mode)
+    const source = props.source || props.application.appSource;
+    if (!source) {
+      return '';
+    }
+
+    let baseName = '';
+
+    // Determine base name from source
+    if (source.git?.repo?.name) {
+      baseName = source.git.repo.name;
+    } else if (source.gitUrl?.url) {
+      // Extract base name from git URL
+      const urlParts = source.gitUrl.url.split('/');
+      baseName = urlParts[urlParts.length - 1].replace(/\.git$/, '');
+    } else if (source.container?.url) {
+      // Extract base name from container URL
+      const urlParts = source.container.url.split('/');
+      const imageWithTag = urlParts[urlParts.length - 1];
+      baseName = imageWithTag.split(':')[0];
+    }
+
+    // Append random string to the end of the base name
+    if (baseName) {
+      const randomSuffix = Math.random().toString(36).substring(2, 8);
+      return `${baseName}-${randomSuffix}`.toLowerCase();
+    }
+
+    return '';
+  } catch (e) {
+    console.log(e);
+    return '';
+  }
+};
+
 // Mounted lifecycle hook
 onMounted(() => {
+  const defaultName = props.application.meta?.name || (props.mode !== _EDIT ? generateDefaultName() : '');
+
   const valuesData: EpinioAppInfo = {
     meta: {
-      name: props.application.meta?.name,
+      name: defaultName,
       namespace: props.application.meta?.namespace || namespaces.value[0]?.meta?.name
     },
     chart: moveBooleansToFront(props.application.chart?.settings) || {},
@@ -129,7 +170,7 @@ const populateOnEdit = async () => {
   // We need to fetch the chart settings on edit mode.
   if (isEdit.value || props.mode === 'view') {
     const chartList = await store.dispatch(
-      'epinio/findAll', 
+      'epinio/findAll',
       { type: EPINIO_TYPES.APP_CHARTS },
     );
 
@@ -173,14 +214,12 @@ const moveBooleansToFront = (settingsObj: any) => {
     <div class="col">
       <NameNsDescription
         data-testid="epinio_app-info_name-ns"
-        name-key="name"
-        namespace-key="namespace"
         :namespaces-override="namespaceNames"
         :create-namespace-override="true"
         :description-hidden="true"
-        :value="values.meta"
+        :value="{metadata: values.meta}"
         :mode="props.mode"
-        @change="update"
+        @update:value="update"
         @createNamespace="ns => values.meta.namespace = ns"
       />
     </div>

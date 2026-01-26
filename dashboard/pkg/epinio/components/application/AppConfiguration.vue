@@ -113,8 +113,11 @@ watch(hasConfigs, (neu, old) => {
 
 watch(hasServices, (neu, old) => {
     if (!old && neu) {
-      if (props.initialApplication?.serviceConfigurationsNames) {
-        values.value.services = props.initialApplication.services || [];
+      if (props.initialApplication?.configuration?.services) {
+        const serviceNames = props.initialApplication.configuration.services;
+        values.value.services = services.value.filter((s: any) =>
+          serviceNames.includes(s.value.metadata.name)
+        ).map((s: any) => s.value);
       }
     }
 
@@ -124,7 +127,6 @@ watch(hasServices, (neu, old) => {
           props.application.configuration.configurations.includes(nc.metadata.name) &&
           nc.isServiceRelated
         );
-
       values.value.services = services.value
         .filter((s: any) => configurations.some((d: any) => s.value.metadata.name === d.configuration.origin))
         .map((elem: any) => elem.value);

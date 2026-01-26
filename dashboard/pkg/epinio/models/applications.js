@@ -306,7 +306,8 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
       git:       isGitRepo(source.type) ? source[source.type] : null,
       gitUrl:    source.git_url,
       container: source.container_url,
-      archive:   source.archive
+      archive:   source.archive,
+      builderImage: source.builderImage,
     };
   }
 
@@ -756,10 +757,15 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
     }
   }
 
-  async remove() {
+  async remove(opt = {}) {
     this.closeWindows();
 
-    await super.remove();
+    // Check if deleteImage flag is set on the resource
+    if (this._deleteImage) {
+      opt.data = { deleteImage: true };
+    }
+
+    await super.remove(opt);
   }
 
   bulkRemove(items, opt) {

@@ -14,15 +14,15 @@ import { sortBy } from '@shell/utils/sort';
 import { generateZip } from '@shell/utils/download';
 import Collapse from '@shell/components/Collapse.vue';
 import {
-  APPLICATION_SOURCE_TYPE, 
-  EpinioApplicationChartResource, 
-  EpinioInfo, 
-  //AppSourceArchive, 
-  //AppSourceContainer, 
-  //AppSourceGit, 
-  //AppSourceGitUrl, 
-  //AppSourceBuilderImage, 
-  EpinioAppSource, 
+  APPLICATION_SOURCE_TYPE,
+  EpinioApplicationChartResource,
+  EpinioInfo,
+  //AppSourceArchive,
+  //AppSourceContainer,
+  //AppSourceGit,
+  //AppSourceGitUrl,
+  //AppSourceBuilderImage,
+  EpinioAppSource,
   EPINIO_APP_MANIFEST
 } from '../../types';
 import { EpinioAppInfo } from '../../types';
@@ -34,25 +34,13 @@ const GIT_BASE_URL = {
   [APPLICATION_SOURCE_TYPE.GIT_LAB]: 'https://gitlab.com',
 };
 
-/*interface Data {
-  open: boolean,
-  archive: AppSourceArchive,
-  container: AppSourceContainer,
-  git: AppSourceGit,
-  gitUrl: AppSourceGitUrl,
-  builderImage: AppSourceBuilderImage,
-  types: any[],
-  type: APPLICATION_SOURCE_TYPE ;// || { } from the select component
-  APPLICATION_SOURCE_TYPE: typeof APPLICATION_SOURCE_TYPE
-}*/
-
 interface FileWithRelativePath extends File {
   // For some reason TS throws this as missing at transpile time .. so recreate it
    readonly webkitRelativePath: string;
 }
 
 // Todo: Ensure this uses the same default as the backend.
-const DEFAULT_BUILD_PACK = 'paketobuildpacks/builder-jammy-full:latest';
+const DEFAULT_BUILD_PACK = 'paketobuildpacks/builder-jammy-full:0.3.495';
 
 const store = useStore();
 
@@ -73,8 +61,8 @@ const emit = defineEmits<{
 }>();
 
 // Defaults
-const defaultBuilderImage = ref(props.info?.default_builder_image || DEFAULT_BUILD_PACK);
-const builderImageValue = ref(props.source?.builderImage?.value || defaultBuilderImage.value);
+const defaultBuilderImage = ref(props.info?.default_builder_image || DEFAULT_BUILD_PACK); 
+const builderImageValue = ref(props.source?.builderImage || defaultBuilderImage.value);
 
 // Reactive State
 const open = ref(false);
@@ -197,10 +185,12 @@ function updateConfigurations(configs: string[]) {
 function onImageType(defaultImage: boolean) {
   if (defaultImage) {
     builderImage.value = defaultBuilderImage.value;
+  } else {
+    builderImage.value = builderImageValue.value;
   }
   builderImage.default = defaultImage;
   update();
-}
+} 
 
 function gitUpdate({ repo, selectedAccOrOrg, branch, commit, sourceData }: any) {
   if (!!selectedAccOrOrg && !!repo && !!commit && !!branch) {
@@ -484,7 +474,7 @@ onMounted(() => {
           ]"
           :options="[true, false]"
           :label-key="'epinio.applications.steps.source.archive.builderimage.label'"
-          @input="onImageType"
+          @update:value="onImageType"
         />
         <LabeledInput
           v-model:value="builderImage.value"

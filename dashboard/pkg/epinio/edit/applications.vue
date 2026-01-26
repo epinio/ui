@@ -73,7 +73,6 @@ onMounted(async () => {
     charts: store.dispatch('epinio/findAll', { type: EPINIO_TYPES.APP_CHARTS }),
     info: store.dispatch('epinio/info'),
   });
-
   epinioInfo.value = (hash as { info: any }).info;
 });
 
@@ -219,7 +218,7 @@ function validate(value: boolean, tab: string) {
           >
             <template #source>
               <AppSource
-                v-if="source"
+                v-if="source && epinioInfo"
                 :application="value"
                 :source="source"
                 :mode="mode"

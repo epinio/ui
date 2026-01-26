@@ -52,6 +52,10 @@ const groupedByNamespace = computed(() => {
     }
   });
 
+  if (Object.keys(groups).length === 0) {
+    groups['workspace'] = [];
+  }
+
   return groups;
 });
 
@@ -219,6 +223,15 @@ onUnmounted(() => {
               <span
                 v-if="index < row.services.length - 1"
                 :key="service.id + 'i'"
+              >, </span>
+            </template>
+          </span>
+          <span v-else-if="row.configuration.services && row.configuration.services.length">
+            <template v-for="(service, index) in row.configuration.services" :key="service">
+              <span>{{ service }}</span>
+              <span
+                v-if="index < row.configuration.services.length - 1"
+                :key="service + 'i'"
               >, </span>
             </template>
           </span>
