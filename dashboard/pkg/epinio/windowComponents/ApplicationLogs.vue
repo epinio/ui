@@ -607,11 +607,8 @@ const clearContainerFilters = () => {
           <VDropdown placement="bottom-start" :distance="6">
             <button
               class="btn bg-primary ml-5 container-filter-btn"
-              :class="{ 'has-filters': activeFilterCount > 0 }"
-              @click="toggleContainer(container.name, !isContainerSelected(container.name))"
             >
               Container Filter
-              <span v-if="activeFilterCount > 0" class="filter-badge">{{ activeFilterCount }}</span>
             </button>
             <template #popper>
               <div class="container-filter-panel">
@@ -650,7 +647,7 @@ const clearContainerFilters = () => {
                     @click="toggleContainer(container.name)"
                   >
                     <Checkbox
-                      :model-value="isContainerSelected(container.name)"
+                      :value="isContainerSelected(container.name)"
                       :label="container.name"
                     />
                     <span v-if="isSidecar(container.name)" class="badge badge-sm bg-warning">
@@ -662,6 +659,41 @@ const clearContainerFilters = () => {
                   </div>
                 </div>
 
+                <!-- Time-based filters -->
+                <div class="filter-section">
+                  <label class="text-label">Tail (number of lines)</label>
+                  <input
+                    v-model.number="tail"
+                    type="number"
+                    class="form-control"
+                    placeholder="e.g., 100"
+                    min="1"
+                  >
+                </div>
+
+                <div class="filter-section">
+                  <label class="text-label">Since (duration)</label>
+                  <input
+                    v-model="since"
+                    type="text"
+                    class="form-control"
+                    placeholder="e.g., 1h, 30m, 24h"
+                    :disabled="!!sinceTime"
+                  >
+                  <small class="text-muted">Use this OR Since Time below</small>
+                </div>
+
+                <div class="filter-section">
+                  <label class="text-label">Since Time (absolute date)</label>
+                  <input
+                    v-model="sinceTime"
+                    type="datetime-local"
+                    class="form-control"
+                    :disabled="!!since"
+                  >
+                  <small class="text-muted">Use this OR Since above</small>
+                </div>
+
                 <div class="filter-footer">
                   <p class="filter-instruction">
                     {{ filterMode === 'include'
@@ -671,15 +703,15 @@ const clearContainerFilters = () => {
                   <div class="mt-10">
                     <button
                       class="btn btn-sm bg-primary"
-                      :disabled="activeFilterCount === 0 || isApplyingFilters"
+                      :disabled="isApplyingFilters"
                       @click="applyFilters"
                     >
                       {{ isApplyingFilters ? 'Applying...' : 'Apply Filters' }}
                     </button>
                     <button
                       class="btn btn-sm bg-warning ml-5"
-                      :disabled="activeFilterCount === 0"
-                      @click="clearContainerFilters(); applyFilters();"
+                      :disabled="activeFilterCount === 0 && !tail && !since && !sinceTime"
+                      @click="clearContainerFilters(); clearFilters();"
                     >
                       Clear
                     </button>
@@ -730,57 +762,6 @@ const clearContainerFilters = () => {
                     :label="t('wm.containerLogs.wrap')"
                     @update:value="toggleWrap"
                   />
-
-                  <div class="filter-section">
-                    <label class="text-label">Tail (number of lines)</label>
-                    <input
-                      v-model.number="tail"
-                      type="number"
-                      class="form-control"
-                      placeholder="e.g., 100"
-                      min="1"
-                    >
-                  </div>
-
-                  <div class="filter-section">
-                    <label class="text-label">Since (duration)</label>
-                    <input
-                      v-model="since"
-                      type="text"
-                      class="form-control"
-                      placeholder="e.g., 1h, 30m, 24h"
-                      :disabled="!!sinceTime"
-                    >
-                    <small class="text-muted">Use this OR Since Time below</small>
-                  </div>
-
-                  <div class="filter-section">
-                    <label class="text-label">Since Time (absolute date)</label>
-                    <input
-                      v-model="sinceTime"
-                      type="datetime-local"
-                      class="form-control"
-                      :disabled="!!since"
-                    >
-                    <small class="text-muted">Use this OR Since above</small>
-                  </div>
-
-                  <div>
-                    <button
-                      class="btn btn-sm bg-primary mt-10"
-                      :disabled="isApplyingFilters"
-                      @click="applyFilters"
-                    >
-                      {{ isApplyingFilters ? 'Applying...' : 'Apply Filters' }}
-                    </button>
-                    <button
-                      class="btn btn-sm bg-warning mt-10 ml-5"
-                      :disabled="!tail && !since && !sinceTime"
-                      @click="clearFilters();"
-                    >
-                      Clear Filters
-                    </button>
-                  </div>
                 </div>
               </template>
             </VDropdown>
@@ -984,30 +965,8 @@ const clearContainerFilters = () => {
   }
 
   .container-filter-btn {
-    position: relative;
     display: flex;
     align-items: center;
-    gap: 5px;
-
-    &.has-filters {
-      border: 1px solid var(--primary);
-    }
-
-    .filter-badge {
-      position: absolute;
-      top: -5px;
-      right: -5px;
-      background: var(--error);
-      color: white;
-      border-radius: 50%;
-      width: 18px;
-      height: 18px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 11px;
-      font-weight: bold;
-    }
   }
 
   .container-filter-panel {
@@ -1016,9 +975,6 @@ const clearContainerFilters = () => {
     max-height: 500px;
     display: flex;
     flex-direction: column;
-    background: var(--body-bg);
-    border: 1px solid var(--border);
-    border-radius: 4px;
     padding: 10px;
     color: var(--body-text);
 
@@ -1075,6 +1031,38 @@ const clearContainerFilters = () => {
           font-size: 10px;
           padding: 2px 6px;
         }
+      }
+    }
+
+    .filter-section {
+      margin-top: 15px;
+
+      .text-label {
+        display: block;
+        margin-bottom: 5px;
+        font-size: 12px;
+        font-weight: 600;
+      }
+
+      .form-control {
+        width: 100%;
+        padding: 5px 10px;
+        border: 1px solid var(--border);
+        border-radius: 3px;
+        background-color: var(--input-bg);
+        color: var(--input-text);
+
+        &:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+      }
+
+      .text-muted {
+        display: block;
+        margin-top: 3px;
+        font-size: 11px;
+        opacity: 0.7;
       }
     }
 
