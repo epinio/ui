@@ -57,14 +57,17 @@ const valid = computed(() => {
   }
   const validName = !!values.value.meta?.name;
 
+  // Namespace must be selected (not empty) and pass naming validation
+  const namespaceValue = values.value.meta?.namespace || '';
+  const hasNamespace = !!namespaceValue;
   const nsErrors = validateKubernetesName(
-    values.value.meta?.namespace || '',
+    namespaceValue,
     '',
     store.getters,
     undefined,
     [],
   );
-  const validNamespace = nsErrors.length === 0;
+  const validNamespace = hasNamespace && nsErrors.length === 0;
   const validInstances = typeof Number(values.value.configuration?.instances) !== 'string' &&
     values.value.configuration?.instances >= 0;
 
@@ -120,10 +123,15 @@ const generateDefaultName = () => {
 onMounted(() => {
   const defaultName = props.application.meta?.name || (props.mode !== _EDIT ? generateDefaultName() : '');
 
+  // In create mode, don't auto-select the first namespace - require explicit selection
+  const defaultNamespace = props.mode === _EDIT
+    ? (props.application.meta?.namespace || '')
+    : (props.application.meta?.namespace || '');
+
   const valuesData: EpinioAppInfo = {
     meta: {
       name: defaultName,
-      namespace: props.application.meta?.namespace || namespaces.value[0]?.meta?.name
+      namespace: defaultNamespace
     },
     chart: moveBooleansToFront(props.application.chart?.settings) || {},
     configuration: {
@@ -165,6 +173,19 @@ watch(() => values.value?.configuration.routes, update);
 watch(valid, (newValid) => {
   emit('valid', newValid);
 });
+
+// Handler for name and namespace updates
+function handleNameNsUpdate(updatedValue: { metadata?: { name?: string; namespace?: string } }) {
+  if (updatedValue?.metadata && values.value?.meta) {
+    if (updatedValue.metadata.name !== undefined) {
+      values.value.meta.name = updatedValue.metadata.name;
+    }
+    if (updatedValue.metadata.namespace !== undefined) {
+      values.value.meta.namespace = updatedValue.metadata.namespace;
+    }
+  }
+  update();
+}
 
 const populateOnEdit = async () => {
   // We need to fetch the chart settings on edit mode.
@@ -219,7 +240,7 @@ const moveBooleansToFront = (settingsObj: any) => {
         :description-hidden="true"
         :value="{metadata: values.meta}"
         :mode="props.mode"
-        @update:value="update"
+        @update:value="handleNameNsUpdate"
         @createNamespace="ns => values.meta.namespace = ns"
       />
     </div>
