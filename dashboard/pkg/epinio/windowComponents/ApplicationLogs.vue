@@ -32,6 +32,12 @@ import { useApplicationSocketMixin } from './ApplicationSocketMixin';
 const store = useStore();
 const t = store.getters['i18n/t'];
 
+interface ContainerInfo {
+  name: string;
+  podName: string;
+  isInitContainer: boolean;
+}
+
 const props = defineProps({
   application: {
     type: Object as PropType<object>,
@@ -74,11 +80,20 @@ const tail = ref<number | null>(null); // Number of lines to show
 const since = ref<string | null>(null); // Duration like "1h", "30m", "24h"
 const sinceTime = ref<string | null>(null); // ISO datetime string from native input
 
+// Container filtering state
+const availableContainers = ref<ContainerInfo[]>([]);
+const selectedContainers = ref<Set<string>>(new Set());
+const excludedContainers = ref<Set<string>>(new Set());
+const filterMode = ref<'include' | 'exclude'>('exclude');
+const containerSearch = ref<string>('');
+const loadingContainers = ref<boolean>(false);
+
 const ansiup = new AnsiUp();
 const timestamps = store.getters['prefs/get'](LOGS_TIME);
 const wrap = ref<boolean>(store.getters['prefs/get'](LOGS_WRAP));
 
 onMounted(async () => {
+  await fetchContainers();
   await connect();
   let boundUpdateFollowing = updateFollowing.bind(body);
   body.value.addEventListener('scroll', boundUpdateFollowing);
@@ -104,15 +119,51 @@ const instanceChoicesWithNone = computed(() => {
   ];
 });
 
+// Compute active filter count
+const activeFilterCount = computed(() => {
+  if (filterMode.value === 'include') {
+    return selectedContainers.value.size;
+  } else {
+    return excludedContainers.value.size;
+  }
+});
+
+// Filter containers for the search
+const filteredContainers = computed(() => {
+  if (!containerSearch.value) {
+    return availableContainers.value;
+  }
+  const searchLower = containerSearch.value.toLowerCase();
+  return availableContainers.value.filter(c =>
+    c.name.toLowerCase().includes(searchLower) ||
+    c.podName.toLowerCase().includes(searchLower)
+  );
+});
+
 const filtered = computed(() => {
+  let filteredLines = lines.value;
+
+  // Filter out excluded containers from existing logs
+  if (excludedContainers.value.size > 0) {
+    filteredLines = filteredLines.filter(line => {
+      // Extract container name from log line format: [PodName] ContainerName Message
+      const match = line.rawMsg.match(/\[[^\]]+\]\s+(\S+)\s+/);
+      if (match && match[1]) {
+        const containerName = match[1];
+        return !excludedContainers.value.has(containerName);
+      }
+      return true; // Keep line if we can't parse container name
+    });
+  }
+
   if (!search.value && !instance.value) {
-    return lines.value;
+    return filteredLines;
   }
 
   const re = new RegExp(escapeRegex(search.value), 'img');
   const out = [];
 
-  for (const line of lines.value) {
+  for (const line of filteredLines) {
     let msg = line.rawMsg;
 
     if (instance.value) {
@@ -168,7 +219,7 @@ const getSocketUrl = async () => {
     authtoken: token
   };
 
-  // Add optional filter parameters if they have values
+  // Add optional time-based filter parameters if they have values
   if (tail.value !== null && tail.value > 0) {
     params.tail = tail.value;
   }
@@ -185,6 +236,15 @@ const getSocketUrl = async () => {
     params.since = since.value; // Duration like "1h", "30m", "24h"
   }
 
+  // Add container filter parameters
+  if (filterMode.value === 'include' && selectedContainers.value.size > 0) {
+    params.include_containers = Array.from(selectedContainers.value).join(',');
+  }
+
+  if (excludedContainers.value.size > 0) {
+    params.exclude_containers = Array.from(excludedContainers.value).join(',');
+  }
+
   return addParams(url, params);
 };
 
@@ -196,14 +256,17 @@ const connect = async () => {
     await socket.value.disconnect();
     socket.value = null;
   }
+  backlog.value = [];
   lines.value = [];
 
   const url = await getSocketUrl();
 
-  socket.value = new Socket(url, true, 0);
+  socket.value = new Socket(url, true, 600000);
   socket.value.setAutoReconnectUrl(getSocketUrl);
 
   socket.value.addEventListener(EVENT_CONNECTED, () => {
+    lines.value = [];
+    backlog.value = [];
     isOpen.value = true;
   });
 
@@ -228,16 +291,35 @@ const connect = async () => {
 
     const { PodName, ContainerName, Message, Timestamp } = parsedData;
 
+    // Filter out excluded containers client-side as a safety measure
+    if (ContainerName && excludedContainers.value.has(ContainerName)) {
+      return; // Skip this log if container is excluded
+    }
+
+    // Extract container name from log data if not already discovered
+    // This is especially important for staging logs where pods API may not be available
+    if (ContainerName) {
+      const existingContainer = availableContainers.value.find(c => c.name === ContainerName);
+      if (!existingContainer) {
+        availableContainers.value.push({
+          name: ContainerName,
+          podName: PodName || '',
+          isInitContainer: false, // We can't determine this from log data
+        });
+        // If we were loading containers, mark as complete once we find at least one
+        if (loadingContainers.value && availableContainers.value.length > 0) {
+          loadingContainers.value = false;
+        }
+      }
+    }
+
     const line = `[${ PodName }] ${ ContainerName } ${ Message }`;
 
-    // If logs are being filtered, make sure there are no old lines, and
-    // ensure there aren't repeat lines.
-    if (
-      tail.value != undefined ||
-      since.value != undefined ||
-      sinceTime.value != undefined
-    ) {
-      lines.value.length = 0;
+    if (line == "[]  ___FILTER_START___") {
+      // Clear existing logs before new filtered logs arrive
+      lines.value = [];
+      backlog.value = [];
+      return;
     }
 
     if (line == "[]  ___FILTER_COMPLETE___") {
@@ -313,6 +395,13 @@ const cleanup = () => {
   clearInterval(timerFlush.value);
 };
 
+const clearFilters = () => {
+  tail.value = null;
+  since.value = null;
+  sinceTime.value = null;
+  applyFilters();
+};
+
 const applyFilters = async () => {
   // Prevent multiple simultaneous reconnections
   if (isApplyingFilters.value) {
@@ -320,6 +409,10 @@ const applyFilters = async () => {
   }
 
   isApplyingFilters.value = true;
+
+  // Clear existing lines before applying new filters to prevent duplicates
+  lines.value = [];
+  backlog.value = [];
 
   try {
     // Clear conflicting filters
@@ -332,23 +425,141 @@ const applyFilters = async () => {
       sinceTimeParsed = new Date(sinceTime.value).toISOString();
     }
 
+    // Build filter params including container filters
+    // If no filters are active, resume following mode
+    // If filters are active, use one-shot mode (follow: false)
+    const hasTimeFilters = tail.value != null || since.value != null || sinceTime.value != null;
+    const hasContainerFilters = (filterMode.value === 'include' && selectedContainers.value.size > 0) || excludedContainers.value.size > 0;
+
+    const filterParams: any = {
+      follow: !hasTimeFilters && !hasContainerFilters, // Follow only when no filters
+      tail: tail.value != null ? tail.value : (!hasTimeFilters && !hasContainerFilters ? 10000 : null),
+      since: since.value,
+      since_time: sinceTimeParsed,
+    };
+
+    // Add container filter parameters
+    if (filterMode.value === 'include' && selectedContainers.value.size > 0) {
+      filterParams.include_containers = Array.from(selectedContainers.value).join(',');
+    }
+
+    if (excludedContainers.value.size > 0) {
+      filterParams.exclude_containers = Array.from(excludedContainers.value).join(',');
+    }
+
     const payload = {
       type: 'filter_params',
-      params: {
-        follow: false,
-        tail: tail.value,
-        since: since.value,
-        since_time: sinceTimeParsed,
-      }
+      params: filterParams
     };
 
     const payload_string = JSON.stringify(payload);
 
     socket.value.send(payload_string);
 
+    // Safety timeout: reset flag after 5 seconds even if marker not received
+    setTimeout(() => {
+      if (isApplyingFilters.value) {
+        console.warn('Filter complete marker not received, resetting flag');
+        isApplyingFilters.value = false;
+      }
+    }, 5000);
+
   } catch (e) {
     console.error('Error applying log filters:', e);
+    isApplyingFilters.value = false;
   }
+};
+
+// Container filtering functions
+const fetchContainers = async () => {
+  loadingContainers.value = true;
+  try {
+    const namespace = props.application?.meta?.namespace;
+    const appName = props.application?.meta?.name;
+
+    if (!namespace || !appName) {
+      console.warn('Missing namespace or app name for container fetch');
+      return;
+    }
+
+    const res = await store.dispatch('epinio/request', {
+      url: `/api/v1/namespaces/${ namespace }/applications/${ appName }/pods`
+    });
+
+    const containers: ContainerInfo[] = [];
+
+    if (res && res.data) {
+      for (const pod of res.data) {
+        const podName = pod.name;
+
+        // Add main containers
+        if (pod.containers) {
+          for (const container of pod.containers) {
+            containers.push({
+              name: container.name,
+              podName,
+              isInitContainer: false,
+            });
+          }
+        }
+
+        // Add init containers
+        if (pod.init_containers) {
+          for (const container of pod.init_containers) {
+            containers.push({
+              name: container.name,
+              podName,
+              isInitContainer: true,
+            });
+          }
+        }
+      }
+    }
+
+    availableContainers.value = containers;
+  } catch (e) {
+    console.error('Error fetching containers:', e);
+  } finally {
+    loadingContainers.value = false;
+  }
+};
+
+const isSidecar = (containerName: string): boolean => {
+  const sidecarPrefixes = ['linkerd-', 'istio-'];
+  return sidecarPrefixes.some(prefix => containerName.startsWith(prefix));
+};
+
+const toggleContainer = (containerName: string) => {
+  if (filterMode.value === 'include') {
+    if (selectedContainers.value.has(containerName)) {
+      selectedContainers.value.delete(containerName);
+    } else {
+      selectedContainers.value.add(containerName);
+    }
+    selectedContainers.value = new Set(selectedContainers.value);
+  } else {
+    if (excludedContainers.value.has(containerName)) {
+      excludedContainers.value.delete(containerName);
+    } else {
+      excludedContainers.value.add(containerName);
+    }
+    excludedContainers.value = new Set(excludedContainers.value);
+  }
+};
+
+const isContainerSelected = (containerName: string): boolean => {
+  if (filterMode.value === 'include') {
+    return selectedContainers.value.has(containerName);
+  } else {
+    return excludedContainers.value.has(containerName);
+  }
+};
+
+const clearContainerFilters = () => {
+  selectedContainers.value.clear();
+  excludedContainers.value.clear();
+  selectedContainers.value = new Set();
+  excludedContainers.value = new Set();
 };
 </script>
 
@@ -371,6 +582,116 @@ const applyFilters = async () => {
             placement="top"
             placeholder="Filter by Instance"
           />
+
+          <!-- Container Filter Button -->
+          <VDropdown placement="bottom-start" :distance="6">
+            <button
+              class="btn bg-primary ml-5 container-filter-btn"
+            >
+              Container Filter
+            </button>
+            <template #popper>
+              <div class="container-filter-panel">
+                <div class="filter-search">
+                  <input
+                    v-model="containerSearch"
+                    type="text"
+                    class="input-sm"
+                    placeholder="Search containers..."
+                  >
+                </div>
+
+                <div v-if="loadingContainers" class="text-center p-10">
+                  Loading containers...
+                </div>
+                <div v-else-if="filteredContainers.length === 0" class="text-center p-10">
+                  No containers found
+                </div>
+                <div v-else class="container-list">
+                  <div
+                    v-for="container in filteredContainers"
+                    :key="`${container.podName}-${container.name}`"
+                    class="container-item"
+                    :class="{
+                      'is-selected': isContainerSelected(container.name),
+                      'is-sidecar': isSidecar(container.name)
+                    }"
+                    @click="toggleContainer(container.name)"
+                  >
+                    <Checkbox
+                      :value="isContainerSelected(container.name)"
+                      :label="container.name"
+                    />
+                    <span v-if="isSidecar(container.name)" class="badge badge-sm bg-warning">
+                      Sidecar
+                    </span>
+                    <span v-if="container.isInitContainer" class="badge badge-sm bg-info">
+                      Init
+                    </span>
+                  </div>
+                </div>
+
+                <!-- Time-based filters -->
+                <div class="filter-section">
+                  <label class="text-label">Tail (number of lines)</label>
+                  <input
+                    v-model.number="tail"
+                    type="number"
+                    class="form-control"
+                    placeholder="e.g., 100"
+                    min="1"
+                  >
+                </div>
+
+                <div class="filter-section">
+                  <label class="text-label">Since (duration)</label>
+                  <input
+                    v-model="since"
+                    type="text"
+                    class="form-control"
+                    placeholder="e.g., 1h, 30m, 24h"
+                    :disabled="!!sinceTime"
+                  >
+                  <small class="text-muted">Use this OR Since Time below</small>
+                </div>
+
+                <div class="filter-section">
+                  <label class="text-label">Since Time (absolute date)</label>
+                  <input
+                    v-model="sinceTime"
+                    type="datetime-local"
+                    class="form-control"
+                    :disabled="!!since"
+                  >
+                  <small class="text-muted">Use this OR Since above</small>
+                </div>
+
+                <div class="filter-footer">
+                  <p class="filter-instruction">
+                    {{ filterMode === 'include'
+                      ? 'Selected containers will be included in logs'
+                      : 'Selected containers will be excluded from logs' }}
+                  </p>
+                  <div class="mt-10">
+                    <button
+                      class="btn btn-sm bg-primary"
+                      :disabled="isApplyingFilters"
+                      @click="applyFilters"
+                    >
+                      {{ isApplyingFilters ? 'Applying...' : 'Apply Filters' }}
+                    </button>
+                    <button
+                      class="btn btn-sm bg-warning ml-5"
+                      :disabled="activeFilterCount === 0 && !tail && !since && !sinceTime"
+                      @click="clearContainerFilters(); clearFilters();"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </template>
+          </VDropdown>
 
           <button
             class="btn bg-primary ml-5"
@@ -413,62 +734,6 @@ const applyFilters = async () => {
                     :label="t('wm.containerLogs.wrap')"
                     @update:value="toggleWrap"
                   />
-
-                  <div class="filter-section">
-                    <label class="text-label">Tail (number of lines)</label>
-                    <input
-                      v-model.number="tail"
-                      type="number"
-                      class="form-control"
-                      placeholder="e.g., 100"
-                      min="1"
-                    >
-                  </div>
-
-                  <div class="filter-section">
-                    <label class="text-label">Since (duration)</label>
-                    <input
-                      v-model="since"
-                      type="text"
-                      class="form-control"
-                      placeholder="e.g., 1h, 30m, 24h"
-                      :disabled="!!sinceTime"
-                    >
-                    <small class="text-muted">Use this OR Since Time below</small>
-                  </div>
-
-                  <div class="filter-section">
-                    <label class="text-label">Since Time (absolute date)</label>
-                    <input
-                      v-model="sinceTime"
-                      type="datetime-local"
-                      class="form-control"
-                      :disabled="!!since"
-                    >
-                    <small class="text-muted">Use this OR Since above</small>
-                  </div>
-
-                  <div>
-                    <button
-                      class="btn btn-sm bg-primary mt-10"
-                      :disabled="isApplyingFilters"
-                      @click="applyFilters"
-                    >
-                      {{ isApplyingFilters ? 'Applying...' : 'Apply Filters' }}
-                    </button>
-                    <button
-                      class="btn btn-sm bg-warning mt-10 ml-5"
-                      :disabled="!tail && !since && !sinceTime"
-                      @click="
-                        tail = null;
-                        since = null;
-                        sinceTime = null;
-                        applyFilters();
-                      "
-                    >
-                      Clear Filters
-                    </button>
-                  </div>
                 </div>
               </template>
             </VDropdown>
@@ -510,9 +775,12 @@ const applyFilters = async () => {
                 />
               </tr>
             </template>
-            <tr v-else-if="search">
+            <tr v-else-if="search || activeFilterCount > 0">
               <td colspan="2" class="msg text-muted">
                 {{t('wm.containerLogs.noMatch')}}
+                <span v-if="activeFilterCount > 0" class="filter-indicator">
+                  ({{ filterMode === 'include' ? 'Including' : 'Excluding' }} {{ activeFilterCount }} container{{ activeFilterCount !== 1 ? 's' : '' }})
+                </span>
               </td>
             </tr>
             <tr v-else>
@@ -548,9 +816,6 @@ const applyFilters = async () => {
       flex-direction: row;
     }
   }
-  // .title-left {
-
-  // }
 
   .logs-container {
     height: 100%;
@@ -670,5 +935,126 @@ const applyFilters = async () => {
   .title-left {
     display: flex;
   }
-</style>
 
+  .container-filter-btn {
+    display: flex;
+    align-items: center;
+  }
+
+  .container-filter-panel {
+    min-width: 300px;
+    max-width: 400px;
+    max-height: 500px;
+    display: flex;
+    flex-direction: column;
+    padding: 10px;
+    color: var(--body-text);
+
+
+    .filter-search {
+      margin-bottom: 10px;
+
+      input {
+        width: 100%;
+      }
+    }
+
+    .filter-app-checkbox {
+      margin-bottom: 10px;
+      padding: 6px 8px;
+    }
+
+    .container-list {
+      flex: 1;
+      overflow-y: auto;
+      max-height: 250px;
+      margin-bottom: 10px;
+
+      .container-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 8px;
+        cursor: pointer;
+        border-radius: 4px;
+        transition: background-color 0.2s;
+        color: var(--body-text);
+
+        &:hover {
+          background-color: var(--hover-bg);
+        }
+
+        &.is-selected,
+        &.active-nav {
+          background-color: var(--body-bg);
+          color: var(--body-text);
+        }
+
+        &.is-sidecar {
+          opacity: 0.8;
+        }
+
+        :deep(label),
+        :deep(.checkbox-label) {
+          color: var(--body-text);
+        }
+
+        .badge {
+          font-size: 10px;
+          padding: 2px 6px;
+        }
+      }
+    }
+
+    .filter-section {
+      margin-top: 15px;
+
+      .text-label {
+        display: block;
+        margin-bottom: 5px;
+        font-size: 12px;
+        font-weight: 600;
+      }
+
+      .form-control {
+        width: 100%;
+        padding: 5px 10px;
+        border: 1px solid var(--border);
+        border-radius: 3px;
+        background-color: var(--input-bg);
+        color: var(--input-text);
+
+        &:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+      }
+
+      .text-muted {
+        display: block;
+        margin-top: 3px;
+        font-size: 11px;
+        opacity: 0.7;
+      }
+    }
+
+    .filter-footer {
+      display: flex;
+      flex-direction: column;
+      padding-top: 10px;
+      border-top: 1px solid var(--border);
+
+      .filter-instruction {
+        font-size: 12px;
+        color: var(--body-text);
+        line-height: 1.4;
+      }
+    }
+  }
+
+  .filter-indicator {
+    display: block;
+    margin-top: 5px;
+    font-size: 12px;
+  }
+</style>
