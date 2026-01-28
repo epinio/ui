@@ -43,7 +43,7 @@ const pending = ref<boolean>(true);
 const validationPassed = ref<boolean>(false);
 
 onMounted(async () => {
-  props.value.meta.namespace = props.initialValue.meta.namespace || 
+  props.value.meta.namespace = props.initialValue.meta.namespace ||
     namespaces.value[0]?.metadata.name;
   props.value.data = { ...props.initialValue.configuration?.details };
   selectedApps.value = [...props.initialValue.configuration?.boundapps || []];
@@ -63,11 +63,16 @@ const isEdit = computed(() => {
 });
 
 const namespaces = computed(() => {
-  return sortBy(store.getters['epinio/all'](EPINIO_TYPES.NAMESPACE), 'name', false);
+  return sortBy(
+    store.getters['epinio/all'](EPINIO_TYPES.NAMESPACE),
+    'name',
+    false,
+  );
 });
 
 const namespaceNames = computed(() => {
-  return namespaces.value.map((n: EpinioNamespace) => n.metadata.name);
+  console.log('namespaces', namespaces.value);
+  return namespaces.value.map((n: EpinioNamespace) => n.meta?.name);
 });
 
 const done = () => {
@@ -89,7 +94,7 @@ const save = async (saveCb: (success: boolean) => void) => {
       await props.value.create();
       await updateConfigurationAppBindings();
       await store.dispatch(
-        'epinio/findAll', 
+        'epinio/findAll',
         { type: props.value.type, opt: { force: true } },
       );
     }
@@ -112,24 +117,24 @@ const save = async (saveCb: (success: boolean) => void) => {
 
 const updateValidation = () => {
   const nameErrors = validateKubernetesName(
-    props.value?.meta.name || '', 
-    t('epinio.namespace.name'), 
-    store.getters, 
-    undefined, 
+    props.value?.meta.name || '',
+    t('epinio.namespace.name'),
+    store.getters,
+    undefined,
     [],
   );
-  
+
   const nsErrors = validateKubernetesName(
-    props.value?.meta.namespace || '', 
-    '', 
-    store.getters, 
-    undefined, 
+    props.value?.meta.namespace || '',
+    '',
+    store.getters,
+    undefined,
     [],
   );
 
   if (nameErrors.length === 0 && nsErrors.length === 0) {
     const dataValues = Object.entries(props.value?.data || {});
-    
+
     if (!!dataValues.length) { // eslint-disable-line no-extra-boolean-cast
       validationPassed.value = true;
       return;
@@ -193,13 +198,12 @@ watch(
       />
     </div>
     <NameNsDescription
-      name-key="name"
-      namespace-key="namespace"
+      data-testid="epinio_app-info_name-ns"
       :namespaces-override="namespaceNames"
       :create-namespace-override="true"
       :description-hidden="true"
-      :value="value.meta"
-      :mode="mode"
+      :value="{metadata: value.meta}"
+      :mode="props.mode"
     />
     <div class="row">
       <div class="col span-6">
