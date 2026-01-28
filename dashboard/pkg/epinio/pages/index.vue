@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { useStore } from 'vuex';
 
 import Loading from '@shell/components/Loading.vue';
@@ -8,6 +8,7 @@ import type { DataTableColumn } from '../components/tables/types';
 import AsyncButton from '@shell/components/AsyncButton.vue';
 import Link from '@shell/components/formatter/Link.vue';
 import BadgeStateFormatter from '@shell/components/formatter/BadgeStateFormatter.vue';
+import { MANAGEMENT } from '@shell/config/types';
 
 import { EPINIO_MGMT_STORE, EPINIO_TYPES } from '../types';
 import { _MERGE } from '@shell/plugins/dashboard-store/actions';
@@ -17,21 +18,53 @@ import epinioAuth, { EpinioAuthTypes } from '../utils/auth';
 const store = useStore();
 const t = store.getters['i18n/t'];
 
-let currentCluster: EpinioCluster | null = null;
-let clusters: EpinioCluster[] = [];
-//let clustersSchema: any = null;
+const clusters = ref<EpinioCluster[]>([]);
+const currentCluster = ref<EpinioCluster | null>(null);
+const allClusters = ref<any>(null);
 
 const loading = ref(true);
 const error = ref<Error | null>(null)
 
+const displayClusters = computed(() => {
+  const formattedRancherClusters = allClusters.value.filter((cluster: any) => {
+    const epinioCluster = clusters.value.find((c: EpinioCluster) => c.id === cluster.id);
+    return !epinioCluster;
+  }).map((rancherCluster: any) => {
+    const uninstalledCluster = new EpinioCluster({
+      id:          rancherCluster.id,
+      name:        rancherCluster.spec.displayName,
+      namespace:   '',
+      api:         null,
+      loggedIn:    false,
+      mgmtCluster: rancherCluster,
+    }, { rootGetters: store.getters });
+
+    // Manually set the state after construction
+    uninstalledCluster.state = 'uninstalled';
+    uninstalledCluster.metadata = {
+      state: {
+        transitioning: false,
+        error:        false,
+        message:      'Epinio not installed'
+      }
+    };
+
+    return uninstalledCluster;
+  })
+  const mergedClusters = [...clusters.value, ...formattedRancherClusters];
+  return mergedClusters;
+})
+
 onMounted(async () => {
   loading.value = true
   try {
-    await store.dispatch(`${EPINIO_MGMT_STORE}/findAll`, { type: EPINIO_TYPES.CLUSTER }, { root: true })
-    clusters = store.getters[`${EPINIO_MGMT_STORE}/all`](EPINIO_TYPES.CLUSTER)
-    //clustersSchema = store.getters[`${EPINIO_MGMT_STORE}/schemaFor`](EPINIO_TYPES.CLUSTER)
+    await store.dispatch('management/findAll', { type: MANAGEMENT.CLUSTER });
+    allClusters.value = store.getters['management/all'](MANAGEMENT.CLUSTER);
 
-    clusters.forEach((c: EpinioCluster) => testCluster(c))
+    await store.dispatch(`${EPINIO_MGMT_STORE}/findAll`, { type: EPINIO_TYPES.CLUSTER }, { root: true })
+    clusters.value = store.getters[`${EPINIO_MGMT_STORE}/all`](EPINIO_TYPES.CLUSTER)
+
+    clusters.value.forEach((c: EpinioCluster) => testCluster(c))
   } catch (err) {
     error.value = err as Error
   } finally {
@@ -40,7 +73,7 @@ onMounted(async () => {
 })
 
 const canRediscover = () => {
-  return !clusters.find((c: EpinioCluster) => c.state === 'updating');
+  return !displayClusters.value.find((c: EpinioCluster) => c.state === 'updating');
 }
 
 const rediscover = async (buttonCb: (success: boolean) => void)  => {
@@ -48,7 +81,7 @@ const rediscover = async (buttonCb: (success: boolean) => void)  => {
     `${ EPINIO_MGMT_STORE }/findAll`,
     { type: EPINIO_TYPES.CLUSTER, opt: { force: true, load: _MERGE } },
   );
-  clusters.forEach((c: EpinioCluster) => testCluster(c));
+  displayClusters.value.forEach((c: EpinioCluster) => testCluster(c));
   buttonCb(true);
 }
 
@@ -61,11 +94,11 @@ const login = async (c: EpinioCluster) =>{
       params: { cluster: c.id }
     });
   } else {
-    currentCluster = c;
+    currentCluster.value = c;
     store.dispatch('cluster/promptModal', {
       component: 'LoginDialog',
       componentProps: {
-        cluster: currentCluster,
+        cluster: currentCluster.value,
       },
     });
   }
@@ -179,7 +212,7 @@ const columns: DataTableColumn[] = [
         />
       </div>
       <DataTable
-        :rows="clusters"
+        :rows="displayClusters"
         :columns="columns"
         :searchable="false"
       >
@@ -204,8 +237,10 @@ const columns: DataTableColumn[] = [
         </template>
         <template #cell:api="{row}">
           <div class="epinio-row">
+            <template v-if="row.state === 'uninstalled'">
+            </template>
             <Link
-              v-if="row.state !== 'available'"
+              v-else-if="row.state !== 'available'"
               :row="row"
               :value="{ text: row.api, url: row.infoUrl }"
             />
@@ -248,3 +283,4 @@ div.root {
 }
 
 </style>
+

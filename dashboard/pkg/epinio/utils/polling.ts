@@ -32,6 +32,8 @@ export function startPolling(types: string[], store: any): any {
 
 export function stopPolling(types: string[]): any {
   types.forEach((type) => {
-    polling[type].stop();
+    if (polling[type] !== undefined) {
+      polling[type].stop();
+    }
   });
 }
