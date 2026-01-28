@@ -122,7 +122,7 @@ const validationPassed = computed(() => {
   if (isEdit.value && newBinds.value) {
     return true;
   }
-  
+
   if (!props.value.catalog_service) {
     return false;
   }
@@ -132,17 +132,17 @@ const validationPassed = computed(() => {
   }
 
   const nameErrors = validateKubernetesName(
-    props.value.name || '', 
-    t('epinio.namespace.name'), 
-    store.getters, 
-    undefined, 
+    props.value.name || '',
+    t('epinio.namespace.name'),
+    store.getters,
+    undefined,
     [],
   );
   const nsErrors = validateKubernetesName(
-    props.value.meta.namespace || '', 
-    '', 
-    store.getters, 
-    undefined, 
+    props.value.meta.namespace || '',
+    '',
+    store.getters,
+    undefined,
     [],
   );
 
@@ -154,11 +154,15 @@ const validationPassed = computed(() => {
 });
 
 const namespaces = computed(() => {
-  return sortBy(store.getters['epinio/all'](EPINIO_TYPES.NAMESPACE), 'name');
+  return sortBy(
+    store.getters['epinio/all'](EPINIO_TYPES.NAMESPACE),
+    'name',
+    false,
+  );
 });
 
 const namespaceNames = computed(() => {
-  return namespaces.value.map((n: EpinioNamespace) => n.metadata.name);
+  return namespaces.value.map((n: EpinioNamespace) => n.meta?.name)
 });
 
 const catalogServiceOpts = computed(() => {
@@ -195,10 +199,10 @@ const save = async (saveCb: (success: boolean) => void) => {
   errors.value = [];
 
   const newSettings = !isEqual(
-    objValuesToString(chartValues), 
+    objValuesToString(chartValues),
     objValuesToString(props.value.settings),
   );
-  
+
   if (newSettings) {
     props.value.settings = objValuesToString(chartValues.value);
   }else{
@@ -254,7 +258,7 @@ const resetChartValues = () => {
 </script>
 
 <template>
-  <Loading v-if="!value || pending" />
+  <Loading v-if="!props.value || pending" />
   <CruResource
     v-else-if="value"
     :can-yaml="false"
@@ -276,13 +280,12 @@ const resetChartValues = () => {
       />
     </div>
     <NameNsDescription
-      name-key="name"
-      namespace-key="namespace"
+      data-testid="epinio_app-info_name-ns"
       :namespaces-override="namespaceNames"
       :create-namespace-override="true"
       :description-hidden="true"
-      :value="value.meta"
-      :mode="mode"
+      :value="{metadata: value.meta}"
+      :mode="props.mode"
     />
     <div class="row">
       <div class="col span-6">

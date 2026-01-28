@@ -407,3 +407,5 @@ model:
   authConfig:
     provider:
       epinio: Auth Provider
+product:
+  epinio: Application Engine
