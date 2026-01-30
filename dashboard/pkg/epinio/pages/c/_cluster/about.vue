@@ -19,6 +19,10 @@ const supportBundleLoading = ref(false);
 const supportBundleError = ref('');
 const supportBundleSuccess = ref('');
 
+const reportLoading = ref(false);
+const reportError = ref('');
+const reportSuccess = ref('');
+
 const t = store.getters['i18n/t'];
 
 const aboutVersionsComponentString = computed(() => t('about.versions.component'));
@@ -104,6 +108,46 @@ const bundleFileName = () => {
   const pad = (val: number) => val.toString().padStart(2, '0');
 
   return `epinio-support-bundle-${ now.getFullYear() }-${ pad(now.getMonth() + 1) }-${ pad(now.getDate()) }-${ pad(now.getHours()) }-${ pad(now.getMinutes()) }-${ pad(now.getSeconds()) }.tar.gz`;
+};
+
+const reportFileName = () => {
+  const now = new Date();
+  const pad = (val: number) => val.toString().padStart(2, '0');
+
+  return `epinio-report-${ now.getFullYear() }-${ pad(now.getMonth() + 1) }-${ pad(now.getDate()) }-${ pad(now.getHours()) }-${ pad(now.getMinutes()) }-${ pad(now.getSeconds()) }.txt`;
+};
+
+const downloadReport = async() => {
+  reportError.value = '';
+  reportSuccess.value = '';
+  reportLoading.value = true;
+
+  try {
+    const res = await store.dispatch('epinio/request', {
+      opt: {
+        url:          '/api/v1/report/nodes',
+        method:       'get',
+        params:       { format: 'text' },
+        responseType: 'blob',
+        timeout:      60000
+      }
+    });
+
+    const blob = res?.data;
+    const contentType = res?.headers?.['content-type'] || 'text/plain; charset=utf-8';
+
+    await downloadFile(reportFileName(), blob, contentType);
+
+    reportSuccess.value = t('epinio.downloadReport.success');
+  } catch (err: any) {
+    const status = err?._status || err?.status || err?.response?.status;
+
+    reportError.value = status === 403
+      ? t('epinio.downloadReport.errors.unauthorized')
+      : t('epinio.downloadReport.errors.failed');
+  } finally {
+    reportLoading.value = false;
+  }
 };
 
 const downloadSupportBundle = async() => {
@@ -215,6 +259,38 @@ const downloadSupportBundle = async() => {
 
     <section
       v-if="version"
+      class="download-report"
+    >
+      <h3>{{ t('epinio.downloadReport.title') }}</h3>
+
+      <div class="download-report__actions">
+        <button
+          class="btn role-primary"
+          :disabled="reportLoading"
+          @click="downloadReport"
+        >
+          <i
+            v-if="reportLoading"
+            class="icon-spinner animate-spin mr-5"
+          />
+          {{ t('epinio.downloadReport.action') }}
+        </button>
+      </div>
+
+      <Banner
+        v-if="reportSuccess"
+        color="success"
+        :label="reportSuccess"
+      />
+      <Banner
+        v-if="reportError"
+        color="error"
+        :label="reportError"
+      />
+    </section>
+
+    <section
+      v-if="version"
       class="support-bundle"
     >
       <h3>{{ t('epinio.supportBundle.title') }}</h3>
@@ -304,6 +380,25 @@ const downloadSupportBundle = async() => {
       display: flex;
       align-items: center;
     }
+  }
+}
+
+.download-report {
+  margin-top: 40px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--border-radius);
+  background: var(--default);
+
+  &__actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 16px;
+  }
+
+  .banner {
+    margin-top: 10px;
   }
 }
 
