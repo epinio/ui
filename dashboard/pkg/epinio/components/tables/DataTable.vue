@@ -221,14 +221,19 @@ defineExpose({
 
 <template>
   <div class="data-table">
-    <!-- Search bar -->
-    <div v-if="searchable" class="data-table__search">
-      <input
-        v-model="searchQuery"
-        type="text"
-        class="data-table__search-input"
-        placeholder="Search..."
-      >
+    <!-- Header row with title and search -->
+    <div class="data-table__header">
+      <div class="data-table__title">
+        <slot name="title" />
+      </div>
+      <div v-if="searchable" class="data-table__search">
+        <input
+          v-model="searchQuery"
+          type="text"
+          class="data-table__search-input"
+          placeholder="Search..."
+        >
+      </div>
     </div>
 
     <!-- Loading state -->
@@ -362,10 +367,21 @@ defineExpose({
   gap: 1rem;
   width: 100%;
 
-  &__search {
+  &__header {
     display: flex;
-    justify-content: flex-end;
+    justify-content: space-between;
+    align-items: center;
     padding: 0.5rem 0;
+    gap: 1rem;
+  }
+
+  &__title {
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__search {
+    flex-shrink: 0;
   }
 
   &__search-input {
