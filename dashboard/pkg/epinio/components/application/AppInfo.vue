@@ -298,11 +298,11 @@ const moveBooleansToFront = (settingsObj: any) => {
           <h3>{{ t('epinio.applications.create.envvar.title') }}</h3>
           <button
             v-if="props.mode === 'edit'"
-            @click="toggleEnvVisibility"
             class="icon-button"
             type="button"
             :title="showEnvValues ? 'Hide environment variable values' : 'Show environment variable values'"
             :aria-label="showEnvValues ? 'Hide environment variable values' : 'Show environment variable values'"
+            @click="toggleEnvVisibility"
           >
             <img v-if="!showEnvValues" :src="eyeIcon" alt="Show values" class="icon" />
             <img v-else :src="eyeOffIcon" alt="Hide values" class="icon" />
