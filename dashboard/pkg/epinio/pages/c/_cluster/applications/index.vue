@@ -153,14 +153,16 @@ onUnmounted(() => {
       :key="namespace"
       class="namespace-group"
     >
-      <h3 class="namespace-header">
-        Namespace: <span class="namespace-name">{{ namespace }}</span>
-      </h3>
 
       <DataTable
         :rows="apps"
         :columns="columns"
       >
+        <template #title>
+          <h3 class="namespace-header">
+            Namespace: <span class="namespace-name">{{ namespace }}</span>
+          </h3>
+        </template>
         <template #cell:stateDisplay="{ row }">
           <BadgeStateFormatter
             :row="row"
@@ -255,9 +257,11 @@ onUnmounted(() => {
 }
 
 .namespace-header {
-  font-size: 1.5rem;
+  font-size: 1.3rem;
   font-weight: 400;
-  margin-bottom: 1rem;
+  margin: 0;
+  padding: 0;
+  line-height: 1;
   color: var(--body-text);
 
   .namespace-name {
