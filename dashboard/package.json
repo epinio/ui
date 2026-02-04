@@ -5,6 +5,7 @@
     "node": ">=20"
   },
   "dependencies": {
+    "@achrinza/node-ipc": "^9.2.10",
     "@rancher/shell": "3.0.7",
     "@types/lodash": "^4.17.16",
     "eslint": "^9.28.0",

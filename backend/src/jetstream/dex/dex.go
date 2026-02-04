@@ -3,6 +3,7 @@ package dex
 import (
 	"context"
 	"crypto/tls"
+	stdErrors "errors"
 	"net/http"
 	"net/url"
 	"strings"
@@ -147,7 +148,37 @@ func (pc *OIDCProvider) ExchangeWithPKCE(ctx context.Context, authCode, codeVeri
 
 	token, err := pc.Config.Exchange(newCtx, authCode, oauth2.SetAuthURLParam("code_verifier", codeVerifier))
 	if err != nil {
-		return nil, errors.Wrap(err, "exchanging code for token")
+		// oauth2 can return a *oauth2.RetrieveError containing the HTTP response body.
+		// Surface it (without secrets) to make diagnosing invalid_client / invalid_grant much easier.
+		var re *oauth2.RetrieveError
+		if stdErrors.As(err, &re) {
+			status := "<nil>"
+			if re.Response != nil {
+				status = re.Response.Status
+			}
+
+			body := strings.TrimSpace(string(re.Body))
+			if len(body) > 4096 {
+				body = body[:4096] + "...(truncated)"
+			}
+
+			return nil, errors.Errorf(
+				"exchanging code for token (token_url=%s client_id=%s redirect_uri=%s): http_status=%s response_body=%s",
+				pc.Config.Endpoint.TokenURL,
+				pc.Config.ClientID,
+				pc.Config.RedirectURL,
+				status,
+				body,
+			)
+		}
+
+		return nil, errors.Wrapf(
+			err,
+			"exchanging code for token (token_url=%s client_id=%s redirect_uri=%s)",
+			pc.Config.Endpoint.TokenURL,
+			pc.Config.ClientID,
+			pc.Config.RedirectURL,
+		)
 	}
 	return token, nil
 }

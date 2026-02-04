@@ -238,9 +238,9 @@ func (a *epinioAuth) epinioOIDCLogin(c echo.Context) (string, string, error) {
 
 	token, err := oidcProvider.ExchangeWithPKCE(c.Request().Context(), params.Code, params.CodeVerifier)
 	if err != nil {
-		msg := fmt.Sprintf("failed to get token from code: %+v", err)
-		log.Errorf(msg)
-		return "", "", errors.New(msg)
+		// Keep the underlying error (e.g. oauth2 RetrieveError body) so it can be logged/returned.
+		log.Errorf("failed to get token from code: %+v", err)
+		return "", "", fmt.Errorf("failed to get token from code: %w", err)
 	}
 
 	tr := &interfaces.TokenRecord{
@@ -259,9 +259,11 @@ func (a *epinioAuth) epinioOIDCLogin(c echo.Context) (string, string, error) {
 	}
 
 	var claims struct {
-		Email           string   `json:"email"`
-		Groups          []string `json:"groups"`
-		FederatedClaims struct {
+		Email             string   `json:"email"`
+		PreferredUsername string   `json:"preferred_username"`
+		Sub               string   `json:"sub"`
+		Groups            []string `json:"groups"`
+		FederatedClaims   struct {
 			ConnectorID string `json:"connector_id"`
 		} `json:"federated_claims"`
 	}
@@ -277,7 +279,19 @@ func (a *epinioAuth) epinioOIDCLogin(c echo.Context) (string, string, error) {
 
 	c.Set("token", tr)
 
-	return claims.Email, claims.Email, nil
+	// Prefer email when present; fall back to preferred_username (e.g. Rancher) or sub.
+	username := claims.Email
+	if username == "" {
+		username = claims.PreferredUsername
+	}
+	if username == "" {
+		username = claims.Sub
+	}
+	if username == "" {
+		return "", "", errors.New("OIDC token missing email, preferred_username, and sub")
+	}
+
+	return username, username, nil
 
 }
 
