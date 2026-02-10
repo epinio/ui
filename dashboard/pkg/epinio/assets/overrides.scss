@@ -36,3 +36,39 @@
     }
   }
 }
+
+.badge-state {
+  align-items: center;
+  display: inline-flex;
+  padding: 2px 10px;
+  border: 1px solid transparent;
+  border-radius: 20px;
+
+  &.bg-info {
+    color: var(--on-info-banner);
+    background: var(--info) !important;
+  }
+
+  &.bg-error {
+    color: var(--on-error-banner);
+    background: var(--error) !important;
+  }
+
+  &.bg-warning {
+    color: var(--on-warning-banner);
+    background: var(--warning) !important;
+  }
+
+  // Successful states are de-emphasized by using [text-]color instead of background-color
+  &.bg-success {
+    color: var(--on-success-banner, var(--success-text));
+    background: var(--success-badge, var(--success));
+  }
+
+  // Added badge-disabled instead of bg-disabled since bg-disabled is used in other places with !important styling, an investigation is needed to make the naming consistent
+  &.badge-disabled {
+    color: var(--badge-state-disabled-text);
+    background-color: var( --badge-state-disabled-bg);
+    border: 1px solid var(--badge-state-disabled-border);
+  }
+}

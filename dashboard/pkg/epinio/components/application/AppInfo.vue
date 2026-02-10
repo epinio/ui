@@ -42,6 +42,7 @@ const emit = defineEmits<{
 const errors = ref<string[]>([]); // eslint-disable-line @typescript-eslint/no-unused-vars
 const values = ref<EpinioAppInfo | undefined>(undefined);
 const validSettings = ref<{ [key: string]: boolean }>({});
+const showEnvValues = ref(false);
 
 
 // Computed properties
@@ -74,6 +75,13 @@ const valid = computed(() => {
   return validName && validNamespace && validInstances &&
     Object.values(validSettings.value).every((v) => !!v);
 });
+
+const toggleEnvVisibility = () => {
+  showEnvValues.value = !showEnvValues.value;
+};
+
+const eyeIcon = new URL('../../assets/icons/eye-duotone-solid.svg', import.meta.url).href;
+const eyeOffIcon = new URL('../../assets/icons/eye-slash-duotone-solid.svg', import.meta.url).href;
 
 const showApplicationVariables = computed(() => {
   return Object.keys(values.value?.configuration?.settings || {}).length !== 0;
@@ -284,16 +292,66 @@ const moveBooleansToFront = (settingsObj: any) => {
       <div class="spacer" />
     </div>
     <div class="col span-8">
-      <KeyValue
-        v-model:value="values.configuration.environment"
-        data-testid="epinio_app-info_envs"
-        :mode="props.mode"
-        :title="t('epinio.applications.create.envvar.title')"
-        :key-label="t('epinio.applications.create.envvar.keyLabel')"
-        :value-label="t('epinio.applications.create.envvar.valueLabel')"
-        :parse-lines-from-file="true"
-      />
+      <div class="env-var-section">
+        <div class="env-var-title-row">
+          <h3>{{ t('epinio.applications.create.envvar.title') }}</h3>
+          <button
+            v-if="props.mode === 'edit'"
+            class="icon-button"
+            type="button"
+            :title="showEnvValues ? 'Hide environment variable values' : 'Show environment variable values'"
+            :aria-label="showEnvValues ? 'Hide environment variable values' : 'Show environment variable values'"
+            @click="toggleEnvVisibility"
+          >
+            <img v-if="!showEnvValues" :src="eyeIcon" alt="Show values" class="icon" />
+            <img v-else :src="eyeOffIcon" alt="Hide values" class="icon" />
+          </button>
+        </div>
+        <KeyValue
+          v-model:value="values.configuration.environment"
+          :value-concealed="props.mode === 'view' || !showEnvValues"
+          data-testid="epinio_app-info_envs"
+          :mode="props.mode"
+          :key-label="t('epinio.applications.create.envvar.keyLabel')"
+          :value-label="t('epinio.applications.create.envvar.valueLabel')"
+          :parse-lines-from-file="true"
+        />
+      </div>
       <div class="mb-20" /> <!-- allow a small amount of padding at bottom -->
     </div>
   </div>
 </template>
+
+<style scoped>
+  .env-var-section {
+    width: 100%;
+  }
+
+  .env-var-title-row {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    margin-bottom: 10px;
+  }
+
+  .env-var-title-row h3 {
+    margin: 0;
+    margin-right: 8px;
+  }
+
+  .icon-button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .icon-button .icon {
+    width: 25px;
+    height: 25px;
+  }
+</style>
