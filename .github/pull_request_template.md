@@ -1,3 +1,8 @@
+### PR Checklist
+- [ ] Linting Test is passing
+- [ ] Code is well documented
+- [ ] If applicable, a PR in the [epinio/docs](https://github.com/epinio/docs) repository has been opened
+
 <!-- This template is for Devs to give the reviewer and QA details -->
 ### Summary
 Fixes #
