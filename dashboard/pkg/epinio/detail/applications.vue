@@ -126,7 +126,7 @@ const commitActions = [{
 }];
 
 // Debounce settings for scaling instances
-const UPDATE_INSTANCES_DEBOUNCE_MS = 1000; // 1s; adjust as needed
+const UPDATE_INSTANCES_DEBOUNCE_MS = 2000; // 2s; adjust as needed
 let updateInstancesTimeout: number | null = null;
 
 onMounted(async () => {
