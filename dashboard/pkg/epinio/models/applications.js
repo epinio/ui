@@ -48,6 +48,50 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
   // ------------------------------------------------------------------
   // Dashboard plumbing
 
+  get _availableActions() {
+    const base = super._availableActions || [];
+
+    const canGetter = this.$rootGetters?.['epinio/can'];
+    const perms = this.$rootGetters?.['epinio/permissions']?.();
+
+    // When permissions haven't loaded, show all actions — API enforces RBAC
+    if (!canGetter || !perms || Object.keys(perms).length === 0) {
+      return base;
+    }
+
+    const canEdit = canGetter('app_update') || canGetter('app_write') || canGetter('app');
+    const canDelete = canGetter('app_delete') || canGetter('app_write') || canGetter('app');
+    const canViewConfig = canGetter('configuration_read') || canGetter('configuration_write');
+
+    let skipNextDivider = false;
+
+    return base.filter((action) => {
+      if (skipNextDivider && action.divider) {
+        skipNextDivider = false;
+
+        return false;
+      }
+
+      if (action.action === 'showConfiguration') {
+        if (!canViewConfig) {
+          skipNextDivider = true; // base always has a divider after showConfiguration
+
+          return false;
+        }
+      }
+
+      if (action.action === 'goToEdit' || action.action === 'goToViewConfig') {
+        return canEdit || canViewConfig;
+      }
+
+      if (action.action === 'promptRemove') {
+        return canDelete;
+      }
+
+      return true;
+    });
+  }
+
   get details() {
     const res = [];
 
@@ -163,10 +207,47 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
     }
 
     res.push(
-      ...super._availableActions
+      ...this._availableActions
     );
 
-    return res;
+    return this._pruneOrphanedDividers(res);
+  }
+
+  _pruneOrphanedDividers(actions) {
+    // Remove disabled items and consecutive dividers (mirrors resource-class availableActions logic)
+    let last = null;
+    let out = actions.filter((item) => {
+      if (item.enabled === false) {
+        return false;
+      }
+
+      const cur = item.divider;
+      const ok = !cur || (cur && !last);
+
+      last = cur;
+
+      return ok;
+    });
+
+    // Remove dividers at the beginning
+    while (out.length && out[0].divider) {
+      out.shift();
+    }
+
+    // Remove dividers at the end
+    while (out.length && out[out.length - 1].divider) {
+      out.pop();
+    }
+
+    // Remove consecutive dividers in the middle
+    for (let i = 1; i < out.length; i++) {
+      if (out[i].divider && out[i - 1].divider) {
+        out.splice(i, 1);
+        i--;
+      }
+    }
+
+    return out;
   }
 
   get links() {

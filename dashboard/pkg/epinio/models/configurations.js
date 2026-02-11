@@ -3,11 +3,27 @@ import EpinioNamespacedResource, { bulkRemove } from './epinio-namespaced-resour
 
 export default class EpinioConfigurationModel extends EpinioNamespacedResource {
   get canCustomEdit() {
-    return !this.isServiceRelated;
+    const canGetter = this.$rootGetters?.['epinio/can'];
+
+    if (!canGetter) {
+      return !this.isServiceRelated;
+    }
+
+    const canEdit = canGetter('configuration_write') || canGetter('configuration');
+
+    return !this.isServiceRelated && canEdit;
   }
 
   get _canDelete() {
-    return !this.isServiceRelated && super._canDelete;
+    const canGetter = this.$rootGetters?.['epinio/can'];
+
+    if (!canGetter) {
+      return !this.isServiceRelated && super._canDelete;
+    }
+
+    const canDelete = canGetter('configuration_write') || canGetter('configuration');
+
+    return !this.isServiceRelated && canDelete && super._canDelete;
   }
 
   // ------------------------------------------------------------------
