@@ -234,6 +234,21 @@ export interface EpinioVersion {
   displayVersion: string,
 }
 
+// Mirrors pkg/api/core/v1/models.MeResponse / Role (simplified)
+export interface EpinioRole {
+  id: string,
+  name: string,
+  namespace?: string,
+  default?: boolean,
+}
+
+export interface EpinioMe {
+  user: string,
+  roles: EpinioRole[],
+  namespaces: string[],
+  gitconfigs: string[],
+}
+
 export interface EpinioNamespace extends EpinioMetaProperty {
   apps: string[],
   configurations: string[],
