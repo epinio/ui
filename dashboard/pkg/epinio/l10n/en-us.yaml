@@ -65,6 +65,13 @@ epinio:
   about:
     allPackages: See all packages
     getBinaries: Get binaries
+  downloadReport:
+    title: Download report
+    action: Download Report
+    success: Report downloaded successfully
+    errors:
+      unauthorized: You need admin permissions to download the report
+      failed: Failed to download report. Please try again or contact support
   supportBundle:
     title: Download Support Bundle
     description: Collect a troubleshooting bundle for support.
