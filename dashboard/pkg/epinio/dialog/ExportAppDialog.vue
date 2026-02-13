@@ -32,7 +32,9 @@ const genericPrompt = ref<HTMLElement>(null);
 const partsWeight = {
   [APPLICATION_PARTS.VALUES]: 0.1,
   [APPLICATION_PARTS.CHART]:  0.1,
-  [APPLICATION_PARTS.IMAGE]:  0.7
+  [APPLICATION_PARTS.IMAGE]:  0.7,
+  zip:                         0.1,
+  archive:                     1
 };
 
 const zipParts = props.resources[0]?.applicationParts.filter(
@@ -78,10 +80,16 @@ const exportApplicationManifest = async () => {
       zip.file(`${ fileName }.${ extension[fileName] }`, files[fileName]);
     }
 
-    const contents = await zip.generateAsync({
-      type: 'blob',
-      compression: 'STORE',
-    });
+    percentages.value.zip = 0;
+    const contents = await zip.generateAsync(
+      {
+        type: 'blob',
+        compression: 'STORE',
+      },
+      (metadata) => {
+        percentages.value.zip = metadata.percent;
+      }
+    );
 
     await downloadFile(
       `${ resource.meta.name }-helm-chart.zip`,
@@ -93,6 +101,20 @@ const exportApplicationManifest = async () => {
   if (store.$router.currentRoute._value.hash === '#manifest') {
     await resource.createManifest();
   } else {
+    // Prefer server-side archive (one download, no client zip) when backend supports it
+    const archiveBlob = await fetchPartArchive(resource);
+    if (archiveBlob) {
+      await downloadFile(
+        `${ resource.meta.name }-helm-chart.zip`,
+        archiveBlob,
+        'application/zip',
+      );
+      progressBar.value = 100;
+      await delayBeforeClose(1500);
+      return;
+    }
+
+    // Fallback: fetch three parts and zip in browser (slower, especially in Rancher extension)
     const partsData = await zipParts.reduce(async(acc, part) => ({
       ...await acc,
       [part]: await fetchPart(resource, part),
@@ -120,6 +142,30 @@ const config = {
 const getCancelToken = () => {
   return store.$axios.CancelToken;
 }
+
+// Fetches server-side archive (one zip). Returns blob or null if backend does not support it.
+const fetchPartArchive = async (resource) => {
+  toggleStep('archive', true);
+  cancelTokenSources.archive = getCancelToken().source();
+  try {
+    const blob = await resource.fetchPart('archive', {
+      onDownloadProgress: (progressEvent) => {
+        const total = progressEvent.event?.srcElement?.getResponseHeader?.('content-length') ||
+          progressEvent.event?.srcElement?.getResponseHeader?.('proxy-content-length');
+        if (total) {
+          percentages.value.archive = Math.round(progressEvent.loaded * 100 / total);
+        }
+        if (progressEvent.loaded > 0) {
+          toggleStep('archive');
+        }
+      },
+      cancelToken: cancelTokenSources.archive?.token,
+    });
+    return blob;
+  } catch (e) {
+    return null;
+  }
+};
 
 const fetchPart = async (resource, part) => {
   toggleStep(part, true);
@@ -159,8 +205,7 @@ const fetchPart = async (resource, part) => {
 const fetchCancel = () => {
   // Cancel pending api requests, see https://axios-http.com/docs/cancellation
   Object.keys(cancelTokenSources).forEach(
-    (part) => cancelTokenSources[part].
-      cancel(`${ part } part: download cancelled.`)
+    (part) => cancelTokenSources[part]?.cancel?.(`${ part } part: download cancelled.`)
   );
 }
 
@@ -252,7 +297,12 @@ const toggleStep = (part, isPreparing = false) => {
             class="progress-info text info mb-10 mt-20"
           >
             <span v-if="step">
-              {{ t(`epinio.applications.export.chartValuesImages.steps.${ step }`) }}
+              {{ step === 'zip' && typeof percentages.zip === 'number'
+                ? t('epinio.applications.export.chartValuesImages.steps.zip') + ` (${ Math.round(percentages.zip) }%)`
+                : step === 'download.archive' || step === 'preparing.archive'
+                  ? t(`epinio.applications.export.chartValuesImages.steps.${ step }`) + (typeof percentages.archive === 'number' ? ` (${ Math.round(percentages.archive) }%)` : '')
+                  : t(`epinio.applications.export.chartValuesImages.steps.${ step }`)
+              }}
             </span>
             <PercentageBar
               class="progress-bar"
