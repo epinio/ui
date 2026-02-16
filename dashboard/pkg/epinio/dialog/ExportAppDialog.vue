@@ -128,7 +128,7 @@ const fetchPartArchive = async (resource) => {
       cancelToken: cancelTokenSources.archive?.token,
     });
     return blob;
-  } catch (e) {
+  } catch {
     return null;
   }
 };
