@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useStore } from 'vuex'
-import {ref, computed, onMounted, onBeforeUnmount } from 'vue';
+import { ref, onMounted, onBeforeUnmount } from 'vue';
 
 import JSZip from 'jszip';
 
@@ -10,7 +10,6 @@ import Tab from '@shell/components/Tabbed/Tab.vue';
 import { downloadFile } from '@shell/utils/download';
 import GenericPrompt from '@shell/dialog/GenericPrompt';
 import Tabbed from '@shell/components/Tabbed/index.vue';
-import PercentageBar from '@shell/components/PercentageBar';
 
 const store = useStore();
 const t = store.getters['i18n/t'];
@@ -23,19 +22,9 @@ const props = defineProps<{
 }>();
 
 const showProgressBar = ref<boolean>(false);
-const percentages = ref<object>({});
 const step = ref<any>(null);
 const cancelTokenSources:object = {};
-const colorStops:object = { 0: '--primary', 100: '--primary' };
 const genericPrompt = ref<HTMLElement>(null);
-
-const partsWeight = {
-  [APPLICATION_PARTS.VALUES]: 0.1,
-  [APPLICATION_PARTS.CHART]:  0.1,
-  [APPLICATION_PARTS.IMAGE]:  0.7,
-  zip:                         0.1,
-  archive:                     1
-};
 
 const zipParts = props.resources[0]?.applicationParts.filter(
   (part) => part !== APPLICATION_PARTS.MANIFEST
@@ -52,16 +41,6 @@ onBeforeUnmount(() => {
     document.removeEventListener('keyup', escapeHandler);
   }, 2000);
 });
-
-const progressBar = computed({
-  get() {
-    return Object.keys(percentages.value).reduce(
-      (acc, part) => acc + (percentages.value[part] * (partsWeight[part] || 1)), 0);
-  },
-  set(value) {
-    percentages.value = { value };
-  }
-}, { immediate: true });
 
 const exportApplicationManifest = async () => {
   enableDownload();
@@ -80,16 +59,10 @@ const exportApplicationManifest = async () => {
       zip.file(`${ fileName }.${ extension[fileName] }`, files[fileName]);
     }
 
-    percentages.value.zip = 0;
-    const contents = await zip.generateAsync(
-      {
-        type: 'blob',
-        compression: 'STORE',
-      },
-      (metadata) => {
-        percentages.value.zip = metadata.percent;
-      }
-    );
+    const contents = await zip.generateAsync({
+      type: 'blob',
+      compression: 'STORE',
+    });
 
     await downloadFile(
       `${ resource.meta.name }-helm-chart.zip`,
@@ -109,7 +82,6 @@ const exportApplicationManifest = async () => {
         archiveBlob,
         'application/zip',
       );
-      progressBar.value = 100;
       await delayBeforeClose(1500);
       return;
     }
@@ -128,7 +100,6 @@ const exportApplicationManifest = async () => {
 
     await chartZip(partsData);
 
-    progressBar.value = 100;
     await delayBeforeClose(1500);
   }
 }
@@ -150,11 +121,6 @@ const fetchPartArchive = async (resource) => {
   try {
     const blob = await resource.fetchPart('archive', {
       onDownloadProgress: (progressEvent) => {
-        const total = progressEvent.event?.srcElement?.getResponseHeader?.('content-length') ||
-          progressEvent.event?.srcElement?.getResponseHeader?.('proxy-content-length');
-        if (total) {
-          percentages.value.archive = Math.round(progressEvent.loaded * 100 / total);
-        }
         if (progressEvent.loaded > 0) {
           toggleStep('archive');
         }
@@ -174,13 +140,6 @@ const fetchPart = async (resource, part) => {
   return await resource.fetchPart(
     part, {
       onDownloadProgress: (progressEvent) => {
-        const total = progressEvent.event.srcElement.getResponseHeader('content-length') ||
-          progressEvent.event.srcElement.getResponseHeader('proxy-content-length');
-
-        if (total) {
-          percentages.value[part] = Math.round(progressEvent.loaded * 100 / total);
-        }
-
         if (progressEvent.loaded > 0) {
           toggleStep(part);
         }
@@ -237,7 +196,6 @@ const enableDownload = () => {
 const disableDownload = () => {
   fetchCancel();
   showProgressBar.value = false;
-  progressBar.value = 0;
   toggleStep(null);
 }
 
@@ -296,20 +254,10 @@ const toggleStep = (part, isPreparing = false) => {
             v-if="showProgressBar"
             class="progress-info text info mb-10 mt-20"
           >
+            <i class="icon-spinner animate-spin mr-5" />
             <span v-if="step">
-              {{ step === 'zip' && typeof percentages.zip === 'number'
-                ? t('epinio.applications.export.chartValuesImages.steps.zip') + ` (${ Math.round(percentages.zip) }%)`
-                : step === 'download.archive' || step === 'preparing.archive'
-                  ? t(`epinio.applications.export.chartValuesImages.steps.${ step }`) + (typeof percentages.archive === 'number' ? ` (${ Math.round(percentages.archive) }%)` : '')
-                  : t(`epinio.applications.export.chartValuesImages.steps.${ step }`)
-              }}
+              {{ t(`epinio.applications.export.chartValuesImages.steps.${ step }`) }}
             </span>
-            <PercentageBar
-              class="progress-bar"
-              :modelValue="progressBar"
-              :color-stops="colorStops"
-              preferred-direction="MORE"
-            />
           </div>
         </Tab>
       </Tabbed>
@@ -327,9 +275,8 @@ const toggleStep = (part, isPreparing = false) => {
 }
 
 .progress-info {
-  span {
-    display: block;
-    margin-bottom: 10px;
-  }
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 </style>
