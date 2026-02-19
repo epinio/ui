@@ -263,12 +263,12 @@ async function validateBuilderImageApi(image: string) {
       return;
     }
     const status = res?.status;
-    const bodyMessage = res?.data?.message;
+    const apiErrorMessage = res?.data?.errors?.[0]?.title || res?.data?.errors?.[0]?.details || res?.data?.message;
     builderImageValidationStatus.value = 'invalid';
     if (status === 401 || status === 403) {
-      builderImageValidationError.value = bodyMessage || t('epinio.applications.steps.source.archive.builderimage.validationAuthError');
+      builderImageValidationError.value = apiErrorMessage || t('epinio.applications.steps.source.archive.builderimage.validationAuthError');
     } else {
-      builderImageValidationError.value = bodyMessage || t('epinio.applications.steps.source.archive.builderimage.validationNetworkError');
+      builderImageValidationError.value = apiErrorMessage || t('epinio.applications.steps.source.archive.builderimage.validationNetworkError');
     }
     builderImageValidationSuggestion.value = '';
     update();
