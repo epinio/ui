@@ -225,29 +225,51 @@ function clearBuilderImageValidation() {
 
 async function validateBuilderImageApi(image: string) {
   try {
-    const res = await store.dispatch('epinio/request', {
+    // Store returns the response body (with _status) for success, not { data, status }
+    const body = await store.dispatch('epinio/request', {
       opt: {
         url:    `/api/v1/validate-builder-image?image=${ encodeURIComponent(image) }`,
         method: 'get'
       },
       growlOnError: false
     });
-    const data = res?.data || {};
-    if (data.valid === true) {
+    const currentValue = (builderImage.value || '').trim();
+    if (currentValue !== image) {
+      return;
+    }
+    const status = (body as any)?._status;
+    const valid = (body as any)?.valid;
+    const message = (body as any)?.message;
+    const suggestion = (body as any)?.suggestion;
+    // Always clear "validating" once we have a response: show valid or invalid
+    if (status === 200 && valid === true) {
       builderImageValidationStatus.value = 'valid';
       builderImageValidationError.value = '';
       builderImageValidationSuggestion.value = '';
-    } else {
+    } else if (status === 200) {
       builderImageValidationStatus.value = 'invalid';
-      builderImageValidationError.value = data.message || t('epinio.applications.steps.source.archive.builderimage.validationError');
-      builderImageValidationSuggestion.value = data.suggestion || '';
+      builderImageValidationError.value = message || t('epinio.applications.steps.source.archive.builderimage.validationError');
+      builderImageValidationSuggestion.value = suggestion || '';
+    } else {
+      builderImageValidationStatus.value = 'idle';
+      builderImageValidationError.value = '';
+      builderImageValidationSuggestion.value = '';
     }
     update();
   } catch (err: any) {
-    const res = err?.response || err?.data;
+    const res = err?.response;
+    const currentValue = (builderImage.value || '').trim();
+    if (currentValue !== image) {
+      return;
+    }
+    const status = res?.status;
     const bodyMessage = res?.data?.message;
     builderImageValidationStatus.value = 'invalid';
-    builderImageValidationError.value = bodyMessage || t('epinio.applications.steps.source.archive.builderimage.validationNetworkError');
+    if (status === 401 || status === 403) {
+      builderImageValidationError.value = bodyMessage || t('epinio.applications.steps.source.archive.builderimage.validationAuthError');
+    } else {
+      builderImageValidationError.value = bodyMessage || t('epinio.applications.steps.source.archive.builderimage.validationNetworkError');
+    }
     builderImageValidationSuggestion.value = '';
     update();
   }
