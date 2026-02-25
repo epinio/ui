@@ -585,11 +585,11 @@ const clearContainerFilters = () => {
 
           <!-- Container Filter Button -->
           <VDropdown placement="bottom-start" :distance="6">
-            <button
-              class="btn bg-primary ml-5 container-filter-btn"
+            <trailhand-button
+              class="ml-5 container-filter-btn"
             >
               Container Filter
-            </button>
+            </trailhand-button>
             <template #popper>
               <div class="container-filter-panel">
                 <div class="filter-search">
@@ -673,39 +673,42 @@ const clearContainerFilters = () => {
                       : 'Selected containers will be excluded from logs' }}
                   </p>
                   <div class="mt-10">
-                    <button
-                      class="btn btn-sm bg-primary"
+                    <trailhand-button
+                      size="small"
                       :disabled="isApplyingFilters"
                       @click="applyFilters"
                     >
                       {{ isApplyingFilters ? 'Applying...' : 'Apply Filters' }}
-                    </button>
-                    <button
-                      class="btn btn-sm bg-warning ml-5"
+                    </trailhand-button>
+                    <trailhand-button
+                      size="small"
+                      class="ml-5"
                       :disabled="activeFilterCount === 0 && !tail && !since && !sinceTime"
                       @click="clearContainerFilters(); clearFilters();"
                     >
                       Clear
-                    </button>
+                    </trailhand-button>
                   </div>
                 </div>
               </div>
             </template>
           </VDropdown>
 
-          <button
-            class="btn bg-primary ml-5"
+          <trailhand-button
+            size="small"
+            class="ml-5"
             :disabled="isFollowing"
             @click="follow"
           >
             {{t('wm.containerLogs.follow')}}
-          </button>
-           <button
-            class=" btn bg-primary ml-5"
+          </trailhand-button>
+           <trailhand-button
+            size="small"
+            class="ml-5"
             @click="clear"
           >
             {{t('wm.containerLogs.clear')}}
-          </button>
+          </trailhand-button>
           <AsyncButton
             class="ml-5"
             mode="download"
@@ -724,9 +727,9 @@ const clearContainerFilters = () => {
           </div>
           <div class="log-action ml-5">
             <VDropdown placement="top-end">
-              <button class="btn bg-primary">
+              <trailhand-button size="small">
                 <i class="icon icon-gear" />
-              </button>
+              </trailhand-button>
               <template #popper>
                 <div class="filter-popup">
                   <Checkbox

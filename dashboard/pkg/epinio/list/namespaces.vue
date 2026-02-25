@@ -173,12 +173,13 @@ const columns: DataTableColumn[] = [
       :resource="resource"
     >
       <template #createButton>
-        <button
-          class="btn role-primary"
+        <trailhand-button
+          variant="primary"
+          size="large"
           @click="openCreateModal"
         >
           {{ t('generic.create') }}
-        </button>
+        </trailhand-button>
       </template>
     </Masthead>
     <DataTable
@@ -223,12 +224,13 @@ const columns: DataTableColumn[] = [
           </div>
         </template>
         <template #actions class="model-actions">
-          <button
-            class="btn role-secondary mr-10"
+          <trailhand-button
+            variant="secondary"
+            class="mr-10"
             @click="closeCreateModal"
           >
             {{ t('generic.cancel') }}
-          </button>
+          </trailhand-button>
           <AsyncButton
             :disabled="!validationPassed"
             :mode="mode"
