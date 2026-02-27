@@ -46,7 +46,7 @@ const sectionContent = ref<Array>([
   {
     isEnable: true,
     isLoaded: false,
-    icon: 'icon-namespace',
+    icon: 'list',
     cta: createEpinioRoute(
       'c-cluster-resource',
       { resource: EPINIO_TYPES.NAMESPACE },
@@ -63,7 +63,7 @@ const sectionContent = ref<Array>([
   {
     isEnable: true,
     isLoaded: false,
-    icon: 'icon-application',
+    icon: 'grid',
     cta: createEpinioRoute(
       'c-cluster-applications-createapp',
       { resource: EPINIO_TYPES.APP },
@@ -79,7 +79,7 @@ const sectionContent = ref<Array>([
   {
     isEnable: true,
     isLoaded: false,
-    icon: 'icon-service',
+    icon: 'rocket',
     cta: createEpinioRoute(
       'c-cluster-resource-create',
       { resource: EPINIO_TYPES.SERVICE_INSTANCE },
@@ -131,7 +131,7 @@ const services = computed(() => {
         link: createEpinioRoute(
           'c-cluster-resource-create',
           { resource: EPINIO_TYPES.SERVICE_INSTANCE, name: service.id },
-          { query: { service: service.id } }
+          { query: { catalogservice: service.id } }
         ),
         name: service.name,
         isEnabled: true
@@ -277,16 +277,13 @@ async function calcAvailableResources() {
 function generateCards() {
   // Handles titles
   sectionContent.value[0].title = t(
-    'typeLabel.withCount.namespaces',
-    { n: namespaces.value?.totalNamespaces },
+    'typeLabel.withoutCount.namespaces'
   );
   sectionContent.value[1].title = t(
-    'typeLabel.withCount.applications',
-    { n: apps.value?.totalApps },
+    'typeLabel.withoutCount.applications'
   );
   sectionContent.value[2].title = t(
-    'typeLabel.withCount.services',
-    { n: services.value?.servicesInstances },
+    'typeLabel.withoutCount.services'
   );
 
   // Handles descriptions
@@ -303,6 +300,28 @@ function generateCards() {
     sectionContent.value[2].isEnable = true;
   }
 }
+
+  // check local storage for hidden cards
+const hideGetStarted = localStorage.getItem('hideGetStarted') === 'true';
+const hideIssuesCard = localStorage.getItem('hideIssuesCard') === 'true';
+
+function handleGetStartedClick() {
+  window.open('https://epinio.io/', '_blank');
+}
+
+function handleIssuesClick() {
+  window.open('https://github.com/epinio/epinio/issues', '_blank');
+}
+
+function handleCardDismiss(e: Event, cardType: string) {
+  const target = e.target as HTMLElement;
+  target.remove();
+  if (cardType === 'getStarted') {
+    localStorage.setItem('hideGetStarted', 'true');
+  } else if (cardType === 'issues') {
+    localStorage.setItem('hideIssuesCard', 'true');
+  }
+}
 </script>
 
 <template>
@@ -312,29 +331,42 @@ function generateCards() {
         <h1>{{ t('epinio.intro.welcome') }}</h1>
         <span v-if="version">{{ version.displayVersion }}</span>
       </div>
-      <p class="head-subheader">
-        {{ t('epinio.intro.blurb') }}
-      </p>
       <p>
         {{ t('epinio.intro.description') }}
       </p>
       <div class="head-links">
-        <a
-          href="https://epinio.io/"
-          target="_blank"
-          rel="noopener noreferrer nofollow"
-        >{{ t('epinio.intro.getStarted') }}</a>
-        <a
-          href="https://github.com/epinio/epinio/issues"
-          target="_blank"
-          rel="noopener noreferrer nofollow"
-        >{{ t('epinio.intro.issues') }}</a>
-        <RouterLink
-          v-if="aboutLink"
-          :to="aboutLink"
+        <trailhand-card
+          v-if="!hideGetStarted"
+          variant="info"
+          :card-title="t('epinio.intro.getStarted')"
+          :subtitle="t('epinio.intro.getStartedSubtitle')"
+          icon-name="rocket"
+          clickable
+          dismissible
+          @click="handleGetStartedClick"
+          @card-dismiss="(e) => handleCardDismiss(e, 'getStarted')"
         >
-          {{ t('epinio.intro.about') }}
-        </RouterLink>
+        </trailhand-card>
+        <trailhand-card
+          v-if="!hideIssuesCard"
+          variant="info"
+          :card-title="t('epinio.intro.issues')"
+          :subtitle="t('epinio.intro.issuesSubtitle')"
+          icon-name="bug"
+          clickable
+          dismissible
+          @click="handleIssuesClick"
+          @card-dismiss="(e) => handleCardDismiss(e, 'issues')"
+        >
+        </trailhand-card>
+        <trailhand-card
+          v-if="aboutLink"
+          variant="info"
+          :card-title="t('epinio.intro.about')"
+          :href="$router.resolve(aboutLink).href"
+          icon-name="info"
+        >
+        </trailhand-card>
       </div>
     </div>
     <Banner
@@ -356,18 +388,30 @@ function generateCards() {
         v-for="(card, index) in sectionContent"
         :key="index"
       >
-        <DashboardCard
+        <trailhand-card
           v-if="card.isEnable"
-          :is-loaded="card.isLoaded"
-          :title="card.title"
-          :icon="card.icon"
-          :cta="card.cta"
-          :link="card.link"
-          :link-text="card.linkText"
+          :loading="!card.isLoaded"
+          :icon-name="card.icon"
           :description="card.description"
-          :slot-title="card.slotTitle"
+          class="dashboard-card"
         >
-          <span v-if="index === 0 && namespaces.latestNamespaces.length > 0">
+          <RouterLink
+              :to="card.link"
+              class="head-link"
+              slot="title"
+          >
+            {{ card.title }}
+          </RouterLink>
+          <trailhand-button
+            variant="secondary"
+            slot="action"
+            size="large"
+            @click="$router.push(card.cta)"
+          >
+            {{ card.linkText }}
+          </trailhand-button>
+          <span v-if="index === 0 && namespaces.latestNamespaces.length > 0" slot="footer">
+            <p>New Namespaces</p>
             <ul>
               <li
                 v-for="(ns, i) in namespaces.latestNamespaces"
@@ -377,17 +421,11 @@ function generateCards() {
               </li>
             </ul>
           </span>
-          <span v-if="index === 1 && apps.totalApps > 0">
-            <ConsumptionGauge
-              :resource-name="t('epinio.intro.cards.applications.running')"
-              :capacity="apps.totalApps"
-              :used-as-resource-name="true"
-              :color-stops="colorStops"
-              :used="apps.runningApps"
-              units="Apps"
-            />
+          <span v-if="index === 1 && apps.totalApps > 0" slot="footer">
+            <trailhand-progress-bar label="Running" :value="apps.runningApps" :total="apps.totalApps"></trailhand-progress-bar>
           </span>
-          <span v-if="index === 2">
+          <span v-if="index === 2" slot="footer">
+            <p>Quick Start With</p>
             <ul>
               <li
                 v-for="(service, i) in services.servicesCatalog"
@@ -412,43 +450,69 @@ function generateCards() {
               </li>
             </ul>
           </span>
-        </DashboardCard>
+        </trailhand-card>
       </div>
     </div>
   </div>
 </template>
 
 <style lang="scss" scoped>
+trailhand-card.dashboard-card {
+  --th-card-icon-color: var(--color-text-secondary);
+}
+
+.head-link {
+  color: var(--color-text-primary);
+}
+
 .dashboard {
   display: flex;
   flex-direction: column;
+  padding: 32px 64px;
 
   .head {
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    gap: $space-m;
-    outline: 1px solid var(--border);
-    border-radius: var(--border-radius);
-    margin: 0 0 20px 0;
-    padding: $space-m;
+    margin: 0 0 40px 0;
     gap: $space-m;
 
     &-title {
       display: flex;
       flex-direction: row;
-      align-items: center;
+      align-items: baseline;
       gap: 10px;
 
       h1 {
+        font-size: 2rem;
+        font-weight: 500;
         margin: 0;
+        color: var(--color-text-primary);
       }
 
       span {
-        background: var(--primary);
-        color: var(--primary-text);
-        border-radius: var(--border-radius);
-        padding: 4px 8px;
+        font-size: 1.3125rem;
+        font-weight: 700;
+        color: var(--color-primary);
+      }
+    }
+
+    .link-card {
+      background-color: var(--background);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: $space-s;
+      display: inline-block;
+
+      a {
+        font-size: 1rem;
+        font-weight: 500;
+        color: var(--color-primary);
+        text-decoration: none;
+
+        &:hover {
+          text-decoration: underline;
+        }
       }
     }
 
@@ -462,12 +526,25 @@ function generateCards() {
       display: flex;
       gap: 10px;
     }
+
+    p {
+      font-size: 1rem;
+      font-weight: 400;
+      color: var(--color-text-secondary);
+    }
   }
 
   .get-started {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
     grid-gap: 20px;
+  }
+}
+
+span {
+  p {
+    font-size: 1.2rem;
+    font-weight: 500;
   }
 }
 
@@ -478,6 +555,7 @@ ul {
   display: flex;
   flex-direction: column;
   gap: $space-s;
+  padding: $space-s;
 
   li, .link {
     display: flex;
@@ -485,10 +563,14 @@ ul {
     align-items: center;
     width: 100%;
     font-size: 14px;
+  }
 
-    &:not(:last-child) {
-      border-bottom: 1px solid var(--border);
-      padding-bottom: $space-s;
+  .link {
+    color: var(--color-primary);
+    text-decoration: none;
+
+    &:hover {
+      text-decoration: underline;
     }
   }
 
@@ -500,6 +582,11 @@ ul {
     cursor: not-allowed;
   }
 }
+
+trailhand-button {
+  width: 100%;
+}
+
 </style>
 
 <style lang="scss">

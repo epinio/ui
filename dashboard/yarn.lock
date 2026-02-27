@@ -2113,6 +2113,13 @@
   dependencies:
     "@fortawesome/fontawesome-common-types" "7.2.0"
 
+"@fortawesome/pro-duotone-svg-icons@^7.1.0":
+  version "7.2.0"
+  resolved "https://npm.fontawesome.com/@fortawesome/pro-duotone-svg-icons/-/pro-duotone-svg-icons-7.2.0.tgz"
+  integrity sha512-G0oZPLWrOjodNsKEzjnmZ/wzXCQhyXHsscIuCsRwPr42N0zgMmVvClZuEq6eqiBiyo1qhm3RnN6xNLddJh9z7A==
+  dependencies:
+    "@fortawesome/fontawesome-common-types" "7.2.0"
+
 "@hapi/hoek@^9.0.0", "@hapi/hoek@^9.3.0":
   version "9.3.0"
   resolved "https://registry.npmjs.org/@hapi/hoek/-/hoek-9.3.0.tgz"
@@ -2441,13 +2448,14 @@
   resolved "https://registry.npmjs.org/@jsep-plugin/regex/-/regex-1.0.4.tgz"
   integrity sha512-q7qL4Mgjs1vByCaTnDFcBnV9HS7GVPJX5vyVoCgZHNSC9rjwIlmbXG5sUuorR5ndfHAIlJ8pVStxvjXHbNvtUg==
 
-"@krumio/trailhand-ui@^1.7.0":
-  version "1.7.0"
-  resolved "https://registry.npmjs.org/@krumio/trailhand-ui/-/trailhand-ui-1.7.0.tgz"
-  integrity sha512-z9pW83s1Ovf+lYZlnEUzi4KWiI1wwqOOBOCT+bx1SJVejp92/7fm3zQGyQvc5NJCv1uZ8+XL8JiFo/sZ8Z6VUQ==
+"@krumio/trailhand-ui@^1.8.0":
+  version "1.8.0"
+  resolved "https://registry.npmjs.org/@krumio/trailhand-ui/-/trailhand-ui-1.8.0.tgz"
+  integrity sha512-0FbctxZg8HA9JwvKpp/A7PjQzBBXv9YTQUIQOA+QP1ZDIiOYerYFN0qBiyC5VP36WPJDYSZSIWk+Q7LJ6C66xQ==
   dependencies:
     "@fortawesome/fontawesome-svg-core" "^7.1.0"
     "@fortawesome/free-solid-svg-icons" "^7.1.0"
+    "@fortawesome/pro-duotone-svg-icons" "^7.1.0"
     "@iconify/icons-heroicons" "^1.2.9"
     iconify-icon "^3.0.2"
     lit "^3.3.1"

@@ -1,4 +1,8 @@
 typeLabel:
+  withoutCount:
+    namespaces: Namespaces
+    applications: Applications
+    services: Services
   withCount:
     namespaces: Namespaces {n}
     applications: Applications {n}
@@ -34,7 +38,7 @@ typeLabel:
       other { Catalog }
     }
 typeDescription:
-  namespaces: Namespaces group your applications, services and other resources. Deleting a namespace will delete all of it's resources.
+  namespaces: Namespaces group your applications, services and other resources.
   applications: Epinio uses Applications to transition your code, through build, to being deployed.
   services: Epinio can create instances of your services. Instances can be bound to your applications to provide data, for example a database service bound to an application might provide connection credentials.
   configurations: Configurations are a way to provide data to applications. The data becomes available once the configuration is bound to them.
@@ -80,14 +84,16 @@ epinio:
       failed: Failed to collect logs. Please try again or contact support
   intro:
     dashboard: Dashboard
-    welcome: Welcome to Epinio
+    welcome: Welcome to Epinio!
     blurb: The Application Development Engine for Kubernetes
     description:  Epinio takes your application from source code to deployment and allow for Developers and Operators to work better together!
     learnMoreLink: https://epinio.io/
     learnMore: Learn more
     noNamespaces: Create a Namespace, then create your Applications
     getStarted: Get started
+    getStartedSubtitle: New to Epinio? Get started now!
     issues: Issues
+    issuesSubtitle: Report issues or contribute to Epinio.
     about: About
     cards:
       namespaces:

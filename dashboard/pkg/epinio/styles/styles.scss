@@ -1,0 +1,138 @@
+@import '@krumio/trailhand-ui/styles/colors.css';
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap');
+
+// * {
+//   font-family: 'Poppins', sans-serif !important;
+// }
+
+// // override colors as needed
+// // light mode
+// :root {
+//     --active-nav-bg: var(--color-light-primary);
+//     --active-nav-text: var(--color-dark-primary);
+// }
+// // dark mode
+// [data-theme='dark'] {
+//     --active-nav-bg: var(--color-dark-primary);
+//     --active-nav-text: var(--color-light-primary);
+// }
+
+// Font - scoped to epinio
+body.epinio-active {
+  font-family: 'Poppins', sans-serif;
+}
+
+// Light mode variables - only when epinio is active
+body.epinio-active {
+  --active-nav-bg: var(--color-light-primary);
+  --active-nav-text: var(--color-dark-primary);
+  --th-card-icon-color: var(--color-primary);
+}
+
+// Dark mode variables - only when epinio is active
+body.epinio-active[data-theme='dark'],
+[data-theme='dark'] body.epinio-active {
+  --active-nav-bg: var(--color-dark-primary);
+  --active-nav-text: var(--color-light-primary);
+}
+
+body.epinio-active {
+    .side-nav {
+        --category-active-hover: transparent;
+        padding: 10px 8px;
+
+        .nav {
+            .child.nav-type {
+                height: 48px;
+                border-radius: 4px;
+                i {
+                    display: none;
+                }
+                a.type-link {
+                    height: 100%;
+                    display: flex;
+                    align-items: center;
+                    padding: 12px;
+                    border-radius: 4px;
+                    color: inherit;
+                    font-size: 1rem;
+                    font-weight: 500;
+                    color: var(--color-text-secondary);
+                    justify-content: start;
+                }
+
+                // Reset rancher's router-link-active styles when it's not exact active
+                &.router-link-active:not(.router-link-exact-active) {
+                    a.type-link {
+                        background-color: transparent;
+                        color: var(--color-text-secondary);
+                    }
+                }
+
+            // Active - on the li
+            &.router-link-active {
+                a.type-link {
+                background-color: transparent;
+                color: var(--active-nav-text);
+                }
+            }
+
+            // Exact active - on the li
+            &.router-link-exact-active {
+                a.type-link {
+                background-color: var(--active-nav-bg);
+                color: var(--active-nav-text);
+                }
+            }
+            }
+
+            .accordion {
+                .accordion-item {
+                    height: 48px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    color: var(--color-text-secondary);
+                    
+                    .header {
+                        width: 100%;
+                        h6 {
+                            color: var(--color-text-secondary);
+                            font-size: 1rem;
+                            font-weight: 500;
+                            display: flex;
+                            justify-content: start;
+                            gap: 5px;
+                            margin: 0 0 0 -3px;
+                        }
+                    }
+
+                    .header:hover {
+                        background-color: transparent;
+                    }
+
+                    .icon {
+                        position: relative;
+                        top: unset;
+                        right: unset;
+                    }
+                }
+                .accordion-item:hover {
+                    background-color: var(--nav-hover);
+                }
+            }
+
+            .accordion.depth-0.child:hover {
+                background-color: transparent;
+            }
+            .accordion.depth-0.group-highlight:hover {
+                background-color: transparent;
+            }
+            .accordion.depth-0.group-highlight {
+                background: transparent;
+                --category-active-hover: var(--nav-hover);
+            }
+        }
+
+    }
+}
