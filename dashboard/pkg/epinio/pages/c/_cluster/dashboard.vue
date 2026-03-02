@@ -458,11 +458,11 @@ function handleCardDismiss(e: Event, cardType: string) {
 
 <style lang="scss" scoped>
 trailhand-card.dashboard-card {
-  --th-card-icon-color: var(--color-text-secondary);
+  --th-card-icon-color: var(--th-color-text-secondary);
 }
 
 .head-link {
-  color: var(--color-text-primary);
+  color: var(--th-color-text-primary);
 }
 
 .dashboard {
@@ -487,39 +487,20 @@ trailhand-card.dashboard-card {
         font-size: 2rem;
         font-weight: 500;
         margin: 0;
-        color: var(--color-text-primary);
+        color: var(--th-color-text-primary);
       }
 
       span {
         font-size: 1.3125rem;
         font-weight: 700;
-        color: var(--color-primary);
-      }
-    }
-
-    .link-card {
-      background-color: var(--background);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: $space-s;
-      display: inline-block;
-
-      a {
-        font-size: 1rem;
-        font-weight: 500;
-        color: var(--color-primary);
-        text-decoration: none;
-
-        &:hover {
-          text-decoration: underline;
-        }
+        color: var(--th-color-primary);
       }
     }
 
     &-subheader {
       font-size: 1.2rem;
       font-weight: 500;
-      color: var(--text-secondary);
+      color: var(--th-color-text-secondary);
     }
 
     &-links {
@@ -530,7 +511,7 @@ trailhand-card.dashboard-card {
     p {
       font-size: 1rem;
       font-weight: 400;
-      color: var(--color-text-secondary);
+      color: var(--th-color-text-secondary);
     }
   }
 
@@ -566,7 +547,7 @@ ul {
   }
 
   .link {
-    color: var(--color-primary);
+    color: var(--th-color-primary);
     text-decoration: none;
 
     &:hover {
@@ -575,7 +556,7 @@ ul {
   }
 
   li > .disabled {
-    color: var(--disabled-text);
+    color: var(--th-color-disabled-text);
   }
 
   .disabled {

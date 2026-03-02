@@ -13,8 +13,6 @@ import './assets/overrides.scss';
 // import trailhand styles and components
 import '@krumio/trailhand-ui';
 
-import './styles/styles.scss';
-
 const epinioObjAnnotations = [
   'epinio.io/app-container',
   'epinio.io/created-by'
