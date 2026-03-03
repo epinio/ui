@@ -204,6 +204,8 @@ const save = async (saveCb: (success: boolean) => void) => {
   );
 
   if (newSettings) {
+    /*Temporary fix until we can update the reactiveness of ChartValues, delete
+    auto inserted value prop.*/
     const cleanSettings = { ...chartValues };
     delete cleanSettings.value;
     props.value.settings = objValuesToString(cleanSettings);
