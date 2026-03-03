@@ -1,14 +1,14 @@
 
 const NAV_ICONS: Record<string, string> = {
   'Dashboard': 'gauge',
-  'Applications': 'grid',
+  'Applications': 'table',
   'Namespaces': 'list',
   'Services': 'rocket',
   'Advanced': 'folderPlus',
-  'System': 'solarSystem',
+  'System': 'gears',
   'Instances': 'database',
   'Catalog': 'shoppingBag',
-  'Configurations': 'folderGear',
+  'Configurations': 'sliders',
   'Application Charts': 'chartLine',
   'About': 'info',
 };

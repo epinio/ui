@@ -63,7 +63,7 @@ const sectionContent = ref<Array>([
   {
     isEnable: true,
     isLoaded: false,
-    icon: 'grid',
+    icon: 'table',
     cta: createEpinioRoute(
       'c-cluster-applications-createapp',
       { resource: EPINIO_TYPES.APP },
