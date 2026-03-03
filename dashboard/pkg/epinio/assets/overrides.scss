@@ -1,43 +1,51 @@
 @import '@krumio/trailhand-ui/styles/colors.css';
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
 
 // Font - scoped to epinio
 body.epinio-active {
-  font-family: 'Poppins', sans-serif;
+  nav, main, .product, .rd-header-right {
+      font-family: 'Poppins', sans-serif;
+  }
 }
 
 // Light mode variables - only when epinio is active
 body.epinio-active {
-  --active-nav-bg: var(--th-color-light-primary);
-  --active-nav-text: var(--th-color-dark-primary);
-  --th-card-icon-color: var(--th-color-primary);
-  --primary-border: var(--th-color-primary);
-  --link: var(--th-color-primary); 
-  --th-card-bg: var(--th-color-background);
+  nav, main, .product, .rd-header-right {
+    --active-nav-bg: var(--th-color-light-primary);
+    --active-nav-text: var(--th-color-dark-primary);
+    --th-card-icon-color: var(--th-color-primary);
+    --primary-border: var(--th-color-primary);
+    --link: var(--th-color-primary); 
+    --th-card-bg: var(--th-color-background);
+    --th-progress-bar-height: 16px;
+    --th-progress-bar-border-radius: 8px;
 
-  .dashboard-card {
-    --th-card-bg: var(--th-color-grey-100);
+    .dashboard-card {
+      --th-card-bg: var(--th-color-grey-100);
+    }
   }
 }
 
 // Dark mode variables - only when epinio is active
 body.epinio-active[data-theme='dark'],
 [data-theme='dark'] body.epinio-active {
-  --th-color-primary: #5DB2FF;
-  --body-bg: var(--th-color-background);
-  --active-nav-bg: color-mix(in srgb, var(--th-color-primary) 20%, transparent);
-  --active-nav-text: var(--th-color-primary);
-  --nav-hover: var(--th-color-grey-700);
-  --body-border: var(--th-color-border);
-  --nav-bg: var(--th-color-background);
-  --header-bg: var(--th-color-background);
-  --th-button-secondary-border: var(--th-color-primary);
-  --th-button-secondary-bg: transparent;
-  --th-button-secondary-bg-hover: var(--th-color-grey-800);
+  nav, main, .product, .rd-header-right {
+      --th-color-primary: #5DB2FF;
+      --body-bg: var(--th-color-background);
+      --active-nav-bg: color-mix(in srgb, var(--th-color-primary) 20%, transparent);
+      --active-nav-text: var(--th-color-primary);
+      --nav-hover: var(--th-color-grey-700);
+      --body-border: var(--th-color-border);
+      --nav-bg: var(--th-color-background);
+      --header-bg: var(--th-color-background);
+      --th-button-secondary-border: var(--th-color-primary);
+      --th-button-secondary-bg: transparent;
+      --th-button-secondary-bg-hover: var(--th-color-grey-800);
 
-    .dashboard-card {
-      --th-card-bg: var(--th-color-grey-700);
-    }
+      .dashboard-card {
+        --th-card-bg: var(--th-color-grey-700);
+      }
+  }
 }
 
 // Side nav styles - only when epinio is active
