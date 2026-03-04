@@ -139,12 +139,13 @@ onUnmounted(() => {
       :resource="resource"
     >
       <template #createButton>
-        <button
-          class="btn role-primary"
+        <trailhand-button
+          variant="primary"
+          size="large"
           @click="openCreateRoute"
         >
           {{ t('generic.create') }}
-        </button>
+        </trailhand-button>
       </template>
     </Masthead>
 

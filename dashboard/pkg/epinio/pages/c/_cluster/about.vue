@@ -240,8 +240,8 @@ const downloadSupportBundle = async() => {
       </div>
 
       <div class="support-bundle__actions">
-        <button
-          class="btn role-primary"
+        <trailhand-button
+          variant="primary"
           :disabled="supportBundleLoading"
           @click="downloadSupportBundle"
         >
@@ -250,7 +250,7 @@ const downloadSupportBundle = async() => {
             class="icon-spinner animate-spin mr-5"
           />
           {{ t('epinio.supportBundle.action') }}
-        </button>
+        </trailhand-button>
         <span
           v-if="supportBundleLoading"
           class="support-bundle__progress"

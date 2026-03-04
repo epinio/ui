@@ -10,6 +10,9 @@ import epinioStore from './store/epinio-store';
 import { createEpinioRoute } from './utils/custom-routing';
 import './assets/overrides.scss';
 
+// import trailhand styles and components
+import '@krumio/trailhand-ui';
+
 const epinioObjAnnotations = [
   'epinio.io/app-container',
   'epinio.io/created-by'

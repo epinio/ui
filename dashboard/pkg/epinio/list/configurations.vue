@@ -8,10 +8,14 @@ import BadgeStateFormatter from '@shell/components/formatter/BadgeStateFormatter
 import { useStore } from 'vuex';
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { startPolling, stopPolling } from '../utils/polling';
+import Masthead from '@shell/components/ResourceList/Masthead';
+import { createEpinioRoute } from '../utils/custom-routing';
 
 const store = useStore();
 
 defineProps<{ schema: object }>(); // Keep for compatibility
+
+const resource: string = EPINIO_TYPES.CONFIGURATION;
 
 const pending = ref<boolean>(true);
 
@@ -39,6 +43,10 @@ onUnmounted(() => {
     "services"
   ]);
 });
+
+const handleCreateClick = () => {
+  store.$router.push(createEpinioRoute('c-cluster-resource-create', { resource: EPINIO_TYPES.CONFIGURATION }));
+}
 
 const rows = computed(() => {
   return store.getters['epinio/all'](EPINIO_TYPES.CONFIGURATION);
@@ -76,6 +84,20 @@ const columns: DataTableColumn[] = [
 </script>
 
 <template>
+  <Masthead
+    :schema="schema"
+    :resource="resource"
+  >
+    <template #createButton>
+      <trailhand-button
+        variant="primary"
+        size="large"
+        @click="handleCreateClick"
+      >
+        {{ t('generic.create') }}
+      </trailhand-button>
+    </template>
+  </Masthead>
   <DataTable
     :rows="rows"
     :columns="columns"
