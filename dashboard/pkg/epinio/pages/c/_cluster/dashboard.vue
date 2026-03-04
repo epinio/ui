@@ -348,6 +348,7 @@ function handleAboutClick() {
           dismissible
           @click="handleGetStartedClick"
           @card-dismiss="(e) => handleCardDismiss(e, 'getStarted')"
+          class="info-card"
         >
         </trailhand-card>
         <trailhand-card
@@ -360,6 +361,7 @@ function handleAboutClick() {
           dismissible
           @click="handleIssuesClick"
           @card-dismiss="(e) => handleCardDismiss(e, 'issues')"
+          class="info-card"
         >
         </trailhand-card>
         <trailhand-card
@@ -369,6 +371,7 @@ function handleAboutClick() {
           clickable
           @click="handleAboutClick"
           icon-name="info"
+          class="info-card"
         >
         </trailhand-card>
       </div>
@@ -570,6 +573,10 @@ ul {
 
 trailhand-button {
   width: 100%;
+}
+
+.info-card {
+  --th-card-title-color: var(--th-color-primary);
 }
 
 </style>
