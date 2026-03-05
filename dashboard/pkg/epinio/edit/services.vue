@@ -49,7 +49,7 @@ const errors = ref<Array<string>>([]);
 const doneParams = reactive<object>({});
 const validChartValues = ref<object>({});
 const failedWaitingForServiceInstance = ref<boolean>(false);
-const chartValues = reactive<ChartValues>(objValuesToString(props.value?.settings) || {});
+const chartValues = reactive<Record<string, any>>(objValuesToString(props.value?.settings) || {});
 
 onMounted(async () => {
   await Promise.all([
@@ -204,7 +204,11 @@ const save = async (saveCb: (success: boolean) => void) => {
   );
 
   if (newSettings) {
-    props.value.settings = objValuesToString(chartValues.value);
+    /*Temporary fix until we can update the reactiveness of ChartValues, delete
+    auto inserted value prop.*/
+    const cleanSettings = { ...chartValues };
+    delete cleanSettings.value;
+    props.value.settings = objValuesToString(cleanSettings);
   }else{
     props.value.settings = undefined;
   }
@@ -212,9 +216,11 @@ const save = async (saveCb: (success: boolean) => void) => {
   try {
     if (!isEdit.value) {
       await props.value.create();
+
       if (selectedApps.value.length) {
         await updateServiceInstanceAppBindings(props.value);
       }
+
       await store.dispatch(
         'epinio/findAll',
         { type: props.value.type, opt: { force: true }},
@@ -229,6 +235,7 @@ const save = async (saveCb: (success: boolean) => void) => {
       if (newSettings) {
         await props.value.update();
       }
+
       await updateServiceInstanceAppBindings(props.value);
       await props.value.forceFetch();
 
