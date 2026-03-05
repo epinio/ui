@@ -160,6 +160,7 @@ export function init($plugin: any, store: any) {
     showState:   true,
     canYaml:     false,
     customRoute: createEpinioRoute('c-cluster-resource', { resource: EPINIO_TYPES.SERVICE_INSTANCE }),
+    showListMasthead: false, // Custom masthead with RBAC-gated Create button
   });
 
   // Catalog Service

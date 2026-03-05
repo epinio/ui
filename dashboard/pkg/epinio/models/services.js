@@ -5,25 +5,23 @@ import EpinioNamespacedResource, { bulkRemove } from './epinio-namespaced-resour
 export default class EpinioServiceModel extends EpinioNamespacedResource {
   get _availableActions() {
     const base = super._availableActions || [];
+    const can = this.$rootGetters?.['epinio/can'];
+    const perms = this.$rootGetters?.['epinio/permissions']?.();
 
-    const canGetter = this.$rootGetters?.['epinio/can'];
-
-    if (!canGetter) {
+    if (!can || !perms || Object.keys(perms).length === 0) {
       return base;
     }
 
-    const canEdit = canGetter('service_write') || canGetter('service');
-    const canDelete = canGetter('service_write') || canGetter('service');
+    const canEdit = can('service_write') || can('service');
+    const canDelete = can('service_write') || can('service');
 
     return base.filter((action) => {
       if (action.action === 'goToEdit') {
         return canEdit;
       }
-
       if (action.action === 'promptRemove') {
         return canDelete;
       }
-
       return true;
     });
   }
