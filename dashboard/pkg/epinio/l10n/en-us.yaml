@@ -230,6 +230,11 @@ epinio:
             tooltip: Paketo builder image to use for staging
             default: Default Image
             custom: Custom Image
+            validating: Validating…
+            valid: Valid builder image
+            validationError: Invalid builder image
+            validationNetworkError: Could not validate builder image. Check your connection.
+            validationAuthError: Could not validate. Sign in again.
           appchart:
             label: Application Chart
         container_url:

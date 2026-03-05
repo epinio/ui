@@ -100,6 +100,13 @@ const builderImage = reactive({
   default: builderImageValue.value === defaultBuilderImage.value
 });
 
+// Builder image validation (debounced API)
+type ValidationStatus = 'idle' | 'validating' | 'valid' | 'invalid';
+const builderImageValidationStatus = ref<ValidationStatus>('idle');
+const builderImageValidationError = ref('');
+const builderImageValidationSuggestion = ref('');
+let builderImageValidationTimeout: ReturnType<typeof setTimeout> | null = null;
+
 const EDIT = _EDIT;
 
 const appChart = ref(props.source?.appChart);
@@ -146,7 +153,31 @@ watch(valid, (val) => {
   emit('valid', val);
 });
 
+watch(
+  () => ({ value: builderImage.value, default: builderImage.default }),
+  (curr, prev) => {
+    if (curr.default) {
+      clearBuilderImageValidation();
+      update();
+      return;
+    }
+    if ((curr.value || '').trim() === '') {
+      clearBuilderImageValidation();
+      update();
+      return;
+    }
+    if (curr.value !== prev?.value || curr.default !== prev?.default) {
+      scheduleBuilderImageValidation();
+    }
+  },
+  { deep: true }
+);
+
 function validate() {
+  const builderImageInvalid = showBuilderImage.value && !builderImage.default && builderImageValidationStatus.value === 'invalid';
+  if (builderImageInvalid) {
+    return false;
+  }
   switch (type.value) {
     case APPLICATION_SOURCE_TYPE.ARCHIVE:
     case APPLICATION_SOURCE_TYPE.FOLDER:
@@ -182,9 +213,103 @@ function updateConfigurations(configs: string[]) {
   emit('changeAppConfig', configs);
 }
 
+function clearBuilderImageValidation() {
+  builderImageValidationStatus.value = 'idle';
+  builderImageValidationError.value = '';
+  builderImageValidationSuggestion.value = '';
+  if (builderImageValidationTimeout !== null) {
+    clearTimeout(builderImageValidationTimeout);
+    builderImageValidationTimeout = null;
+  }
+}
+
+async function validateBuilderImageApi(image: string) {
+  try {
+    // Store returns the response body (with _status) for success, not { data, status }
+    const body = await store.dispatch('epinio/request', {
+      opt: {
+        url:    `/api/v1/validate-builder-image?image=${ encodeURIComponent(image) }`,
+        method: 'get'
+      },
+      growlOnError: false
+    });
+    const currentValue = (builderImage.value || '').trim();
+    if (currentValue !== image) {
+      return;
+    }
+    const status = (body as any)?._status;
+    const valid = (body as any)?.valid;
+    const message = (body as any)?.message;
+    const suggestion = (body as any)?.suggestion;
+    // Always clear "validating" once we have a response: show valid or invalid
+    if (status === 200 && valid === true) {
+      builderImageValidationStatus.value = 'valid';
+      builderImageValidationError.value = '';
+      builderImageValidationSuggestion.value = '';
+    } else if (status === 200) {
+      builderImageValidationStatus.value = 'invalid';
+      builderImageValidationError.value = message || t('epinio.applications.steps.source.archive.builderimage.validationError');
+      builderImageValidationSuggestion.value = suggestion || '';
+    } else {
+      builderImageValidationStatus.value = 'idle';
+      builderImageValidationError.value = '';
+      builderImageValidationSuggestion.value = '';
+    }
+    update();
+  } catch (err: any) {
+    const res = err?.response;
+    const currentValue = (builderImage.value || '').trim();
+    if (currentValue !== image) {
+      return;
+    }
+    const status = res?.status;
+    const apiErrorMessage = res?.data?.errors?.[0]?.title || res?.data?.errors?.[0]?.details || res?.data?.message;
+    builderImageValidationStatus.value = 'invalid';
+    if (status === 401 || status === 403) {
+      builderImageValidationError.value = apiErrorMessage || t('epinio.applications.steps.source.archive.builderimage.validationAuthError');
+    } else {
+      builderImageValidationError.value = apiErrorMessage || t('epinio.applications.steps.source.archive.builderimage.validationNetworkError');
+    }
+    builderImageValidationSuggestion.value = '';
+    update();
+  }
+}
+
+function scheduleBuilderImageValidation() {
+  if (builderImageValidationTimeout !== null) {
+    clearTimeout(builderImageValidationTimeout);
+    builderImageValidationTimeout = null;
+  }
+  const value = (builderImage.value || '').trim();
+  if (builderImage.default) {
+    clearBuilderImageValidation();
+    update();
+    return;
+  }
+  if (!value) {
+    clearBuilderImageValidation();
+    update();
+    return;
+  }
+  builderImageValidationStatus.value = 'validating';
+  builderImageValidationError.value = '';
+  builderImageValidationSuggestion.value = '';
+  builderImageValidationTimeout = setTimeout(() => {
+    builderImageValidationTimeout = null;
+    validateBuilderImageApi(value);
+  }, 500);
+}
+
+function builderImageRule() {
+  if (builderImageValidationStatus.value === 'invalid' && builderImageValidationError.value) {
+    return builderImageValidationError.value;
+  }
+}
+
 function onImageType(defaultImage: boolean) {
   if (defaultImage) {
     builderImage.value = defaultBuilderImage.value;
+    clearBuilderImageValidation();
   } else {
     builderImage.value = builderImageValue.value;
   }
@@ -476,14 +601,42 @@ onMounted(() => {
           :label-key="'epinio.applications.steps.source.archive.builderimage.label'"
           @update:value="onImageType"
         />
-        <LabeledInput
-          v-model:value="builderImage.value"
-          data-testid="epinio_app-source_builder-value"
-          :disabled="builderImage.default"
-          :tooltip="t('epinio.applications.steps.source.archive.builderimage.tooltip')"
-          :mode="mode"
-          @input="update"
-        />
+        <div class="builder-image-input-wrap">
+          <LabeledInput
+            v-model:value="builderImage.value"
+            data-testid="epinio_app-source_builder-value"
+            :disabled="builderImage.default"
+            :tooltip="t('epinio.applications.steps.source.archive.builderimage.tooltip')"
+            :mode="mode"
+            :rules="[builderImageRule]"
+            :aria-invalid="builderImageValidationStatus === 'invalid'"
+            :aria-describedby="(builderImageValidationStatus === 'validating' || builderImageValidationStatus === 'valid') ? 'builder-image-validation-msg' : (builderImageValidationSuggestion ? 'builder-image-validation-suggestion' : undefined)"
+            @input="update"
+          />
+          <p
+            v-if="builderImageValidationStatus === 'validating'"
+            id="builder-image-validation-msg"
+            class="builder-image-validation validating"
+            role="status"
+          >
+            {{ t('epinio.applications.steps.source.archive.builderimage.validating') }}
+          </p>
+          <p
+            v-else-if="builderImageValidationStatus === 'valid'"
+            id="builder-image-validation-msg"
+            class="builder-image-validation valid"
+            role="status"
+          >
+            {{ t('epinio.applications.steps.source.archive.builderimage.valid') }}
+          </p>
+          <p
+            v-else-if="builderImageValidationSuggestion"
+            id="builder-image-validation-suggestion"
+            class="builder-image-validation suggestion"
+          >
+            {{ builderImageValidationSuggestion }}
+          </p>
+        </div>
       </template>
     </Collapse>
   </div>
@@ -514,5 +667,25 @@ onMounted(() => {
 .archive {
   display: flex;
   flex-direction: column;
+}
+
+.builder-image-input-wrap {
+  .builder-image-validation {
+    margin: 4px 0 0;
+    font-size: 12px;
+
+    &.validating {
+      color: var(--input-label);
+    }
+
+    &.valid {
+      color: var(--success);
+    }
+
+    &.suggestion {
+      color: var(--input-label);
+      font-style: italic;
+    }
+  }
 }
 </style>
