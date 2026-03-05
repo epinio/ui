@@ -195,10 +195,12 @@ epinio:
             values: "Preparing download: Values"
             chart: "Preparing download: Chart"
             image: "Preparing download: Image"
+            archive: "Preparing download: Chart and Images"
           download:
             values: "Downloading: Values"
             chart: "Downloading: Chart"
             image: "Downloading: Image"
+            archive: "Downloading: Chart and Images"
             zip:   Compressing Files
         error: Server Error, download of { part } part failed.
     steps:

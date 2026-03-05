@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useStore } from 'vuex'
-import {ref, computed, onMounted, onBeforeUnmount } from 'vue';
+import { ref, onMounted, onBeforeUnmount } from 'vue';
 
 import JSZip from 'jszip';
 
@@ -10,7 +10,6 @@ import Tab from '@shell/components/Tabbed/Tab.vue';
 import { downloadFile } from '@shell/utils/download';
 import GenericPrompt from '@shell/dialog/GenericPrompt';
 import Tabbed from '@shell/components/Tabbed/index.vue';
-import PercentageBar from '@shell/components/PercentageBar';
 
 const store = useStore();
 const t = store.getters['i18n/t'];
@@ -23,17 +22,9 @@ const props = defineProps<{
 }>();
 
 const showProgressBar = ref<boolean>(false);
-const percentages = ref<object>({});
 const step = ref<any>(null);
 const cancelTokenSources:object = {};
-const colorStops:object = { 0: '--primary', 100: '--primary' };
 const genericPrompt = ref<HTMLElement>(null);
-
-const partsWeight = {
-  [APPLICATION_PARTS.VALUES]: 0.1,
-  [APPLICATION_PARTS.CHART]:  0.1,
-  [APPLICATION_PARTS.IMAGE]:  0.7
-};
 
 const zipParts = props.resources[0]?.applicationParts.filter(
   (part) => part !== APPLICATION_PARTS.MANIFEST
@@ -50,16 +41,6 @@ onBeforeUnmount(() => {
     document.removeEventListener('keyup', escapeHandler);
   }, 2000);
 });
-
-const progressBar = computed({
-  get() {
-    return Object.keys(percentages.value).reduce(
-      (acc, part) => acc + (percentages.value[part] * (partsWeight[part] || 1)), 0);
-  },
-  set(value) {
-    percentages.value = { value };
-  }
-}, { immediate: true });
 
 const exportApplicationManifest = async () => {
   enableDownload();
@@ -93,6 +74,19 @@ const exportApplicationManifest = async () => {
   if (store.$router.currentRoute._value.hash === '#manifest') {
     await resource.createManifest();
   } else {
+    // Prefer server-side archive (one download, no client zip) when backend supports it
+    const archiveBlob = await fetchPartArchive(resource);
+    if (archiveBlob) {
+      await downloadFile(
+        `${ resource.meta.name }-helm-chart.zip`,
+        archiveBlob,
+        'application/zip',
+      );
+      await delayBeforeClose(1500);
+      return;
+    }
+
+    // Fallback: fetch three parts and zip in browser (slower, especially in Rancher extension)
     const partsData = await zipParts.reduce(async(acc, part) => ({
       ...await acc,
       [part]: await fetchPart(resource, part),
@@ -106,7 +100,6 @@ const exportApplicationManifest = async () => {
 
     await chartZip(partsData);
 
-    progressBar.value = 100;
     await delayBeforeClose(1500);
   }
 }
@@ -121,6 +114,25 @@ const getCancelToken = () => {
   return store.$axios.CancelToken;
 }
 
+// Fetches server-side archive (one zip). Returns blob or null if backend does not support it.
+const fetchPartArchive = async (resource) => {
+  toggleStep('archive', true);
+  cancelTokenSources.archive = getCancelToken().source();
+  try {
+    const blob = await resource.fetchPart('archive', {
+      onDownloadProgress: (progressEvent) => {
+        if (progressEvent.loaded > 0) {
+          toggleStep('archive');
+        }
+      },
+      cancelToken: cancelTokenSources.archive?.token,
+    });
+    return blob;
+  } catch {
+    return null;
+  }
+};
+
 const fetchPart = async (resource, part) => {
   toggleStep(part, true);
   cancelTokenSources[part] = getCancelToken().source();
@@ -128,13 +140,6 @@ const fetchPart = async (resource, part) => {
   return await resource.fetchPart(
     part, {
       onDownloadProgress: (progressEvent) => {
-        const total = progressEvent.event.srcElement.getResponseHeader('content-length') ||
-          progressEvent.event.srcElement.getResponseHeader('proxy-content-length');
-
-        if (total) {
-          percentages.value[part] = Math.round(progressEvent.loaded * 100 / total);
-        }
-
         if (progressEvent.loaded > 0) {
           toggleStep(part);
         }
@@ -159,8 +164,7 @@ const fetchPart = async (resource, part) => {
 const fetchCancel = () => {
   // Cancel pending api requests, see https://axios-http.com/docs/cancellation
   Object.keys(cancelTokenSources).forEach(
-    (part) => cancelTokenSources[part].
-      cancel(`${ part } part: download cancelled.`)
+    (part) => cancelTokenSources[part]?.cancel?.(`${ part } part: download cancelled.`)
   );
 }
 
@@ -192,7 +196,6 @@ const enableDownload = () => {
 const disableDownload = () => {
   fetchCancel();
   showProgressBar.value = false;
-  progressBar.value = 0;
   toggleStep(null);
 }
 
@@ -251,15 +254,10 @@ const toggleStep = (part, isPreparing = false) => {
             v-if="showProgressBar"
             class="progress-info text info mb-10 mt-20"
           >
+            <i class="icon-spinner animate-spin mr-5" />
             <span v-if="step">
               {{ t(`epinio.applications.export.chartValuesImages.steps.${ step }`) }}
             </span>
-            <PercentageBar
-              class="progress-bar"
-              :modelValue="progressBar"
-              :color-stops="colorStops"
-              preferred-direction="MORE"
-            />
           </div>
         </Tab>
       </Tabbed>
@@ -277,9 +275,8 @@ const toggleStep = (part, isPreparing = false) => {
 }
 
 .progress-info {
-  span {
-    display: block;
-    margin-bottom: 10px;
-  }
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 </style>
