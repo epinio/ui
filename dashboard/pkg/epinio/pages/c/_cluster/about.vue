@@ -7,6 +7,7 @@ import LabeledInput from '@components/Form/LabeledInput/LabeledInput.vue';
 import { MANAGEMENT } from '@shell/config/types';
 import { getVendor } from '@shell/config/private-label';
 import { downloadFile } from '@shell/utils/download';
+import { makeEmptyCell } from '../../../utils/table-formatters';
 
 const store = useStore();
 
@@ -21,12 +22,9 @@ const supportBundleSuccess = ref('');
 
 const t = store.getters['i18n/t'];
 
-const aboutVersionsComponentString = computed(() => t('about.versions.component'));
 const aboutTitleString = computed(() => t('about.title'));
-const aboutVersionsVersionString = computed(() => t('about.versions.version'));
 const aboutDownloadCLIString = computed(() => t('about.downloadCLI.title'));
 const allPackagesString = computed(() => t('epinio.about.allPackages'));
-
 
 const fetchData = async() => {
   fetchError.value = '';
@@ -63,6 +61,8 @@ function createOSOption(label: string, icon: string, cliLink: string, imageList:
   };
 }
 
+const downloadLinuxImages = null;
+
 const downloads = computed(() => {
   if (!version.value) {
     return [];
@@ -78,8 +78,6 @@ const downloads = computed(() => {
     createOSOption('about.os.windows', 'icon-windows', `${gitUrl}/${versionStr}/${app}-windows-x86_64.zip`)
   ];
 });
-
-const downloadLinuxImages = null;
 
 const versionString = computed(() => {
   if (!version.value) return '';
@@ -142,6 +140,67 @@ const downloadSupportBundle = async() => {
   }
 };
 
+// Versions table
+const versionRows = computed(() => {
+  if (!version.value) return [];
+  return [{ name: appName.value, version: versionString.value }];
+});
+
+const versionColumns = [
+  {
+    field:     'name',
+    label:     t('about.versions.component'),
+    formatter: (_v: any, row: any) => {
+      const a = document.createElement('a');
+
+      a.href = 'https://github.com/epinio/epinio';
+      a.target = '_blank';
+      a.rel = 'nofollow noopener noreferrer';
+      a.textContent = row.name;
+
+      return a;
+    }
+  },
+  {
+    field: 'version',
+    label: t('about.versions.version')
+  }
+];
+
+// Downloads table
+const downloadColumns = [
+  {
+    field:     'label',
+    label:     t('about.versions.component'), // re-use "Component" as Platform header
+    formatter: (_v: any, row: any) => {
+      const div = document.createElement('div');
+
+      div.style.cssText = 'display:flex; align-items:center;';
+
+      const icon = document.createElement('i');
+
+      icon.className = `icon ${ row.icon } mr-5`;
+      div.appendChild(icon);
+      div.appendChild(document.createTextNode(t(row.label)));
+
+      return div;
+    }
+  },
+  {
+    field:     'cliFile',
+    label:     t('about.downloadCLI.title'),
+    formatter: (_v: any, row: any) => {
+      if (!row.cliLink) return makeEmptyCell();
+
+      const a = document.createElement('a');
+
+      a.href = row.cliLink;
+      a.textContent = row.cliFile;
+
+      return a;
+    }
+  }
+];
 </script>
 
 <template>
@@ -156,51 +215,26 @@ const downloadSupportBundle = async() => {
       <h1>
         {{ aboutTitleString }}
       </h1>
-      <table>
-        <thead>
-          <tr>
-            <th>{{ aboutVersionsComponentString }}</th>
-            <th>{{ aboutVersionsVersionString }}</th>
-          </tr>
-        </thead>
-        <tr v-if="version">
-          <td>
-            <a
-              href="https://github.com/epinio/epinio"
-              target="_blank"
-              rel="nofollow noopener noreferrer"
-            >
-              {{ appName }}
-            </a>
-          </td>
-          <td>{{ versionString }}</td>
-        </tr>
-      </table>
+      <data-table
+        :rows="versionRows"
+        :columns="versionColumns"
+        :searchable="false"
+        key-field="name"
+        class="version-table"
+      />
     </template>
 
     <template v-if="version && downloads.length">
       <h3 class="pt-40">
         {{ aboutDownloadCLIString }}
       </h3>
-      <table>
-        <tr
-          v-for="d in downloads"
-          :key="d.icon"
-          class="link"
-        >
-          <td>
-            <div class="os">
-              <i :class="`icon ${d.icon} mr-5`" /> {{ t(d.label) }}
-            </div>
-          </td>
-          <td>
-            <a
-              v-if="d.cliLink"
-              :href="d.cliLink"
-            >{{ d.cliFile }}</a>
-          </td>
-        </tr>
-      </table>
+      <data-table
+        :rows="downloads"
+        :columns="downloadColumns"
+        :searchable="false"
+        key-field="icon"
+        class="downloads-table"
+      />
     </template>
 
     <template v-if="version">
@@ -275,35 +309,10 @@ const downloadSupportBundle = async() => {
 
 <style lang="scss" scoped>
 .about {
-  table {
-    border-collapse: collapse;
-    overflow: hidden;
-    border-radius: var(--border-radius);
-
-    tr > td:first-of-type {
-      width: 20%;
-    }
-
-    th, td {
-      border: 1px solid var(--border);
-      padding: 8px 5px;
-      min-width: 150px;
-      text-align: left;
-    }
-
-    th {
-      background-color: var(--sortable-table-top-divider);
-      border-bottom: 1px solid var(--sortable-table-top-divider);
-    }
-
-    a {
-      cursor: pointer;
-    }
-
-    .os {
-      display: flex;
-      align-items: center;
-    }
+  .version-table,
+  .downloads-table {
+    --sortable-table-row-hover-bg: var(--sortable-table-hover-bg);
+    --sortable-table-header-hover-bg: var(--sortable-table-hover-bg);
   }
 }
 

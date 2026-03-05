@@ -1,17 +1,15 @@
 <script setup lang="ts">
-import DataTable from '../components/tables/DataTable.vue';
-import type { DataTableColumn } from '../components/tables/types';
 import { EPINIO_TYPES } from '../types';
-import LinkDetail from '@shell/components/formatter/LinkDetail.vue';
-import BadgeStateFormatter from '@shell/components/formatter/BadgeStateFormatter.vue';
-
 import { useStore } from 'vuex';
+import { useRouter } from 'vue-router';
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { startPolling, stopPolling } from '../utils/polling';
 import Masthead from '@shell/components/ResourceList/Masthead';
 import { createEpinioRoute } from '../utils/custom-routing';
+import { makeEmptyCell, makeRouterLinks, makeRouterLinksOrEmpty } from '../utils/table-formatters';
 
 const store = useStore();
+const router = useRouter();
 
 defineProps<{ schema: object }>(); // Keep for compatibility
 
@@ -26,46 +24,57 @@ onMounted(async () => {
 
   pending.value = false;
   startPolling([
-    "applications",
-    "namespaces",
-    "appcharts",
-    "configurations",
-    "services"
+    'applications',
+    'namespaces',
+    'appcharts',
+    'configurations',
+    'services'
   ], store);
 });
 
 onUnmounted(() => {
   stopPolling([
-    "applications",
-    "namespaces",
-    "appcharts",
-    "configurations",
-    "services"
+    'applications',
+    'namespaces',
+    'appcharts',
+    'configurations',
+    'services'
   ]);
 });
 
 const handleCreateClick = () => {
   store.$router.push(createEpinioRoute('c-cluster-resource-create', { resource: EPINIO_TYPES.CONFIGURATION }));
-}
+};
 
 const rows = computed(() => {
   return store.getters['epinio/all'](EPINIO_TYPES.CONFIGURATION);
 });
 
-const columns: DataTableColumn[] = [
+const handleNavigate = (event: CustomEvent) => {
+  router.push(event.detail.url);
+};
+
+const columns = [
   {
     field: 'nameDisplay',
-    label: 'Name'
+    label: 'Name',
+    link: (row: any) => {
+      try { return router.resolve(row.detailLocation).href; } catch { return '#'; }
+    }
   },
   {
     field: 'boundApps',
     label: 'Bound Applications',
-    sortable: false
+    sortable: false,
+    formatter: (_v: any, row: any) => makeRouterLinksOrEmpty(row.applications, router)
   },
   {
     field: 'service',
     label: 'Service',
-    sortable: false
+    sortable: false,
+    formatter: (_v: any, row: any) => row.service
+      ? makeRouterLinks([row.service], router)
+      : makeEmptyCell()
   },
   {
     field: 'variableCount',
@@ -98,52 +107,18 @@ const columns: DataTableColumn[] = [
       </trailhand-button>
     </template>
   </Masthead>
-  <DataTable
+  <data-table
     :rows="rows"
     :columns="columns"
-    :loading="pending"
-  >
-    <template #cell:stateDisplay="{ row }">
-      <BadgeStateFormatter
-        :row="row"
-        :value="row.stateDisplay"
-      />
-    </template>
-    <template #cell:nameDisplay="{ row }">
-      <LinkDetail
-        :row="row"
-        :value="row.nameDisplay"
-      />
-    </template>
-    <template #cell:service="{ row }">
-      <LinkDetail
-        v-if="row.service"
-        :key="row.service.id"
-        :row="row.service"
-        :value="row.service.meta.name"
-      />
-      <span
-        v-else
-        class="text-muted"
-      >&nbsp;</span>
-    </template>
-    <template #cell:boundApps="{ row }">
-      <span v-if="row.applications && row.applications.length">
-        <template v-for="(app, index) in row.applications" :key="app.id">
-          <LinkDetail
-            :row="app"
-            :value="app.meta.name"
-          />
-          <span
-            v-if="index < row.applications.length - 1"
-            :key="app.id + 'i'"
-          >, </span>
-        </template>
-      </span>
-      <span
-        v-else
-        class="text-muted"
-      >&nbsp;</span>
-    </template>
-  </DataTable>
+    :searchable="true"
+    key-field="id"
+    @navigate="handleNavigate"
+  />
 </template>
+
+<style lang="scss" scoped>
+data-table {
+  --sortable-table-row-hover-bg: var(--sortable-table-hover-bg);
+  --sortable-table-header-hover-bg: var(--sortable-table-hover-bg);
+}
+</style>

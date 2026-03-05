@@ -11,6 +11,14 @@ import { createEpinioRoute } from '../../../../utils/custom-routing';
 
 import { startPolling, stopPolling } from '../../../../utils/polling';
 
+import {
+  makeActionMenu,
+  makeStateTag,
+  makeAppRoutesCell,
+  makeRouterLinksOrEmpty,
+  makeBoundServicesCell,
+} from '../../../../utils/table-formatters';
+
 const store = useStore();
 const router = useRouter();
 const t = store.getters['i18n/t'];
@@ -80,42 +88,12 @@ function getFilteredApps(apps: any[], namespace: string): any[] {
   );
 }
 
-// Map application state to trailhand-tag variant
-function stateToTagVariant(state: string): string {
-  switch (state) {
-    case 'running': return 'success';
-    case 'error': return 'error';
-    case 'building': return 'warning';
-    case 'created': return 'info';
-    default: return 'default';
-  }
-}
-// Map application state to trailhand icon name
-function stateToIcon(state: string): string {
-  switch (state) {
-    case 'running': return 'play';
-    case 'error': return 'error';
-    case 'building': return 'pause';
-    case 'created': return 'rocket';
-    default: return 'bug';
-  }
-}
-
 const columns = [
   {
     field: 'stateDisplay',
     label: 'State',
     width: '130px',
-    formatter: (_value: string, row: any) => {
-      const tag = document.createElement('trailhand-tag') as any;
-
-      tag.label = row.stateDisplay || '';
-      tag.variant = stateToTagVariant(row.state);
-      tag.size = 'md';
-      tag.icon = stateToIcon(row.state);
-
-      return tag;
-    }
+    formatter: (_value: string, row: any) => makeStateTag(row)
   },
   {
     field: 'nameDisplay',
@@ -136,142 +114,19 @@ const columns = [
     field: 'route',
     label: 'Routes',
     sortable: false,
-    formatter: (_value: any, row: any) => {
-      if (!row.routes?.length) {
-        const empty = document.createElement('span');
-
-        empty.innerHTML = '&nbsp;';
-
-        return empty;
-      }
-
-      const span = document.createElement('span');
-
-      span.style.wordBreak = 'break-word';
-
-      row.routes.forEach((route: string, index: number) => {
-        const url = `https://${ route }`;
-
-        if (row.state === 'running') {
-          const a = document.createElement('a');
-
-          a.href = url;
-          a.target = '_blank';
-          a.rel = 'noopener noreferrer nofollow';
-          a.textContent = url;
-          span.appendChild(a);
-        } else {
-          const s = document.createElement('span');
-
-          s.textContent = url;
-          span.appendChild(s);
-        }
-
-        if (index < row.routes.length - 1) {
-          span.appendChild(document.createTextNode(', '));
-        }
-      });
-
-      return span;
-    }
+    formatter: (_value: any, row: any) => makeAppRoutesCell(row)
   },
   {
     field: 'boundConfigs',
     label: 'Bound Configs',
     sortable: false,
-    formatter: (_value: any, row: any) => {
-      if (!row.allConfigurations?.length) {
-        const empty = document.createElement('span');
-
-        empty.innerHTML = '&nbsp;';
-
-        return empty;
-      }
-
-      const span = document.createElement('span');
-
-      row.allConfigurations.forEach((config: any, index: number) => {
-        const a = document.createElement('a');
-
-        try {
-          a.href = router.resolve(config.detailLocation).href;
-        } catch {
-          a.href = '#';
-        }
-
-        a.addEventListener('click', (e) => {
-          e.preventDefault();
-          router.push(config.detailLocation);
-        });
-
-        a.textContent = config.meta.name;
-        span.appendChild(a);
-
-        if (index < row.allConfigurations.length - 1) {
-          span.appendChild(document.createTextNode(', '));
-        }
-      });
-
-      return span;
-    }
+    formatter: (_value: any, row: any) => makeRouterLinksOrEmpty(row.allConfigurations, router)
   },
   {
     field: 'boundServices',
     label: 'Bound Services',
     sortable: false,
-    formatter: (_value: any, row: any) => {
-      const services = row.services?.length ? row.services : null;
-      const configServices = !services && row.configuration?.services?.length
-        ? row.configuration.services
-        : null;
-
-      if (!services && !configServices) {
-        const empty = document.createElement('span');
-
-        empty.innerHTML = '&nbsp;';
-
-        return empty;
-      }
-
-      const span = document.createElement('span');
-
-      if (services) {
-        services.forEach((service: any, index: number) => {
-          const a = document.createElement('a');
-
-          try {
-            a.href = router.resolve(service.detailLocation).href;
-          } catch {
-            a.href = '#';
-          }
-
-          a.addEventListener('click', (e) => {
-            e.preventDefault();
-            router.push(service.detailLocation);
-          });
-
-          a.textContent = service.meta.name;
-          span.appendChild(a);
-
-          if (index < services.length - 1) {
-            span.appendChild(document.createTextNode(', '));
-          }
-        });
-      } else if (configServices) {
-        configServices.forEach((service: string, index: number) => {
-          const s = document.createElement('span');
-
-          s.textContent = service;
-          span.appendChild(s);
-
-          if (index < configServices.length - 1) {
-            span.appendChild(document.createTextNode(', '));
-          }
-        });
-      }
-
-      return span;
-    }
+    formatter: (_value: any, row: any) => makeBoundServicesCell(row, router)
   },
   {
     field: 'deployment.username',
@@ -283,29 +138,6 @@ const columns = [
     formatter: 'age'
   }
 ];
-
-// Row actions using trailhand action-menu web component
-const renderActionsFunc = (row: any) => {
-  const el = document.createElement('action-menu') as any;
-
-  el.resource = row;
-
-  // Transform string action names to callable functions
-  el.actions = (row.availableActions || []).map((action: any) => {
-    if (action.divider || typeof action.action !== 'string') {
-      return action;
-    }
-
-    const actionName = action.action;
-
-    return {
-      ...action,
-      action: () => row[actionName]?.()
-    };
-  });
-
-  return el;
-};
 
 // Handle internal navigation events emitted by data-table link cells
 const handleNavigate = (event: CustomEvent) => {
@@ -378,7 +210,7 @@ onUnmounted(() => {
       </div>
 
       <data-table
-        :ref="(el: any) => { if (el) el.renderActions = renderActionsFunc; }"
+        :ref="(el: any) => { if (el) el.renderActions = makeActionMenu; }"
         :rows="getFilteredApps(apps, String(namespace))"
         :columns="columns"
         :searchable="false"

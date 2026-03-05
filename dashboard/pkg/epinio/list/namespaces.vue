@@ -6,9 +6,6 @@ import { Card } from '@components/Card';
 import Banner from '@components/Banner/Banner.vue';
 import { _CREATE } from '@shell/config/query-params';
 import AsyncButton from '@shell/components/AsyncButton';
-import DataTable from '../components/tables/DataTable.vue';
-import type { DataTableColumn } from '../components/tables/types';
-import BadgeStateFormatter from '@shell/components/formatter/BadgeStateFormatter.vue';
 import Masthead from '@shell/components/ResourceList/Masthead';
 import { epinioExceptionToErrorsArray } from '../utils/errors';
 import LabeledInput from '@components/Form/LabeledInput/LabeledInput.vue';
@@ -20,7 +17,6 @@ defineProps<{
   rows: Array,
 }>();
 
-//const attrs = useAttrs();
 const store = useStore();
 const t = store.getters['i18n/t'];
 
@@ -54,11 +50,11 @@ onMounted(() => {
     openCreateModal();
   }
 
-  startPolling(["namespaces", "applications", "configurations"], store);
+  startPolling(['namespaces', 'applications', 'configurations'], store);
 });
 
 onUnmounted(() => {
-  stopPolling(["namespaces", "applications", "configurations"]);
+  stopPolling(['namespaces', 'applications', 'configurations']);
 });
 
 watch(
@@ -145,7 +141,7 @@ function getNamespaceErrors(name) {
   return [];
 }
 
-const columns: DataTableColumn[] = [
+const columns = [
   {
     field: 'meta.name',
     label: 'Name'
@@ -182,18 +178,11 @@ const columns: DataTableColumn[] = [
         </trailhand-button>
       </template>
     </Masthead>
-    <DataTable
+    <data-table
       :rows="rows"
       :columns="columns"
       key-field="_key"
-    >
-      <template #cell:stateDisplay="{ row }">
-        <BadgeStateFormatter
-          :row="row"
-          :value="row.stateDisplay"
-        />
-      </template>
-    </DataTable>
+    />
     <div
       v-if="showCreateModal"
       class="modal"
@@ -244,8 +233,8 @@ const columns: DataTableColumn[] = [
 
 <style lang='scss' scoped>
 .modal {
-  position: fixed; /* Stay in place */
-  z-index: 50; /* Sit on top */
+  position: fixed;
+  z-index: 50;
   left: 0;
   top: 0;
   width: 100%;
@@ -277,7 +266,11 @@ const columns: DataTableColumn[] = [
     display: flex;
     flex: 1;
   }
+}
 
+data-table {
+  --sortable-table-row-hover-bg: var(--sortable-table-hover-bg);
+  --sortable-table-header-hover-bg: var(--sortable-table-hover-bg);
 }
 </style>
 

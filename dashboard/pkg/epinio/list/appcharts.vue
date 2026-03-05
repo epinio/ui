@@ -1,9 +1,6 @@
 <script setup lang="ts">
 import { EPINIO_TYPES } from '../types';
 import { useStore } from 'vuex';
-import DataTable from '../components/tables/DataTable.vue';
-import type { DataTableColumn } from '../components/tables/types';
-import BadgeStateFormatter from '@shell/components/formatter/BadgeStateFormatter.vue';
 import { ref, onMounted, onUnmounted, computed } from 'vue';
 import { startPolling, stopPolling } from '../utils/polling';
 
@@ -13,23 +10,20 @@ defineProps<{ schema: object }>(); // Keep for compatibility
 const store = useStore();
 
 onMounted(async () => {
-  await store.dispatch(
-    `epinio/findAll`,
-    { type: EPINIO_TYPES.APP_CHARTS }
-  );
+  await store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.APP_CHARTS });
   pending.value = false;
-  startPolling(["appcharts"], store);
+  startPolling(['appcharts'], store);
 });
 
 onUnmounted(() => {
-  stopPolling(["appcharts"]);
+  stopPolling(['appcharts']);
 });
 
 const rows = computed(() => {
   return store.getters['epinio/all'](EPINIO_TYPES.APP_CHARTS);
 });
 
-const columns: DataTableColumn[] = [
+const columns = [
   {
     field: 'meta.name',
     label: 'Name'
@@ -43,24 +37,25 @@ const columns: DataTableColumn[] = [
     label: 'Helm Chart'
   },
   {
-    field: 'meta.createdAt',
-    label: 'Age',
+    field:     'meta.createdAt',
+    label:     'Age',
     formatter: 'age'
   }
 ];
 </script>
 
 <template>
-  <DataTable
+  <data-table
     :rows="rows"
     :columns="columns"
-    :loading="pending"
-  >
-    <template #cell:stateDisplay="{ row }">
-      <BadgeStateFormatter
-        :row="row"
-        :value="row.stateDisplay"
-      />
-    </template>
-  </DataTable>
+    :searchable="true"
+    key-field="id"
+  />
 </template>
+
+<style lang="scss" scoped>
+data-table {
+  --sortable-table-row-hover-bg: var(--sortable-table-hover-bg);
+  --sortable-table-header-hover-bg: var(--sortable-table-hover-bg);
+}
+</style>

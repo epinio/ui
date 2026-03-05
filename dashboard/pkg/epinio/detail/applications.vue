@@ -10,17 +10,14 @@ import { GitUtils } from '@shell/utils/git';
 import { isArray } from '@shell/utils/array';
 import ConsumptionGauge from '@shell/components/ConsumptionGauge.vue';
 import { APPLICATION_MANIFEST_SOURCE_TYPE, EPINIO_TYPES } from '../types';
-import DataTable from '../components/tables/DataTable.vue';
-import type { DataTableColumn } from '../components/tables/types';
-import BadgeStateFormatter from '@shell/components/formatter/BadgeStateFormatter.vue';
 import PlusMinus from '@shell/components/form/PlusMinus.vue';
 import { epinioExceptionToErrorsArray } from '../utils/errors';
 import ApplicationCard from '../components/application/AppCardDetail.vue';
 import Tabbed from '@shell/components/Tabbed/index.vue';
 import Tab from '@shell/components/Tabbed/Tab.vue';
 import AppGitDeployment from '../components/application/AppGitDeployment.vue';
-import Link from '@shell/components/formatter/Link.vue';
 import Banner from '@components/Banner/Banner.vue';
+import { makeStateTag, makeActionMenu, makeCommitShaCell, makeCommitAuthorCell } from '../utils/table-formatters';
 
 day.extend(relativeTime);
 
@@ -42,11 +39,12 @@ const gitDeployment = ref({
   commits: null as any
 });
 
-const instanceColumns: DataTableColumn[] = [
+const instanceColumns = [
   {
     field: 'stateDisplay',
     label: 'State',
-    width: '100px'
+    width: '100px',
+    formatter: (_v: any, row: any) => makeStateTag(row)
   },
   {
     field: 'name',
@@ -73,11 +71,12 @@ const instanceColumns: DataTableColumn[] = [
   }
 ];
 
-const serviceColumns: DataTableColumn[] = [
+const serviceColumns = [
   {
     field: 'stateDisplay',
     label: 'State',
-    width: '100px'
+    width: '100px',
+    formatter: (_v: any, row: any) => makeStateTag(row)
   },
   {
     field: 'nameDisplay',
@@ -98,7 +97,7 @@ const serviceColumns: DataTableColumn[] = [
   }
 ];
 
-const configColumns: DataTableColumn[] = [
+const configColumns = [
   {
     field: 'nameDisplay',
     label: 'Name'
@@ -220,16 +219,25 @@ const preparedCommits = computed(() => {
   }));
 });
 
-const gitCommitsColumns = computed<DataTableColumn[]>(() => [
+const gitCommitsColumns = computed(() => [
   {
     field: 'sha',
     label: t(`gitPicker.${gitType.value}.tableHeaders.sha.label`),
-    width: '100px'
+    width: '100px',
+    formatter: (_v: any, row: any) => makeCommitShaCell(
+      row,
+      gitDeployment.value.deployedCommit.long,
+      t('epinio.applications.detail.deployment.details.git.deployed')
+    )
   },
   {
     field: 'author_login',
     label: t(`gitPicker.${gitType.value}.tableHeaders.author.label`),
-    width: '190px'
+    width: '190px',
+    formatter: (_v: any, row: any) => makeCommitAuthorCell(
+      row,
+      t(`gitPicker.${gitType.value}.tableHeaders.author.unknown`)
+    )
   },
   {
     field: 'message',
@@ -307,7 +315,7 @@ const commitPosition = computed(() => {
           </ul>
         </template>
 
-        <!-- <template v-slot:top-right>
+        <!-- <template v-slot:top-right >
         </template> -->
 
         <!-- Resources count slot -->
@@ -494,51 +502,16 @@ const commitPosition = computed(() => {
           >
             {{ t('epinio.applications.detail.deployment.commits.redeploy') }}
           </Banner>
-          <DataTable
+          <data-table
             v-if="preparedCommits"
+            :ref="(el: any) => { if (el) el.renderActions = makeActionMenu; }"
             :rows="preparedCommits"
             :columns="gitCommitsColumns"
             key-field="sha"
             :searchable="true"
             :paginated="true"
             :rows-per-page="10"
-          >
-            <template #cell:author_login="{row}">
-              <div class="sortable-table-avatar">
-                <template v-if="row.author">
-                  <img
-                    :src="row.author.avatarUrl"
-                    alt=""
-                  >
-                  <a
-                    :href="row.author.htmlUrl"
-                    target="_blank"
-                    rel="nofollow noopener noreferrer"
-                  >
-                    {{ row.author.name }}
-                  </a>
-                </template>
-                <template v-else>
-                  {{ t(`gitPicker.${ gitType }.tableHeaders.author.unknown`) }}
-                </template>
-              </div>
-            </template>
-
-            <template #cell:sha="{row}">
-              <div class="sortable-table-commit">
-                <Link
-                  v-model:value="row.sha"
-                  :row="row"
-                  url-key="htmlUrl"
-                />
-                <i
-                  v-if="row.commitId === gitDeployment.deployedCommit.long"
-                  v-tooltip="t('epinio.applications.detail.deployment.details.git.deployed')"
-                  class="icon icon-fw icon-commit"
-                />
-              </div>
-            </template>
-          </DataTable>
+          />
         </Tab>
       </Tabbed>
     </div>
@@ -554,57 +527,36 @@ const commitPosition = computed(() => {
           name="instances"
           :weight="3"
         >
-          <DataTable
+          <data-table
             :columns="instanceColumns"
             :rows="value.instances"
             :searchable="false"
             :paginated="false"
-          >
-            <template #cell:stateDisplay="{ row }">
-              <BadgeStateFormatter
-                :row="row"
-                :value="row.stateDisplay"
-              />
-            </template>
-          </DataTable>
+          />
         </Tab>
         <Tab
           label-key="epinio.applications.detail.tables.services"
           name="services"
           :weight="2"
         >
-          <DataTable
+          <data-table
             :columns="serviceColumns"
             :rows="value.services"
             :searchable="false"
             :paginated="false"
-          >
-            <template #cell:stateDisplay="{ row }">
-              <BadgeStateFormatter
-                :row="row"
-                :value="row.stateDisplay"
-              />
-            </template>
-          </DataTable>
+          />
         </Tab>
         <Tab
           label-key="epinio.applications.detail.tables.configs"
           name="configs"
           :weight="1"
         >
-          <DataTable
+          <data-table
             :columns="configColumns"
             :rows="value.baseConfigurations"
             :searchable="false"
             :paginated="false"
-          >
-            <template #cell:stateDisplay="{ row }">
-              <BadgeStateFormatter
-                :row="row"
-                :value="row.stateDisplay"
-              />
-            </template>
-          </DataTable>
+          />
         </Tab>
       </Tabbed>
     </div>
@@ -615,6 +567,11 @@ const commitPosition = computed(() => {
 <style lang="scss" scoped>
 .content {
   max-width: 1600px;
+}
+
+data-table {
+  --sortable-table-row-hover-bg: var(--sortable-table-hover-bg);
+  --sortable-table-header-hover-bg: var(--sortable-table-hover-bg);
 }
 .simple-box-row {
   display: grid;
