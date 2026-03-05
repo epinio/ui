@@ -2,26 +2,55 @@ import { EPINIO_TYPES } from '../types';
 import EpinioNamespacedResource, { bulkRemove } from './epinio-namespaced-resource';
 
 export default class EpinioConfigurationModel extends EpinioNamespacedResource {
-  get canCustomEdit() {
-    const canGetter = this.$rootGetters?.['epinio/can'];
+  get _availableActions() {
+    const base = super._availableActions || [];
+    const can = this.$rootGetters?.['epinio/can'];
+    const perms = this.$rootGetters?.['epinio/permissions']?.();
 
-    if (!canGetter) {
+    // Same pattern as Create application: when permissions haven't loaded, show all actions
+    if (!can || !perms || Object.keys(perms).length === 0) {
+      return base;
+    }
+
+    const canEdit = can('configuration_write') || can('configuration');
+    const canDelete = can('configuration_write') || can('configuration');
+
+    return base.filter((action) => {
+      if (action.action === 'goToEdit') {
+        return canEdit;
+      }
+      if (action.action === 'promptRemove') {
+        return canDelete;
+      }
+      return true;
+    });
+  }
+
+  get canCustomEdit() {
+    const can = this.$rootGetters?.['epinio/can'];
+    const perms = this.$rootGetters?.['epinio/permissions']?.();
+
+    // Same pattern as Create application: when permissions haven't loaded yet (me not fetched)
+    // or store unavailable, default to showing Edit — API will enforce RBAC.
+    if (!can) {
+      return !this.isServiceRelated;
+    }
+    if (!perms || Object.keys(perms).length === 0) {
       return !this.isServiceRelated;
     }
 
-    const canEdit = canGetter('configuration_write') || canGetter('configuration');
-
-    return !this.isServiceRelated && canEdit;
+    return !this.isServiceRelated && (can('configuration_write') || can('configuration'));
   }
 
   get _canDelete() {
-    const canGetter = this.$rootGetters?.['epinio/can'];
+    const can = this.$rootGetters?.['epinio/can'];
+    const perms = this.$rootGetters?.['epinio/permissions']?.();
 
-    if (!canGetter) {
+    if (!can || !perms || Object.keys(perms).length === 0) {
       return !this.isServiceRelated && super._canDelete;
     }
 
-    const canDelete = canGetter('configuration_write') || canGetter('configuration');
+    const canDelete = can('configuration_write') || can('configuration');
 
     return !this.isServiceRelated && canDelete && super._canDelete;
   }
