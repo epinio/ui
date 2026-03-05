@@ -241,7 +241,6 @@ const moveBooleansToFront = (settingsObj: any) => {
   <Loading v-if="!values" />
   <div v-else>
     <div class="col">
-      Test
       <NameNsDescription
         data-testid="epinio_app-info_name-ns"
         :namespaces-override="namespaceNames"

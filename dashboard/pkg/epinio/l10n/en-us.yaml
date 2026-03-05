@@ -66,20 +66,20 @@ epinio:
     allPackages: See all packages
     getBinaries: Get binaries
   downloadReport:
-    title: Download report
-    action: Download Report
-    success: Report downloaded successfully
+    title: Cluster Metrics Report
+    action: Download
+    success: Metrics report downloaded successfully
     errors:
       unauthorized: You need admin permissions to download the report
       failed: Failed to download report. Please try again or contact support
   supportBundle:
-    title: Download support bundle
+    title: Download Support Bundle
     description: Collect a troubleshooting bundle for support.
     tail:
       label: Log lines per component
       help: Defaults to 1000 lines. Maximum 10000.
     includeApps: Include application logs
-    action: Download Support Bundle
+    action: Download
     collecting: Collecting logs from Epinio components...
     success: Support bundle downloaded successfully
     errors:
