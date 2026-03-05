@@ -365,7 +365,7 @@ function handleAboutClick() {
         >
         </trailhand-card>
         <trailhand-card
-          v-if="aboutLink"
+          v-if="!store.getters['isSingleProduct']"
           variant="info"
           :card-title="t('epinio.intro.about')"
           clickable
