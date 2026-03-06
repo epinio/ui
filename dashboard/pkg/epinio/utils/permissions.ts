@@ -30,6 +30,9 @@ const ROLE_ACTIONS: Record<string, string[]> = {
     'app_stage',
     'app_deploy',
     'app_export',
+    'configuration_read',
+    'configuration_write',
+    'service_write',
   ],
 
   // Application Manager: full app CRUD and runtime operations, no non-app writes
@@ -52,6 +55,9 @@ const ROLE_ACTIONS: Record<string, string[]> = {
     'app_restart',
     'app_exec',
     'app_portforward',
+    'configuration_read',
+    'configuration_write',
+    'service_write',
   ],
 
   // System Manager: no-delete role, app create/update/runtime plus read-only on other resources
@@ -74,7 +80,9 @@ const ROLE_ACTIONS: Record<string, string[]> = {
     'app_exec',
     'app_portforward',
     'configuration_read',
+    'configuration_write',
     'service_read',
+    'service_write',
     'gitconfig_read',
     'export_registries_read',
   ],

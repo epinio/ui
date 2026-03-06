@@ -62,6 +62,7 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
     const canEdit = canGetter('app_update') || canGetter('app_write') || canGetter('app');
     const canDelete = canGetter('app_delete') || canGetter('app_write') || canGetter('app');
     const canViewConfig = canGetter('configuration_read') || canGetter('configuration_write');
+    const canExec = canGetter('app_exec');
 
     let skipNextDivider = false;
 
@@ -72,6 +73,10 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
         return false;
       }
 
+      if (action.action === 'showAppShell') {
+        return canExec;
+      }
+
       if (action.action === 'showConfiguration') {
         if (!canViewConfig) {
           skipNextDivider = true; // base always has a divider after showConfiguration
@@ -80,8 +85,12 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
         }
       }
 
-      if (action.action === 'goToEdit' || action.action === 'goToViewConfig') {
-        return canEdit || canViewConfig;
+      if (action.action === 'goToEdit') {
+        return canEdit;
+      }
+
+      if (action.action === 'goToViewConfig') {
+        return canViewConfig;
       }
 
       if (action.action === 'promptRemove') {
@@ -150,7 +159,10 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
     const isRunning = [STATES.RUNNING].includes(this.status);
     const showAppLog = isRunning;
     const showStagingLog = !!this.stage_id;
-    const showAppShell = isRunning;
+    const canGetter = this.$rootGetters?.['epinio/can'];
+    const perms = this.$rootGetters?.['epinio/permissions']?.();
+    const canExec = canGetter && perms && Object.keys(perms).length > 0 ? canGetter('app_exec') : false;
+    const showAppShell = isRunning && canExec;
 
     if (showAppShell) {
       res.push({

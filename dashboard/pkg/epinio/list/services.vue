@@ -25,15 +25,14 @@ const createLocation = computed(() =>
   })
 );
 
+// Strict RBAC: only show Create when we know the user has service write perms (hides for view_only)
 const canCreateService = computed(() => {
   const can = store.getters['epinio/can'];
   const perms = store.getters['epinio/permissions']?.();
 
-  if (!can) {
-    return true;
-  }
-  if (!perms || Object.keys(perms).length === 0) {
-    return true;
+  // If we don't have a permission helper or a populated perms map yet, hide Create
+  if (!can || !perms || Object.keys(perms).length === 0) {
+    return false;
   }
 
   return can('service_write') || can('service');

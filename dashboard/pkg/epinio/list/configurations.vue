@@ -2,16 +2,41 @@
 import DataTable from '../components/tables/DataTable.vue';
 import type { DataTableColumn } from '../components/tables/types';
 import { EPINIO_TYPES } from '../types';
+import { createEpinioRoute } from '../utils/custom-routing';
 import LinkDetail from '@shell/components/formatter/LinkDetail.vue';
 import BadgeStateFormatter from '@shell/components/formatter/BadgeStateFormatter.vue';
+import Masthead from '@shell/components/ResourceList/Masthead';
 
 import { useStore } from 'vuex';
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { startPolling, stopPolling } from '../utils/polling';
 
 const store = useStore();
+const t = store.getters['i18n/t'];
 
 defineProps<{ schema: object }>(); // Keep for compatibility
+
+const schema = ref(store.getters['epinio/schemaFor'](EPINIO_TYPES.CONFIGURATION));
+const resource = EPINIO_TYPES.CONFIGURATION;
+
+const createLocation = computed(() =>
+  createEpinioRoute('c-cluster-resource-create', {
+    cluster: store.getters['clusterId'],
+    resource: EPINIO_TYPES.CONFIGURATION,
+  })
+);
+
+// Strict RBAC: only show Create when user has configuration write (hides for view_only)
+const canCreateConfiguration = computed(() => {
+  const can = store.getters['epinio/can'];
+  const perms = store.getters['epinio/permissions']?.();
+
+  if (!can || !perms || Object.keys(perms).length === 0) {
+    return false;
+  }
+
+  return can('configuration_write') || can('configuration');
+});
 
 const pending = ref<boolean>(true);
 
@@ -77,6 +102,20 @@ const columns: DataTableColumn[] = [
 </script>
 
 <template>
+  <Masthead
+    :schema="schema"
+    :resource="resource"
+  >
+    <template #createButton>
+      <button
+        v-if="canCreateConfiguration"
+        class="btn role-primary"
+        @click="store.$router.push(createLocation)"
+      >
+        {{ t('generic.create') }}
+      </button>
+    </template>
+  </Masthead>
   <DataTable
     :rows="rows"
     :columns="columns"
