@@ -10,7 +10,7 @@ body.epinio-active {
 
 // Light mode variables - only when epinio is active
 body.epinio-active {
-  nav, main, .product, .rd-header-right {
+  nav, main, .product, .rd-header-right, .spacer, .menu-spacer {
     --active-nav-bg: var(--th-color-light-primary);
     --active-nav-text: var(--th-color-dark-primary);
     --th-card-icon-color: var(--th-color-primary);
@@ -24,12 +24,16 @@ body.epinio-active {
       --th-card-bg: var(--th-color-grey-100);
     }
   }
+
+  main {
+    background-color: var(--body-bg);
+  }
 }
 
 // Dark mode variables - only when epinio is active
 body.epinio-active[data-theme='dark'],
 [data-theme='dark'] body.epinio-active {
-  nav, main, .product, .rd-header-right {
+  nav, main, .product, .rd-header-right, .spacer, .menu-spacer {
       --th-color-primary: #5DB2FF;
       --body-bg: var(--th-color-background);
       --active-nav-bg: color-mix(in srgb, var(--th-color-primary) 20%, transparent);
@@ -45,6 +49,10 @@ body.epinio-active[data-theme='dark'],
       .dashboard-card {
         --th-card-bg: var(--th-color-grey-700);
       }
+  }
+  
+  main {
+    background-color: var(--body-bg);
   }
 }
 
