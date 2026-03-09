@@ -98,7 +98,7 @@ const columns = [
       </trailhand-button>
     </template>
   </Masthead>
-  <data-table
+  <trailhand-table
     :ref="(el: any) => { if (el) el.renderActions = makeActionMenu; }"
     :rows="[...rows]"
     :columns="columns"
@@ -109,7 +109,7 @@ const columns = [
 </template>
 
 <style lang="scss" scoped>
-data-table {
+trailhand-table {
   --sortable-table-row-hover-bg: var(--sortable-table-hover-bg);
   --sortable-table-header-hover-bg: var(--sortable-table-hover-bg);
   --sortable-table-header-sorted-bg: var(--sortable-table-hover-bg);

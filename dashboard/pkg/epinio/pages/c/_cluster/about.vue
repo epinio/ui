@@ -215,7 +215,7 @@ const downloadColumns = [
       <h1>
         {{ aboutTitleString }}
       </h1>
-      <data-table
+      <trailhand-table
         :rows="versionRows"
         :columns="versionColumns"
         :searchable="false"
@@ -228,7 +228,7 @@ const downloadColumns = [
       <h3 class="pt-40">
         {{ aboutDownloadCLIString }}
       </h3>
-      <data-table
+      <trailhand-table
         :rows="downloads"
         :columns="downloadColumns"
         :searchable="false"

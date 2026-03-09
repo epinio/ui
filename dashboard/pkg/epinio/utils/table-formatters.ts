@@ -82,7 +82,7 @@ export function makeTextList(items: string[]): HTMLSpanElement {
  * so the action-menu web component can invoke them.
  */
 export function makeActionMenu(row: any): HTMLElement {
-  const el = document.createElement('action-menu') as any;
+  const el = document.createElement('trailhand-action-menu') as any;
 
   el.resource = row;
   el.actions = (row.availableActions || []).map((action: any) => {

@@ -211,7 +211,7 @@ onMounted(createActions);
     class="progress-container"
   >
     <div class="progress">
-      <data-table
+      <trailhand-table
         :rows="tableRows"
         :columns="columns"
         :searchable="false"
@@ -229,7 +229,7 @@ onMounted(createActions);
   .progress {
     padding: 10px 0;
 
-    data-table {
+    trailhand-table {
       --sortable-table-row-hover-bg: var(--sortable-table-hover-bg);
       --sortable-table-header-hover-bg: var(--sortable-table-hover-bg);
       --sortable-table-header-sorted-bg: var(--sortable-table-hover-bg);

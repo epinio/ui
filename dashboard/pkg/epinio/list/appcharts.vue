@@ -45,7 +45,7 @@ const columns = [
 </script>
 
 <template>
-  <data-table
+  <trailhand-table
     :rows="[...rows]"
     :columns="columns"
     :searchable="true"
@@ -54,7 +54,7 @@ const columns = [
 </template>
 
 <style lang="scss" scoped>
-data-table {
+trailhand-table {
   --sortable-table-row-hover-bg: var(--sortable-table-hover-bg);
   --sortable-table-header-hover-bg: var(--sortable-table-hover-bg);
   --sortable-table-header-sorted-bg: var(--sortable-table-hover-bg);

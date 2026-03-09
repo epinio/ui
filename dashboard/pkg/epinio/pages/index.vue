@@ -245,7 +245,7 @@ const columns = [
           @click="rediscover"
         />
       </div>
-      <data-table
+      <trailhand-table
         :rows="[...displayClusters]"
         :columns="columns"
         :searchable="false"
@@ -270,7 +270,7 @@ div.root {
   }
 }
 
-data-table {
+trailhand-table {
   --sortable-table-row-hover-bg: var(--sortable-table-hover-bg);
   --sortable-table-header-hover-bg: var(--sortable-table-hover-bg);
   --sortable-table-header-sorted-bg: var(--sortable-table-hover-bg);

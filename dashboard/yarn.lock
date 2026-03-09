@@ -2441,10 +2441,10 @@
   resolved "https://registry.npmjs.org/@jsep-plugin/regex/-/regex-1.0.4.tgz"
   integrity sha512-q7qL4Mgjs1vByCaTnDFcBnV9HS7GVPJX5vyVoCgZHNSC9rjwIlmbXG5sUuorR5ndfHAIlJ8pVStxvjXHbNvtUg==
 
-"@krumio/trailhand-ui@^1.9.1":
-  version "1.9.1"
-  resolved "https://registry.yarnpkg.com/@krumio/trailhand-ui/-/trailhand-ui-1.9.1.tgz#894a60914b638a1c85cefded38aa0254dd5b3519"
-  integrity sha512-JlBdTffOt+Zeq5NPoWUACAA6wEjaaYxS5eQVW1Ufl6kepJ3YUJrREe5PbjmJpAG3Y4VwIskdMh9vJOSkVqRwhg==
+"@krumio/trailhand-ui@^1.9.2":
+  version "1.9.2"
+  resolved "https://registry.yarnpkg.com/@krumio/trailhand-ui/-/trailhand-ui-1.9.2.tgz#362029982f5c48be2ed0b9ff4807411c846d703c"
+  integrity sha512-oRkT0wuzFIvA5d1gp1B6yy6Ct9duRY5H+LUgFuyJc9b7d8A3V9JSQcM402ufPLENoTsg/7M0vm9ssp8/dzJKEw==
   dependencies:
     "@fortawesome/fontawesome-svg-core" "^7.1.0"
     "@fortawesome/free-solid-svg-icons" "^7.1.0"

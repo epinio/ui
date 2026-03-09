@@ -67,7 +67,7 @@ const columns = [
     <h2 class="mt-20">
       {{ t('epinio.catalogService.detail.servicesTitle', { catalogService: props.value.name }) }}
     </h2>
-    <data-table
+    <trailhand-table
       :rows="props.value.services"
       :columns="columns"
       :searchable="true"
@@ -78,7 +78,7 @@ const columns = [
 </template>
 
 <style lang="scss" scoped>
-data-table {
+trailhand-table {
   --sortable-table-row-hover-bg: var(--sortable-table-hover-bg);
   --sortable-table-header-hover-bg: var(--sortable-table-hover-bg);
   --sortable-table-header-sorted-bg: var(--sortable-table-hover-bg);

@@ -139,7 +139,7 @@ const columns = [
   }
 ];
 
-// Handle internal navigation events emitted by data-table link cells
+// Handle internal navigation events emitted by trailhand-table link cells
 const handleNavigate = (event: CustomEvent) => {
   const { url } = event.detail;
 
@@ -209,7 +209,7 @@ onUnmounted(() => {
         >
       </div>
 
-      <data-table
+      <trailhand-table
         :ref="(el: any) => { if (el) el.renderActions = makeActionMenu; }"
         :rows="getFilteredApps(apps, String(namespace))"
         :columns="columns"
@@ -228,9 +228,9 @@ onUnmounted(() => {
     margin-bottom: 0;
   }
 
-  // Map Rancher shell's hover variable name to what trailhand data-table expects
+  // Map Rancher shell's hover variable name to what trailhand-table expects
   // CSS custom properties inherit into shadow DOM, fixing the dark mode white flash
-  data-table {
+  trailhand-table {
     --sortable-table-row-hover-bg: var(--sortable-table-hover-bg);
     --sortable-table-header-hover-bg: var(--sortable-table-hover-bg);
     --sortable-table-header-sorted-bg: var(--sortable-table-hover-bg);

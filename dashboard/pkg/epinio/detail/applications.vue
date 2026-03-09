@@ -502,7 +502,7 @@ const commitPosition = computed(() => {
           >
             {{ t('epinio.applications.detail.deployment.commits.redeploy') }}
           </Banner>
-          <data-table
+          <trailhand-table
             v-if="preparedCommits"
             :ref="(el: any) => { if (el) el.renderActions = makeActionMenu; }"
             :rows="preparedCommits"
@@ -527,7 +527,7 @@ const commitPosition = computed(() => {
           name="instances"
           :weight="3"
         >
-          <data-table
+          <trailhand-table
             :columns="instanceColumns"
             :rows="value.instances"
             :searchable="false"
@@ -539,7 +539,7 @@ const commitPosition = computed(() => {
           name="services"
           :weight="2"
         >
-          <data-table
+          <trailhand-table
             :columns="serviceColumns"
             :rows="value.services"
             :searchable="false"
@@ -551,7 +551,7 @@ const commitPosition = computed(() => {
           name="configs"
           :weight="1"
         >
-          <data-table
+          <trailhand-table
             :columns="configColumns"
             :rows="value.baseConfigurations"
             :searchable="false"
@@ -569,7 +569,7 @@ const commitPosition = computed(() => {
   max-width: 1600px;
 }
 
-data-table {
+trailhand-table {
   --sortable-table-row-hover-bg: var(--sortable-table-hover-bg);
   --sortable-table-header-hover-bg: var(--sortable-table-hover-bg);
   --sortable-table-header-sorted-bg: var(--sortable-table-hover-bg);

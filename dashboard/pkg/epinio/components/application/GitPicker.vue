@@ -45,7 +45,7 @@ const preparedCommits = computed<Commit[]>(() =>
 
 const selectedCommitId = computed(() => selectedCommit.value?.commitId);
 
-// Columns for data-table
+// Columns for trailhand-table
 const columns = computed(() => [
   {
     field: 'commitId',
@@ -380,7 +380,7 @@ watch(() => props.value, async(neu, old) => {
         v-if="selectedBranch && preparedCommits.length"
         class="commits-table mt-20"
       >
-        <data-table
+        <trailhand-table
           :rows="tableRows"
           :columns="columns"
           key-field="sha"
@@ -418,7 +418,7 @@ watch(() => props.value, async(neu, old) => {
     margin: 0 1px;
     max-width: 1400px;
 
-    data-table {
+    trailhand-table {
       --sortable-table-row-hover-bg: var(--sortable-table-hover-bg);
       --sortable-table-header-hover-bg: var(--sortable-table-hover-bg);
       --sortable-table-header-sorted-bg: var(--sortable-table-hover-bg);
