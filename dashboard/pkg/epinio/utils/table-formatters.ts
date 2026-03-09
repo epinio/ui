@@ -76,12 +76,35 @@ export function makeTextList(items: string[]): HTMLSpanElement {
   return span;
 }
 
+// use a single document-level click listener in capture phase to close any open action menus when clicking elsewhere
+let _actionMenuCaptureRegistered = false;
+function ensureActionMenuCaptureListener() {
+  if (_actionMenuCaptureRegistered) return;
+  _actionMenuCaptureRegistered = true;
+  document.addEventListener('click', (e: Event) => {
+    const path = e.composedPath() as Element[];
+    const menuEl = path.find(
+      (el): el is Element =>
+        el instanceof Element && el.tagName?.toLowerCase() === 'trailhand-action-menu'
+    );
+
+    if (!menuEl) return;
+    document.querySelectorAll('trailhand-table').forEach((table: any) => {
+      table.shadowRoot?.querySelectorAll('trailhand-action-menu').forEach((menu: any) => {
+        if (menu !== menuEl) menu._isOpen = false;
+      });
+    });
+  }, true /* capture */);
+}
+
 /**
  * Returns an action-menu element for a table row.
  * Transforms epinio string action names into callable functions
  * so the action-menu web component can invoke them.
  */
 export function makeActionMenu(row: any): HTMLElement {
+  ensureActionMenuCaptureListener();
+
   const el = document.createElement('trailhand-action-menu') as any;
 
   el.resource = row;

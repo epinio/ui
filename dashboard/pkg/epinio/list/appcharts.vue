@@ -1,13 +1,23 @@
 <script setup lang="ts">
 import { EPINIO_TYPES } from '../types';
 import { useStore } from 'vuex';
-import { ref, onMounted, onUnmounted, computed } from 'vue';
+import { ref, onMounted, onUnmounted, watchEffect } from 'vue';
 import { startPolling, stopPolling } from '../utils/polling';
 
-const pending = ref<boolean>(true);
 defineProps<{ schema: object }>(); // Keep for compatibility
 
 const store = useStore();
+
+const pending = ref(true);
+const rows = ref<any[]>([]);
+
+watchEffect(() => {
+  const all = store.getters['epinio/all'](EPINIO_TYPES.APP_CHARTS) as any[];
+
+  // Touch meta so _MERGE polling (which deletes/re-adds all properties) re-runs this effect
+  all.forEach((row: any) => { void row.meta; });
+  rows.value = [...all];
+});
 
 onMounted(async () => {
   await store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.APP_CHARTS });
@@ -17,10 +27,6 @@ onMounted(async () => {
 
 onUnmounted(() => {
   stopPolling(['appcharts']);
-});
-
-const rows = computed(() => {
-  return store.getters['epinio/all'](EPINIO_TYPES.APP_CHARTS);
 });
 
 const columns = [
@@ -46,9 +52,10 @@ const columns = [
 
 <template>
   <trailhand-table
-    :rows="[...rows]"
+    :rows="rows"
     :columns="columns"
     :searchable="true"
+    :loading="pending"
     key-field="id"
   />
 </template>

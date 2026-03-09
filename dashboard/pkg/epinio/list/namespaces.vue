@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useStore } from 'vuex';
-import { ref, onMounted, onUnmounted, computed, watch, nextTick } from 'vue';
+import { ref, onMounted, onUnmounted, computed, watch, watchEffect, nextTick } from 'vue';
 import { EPINIO_TYPES } from '../types';
 import { Card } from '@components/Card';
 import Banner from '@components/Banner/Banner.vue';
@@ -30,6 +30,16 @@ const touched = ref<boolean>(false);
 const mode: string = _CREATE;
 const resource: string = EPINIO_TYPES.NAMESPACE;
 const value = ref<Array>({ meta: { name: '' } });
+
+const displayRows = ref<any[]>([]);
+
+watchEffect(() => {
+  const all = store.getters['epinio/all'](EPINIO_TYPES.NAMESPACE) as any[];
+
+  // Touch meta so _MERGE polling (which deletes/re-adds all properties) re-runs this effect
+  all.forEach((row: any) => { void row.meta; });
+  displayRows.value = [...all];
+});
 
 const showPromptRemove = computed(() => {
   return store.state['action-menu'].showPromptRemove
@@ -182,7 +192,7 @@ const columns = [
     </Masthead>
     <trailhand-table
       :ref="(el: any) => { if (el) el.renderActions = makeActionMenu; }"
-      :rows="[...rows]"
+      :rows="displayRows"
       :columns="columns"
       key-field="_key"
     />
