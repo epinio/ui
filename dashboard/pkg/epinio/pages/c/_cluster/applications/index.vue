@@ -233,6 +233,7 @@ onUnmounted(() => {
   data-table {
     --sortable-table-row-hover-bg: var(--sortable-table-hover-bg);
     --sortable-table-header-hover-bg: var(--sortable-table-hover-bg);
+    --sortable-table-header-sorted-bg: var(--sortable-table-hover-bg);
   }
 }
 

@@ -6,7 +6,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { startPolling, stopPolling } from '../utils/polling';
 import Masthead from '@shell/components/ResourceList/Masthead';
 import { createEpinioRoute } from '../utils/custom-routing';
-import { makeEmptyCell, makeRouterLinks, makeRouterLinksOrEmpty } from '../utils/table-formatters';
+import { makeEmptyCell, makeRouterLinks, makeRouterLinksOrEmpty, makeActionMenu } from '../utils/table-formatters';
 
 const store = useStore();
 const router = useRouter();
@@ -108,7 +108,8 @@ const columns = [
     </template>
   </Masthead>
   <data-table
-    :rows="rows"
+    :ref="(el: any) => { if (el) el.renderActions = makeActionMenu; }"
+    :rows="[...rows]"
     :columns="columns"
     :searchable="true"
     key-field="id"
@@ -120,5 +121,6 @@ const columns = [
 data-table {
   --sortable-table-row-hover-bg: var(--sortable-table-hover-bg);
   --sortable-table-header-hover-bg: var(--sortable-table-hover-bg);
+  --sortable-table-header-sorted-bg: var(--sortable-table-hover-bg);
 }
 </style>

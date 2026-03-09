@@ -46,7 +46,7 @@ const columns = [
 
 <template>
   <data-table
-    :rows="rows"
+    :rows="[...rows]"
     :columns="columns"
     :searchable="true"
     key-field="id"
@@ -57,5 +57,6 @@ const columns = [
 data-table {
   --sortable-table-row-hover-bg: var(--sortable-table-hover-bg);
   --sortable-table-header-hover-bg: var(--sortable-table-hover-bg);
+  --sortable-table-header-sorted-bg: var(--sortable-table-hover-bg);
 }
 </style>

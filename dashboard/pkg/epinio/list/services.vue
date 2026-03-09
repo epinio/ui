@@ -7,7 +7,7 @@ import { EPINIO_TYPES } from '../types';
 import { startPolling, stopPolling } from '../utils/polling';
 import Masthead from '@shell/components/ResourceList/Masthead';
 import { createEpinioRoute } from '../utils/custom-routing';
-import { makeStateTag, makeRouterLink, makeRouterLinksOrEmpty } from '../utils/table-formatters';
+import { makeStateTag, makeRouterLink, makeRouterLinksOrEmpty, makeActionMenu } from '../utils/table-formatters';
 
 defineProps<{
   schema: object,
@@ -99,7 +99,8 @@ const columns = [
     </template>
   </Masthead>
   <data-table
-    :rows="rows"
+    :ref="(el: any) => { if (el) el.renderActions = makeActionMenu; }"
+    :rows="[...rows]"
     :columns="columns"
     :searchable="true"
     key-field="id"
@@ -111,5 +112,6 @@ const columns = [
 data-table {
   --sortable-table-row-hover-bg: var(--sortable-table-hover-bg);
   --sortable-table-header-hover-bg: var(--sortable-table-hover-bg);
+  --sortable-table-header-sorted-bg: var(--sortable-table-hover-bg);
 }
 </style>

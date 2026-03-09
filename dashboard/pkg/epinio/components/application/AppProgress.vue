@@ -42,22 +42,25 @@ const columns = [
     width: '450px',
     sortable: false,
     formatter: (_v: any, row: any) => {
-      const div = document.createElement('div');
+      const wrapper = document.createElement('span');
+
+      wrapper.style.cssText = 'display:flex; flex-direction:column;';
+
       const main = document.createElement('span');
 
       main.textContent = row.description || '';
-      div.appendChild(main);
+      wrapper.appendChild(main);
 
       // stateMessage is set on failure — show it as secondary error text
       if (row.stateMessage) {
         const sub = document.createElement('span');
 
-        sub.style.cssText = 'display:block; font-size:0.85em; color:var(--error); margin-top:2px;';
+        sub.style.cssText = 'font-size:0.85em; color:var(--error); margin-top:2px;';
         sub.textContent = row.stateMessage;
-        div.appendChild(sub);
+        wrapper.appendChild(sub);
       }
 
-      return div;
+      return wrapper;
     },
   },
   {
@@ -229,6 +232,7 @@ onMounted(createActions);
     data-table {
       --sortable-table-row-hover-bg: var(--sortable-table-hover-bg);
       --sortable-table-header-hover-bg: var(--sortable-table-hover-bg);
+      --sortable-table-header-sorted-bg: var(--sortable-table-hover-bg);
     }
   }
 }

@@ -246,7 +246,7 @@ const columns = [
         />
       </div>
       <data-table
-        :rows="displayClusters"
+        :rows="[...displayClusters]"
         :columns="columns"
         :searchable="false"
         key-field="id"
@@ -273,6 +273,7 @@ div.root {
 data-table {
   --sortable-table-row-hover-bg: var(--sortable-table-hover-bg);
   --sortable-table-header-hover-bg: var(--sortable-table-hover-bg);
+  --sortable-table-header-sorted-bg: var(--sortable-table-hover-bg);
 }
 </style>
 

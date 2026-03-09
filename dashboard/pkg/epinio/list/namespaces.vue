@@ -11,6 +11,7 @@ import { epinioExceptionToErrorsArray } from '../utils/errors';
 import LabeledInput from '@components/Form/LabeledInput/LabeledInput.vue';
 import { validateKubernetesName } from '@shell/utils/validators/kubernetes-name';
 import { startPolling, stopPolling } from '../utils/polling';
+import { makeActionMenu } from '../utils/table-formatters';
 
 defineProps<{
   schema: object,
@@ -97,6 +98,7 @@ async function onSubmit(buttonCb) {
   creatingNamespace.value = true;
   try {
     await value.value.create();
+    await store.dispatch('epinio/findAll', { type: EPINIO_TYPES.NAMESPACE, opt: { force: true } });
     closeCreateModal();
     buttonCb(true);
     touched.value = false;
@@ -179,7 +181,8 @@ const columns = [
       </template>
     </Masthead>
     <data-table
-      :rows="rows"
+      :ref="(el: any) => { if (el) el.renderActions = makeActionMenu; }"
+      :rows="[...rows]"
       :columns="columns"
       key-field="_key"
     />
@@ -271,6 +274,7 @@ const columns = [
 data-table {
   --sortable-table-row-hover-bg: var(--sortable-table-hover-bg);
   --sortable-table-header-hover-bg: var(--sortable-table-hover-bg);
+  --sortable-table-header-sorted-bg: var(--sortable-table-hover-bg);
 }
 </style>
 
