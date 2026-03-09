@@ -98,15 +98,6 @@ const sectionContent = ref<Array>([
 /*
 * Computed Variables
 */
-
-const aboutLink = computed(() => {
-  const route = createEpinioRoute(
-    'c-cluster-about',
-    { cluster: store.getters['clusterId'] },
-  );
-  return route;
-});
-
 const services = computed(() => {
   const fetchServicesInstances: EpinioServiceModel[] =
     store.getters['epinio/all'](EPINIO_TYPES.SERVICE_INSTANCE);
@@ -319,12 +310,6 @@ function handleCardDismiss(e: Event, cardType: string) {
     localStorage.setItem('hideIssuesCard', 'true');
   }
 }
-
-function handleAboutClick() {
-  if (aboutLink) {
-    store.$router.push(aboutLink.value);
-  }
-}
 </script>
 
 <template>
@@ -361,16 +346,6 @@ function handleAboutClick() {
           dismissible
           @click="handleIssuesClick"
           @card-dismiss="(e) => handleCardDismiss(e, 'issues')"
-          class="info-card"
-        >
-        </trailhand-card>
-        <trailhand-card
-          v-if="!store.getters['isSingleProduct']"
-          variant="info"
-          :card-title="t('epinio.intro.about')"
-          clickable
-          @click="handleAboutClick"
-          icon-name="info"
           class="info-card"
         >
         </trailhand-card>

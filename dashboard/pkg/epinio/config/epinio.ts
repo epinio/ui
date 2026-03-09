@@ -169,7 +169,7 @@ export function init($plugin: any, store: any) {
   // Groups
   const ADVANCED_GROUP = 'Advanced';
   const SERVICE_GROUP = 'Services';
-  const ABOUT = 'System';
+  const SYSTEM_GROUP = 'System';
 
   // Service Instance
   configureType(EPINIO_TYPES.SERVICE_INSTANCE, {
@@ -206,10 +206,11 @@ export function init($plugin: any, store: any) {
   virtualType({
     label:      store.getters['i18n/t']('epinio.intro.about'),
     icon:       'dashboard',
-    group:      'Root',
+    group:      SYSTEM_GROUP,
     namespaced: false,
     name:       EPINIO_TYPES.ABOUT,
-    route:      createEpinioRoute('c-cluster-about', { })
+    route:      createEpinioRoute('c-cluster-about', { cluster: store.getters['clusterId'] }),
+    ifHaveType: EPINIO_TYPES.NAMESPACE,  // only show when NAMESPACE type is available (inside a cluster)
   });
 
   // Side Nav
@@ -227,18 +228,16 @@ export function init($plugin: any, store: any) {
     EPINIO_TYPES.APP_CHARTS
   ], ADVANCED_GROUP);
 
-  if (isEpinioSingleProduct) {
-    basicType([
-      EPINIO_TYPES.ABOUT
-    ], ABOUT);
-  }
+  basicType([
+    EPINIO_TYPES.ABOUT
+  ], SYSTEM_GROUP);
 
   weightType(EPINIO_TYPES.DASHBOARD, 300, true);
   weightType(EPINIO_TYPES.APP, 250, true);
   weightType(EPINIO_TYPES.NAMESPACE, 100, true);
   weightGroup(SERVICE_GROUP, 30, true);
   weightGroup(ADVANCED_GROUP, 20, true);
-  weightGroup(ABOUT, 10, false);
+  weightGroup(SYSTEM_GROUP, 10, true);
 
   basicType([
     EPINIO_TYPES.DASHBOARD,
@@ -246,7 +245,7 @@ export function init($plugin: any, store: any) {
     EPINIO_TYPES.NAMESPACE,
     SERVICE_GROUP,
     ADVANCED_GROUP,
-    ABOUT
+    SYSTEM_GROUP
   ]);
 
   headers(EPINIO_TYPES.APP, [
