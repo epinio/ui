@@ -38,6 +38,16 @@ const showPromptRemove = computed(() => {
   return store.state['action-menu'].showPromptRemove
 });
 
+const canCreateNamespace = computed(() => {
+  const can = store.getters['epinio/can'];
+
+  if (!can) {
+    return false;
+  }
+
+  return can('namespace_write') || can('namespace');
+});
+
 const validationPassed = computed(() => {
   // Add here fields that need validation
   if (!creatingNamespace.value) {
@@ -48,7 +58,8 @@ const validationPassed = computed(() => {
   return errors.value?.length === 0;
 });
 
-onMounted(() => {
+onMounted(async() => {
+  await store.dispatch('epinio/me');
   // Opens the create namespace modal if the query is passed as query param
   if (store.$router.currentRoute._value.query.mode === 'openModal') {
     openCreateModal();
@@ -174,6 +185,7 @@ const columns: DataTableColumn[] = [
     >
       <template #createButton>
         <button
+          v-if="canCreateNamespace"
           class="btn role-primary"
           @click="openCreateModal"
         >

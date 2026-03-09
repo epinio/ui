@@ -88,9 +88,7 @@ export default function(plugin: IPlugin) {
       labelKey: 'epinio.applications.actions.goToEpinio.label',
       icon:     'icon-epinio',
       enabled(ctx: any) {
-        const isUserNamespace = ctx.metadata.namespace !== 'epinio';
-
-        return isUserNamespace && !!Object.keys(ctx.metadata.annotations || []).find((annotation) => isPodFromEpinio(annotation));
+        return !!Object.keys(ctx.metadata.annotations || []).find((annotation) => isPodFromEpinio(annotation));
       },
       invoke(_: ActionOpts, values: any[]) {
         const obj = values[0];

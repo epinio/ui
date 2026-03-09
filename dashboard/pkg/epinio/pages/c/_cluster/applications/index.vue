@@ -28,6 +28,24 @@ const openCreateRoute = () => {
   store.$router.push(createLocation.value);
 };
 
+const canCreateApp = computed(() => {
+  const can = store.getters['epinio/can'];
+  const perms = store.getters['epinio/permissions']?.();
+
+  // When permissions haven't loaded yet (me not fetched) or store unavailable,
+  // default to showing Create — API will enforce RBAC. Avoids hiding for users
+  // who have permission when /me has not completed or returns unexpected data.
+  if (!can) {
+    return true;
+  }
+  if (!perms || Object.keys(perms).length === 0) {
+    return true;
+  }
+
+  // Any of these actions implies the ability to create an app
+  return can('app_create') || can('app_write') || can('app');
+});
+
 const rows = computed(() => store.getters['epinio/all'](resource));
 
 // Group applications by namespace
@@ -102,6 +120,7 @@ const columns: DataTableColumn[] = [
 ];
 
 onMounted(async () => {
+  await store.dispatch('epinio/me');
   await store.dispatch('epinio/findAll', { type: EPINIO_TYPES.APP });
   // Non-blocking fetch
   store.dispatch('epinio/findAll', { type: EPINIO_TYPES.CONFIGURATION });
@@ -140,6 +159,7 @@ onUnmounted(() => {
     >
       <template #createButton>
         <button
+          v-if="canCreateApp"
           class="btn role-primary"
           @click="openCreateRoute"
         >

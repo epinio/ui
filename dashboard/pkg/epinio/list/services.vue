@@ -2,17 +2,45 @@
 import { ref, onMounted, onUnmounted, computed } from 'vue';
 
 import { EPINIO_TYPES } from '../types';
+import { createEpinioRoute } from '../utils/custom-routing';
 import DataTable from '../components/tables/DataTable.vue';
 import type { DataTableColumn } from '../components/tables/types';
 import LinkDetail from '@shell/components/formatter/LinkDetail.vue';
 import BadgeStateFormatter from '@shell/components/formatter/BadgeStateFormatter.vue';
+import Masthead from '@shell/components/ResourceList/Masthead';
 import { useStore } from 'vuex';
 import { startPolling, stopPolling } from '../utils/polling';
 
 const pending = ref(true);
 const store = useStore();
+const t = store.getters['i18n/t'];
+
+const schema = ref(store.getters['epinio/schemaFor'](EPINIO_TYPES.SERVICE_INSTANCE));
+const resource = EPINIO_TYPES.SERVICE_INSTANCE;
+
+const createLocation = computed(() =>
+  createEpinioRoute('c-cluster-resource-create', {
+    cluster: store.getters['clusterId'],
+    resource: EPINIO_TYPES.SERVICE_INSTANCE,
+  })
+);
+
+const canCreateService = computed(() => {
+  const can = store.getters['epinio/can'];
+  const perms = store.getters['epinio/permissions']?.();
+
+  if (!can) {
+    return true;
+  }
+  if (!perms || Object.keys(perms).length === 0) {
+    return true;
+  }
+
+  return can('service_write') || can('service');
+});
 
 onMounted(async () => {
+  await store.dispatch('epinio/me');
   await Promise.all([
     store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.APP }),
     store.dispatch(
@@ -22,8 +50,6 @@ onMounted(async () => {
   ]);
   pending.value = false;
 
-  // Catalog services are static - only poll on initial load, not continuously
-  // They're loaded above but don't need frequent updates
   startPolling(["namespaces", "applications", "services"], store);
 });
 
@@ -67,6 +93,20 @@ const columns: DataTableColumn[] = [
 ];
 </script>
 <template>
+  <Masthead
+    :schema="schema"
+    :resource="resource"
+  >
+    <template #createButton>
+      <button
+        v-if="canCreateService"
+        class="btn role-primary"
+        @click="store.$router.push(createLocation)"
+      >
+        {{ t('generic.create') }}
+      </button>
+    </template>
+  </Masthead>
   <DataTable
     :rows="rows"
     :columns="columns"

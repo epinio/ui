@@ -16,6 +16,7 @@ defineProps<{ schema: object }>(); // Keep for compatibility
 const pending = ref<boolean>(true);
 
 onMounted(async () => {
+  await store.dispatch('epinio/me');
   store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.APP });
   store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.SERVICE_INSTANCE });
   await store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.CONFIGURATION });
