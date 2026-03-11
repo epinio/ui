@@ -2,7 +2,7 @@
 import { EPINIO_TYPES } from '../types';
 import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { computed, onMounted, onUnmounted } from 'vue';
 import { startPolling, stopPolling } from '../utils/polling';
 import Masthead from '@shell/components/ResourceList/Masthead';
 import { createEpinioRoute } from '../utils/custom-routing';
@@ -15,14 +15,8 @@ defineProps<{ schema: object }>(); // Keep for compatibility
 
 const resource: string = EPINIO_TYPES.CONFIGURATION;
 
-const pending = ref<boolean>(true);
-
-onMounted(async () => {
-  store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.APP });
-  store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.SERVICE_INSTANCE });
-  await store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.CONFIGURATION });
-
-  pending.value = false;
+onMounted(() => {
+  store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.CONFIGURATION });
   startPolling([
     'applications',
     'namespaces',
@@ -47,7 +41,11 @@ const handleCreateClick = () => {
 };
 
 const rows = computed(() => {
-  return store.getters['epinio/all'](EPINIO_TYPES.CONFIGURATION);
+  const all = store.getters['epinio/all'](EPINIO_TYPES.CONFIGURATION) as any[];
+
+  all.forEach((row: any) => { void row.status; void row.stateDisplay; void row.meta; });
+
+  return [...all];
 });
 
 const handleNavigate = (event: CustomEvent) => {
@@ -109,7 +107,7 @@ const columns = [
   </Masthead>
   <trailhand-table
     :ref="(el: any) => { if (el) el.renderActions = makeActionMenu; }"
-    :rows="[...rows]"
+    :rows="rows"
     :columns="columns"
     :searchable="true"
     key-field="id"

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed } from 'vue';
+import { computed, onMounted, onUnmounted } from 'vue';
 import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
 
@@ -15,17 +15,11 @@ defineProps<{
 
 const resource: string = EPINIO_TYPES.SERVICE_INSTANCE;
 
-const pending = ref(true);
 const store = useStore();
 const router = useRouter();
 
-onMounted(async () => {
-  await Promise.all([
-    store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.APP }),
-    store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.SERVICE_INSTANCE }),
-  ]);
-  pending.value = false;
-
+onMounted(() => {
+  store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.SERVICE_INSTANCE });
   startPolling(['namespaces', 'applications', 'services'], store);
 });
 
@@ -38,7 +32,11 @@ const handleCreateClick = () => {
 };
 
 const rows = computed(() => {
-  return store.getters['epinio/all'](EPINIO_TYPES.SERVICE_INSTANCE);
+  const all = store.getters['epinio/all'](EPINIO_TYPES.SERVICE_INSTANCE) as any[];
+
+  all.forEach((row: any) => { void row.status; void row.stateDisplay; void row.meta; });
+
+  return [...all];
 });
 
 const handleNavigate = (event: CustomEvent) => {
@@ -100,7 +98,7 @@ const columns = [
   </Masthead>
   <trailhand-table
     :ref="(el: any) => { if (el) el.renderActions = makeActionMenu; }"
-    :rows="[...rows]"
+    :rows="rows"
     :columns="columns"
     :searchable="true"
     key-field="id"
