@@ -20,11 +20,11 @@ const router = useRouter();
 
 onMounted(() => {
   store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.SERVICE_INSTANCE });
-  startPolling(['namespaces', 'applications', 'services'], store);
+  startPolling(['services'], store);
 });
 
 onUnmounted(() => {
-  stopPolling(['namespaces', 'applications', 'services']);
+  stopPolling(['services']);
 });
 
 const handleCreateClick = () => {

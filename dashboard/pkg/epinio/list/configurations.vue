@@ -17,23 +17,11 @@ const resource: string = EPINIO_TYPES.CONFIGURATION;
 
 onMounted(() => {
   store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.CONFIGURATION });
-  startPolling([
-    'applications',
-    'namespaces',
-    'appcharts',
-    'configurations',
-    'services'
-  ], store);
+  startPolling(['configurations'], store);
 });
 
 onUnmounted(() => {
-  stopPolling([
-    'applications',
-    'namespaces',
-    'appcharts',
-    'configurations',
-    'services'
-  ]);
+  stopPolling(['configurations']);
 });
 
 const handleCreateClick = () => {

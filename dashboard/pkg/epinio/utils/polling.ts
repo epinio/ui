@@ -17,6 +17,10 @@ export function startPolling(types: string[], store: any): any {
       return;
     }
 
+    // Stop any existing poller for this type before starting a new one
+    polling[type]?.stop();
+
+    // Create and start a new poller for the specified type
     polling[type] = new PollerSequential(
       async() => {
         await store.dispatch('epinio/findAll', { type, opt: { force: true, load: _MERGE } });
@@ -24,12 +28,15 @@ export function startPolling(types: string[], store: any): any {
       pollingRate,
       5
     );
+
+    // Start the poller immediately
     if (polling[type] !== undefined) {
       polling[type].start();
     }
   });
 }
 
+// Stop polling for the specified types
 export function stopPolling(types: string[]): any {
   types.forEach((type) => {
     if (polling[type] !== undefined) {
