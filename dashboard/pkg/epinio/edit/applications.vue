@@ -87,6 +87,17 @@ const shouldShowButtons = computed(
 const showSourceTab = computed(() => {
   return props.mode === _EDIT
 });
+
+// Hide "Edit Config" in view mode for users without configuration write (e.g. view_only)
+const canEditConfig = computed(() => {
+  const can = store.getters['epinio/can'];
+  const perms = store.getters['epinio/permissions']?.();
+  if (!can || !perms || Object.keys(perms).length === 0) {
+    return false;
+  }
+  return can('configuration_write') || can('configuration');
+});
+const hideEditConfigButton = computed(() => props.mode === 'view' && !canEditConfig.value);
 const validationPassed = computed(() => !Object.values(tabErrors).find((error) => error));
 
 const done = () => {
@@ -186,7 +197,7 @@ function validate(value: boolean, tab: string) {
   <Loading v-if="!value" />
   <CruResource
     v-else
-    :class="shouldShowButtons"
+    :class="[shouldShowButtons, { 'hide-edit-config': hideEditConfigButton }]"
     :can-yaml="false"
     :mode="mode"
     :resource="value"
@@ -302,4 +313,8 @@ function validate(value: boolean, tab: string) {
   }
 }
 
+/* Hide "Edit Config" for view_only when opened from Show Configuration */
+.hide-edit-config .cru__footer .btn.role-primary {
+  display: none !important;
+}
 </style>
