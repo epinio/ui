@@ -1,15 +1,13 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed } from 'vue';
+import { computed, onMounted, onUnmounted } from 'vue';
+import { useStore } from 'vuex';
+import { useRouter } from 'vue-router';
 
 import { EPINIO_TYPES } from '../types';
-import DataTable from '../components/tables/DataTable.vue';
-import type { DataTableColumn } from '../components/tables/types';
-import LinkDetail from '@shell/components/formatter/LinkDetail.vue';
-import BadgeStateFormatter from '@shell/components/formatter/BadgeStateFormatter.vue';
-import { useStore } from 'vuex';
 import { startPolling, stopPolling } from '../utils/polling';
 import Masthead from '@shell/components/ResourceList/Masthead';
 import { createEpinioRoute } from '../utils/custom-routing';
+import { makeStateTag, makeRouterLink, makeRouterLinksOrEmpty, makeActionMenu } from '../utils/table-formatters';
 
 defineProps<{
   schema: object,
@@ -17,50 +15,53 @@ defineProps<{
 
 const resource: string = EPINIO_TYPES.SERVICE_INSTANCE;
 
-const pending = ref(true);
 const store = useStore();
+const router = useRouter();
 
-onMounted(async () => {
-  await Promise.all([
-    store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.APP }),
-    store.dispatch(
-      `epinio/findAll`,
-      { type: EPINIO_TYPES.SERVICE_INSTANCE }
-    ),
-  ]);
-  pending.value = false;
-
-  // Catalog services are static - only poll on initial load, not continuously
-  // They're loaded above but don't need frequent updates
-  startPolling(["namespaces", "applications", "services"], store);
+onMounted(() => {
+  store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.SERVICE_INSTANCE });
+  startPolling(['services'], store);
 });
 
 onUnmounted(() => {
-  stopPolling(["namespaces", "applications", "services"]);
+  stopPolling(['services']);
 });
 
 const handleCreateClick = () => {
   store.$router.push(createEpinioRoute('c-cluster-resource-create', { resource: EPINIO_TYPES.SERVICE_INSTANCE }));
-}
+};
 
 const rows = computed(() => {
-  return store.getters['epinio/all'](EPINIO_TYPES.SERVICE_INSTANCE);
+  const all = store.getters['epinio/all'](EPINIO_TYPES.SERVICE_INSTANCE) as any[];
+
+  all.forEach((row: any) => { void row.status; void row.stateDisplay; void row.meta; });
+
+  return [...all];
 });
 
-const columns: DataTableColumn[] = [
+const handleNavigate = (event: CustomEvent) => {
+  router.push(event.detail.url);
+};
+
+const columns = [
   {
     field: 'stateDisplay',
     label: 'State',
-    width: '100px'
+    width: '100px',
+    formatter: (_v: any, row: any) => makeStateTag(row)
   },
   {
     field: 'nameDisplay',
-    label: 'Name'
+    label: 'Name',
+    link:  (row: any) => {
+      try { return router.resolve(row.detailLocation).href; } catch { return '#'; }
+    }
   },
   {
     field: 'catalog_service',
     label: 'Catalog Service',
-    sortable: false
+    sortable: false,
+    formatter: (_v: any, row: any) => makeRouterLink(row.catalog_service, row.serviceLocation, router)
   },
   {
     field: 'catalog_service_version',
@@ -69,7 +70,8 @@ const columns: DataTableColumn[] = [
   {
     field: 'boundApps',
     label: 'Bound Applications',
-    sortable: false
+    sortable: false,
+    formatter: (_v: any, row: any) => makeRouterLinksOrEmpty(row.applications, router)
   },
   {
     field: 'meta.createdAt',
@@ -78,6 +80,7 @@ const columns: DataTableColumn[] = [
   }
 ];
 </script>
+
 <template>
   <Masthead
     :schema="schema"
@@ -93,49 +96,20 @@ const columns: DataTableColumn[] = [
       </trailhand-button>
     </template>
   </Masthead>
-  <DataTable
+  <trailhand-table
+    :ref="(el: any) => { if (el) el.renderActions = makeActionMenu; }"
     :rows="rows"
     :columns="columns"
-    :loading="pending"
-  >
-    <template #cell:stateDisplay="{ row }">
-      <BadgeStateFormatter
-        :row="row"
-        :value="row.stateDisplay"
-      />
-    </template>
-    <template #cell:nameDisplay="{ row }">
-      <LinkDetail
-        :row="row"
-        :value="row.nameDisplay"
-      />
-    </template>
-    <template #cell:catalog_service="{ row }">
-      <LinkDetail
-        v-if="row.serviceLocation"
-        :row="{ detailLocation: row.serviceLocation }"
-        :value="row.catalog_service"
-      />
-      <span v-else>{{ row.catalog_service }}</span>
-    </template>
-    <template #cell:boundApps="{ row }">
-      <span v-if="row.applications && row.applications.length">
-        <template v-for="(app, index) in row.applications" :key="app.id">
-          <LinkDetail
-            :row="app"
-            :value="app.meta.name"
-          />
-          <span
-            v-if="index < row.applications.length - 1"
-            :key="app.id + 'i'"
-          >, </span>
-        </template>
-      </span>
-      <span
-        v-else
-        class="text-muted"
-      >&nbsp;</span>
-    </template>
-  </DataTable>
+    :searchable="true"
+    key-field="id"
+    @navigate="handleNavigate"
+  />
 </template>
 
+<style lang="scss" scoped>
+trailhand-table {
+  --sortable-table-row-hover-bg: var(--sortable-table-hover-bg);
+  --sortable-table-header-hover-bg: var(--sortable-table-hover-bg);
+  --sortable-table-header-sorted-bg: var(--sortable-table-hover-bg);
+}
+</style>

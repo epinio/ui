@@ -1,35 +1,35 @@
 <script setup lang="ts">
 import { EPINIO_TYPES } from '../types';
 import { useStore } from 'vuex';
-import DataTable from '../components/tables/DataTable.vue';
-import type { DataTableColumn } from '../components/tables/types';
-import BadgeStateFormatter from '@shell/components/formatter/BadgeStateFormatter.vue';
-import { ref, onMounted, onUnmounted, computed } from 'vue';
+import { ref, onMounted, onUnmounted, watchEffect } from 'vue';
 import { startPolling, stopPolling } from '../utils/polling';
 
-const pending = ref<boolean>(true);
 defineProps<{ schema: object }>(); // Keep for compatibility
 
 const store = useStore();
 
+const pending = ref(true);
+const rows = ref<any[]>([]);
+
+watchEffect(() => {
+  const all = store.getters['epinio/all'](EPINIO_TYPES.APP_CHARTS) as any[];
+
+  // Touch meta so _MERGE polling (which deletes/re-adds all properties) re-runs this effect
+  all.forEach((row: any) => { void row.meta; });
+  rows.value = [...all];
+});
+
 onMounted(async () => {
-  await store.dispatch(
-    `epinio/findAll`,
-    { type: EPINIO_TYPES.APP_CHARTS }
-  );
+  await store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.APP_CHARTS });
   pending.value = false;
-  startPolling(["appcharts"], store);
+  startPolling(['appcharts'], store);
 });
 
 onUnmounted(() => {
-  stopPolling(["appcharts"]);
+  stopPolling(['appcharts']);
 });
 
-const rows = computed(() => {
-  return store.getters['epinio/all'](EPINIO_TYPES.APP_CHARTS);
-});
-
-const columns: DataTableColumn[] = [
+const columns = [
   {
     field: 'meta.name',
     label: 'Name'
@@ -43,24 +43,27 @@ const columns: DataTableColumn[] = [
     label: 'Helm Chart'
   },
   {
-    field: 'meta.createdAt',
-    label: 'Age',
+    field:     'meta.createdAt',
+    label:     'Age',
     formatter: 'age'
   }
 ];
 </script>
 
 <template>
-  <DataTable
+  <trailhand-table
     :rows="rows"
     :columns="columns"
+    :searchable="true"
     :loading="pending"
-  >
-    <template #cell:stateDisplay="{ row }">
-      <BadgeStateFormatter
-        :row="row"
-        :value="row.stateDisplay"
-      />
-    </template>
-  </DataTable>
+    key-field="id"
+  />
 </template>
+
+<style lang="scss" scoped>
+trailhand-table {
+  --sortable-table-row-hover-bg: var(--sortable-table-hover-bg);
+  --sortable-table-header-hover-bg: var(--sortable-table-hover-bg);
+  --sortable-table-header-sorted-bg: var(--sortable-table-hover-bg);
+}
+</style>
