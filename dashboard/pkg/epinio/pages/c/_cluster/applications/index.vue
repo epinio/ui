@@ -30,6 +30,29 @@ const openCreateRoute = () => {
 
 const rows = computed(() => store.getters['epinio/all'](resource));
 
+const paginationMeta = computed(() => store.getters['epinio/paginationMeta'](resource));
+
+const currentPage = computed(() => store.getters['epinio/currentPaginationPage'](resource));
+
+// Match DataTable-style range text: "1-10 of 30"
+const paginationRange = computed(() => {
+  const meta = paginationMeta.value;
+  if (!meta) {
+    return { start: 0, end: 0, total: 0 };
+  }
+  const start = (currentPage.value - 1) * meta.pageSize + 1;
+  const end = Math.min(currentPage.value * meta.pageSize, meta.totalItems);
+  return { start, end, total: meta.totalItems };
+});
+
+function goToPage(page: number) {
+  const meta = paginationMeta.value;
+  if (meta && (page < 1 || page > meta.totalPages)) {
+    return;
+  }
+  store.dispatch('epinio/goToPage', { type: resource, page });
+}
+
 // Group applications by namespace
 const groupedByNamespace = computed(() => {
   // Access the cache key to trigger namespace filter changes
@@ -244,6 +267,35 @@ onUnmounted(() => {
         </template>
       </DataTable>
     </div>
+
+    <!-- Pagination bar: same style as DataTable (1-10 of 30, < 1/3 >) -->
+    <div
+      v-if="paginationMeta && paginationMeta.totalPages > 1"
+      class="data-table__pagination"
+    >
+      <div class="data-table__pagination-info">
+        {{ paginationRange.start }}-{{ paginationRange.end }} of {{ paginationRange.total }}
+      </div>
+      <div class="data-table__pagination-controls">
+        <button
+          class="data-table__pagination-btn"
+          :disabled="currentPage <= 1"
+          @click="goToPage(currentPage - 1)"
+        >
+          <i class="icon icon-chevron-left" />
+        </button>
+        <span class="data-table__pagination-current">
+          {{ currentPage }} / {{ paginationMeta.totalPages }}
+        </span>
+        <button
+          class="data-table__pagination-btn"
+          :disabled="currentPage >= paginationMeta.totalPages"
+          @click="goToPage(currentPage + 1)"
+        >
+          <i class="icon icon-chevron-right" />
+        </button>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -272,5 +324,62 @@ onUnmounted(() => {
 
 .route {
   word-break: break-word;
+}
+
+/* Match DataTable pagination bar styling */
+.data-table__pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 0;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.data-table__pagination-info {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.data-table__pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.data-table__pagination-current {
+  color: var(--body-text);
+  font-size: 13px;
+  min-width: 60px;
+  text-align: center;
+}
+
+.data-table__pagination-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background-color: var(--body-bg);
+  color: var(--body-text);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.data-table__pagination-btn .icon {
+  font-size: 16px;
+}
+
+.data-table__pagination-btn:hover:not(:disabled) {
+  background-color: var(--sortable-table-hover-bg);
+  border-color: var(--link);
+}
+
+.data-table__pagination-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 </style>

@@ -18,6 +18,7 @@ import {
 import EpinioCluster from '../../models/epiniomgmt/epinio.io.management.cluster';
 import { RedirectToError } from '@shell/utils/error';
 import { allHashSettled } from '@shell/utils/promise';
+import { SetPaginationPagePayload } from './types';
 
 const createId = (schema: any, resource: any) => {
   const name = resource.meta?.name || resource.name;
@@ -52,7 +53,7 @@ export default {
   async request(context: any, {
     opt, type, clusterId, growlOnError = false
   }: any) {
-    const { rootGetters, dispatch, getters } = context;
+    const { rootGetters, dispatch, getters, commit } = context;
 
     const spoofedRes = await handleSpoofedRequest(rootGetters, EPINIO_PRODUCT_NAME, opt, EPINIO_PRODUCT_NAME);
 
@@ -117,9 +118,26 @@ export default {
           const schema = getters.schemaFor(type);
 
           if (Array.isArray(out)) {
+            // Non-paginated collection
             res.data = { data: out.map((o) => epiniofy(o, schema, type)) };
+          } else if (Array.isArray((out as any).items)) {
+            // Paginated collection: unwrap items but preserve pagination metadata
+            const items = (out as any).items;
+            const pagination = {
+              page:       (out as any).page,
+              pageSize:   (out as any).pageSize,
+              totalItems: (out as any).totalItems,
+              totalPages: (out as any).totalPages
+            };
+
+            commit('setPaginationMeta', { type, meta: pagination });
+
+            res.data = {
+              data:        items.map((o: any) => epiniofy(o, schema, type)),
+              _pagination: pagination
+            };
           } else {
-            // `find` action turns this into `{data: out}`
+            // Single resource: `find` action turns this into `{data: out}`
             res.data = epiniofy(out, schema, type);
           }
 
@@ -361,6 +379,11 @@ export default {
     commit('version', version);
 
     return info;
+  },
+
+  goToPage: async({ commit, dispatch }: any, { type, page }: SetPaginationPagePayload) {
+    commit('setPaginationPage', { type, page });
+    await dispatch('findAll', { type, opt: { force: true } });
   },
 
 };

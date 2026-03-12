@@ -9,7 +9,12 @@ import { EPINIO_PRODUCT_NAME } from '../../types';
 const epinioFactory = (): CoreStoreSpecifics => {
   return {
     state() {
-      return { };
+      return {
+        // Current page (1-based) per resource type for paginated list requests
+        paginationPage: {} as Record<string, number>,
+        // Last pagination meta from API (totalPages, totalItems, etc.) per resource type
+        paginationMeta: {} as Record<string, { page: number; pageSize: number; totalItems: number; totalPages: number }>,
+      };
     },
 
     getters: {
