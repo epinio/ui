@@ -8,7 +8,7 @@ import Application from '../../models/applications';
 import LabeledInput from '@components/Form/LabeledInput/LabeledInput.vue';
 import LabeledSelect from '@shell/components/form/LabeledSelect.vue';
 import FileSelector from '@shell/components/form/FileSelector.vue';
-import GitPicker from '@shell/components/form/GitPicker.vue';
+import GitPicker from './GitPicker.vue';
 import RadioGroup from '@components/Form/Radio/RadioGroup.vue';
 import { sortBy } from '@shell/utils/sort';
 import { generateZip } from '@shell/utils/download';

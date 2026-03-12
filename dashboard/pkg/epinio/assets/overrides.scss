@@ -1,3 +1,163 @@
+@import '@krumio/trailhand-ui/styles/colors.css';
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
+
+// Font - scoped to epinio
+body.epinio-active {
+  nav, main, .product, .rd-header-right {
+      font-family: 'Poppins', sans-serif;
+  }
+}
+
+// Light mode variables - only when epinio is active
+body.epinio-active {
+  nav, main, .product, .rd-header-right, .spacer, .menu-spacer {
+    --active-nav-bg: var(--th-color-light-primary);
+    --active-nav-text: var(--th-color-dark-primary);
+    --th-card-icon-color: var(--th-color-primary);
+    --primary-border: var(--th-color-primary);
+    --link: var(--th-color-primary); 
+    --th-card-bg: var(--th-color-background);
+    --th-progress-bar-height: 16px;
+    --th-progress-bar-border-radius: 8px;
+
+    .dashboard-card {
+      --th-card-bg: var(--th-color-grey-100);
+    }
+  }
+
+  main {
+    background-color: var(--body-bg);
+  }
+}
+
+// Dark mode variables - only when epinio is active
+body.epinio-active[data-theme='dark'],
+[data-theme='dark'] body.epinio-active {
+  nav, main, .product, .rd-header-right, .spacer, .menu-spacer {
+      --th-color-primary: #5DB2FF;
+      --body-bg: var(--th-color-background);
+      --active-nav-bg: color-mix(in srgb, var(--th-color-primary) 20%, transparent);
+      --active-nav-text: var(--th-color-primary);
+      --nav-hover: var(--th-color-grey-700);
+      --body-border: var(--th-color-border);
+      --nav-bg: var(--th-color-background);
+      --header-bg: var(--th-color-background);
+      --th-button-secondary-border: var(--th-color-primary);
+      --th-button-secondary-bg: transparent;
+      --th-button-secondary-bg-hover: var(--th-color-grey-800);
+
+      .dashboard-card {
+        --th-card-bg: var(--th-color-grey-700);
+      }
+  }
+  
+  main {
+    background-color: var(--body-bg);
+  }
+}
+
+// Side nav styles - only when epinio is active
+body.epinio-active {
+    .side-nav {
+        --category-active-hover: transparent;
+        padding: 10px 8px;
+
+        .nav {
+            .child.nav-type {
+                height: 48px;
+                border-radius: 4px;
+                i {
+                    display: none;
+                }
+                a.type-link {
+                    height: 100%;
+                    display: flex;
+                    align-items: center;
+                    padding: 12px;
+                    border-radius: 4px;
+                    color: inherit;
+                    font-size: 1rem;
+                    font-weight: 500;
+                    color: var(--th-color-text-secondary);
+                    justify-content: start;
+                    margin: 0;
+                }
+
+                // Reset rancher's router-link-active styles when it's not exact active
+                &.router-link-active:not(.router-link-exact-active) {
+                    a.type-link {
+                        background-color: transparent;
+                        color: var(--th-color-text-secondary);
+                    }
+                }
+
+            // Active - on the li
+            &.router-link-active {
+                a.type-link {
+                background-color: transparent;
+                color: var(--active-nav-text);
+                }
+            }
+
+            // Exact active - on the li
+            &.router-link-exact-active {
+                a.type-link {
+                background-color: var(--active-nav-bg);
+                color: var(--active-nav-text);
+                }
+            }
+            }
+
+            .accordion {
+                .accordion-item {
+                    height: 48px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    color: var(--th-color-text-secondary);
+                    
+                    .header {
+                        width: 100%;
+                        h6 {
+                            color: var(--th-color-text-secondary);
+                            font-size: 1rem;
+                            font-weight: 500;
+                            display: flex;
+                            justify-content: start;
+                            gap: 5px;
+                        }
+                    }
+
+                    .header:hover {
+                        background-color: transparent;
+                    }
+
+                    .icon {
+                        position: relative;
+                        top: unset;
+                        right: unset;
+                    }
+                }
+                .accordion-item:hover {
+                    background-color: var(--nav-hover);
+                }
+            }
+
+            .accordion.depth-0.child:hover {
+                background-color: transparent;
+            }
+            .accordion.depth-0.group-highlight:hover {
+                background-color: transparent;
+            }
+            .accordion.depth-0.group-highlight {
+                background: transparent;
+                --category-active-hover: var(--nav-hover);
+            }
+        }
+
+    }
+}
+
 .side-menu-logo{
   align-items: center;
   display: flex;

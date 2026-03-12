@@ -1,26 +1,23 @@
 <script setup lang="ts">
 import { useStore } from 'vuex';
-import { ref, onMounted, onUnmounted, computed, watch, nextTick } from 'vue';
+import { ref, onMounted, onUnmounted, computed, watch, watchEffect, nextTick } from 'vue';
 import { EPINIO_TYPES } from '../types';
 import { Card } from '@components/Card';
 import Banner from '@components/Banner/Banner.vue';
 import { _CREATE } from '@shell/config/query-params';
 import AsyncButton from '@shell/components/AsyncButton';
-import DataTable from '../components/tables/DataTable.vue';
-import type { DataTableColumn } from '../components/tables/types';
-import BadgeStateFormatter from '@shell/components/formatter/BadgeStateFormatter.vue';
 import Masthead from '@shell/components/ResourceList/Masthead';
 import { epinioExceptionToErrorsArray } from '../utils/errors';
 import LabeledInput from '@components/Form/LabeledInput/LabeledInput.vue';
 import { validateKubernetesName } from '@shell/utils/validators/kubernetes-name';
 import { startPolling, stopPolling } from '../utils/polling';
+import { makeActionMenu } from '../utils/table-formatters';
 
 defineProps<{
   schema: object,
   rows: Array,
 }>();
 
-//const attrs = useAttrs();
 const store = useStore();
 const t = store.getters['i18n/t'];
 
@@ -33,6 +30,16 @@ const touched = ref<boolean>(false);
 const mode: string = _CREATE;
 const resource: string = EPINIO_TYPES.NAMESPACE;
 const value = ref<Array>({ meta: { name: '' } });
+
+const displayRows = ref<any[]>([]);
+
+watchEffect(() => {
+  const all = store.getters['epinio/all'](EPINIO_TYPES.NAMESPACE) as any[];
+
+  // Touch meta so _MERGE polling (which deletes/re-adds all properties) re-runs this effect
+  all.forEach((row: any) => { void row.meta; });
+  displayRows.value = [...all];
+});
 
 const showPromptRemove = computed(() => {
   return store.state['action-menu'].showPromptRemove
@@ -54,11 +61,11 @@ onMounted(() => {
     openCreateModal();
   }
 
-  startPolling(["namespaces", "applications", "configurations"], store);
+  startPolling(['namespaces', 'applications', 'configurations'], store);
 });
 
 onUnmounted(() => {
-  stopPolling(["namespaces", "applications", "configurations"]);
+  stopPolling(['namespaces', 'applications', 'configurations']);
 });
 
 watch(
@@ -101,6 +108,7 @@ async function onSubmit(buttonCb) {
   creatingNamespace.value = true;
   try {
     await value.value.create();
+    await store.dispatch('epinio/findAll', { type: EPINIO_TYPES.NAMESPACE, opt: { force: true } });
     closeCreateModal();
     buttonCb(true);
     touched.value = false;
@@ -145,7 +153,7 @@ function getNamespaceErrors(name) {
   return [];
 }
 
-const columns: DataTableColumn[] = [
+const columns = [
   {
     field: 'meta.name',
     label: 'Name'
@@ -173,26 +181,21 @@ const columns: DataTableColumn[] = [
       :resource="resource"
     >
       <template #createButton>
-        <button
-          class="btn role-primary"
+        <trailhand-button
+          variant="primary"
+          size="large"
           @click="openCreateModal"
         >
           {{ t('generic.create') }}
-        </button>
+        </trailhand-button>
       </template>
     </Masthead>
-    <DataTable
-      :rows="rows"
+    <trailhand-table
+      :ref="(el: any) => { if (el) el.renderActions = makeActionMenu; }"
+      :rows="displayRows"
       :columns="columns"
       key-field="_key"
-    >
-      <template #cell:stateDisplay="{ row }">
-        <BadgeStateFormatter
-          :row="row"
-          :value="row.stateDisplay"
-        />
-      </template>
-    </DataTable>
+    />
     <div
       v-if="showCreateModal"
       class="modal"
@@ -223,12 +226,13 @@ const columns: DataTableColumn[] = [
           </div>
         </template>
         <template #actions class="model-actions">
-          <button
-            class="btn role-secondary mr-10"
+          <trailhand-button
+            variant="secondary"
+            class="mr-10"
             @click="closeCreateModal"
           >
             {{ t('generic.cancel') }}
-          </button>
+          </trailhand-button>
           <AsyncButton
             :disabled="!validationPassed"
             :mode="mode"
@@ -242,8 +246,8 @@ const columns: DataTableColumn[] = [
 
 <style lang='scss' scoped>
 .modal {
-  position: fixed; /* Stay in place */
-  z-index: 50; /* Sit on top */
+  position: fixed;
+  z-index: 50;
   left: 0;
   top: 0;
   width: 100%;
@@ -275,7 +279,12 @@ const columns: DataTableColumn[] = [
     display: flex;
     flex: 1;
   }
+}
 
+trailhand-table {
+  --sortable-table-row-hover-bg: var(--sortable-table-hover-bg);
+  --sortable-table-header-hover-bg: var(--sortable-table-hover-bg);
+  --sortable-table-header-sorted-bg: var(--sortable-table-hover-bg);
 }
 </style>
 

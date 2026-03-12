@@ -277,12 +277,12 @@ const cleanup = () => {
         placement="top"
       />
       <div class="pull-left ml-5">
-        <button
-          class="btn btn-sm bg-primary"
+        <trailhand-button
+          size="small"
           @click="clear"
         >
           {{t('wm.containerShell.clear')}}
-        </button>
+        </trailhand-button>
       </div>
       <div class="status pull-left">
         <span v-if="isOpen" class="text-success">
