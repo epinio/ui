@@ -3,6 +3,29 @@ import { EPINIO_TYPES } from '../types';
 import EpinioNamespacedResource, { bulkRemove } from './epinio-namespaced-resource';
 
 export default class EpinioServiceModel extends EpinioNamespacedResource {
+  get _availableActions() {
+    const base = super._availableActions || [];
+    const can = this.$rootGetters?.['epinio/can'];
+    const perms = this.$rootGetters?.['epinio/permissions']?.();
+
+    if (!can || !perms || Object.keys(perms).length === 0) {
+      return base;
+    }
+
+    const canEdit = can('service_write') || can('service');
+    const canDelete = can('service_write') || can('service');
+
+    return base.filter((action) => {
+      if (action.action === 'goToEdit') {
+        return canEdit;
+      }
+      if (action.action === 'promptRemove') {
+        return canDelete;
+      }
+      return true;
+    });
+  }
+
   get links() {
     return {
       update: this.getUrl(),

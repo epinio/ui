@@ -28,6 +28,20 @@ const openCreateRoute = () => {
   store.$router.push(createLocation.value);
 };
 
+// Strict RBAC: only show Create when we know the user has app write perms (hides for view_only)
+const canCreateApp = computed(() => {
+  const can = store.getters['epinio/can'];
+  const perms = store.getters['epinio/permissions']?.();
+
+  // If we don't have a permission helper or a populated perms map yet, hide Create
+  if (!can || !perms || Object.keys(perms).length === 0) {
+    return false;
+  }
+
+  // Any of these actions implies the ability to create an app
+  return can('app_create') || can('app_write') || can('app');
+});
+
 const rows = computed(() => store.getters['epinio/all'](resource));
 
 // Group applications by namespace
@@ -102,6 +116,7 @@ const columns: DataTableColumn[] = [
 ];
 
 onMounted(async () => {
+  await store.dispatch('epinio/me');
   await store.dispatch('epinio/findAll', { type: EPINIO_TYPES.APP });
   // Non-blocking fetch
   store.dispatch('epinio/findAll', { type: EPINIO_TYPES.CONFIGURATION });
@@ -140,6 +155,7 @@ onUnmounted(() => {
     >
       <template #createButton>
         <button
+          v-if="canCreateApp"
           class="btn role-primary"
           @click="openCreateRoute"
         >

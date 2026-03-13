@@ -1,3 +1,4 @@
+import { markRaw } from 'vue';
 import { importTypes } from '@rancher/auto-import';
 import {
   ActionLocation, ActionOpts, IPlugin, OnNavAwayFromPackage, OnNavToPackage
@@ -61,16 +62,16 @@ export default function(plugin: IPlugin) {
   // Add Vue Routes
   plugin.addRoutes(epinioRoutes);
 
-  // Add theme toggle to header
+  // Add theme toggle to header (markRaw avoids Vue reactive-object warning)
   const ThemeToggle = require('./components/ThemeToggle.vue'); // eslint-disable-line @typescript-eslint/no-require-imports
-  plugin.register('component', 'NavHeaderRight', ThemeToggle.default || ThemeToggle);
+  plugin.register('component', 'NavHeaderRight', markRaw(ThemeToggle.default || ThemeToggle));
 
   // Add hooks to Vue navigation world
   plugin.addNavHooks(onEnter, onLeave);
 
-  // Register unsaved changes dialog
+  // Register unsaved changes dialog (markRaw avoids Vue reactive-object warning)
   const UnsavedChangesDialog = require('./dialog/UnsavedChangesDialog.vue'); // eslint-disable-line @typescript-eslint/no-require-imports
-  plugin.register('component', 'UnsavedChangesDialog', UnsavedChangesDialog.default || UnsavedChangesDialog);
+  plugin.register('component', 'UnsavedChangesDialog', markRaw(UnsavedChangesDialog.default || UnsavedChangesDialog));
 
   // Add action button in the menu of each object belonging to Epinio's applications
   plugin.addAction(

@@ -48,6 +48,75 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
   // ------------------------------------------------------------------
   // Dashboard plumbing
 
+  get _availableActions() {
+    const base = super._availableActions || [];
+
+    const canGetter = this.$rootGetters?.['epinio/can'];
+    const perms = this.$rootGetters?.['epinio/permissions']?.();
+
+    // When permissions haven't loaded, show all actions — API enforces RBAC
+    if (!canGetter || !perms || Object.keys(perms).length === 0) {
+      return base;
+    }
+
+    const canEdit = canGetter('app_update') || canGetter('app_write') || canGetter('app');
+    const canDelete = canGetter('app_delete') || canGetter('app_write') || canGetter('app');
+    const canViewConfig = canGetter('configuration_read') || canGetter('configuration_write');
+    const canEditConfig = canGetter('configuration_write') || canGetter('configuration');
+    const canExec = canGetter('app_exec');
+
+    let skipNextDivider = false;
+
+    return base.filter((action) => {
+      if (skipNextDivider && action.divider) {
+        skipNextDivider = false;
+
+        return false;
+      }
+
+      if (action.action === 'showAppShell') {
+        return canExec;
+      }
+
+      if (action.action === 'showConfiguration') {
+        if (!canViewConfig) {
+          skipNextDivider = true; // base always has a divider after showConfiguration
+
+          return false;
+        }
+      }
+
+      if (action.action === 'goToEdit') {
+        return canEdit;
+      }
+
+      if (action.action === 'goToViewConfig') {
+        // "Edit Config" menu entry should only be shown to users
+        // who actually have configuration write permissions.
+        return canEditConfig;
+      }
+
+      if (action.action === 'promptRemove') {
+        return canDelete;
+      }
+
+      return true;
+    });
+  }
+
+  // Used by ResourceDetailDrawer (Show Configuration) to show/hide the "Edit Config" button.
+  // Require configuration_write so view-only users don't see it.
+  get canEdit() {
+    const base = this.canUpdate && this.canCustomEdit;
+    const canGetter = this.$rootGetters?.['epinio/can'];
+    const perms = this.$rootGetters?.['epinio/permissions']?.();
+    if (!canGetter || !perms || Object.keys(perms).length === 0) {
+      return false;
+    }
+    const canEditConfig = canGetter('configuration_write') || canGetter('configuration');
+    return !!(base && canEditConfig);
+  }
+
   get details() {
     const res = [];
 
@@ -106,7 +175,10 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
     const isRunning = [STATES.RUNNING].includes(this.status);
     const showAppLog = isRunning;
     const showStagingLog = !!this.stage_id;
-    const showAppShell = isRunning;
+    const canGetter = this.$rootGetters?.['epinio/can'];
+    const perms = this.$rootGetters?.['epinio/permissions']?.();
+    const canExec = canGetter && perms && Object.keys(perms).length > 0 ? canGetter('app_exec') : false;
+    const showAppShell = isRunning && canExec;
 
     if (showAppShell) {
       res.push({
@@ -163,10 +235,47 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
     }
 
     res.push(
-      ...super._availableActions
+      ...this._availableActions
     );
 
-    return res;
+    return this._pruneOrphanedDividers(res);
+  }
+
+  _pruneOrphanedDividers(actions) {
+    // Remove disabled items and consecutive dividers (mirrors resource-class availableActions logic)
+    let last = null;
+    let out = actions.filter((item) => {
+      if (item.enabled === false) {
+        return false;
+      }
+
+      const cur = item.divider;
+      const ok = !cur || (cur && !last);
+
+      last = cur;
+
+      return ok;
+    });
+
+    // Remove dividers at the beginning
+    while (out.length && out[0].divider) {
+      out.shift();
+    }
+
+    // Remove dividers at the end
+    while (out.length && out[out.length - 1].divider) {
+      out.pop();
+    }
+
+    // Remove consecutive dividers in the middle
+    for (let i = 1; i < out.length; i++) {
+      if (out[i].divider && out[i - 1].divider) {
+        out.splice(i, 1);
+        i--;
+      }
+    }
+
+    return out;
   }
 
   get links() {
