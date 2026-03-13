@@ -28,18 +28,14 @@ const openCreateRoute = () => {
   store.$router.push(createLocation.value);
 };
 
+// Strict RBAC: only show Create when we know the user has app write perms (hides for view_only)
 const canCreateApp = computed(() => {
   const can = store.getters['epinio/can'];
   const perms = store.getters['epinio/permissions']?.();
 
-  // When permissions haven't loaded yet (me not fetched) or store unavailable,
-  // default to showing Create — API will enforce RBAC. Avoids hiding for users
-  // who have permission when /me has not completed or returns unexpected data.
-  if (!can) {
-    return true;
-  }
-  if (!perms || Object.keys(perms).length === 0) {
-    return true;
+  // If we don't have a permission helper or a populated perms map yet, hide Create
+  if (!can || !perms || Object.keys(perms).length === 0) {
+    return false;
   }
 
   // Any of these actions implies the ability to create an app

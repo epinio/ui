@@ -62,6 +62,7 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
     const canEdit = canGetter('app_update') || canGetter('app_write') || canGetter('app');
     const canDelete = canGetter('app_delete') || canGetter('app_write') || canGetter('app');
     const canViewConfig = canGetter('configuration_read') || canGetter('configuration_write');
+    const canEditConfig = canGetter('configuration_write') || canGetter('configuration');
     const canExec = canGetter('app_exec');
 
     let skipNextDivider = false;
@@ -90,7 +91,9 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
       }
 
       if (action.action === 'goToViewConfig') {
-        return canViewConfig;
+        // "Edit Config" menu entry should only be shown to users
+        // who actually have configuration write permissions.
+        return canEditConfig;
       }
 
       if (action.action === 'promptRemove') {
@@ -99,6 +102,19 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
 
       return true;
     });
+  }
+
+  // Used by ResourceDetailDrawer (Show Configuration) to show/hide the "Edit Config" button.
+  // Require configuration_write so view-only users don't see it.
+  get canEdit() {
+    const base = this.canUpdate && this.canCustomEdit;
+    const canGetter = this.$rootGetters?.['epinio/can'];
+    const perms = this.$rootGetters?.['epinio/permissions']?.();
+    if (!canGetter || !perms || Object.keys(perms).length === 0) {
+      return false;
+    }
+    const canEditConfig = canGetter('configuration_write') || canGetter('configuration');
+    return !!(base && canEditConfig);
   }
 
   get details() {

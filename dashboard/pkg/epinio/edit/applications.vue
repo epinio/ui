@@ -88,7 +88,7 @@ const showSourceTab = computed(() => {
   return props.mode === _EDIT
 });
 
-// Hide "Edit Config" in view mode for users without configuration write (e.g. view_only)
+// Hide "Edit Config" in any mode for users without configuration write (e.g. view_only)
 const canEditConfig = computed(() => {
   const can = store.getters['epinio/can'];
   const perms = store.getters['epinio/permissions']?.();
@@ -97,7 +97,9 @@ const canEditConfig = computed(() => {
   }
   return can('configuration_write') || can('configuration');
 });
-const hideEditConfigButton = computed(() => props.mode === 'view' && !canEditConfig.value);
+// If the user lacks config write perms, never show the primary "Edit Config" footer button,
+// regardless of how this dialog was opened (view or edit route).
+const hideEditConfigButton = computed(() => !canEditConfig.value);
 const validationPassed = computed(() => !Object.values(tabErrors).find((error) => error));
 
 const done = () => {

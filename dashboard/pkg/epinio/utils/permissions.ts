@@ -3,6 +3,18 @@ import type { EpinioRole } from '../types';
 // Mapping from Epinio role IDs to the action IDs they imply.
 // These should stay in sync with the server-side role definitions.
 const ROLE_ACTIONS: Record<string, string[]> = {
+  // Default "Epinio User Role" when backend returns id "user" (e.g. RBAC not yet applied).
+  // Treat as read-only so Create/Edit stay hidden until server sends proper roles (e.g. view_only).
+  user: [
+    'namespace_read',
+    'app_read',
+    'app_logs',
+    'configuration_read',
+    'service_read',
+    'gitconfig_read',
+    'export_registries_read',
+  ],
+
   // Read-only role
   view_only: [
     'namespace_read',
@@ -17,6 +29,7 @@ const ROLE_ACTIONS: Record<string, string[]> = {
   // Application Developer: create/update applications but no delete or non-app writes
   application_developer: [
     'namespace_read',
+    'namespace_write',
     'app_read',
     'app_logs',
     'app_create',
@@ -38,6 +51,7 @@ const ROLE_ACTIONS: Record<string, string[]> = {
   // Application Manager: full app CRUD and runtime operations, no non-app writes
   application_manager: [
     'namespace_read',
+    'namespace_write',
     'app_read',
     'app_logs',
     'app_create',
@@ -63,6 +77,7 @@ const ROLE_ACTIONS: Record<string, string[]> = {
   // System Manager: no-delete role, app create/update/runtime plus read-only on other resources
   system_manager: [
     'namespace_read',
+    'namespace_write',
     'app_read',
     'app_logs',
     'app_create',
@@ -88,9 +103,12 @@ const ROLE_ACTIONS: Record<string, string[]> = {
   ],
 };
 
+// Actions only the admin role has (server-side admin can create/delete namespaces; other roles cannot).
+const ADMIN_ONLY_ACTIONS = ['namespace_write', 'namespace'];
+
 // Union of all actions for the admin role – effectively "everything".
 const ADMIN_ACTIONS = Array.from(
-  new Set<string>(Object.values(ROLE_ACTIONS).flat()),
+  new Set<string>([...Object.values(ROLE_ACTIONS).flat(), ...ADMIN_ONLY_ACTIONS]),
 );
 
 export type EpinioPermissions = Record<string, boolean>;
