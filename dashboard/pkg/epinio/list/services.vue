@@ -112,3 +112,11 @@ const columns: DataTableColumn[] = [
     </template>
   </DataTable>
 </template>
+
+<style lang="scss" scoped>
+trailhand-table {
+  --sortable-table-row-hover-bg: var(--sortable-table-hover-bg);
+  --sortable-table-header-hover-bg: var(--sortable-table-hover-bg);
+  --sortable-table-header-sorted-bg: var(--sortable-table-hover-bg);
+}
+</style>
