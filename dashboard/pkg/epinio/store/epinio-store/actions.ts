@@ -381,7 +381,7 @@ export default {
     return info;
   },
 
-  goToPage: async({ commit, dispatch }: any, { type, page }: SetPaginationPagePayload) {
+  goToPage: async({ commit, dispatch }: any, { type, page }: SetPaginationPagePayload) => {
     commit('setPaginationPage', { type, page });
     await dispatch('findAll', { type, opt: { force: true } });
   },
