@@ -22,7 +22,7 @@ const store = useStore();
 const t = store.getters['i18n/t'];
 
 const errors = ref<Array>([]);
-const namespaceName = ref('namespaceName');
+const namespaceNameInput = ref<HTMLElement | null>(null);
 const showCreateModal = ref<boolean>(false);
 const creatingNamespace = ref<boolean>(false);
 const touched = ref<boolean>(false);
@@ -89,8 +89,6 @@ watch(
 
 async function openCreateModal() {
   showCreateModal.value = true;
-  // Focus on the name input field... after it's been displayed
-  nextTick(() => namespaceName.value.focus());
   // Create a skeleton namespace
   value.value = await store.dispatch(
     `epinio/create`,
@@ -104,18 +102,17 @@ function closeCreateModal() {
   touched.value = false;
 }
 
-async function onSubmit(buttonCb) {
+async function onSubmit() {
   creatingNamespace.value = true;
   try {
     await value.value.create();
-    await store.dispatch('epinio/findAll', { type: EPINIO_TYPES.NAMESPACE, opt: { force: true } });
     closeCreateModal();
-    buttonCb(true);
     touched.value = false;
   } catch (e) {
     errors.value = [];
     errors.value = epinioExceptionToErrorsArray(e).map(JSON.stringify);
-    buttonCb(false);
+  } finally {
+    creatingNamespace.value = false;
   }
 }
 
@@ -175,7 +172,7 @@ const columns = [
 </script>
 
 <template>
-  <div>
+  <div id="modal-container-element">
     <Masthead
       :schema="schema"
       :resource="resource"
@@ -196,51 +193,33 @@ const columns = [
       :columns="columns"
       key-field="_key"
     />
-    <div
-      v-if="showCreateModal"
-      class="modal"
+    <trailhand-modal
+      :open.prop="showCreateModal"
+      :title="t('epinio.namespace.create')"
+      @modal-open="() => namespaceNameInput?.focus()"
+      @modal-close="closeCreateModal"
     >
-      <Card
-        class="modal-content"
-        :show-actions="true"
-      >
-        <template #title>
-          <h4
-            v-clean-html="t('epinio.namespace.create')"
-          />
-        </template>
-        <template #body class="model-body">
-          <LabeledInput
-            ref="namespaceName"
-            v-model:value="value.meta.name"
-            :label="t('epinio.namespace.name')"
-            :required="true"
-          />
-          <div v-if="touched">
-            <Banner
-              v-for="(err, i) in errors"
-              :key="i"
-              color="error"
-              :label="err"
-            />
-          </div>
-        </template>
-        <template #actions class="model-actions">
-          <trailhand-button
-            variant="secondary"
-            class="mr-10"
-            @click="closeCreateModal"
-          >
-            {{ t('generic.cancel') }}
-          </trailhand-button>
-          <AsyncButton
-            :disabled="!validationPassed"
-            :mode="mode"
-            @click="onSubmit"
-          />
-        </template>
-      </Card>
-    </div>
+      <div class="modal-content">
+        <trailhand-text-input
+          ref="namespaceNameInput"
+          :value="value.meta.name"
+          placeholder="Namespace Name"
+          :label="t('epinio.namespace.name')"
+          :required="true"
+          size="large"
+          @text-input-change="value.meta.name = $event.detail.value"
+          @keydown="(e: KeyboardEvent) => { if (e.key === 'Enter') onSubmit(); }"
+        ></trailhand-text-input>
+      </div>
+      <div slot="footer">
+        <trailhand-button @button-click="closeCreateModal" variant="secondary" class="mr-10"
+          >Cancel</trailhand-button
+        >
+        <trailhand-button @button-click="onSubmit" :disabled="!validationPassed || creatingNamespace" variant="primary"
+          >{{ creatingNamespace ? 'Creating...' : t('generic.create') }}</trailhand-button
+        >
+      </div>
+    </trailhand-modal>
   </div>
 </template>
 
@@ -263,22 +242,10 @@ const columns = [
 }
 
 .modal-content {
-  background-color: var(--default);
-  margin: 15% auto;
-  padding: 20px;
-  border: 1px solid #888;
-  width: 50%;
-  max-width: 500px;
-
-  .model-body {
-    min-height: 116px;
-  }
-
-  .model-actions {
-    justify-content: flex-end;
-    display: flex;
-    flex: 1;
-  }
+  display: flex; 
+  flex-direction: column; 
+  gap: 1rem; 
+  width: 500px;
 }
 
 trailhand-table {
