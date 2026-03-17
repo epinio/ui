@@ -1,14 +1,11 @@
 <script setup lang="ts">
 import { useStore } from 'vuex';
-import { ref, onMounted, onUnmounted, computed, watch, watchEffect, nextTick } from 'vue';
+import { ref, onMounted, onUnmounted, computed, watchEffect } from 'vue';
 import { EPINIO_TYPES } from '../types';
-import { Card } from '@components/Card';
 import Banner from '@components/Banner/Banner.vue';
 import { _CREATE } from '@shell/config/query-params';
-import AsyncButton from '@shell/components/AsyncButton';
 import Masthead from '@shell/components/ResourceList/Masthead';
 import { epinioExceptionToErrorsArray } from '../utils/errors';
-import LabeledInput from '@components/Form/LabeledInput/LabeledInput.vue';
 import { validateKubernetesName } from '@shell/utils/validators/kubernetes-name';
 import { startPolling, stopPolling } from '../utils/polling';
 import { makeActionMenu } from '../utils/table-formatters';
@@ -22,37 +19,70 @@ const store = useStore();
 const t = store.getters['i18n/t'];
 
 const errors = ref<Array>([]);
-const namespaceNameInput = ref<HTMLElement | null>(null);
-const showCreateModal = ref<boolean>(false);
-const creatingNamespace = ref<boolean>(false);
-const touched = ref<boolean>(false);
-
-const mode: string = _CREATE;
 const resource: string = EPINIO_TYPES.NAMESPACE;
-const value = ref<Array>({ meta: { name: '' } });
 
 const displayRows = ref<any[]>([]);
+
+const value = ref<Array>({ meta: { name: '' } });
+const showCreateModal = ref<boolean>(false);
+const namespaceNameInput = ref<HTMLElement | null>(null);
+const creatingNamespace = ref<boolean>(false);
+
+const namespaceToDelete = ref<Object | null>(null);
+const showDeleteModal = ref<boolean>(false);
+const deleteNamespaceInput = ref<HTMLElement | null>(null);
+const deletingNamespace = ref<boolean>(false);
+const confirmDeleteInput = ref<string>('');
 
 watchEffect(() => {
   const all = store.getters['epinio/all'](EPINIO_TYPES.NAMESPACE) as any[];
 
   // Touch meta so _MERGE polling (which deletes/re-adds all properties) re-runs this effect
   all.forEach((row: any) => { void row.meta; });
-  displayRows.value = [...all];
+
+  // Add custom namespace delete action to replace the built in rancher shell flow
+  const overrides = all.map((row: any) => {
+  if (row.canDelete) {
+    Object.defineProperty(row, 'availableActions', {
+      value: [{
+        action: 'removeNamespace',
+        altAction: 'remove',
+        bulkAction: 'removeNamespace',
+        bulkable: true,
+        enabled: true,
+        icon: 'icon icon-trash',
+        label: 'Delete',
+        weight: -10
+      }],
+      writable: true,
+      configurable: true,
+    });
+    Object.defineProperty(row, 'removeNamespace', {
+      value: () => {
+        namespaceToDelete.value = row;
+        openDeleteModal();
+      },
+      writable: true,
+      configurable: true,
+    });
+  }
+  return row;
+});
+  displayRows.value = [...overrides];
 });
 
-const showPromptRemove = computed(() => {
-  return store.state['action-menu'].showPromptRemove
-});
-
-const validationPassed = computed(() => {
-  // Add here fields that need validation
-  if (!creatingNamespace.value) {
-    errors.value = []; // eslint-disable-line vue/no-side-effects-in-computed-properties
-    errors.value = getNamespaceErrors(value.value.meta.name); // eslint-disable-line vue/no-side-effects-in-computed-properties
+const validateCreate = computed(() => {
+  if (!value.value.meta.name?.length) {
+    return false;
   }
 
-  return errors.value?.length === 0;
+  const validationErrors = getNamespaceErrors(value.value.meta.name); // eslint-disable-line vue/no-side-effects-in-computed-properties
+
+  return validationErrors.length === 0;
+});
+
+const validateDelete = computed(() => {
+  return confirmDeleteInput.value === namespaceToDelete.value?.meta.name;
 });
 
 onMounted(() => {
@@ -68,25 +98,6 @@ onUnmounted(() => {
   stopPolling(['namespaces', 'applications', 'configurations']);
 });
 
-watch(
-  () => showPromptRemove,
-  (newState, oldState) => {
-    if (oldState === true && newState === false) {
-      // Refetch apps when namespace is deleted
-      //store.dispatch('findAll', { type: 'applications', opt: { force: true } });
-    }
-  }
-);
-
-// Watch for changes in value.meta.name, not needed as there are no rules currently
-watch(
-  () => value.value.meta.name,
-  () => {
-    creatingNamespace.value = false;
-    validateNamespace(value.value.meta.name);
-  }
-);
-
 async function openCreateModal() {
   showCreateModal.value = true;
   // Create a skeleton namespace
@@ -99,29 +110,19 @@ async function openCreateModal() {
 function closeCreateModal() {
   showCreateModal.value = false;
   errors.value = [];
-  touched.value = false;
 }
 
-async function onSubmit() {
+async function onSubmitCreate() {
   creatingNamespace.value = true;
   try {
     await value.value.create();
     closeCreateModal();
-    touched.value = false;
   } catch (e) {
     errors.value = [];
     errors.value = epinioExceptionToErrorsArray(e).map(JSON.stringify);
   } finally {
     creatingNamespace.value = false;
   }
-}
-
-function validateNamespace(name) {
-  if (!name?.length && !touched.value) {
-    touched.value = true;
-  }
-
-  errors.value = getNamespaceErrors(name);
 }
 
 function getNamespaceErrors(name) {
@@ -148,6 +149,33 @@ function getNamespaceErrors(name) {
   }
 
   return [];
+}
+
+function openDeleteModal() {
+  showDeleteModal.value = true;
+}
+
+function closeDeleteModal() {
+  showDeleteModal.value = false;
+  confirmDeleteInput.value = '';
+  errors.value = [];
+}
+
+async function onSubmitDelete() {
+  if (!namespaceToDelete.value) {
+    return;
+  }
+  try {
+    deletingNamespace.value = true;
+    await namespaceToDelete.value.remove();
+    closeDeleteModal();
+    store.dispatch('findAll', { type: 'applications', opt: { force: true } });
+  } catch(e) {
+    errors.value = [];
+    errors.value = epinioExceptionToErrorsArray(e).map(JSON.stringify);
+  } finally {
+    deletingNamespace.value = false;
+  }
 }
 
 const columns = [
@@ -208,15 +236,53 @@ const columns = [
           :required="true"
           size="large"
           @text-input-change="value.meta.name = $event.detail.value"
-          @keydown="(e: KeyboardEvent) => { if (e.key === 'Enter') onSubmit(); }"
+          @keydown="(e: KeyboardEvent) => { if (e.key === 'Enter' && validateCreate) onSubmitCreate(); }"
         ></trailhand-text-input>
+        <Banner
+          v-for="(err, i) in errors"
+          :key="i"
+          color="error"
+          :label="err"
+        />  
       </div>
       <div slot="footer">
         <trailhand-button @button-click="closeCreateModal" variant="secondary" class="mr-10"
           >Cancel</trailhand-button
         >
-        <trailhand-button @button-click="onSubmit" :disabled="!validationPassed || creatingNamespace" variant="primary"
+        <trailhand-button @button-click="onSubmitCreate" :disabled="!validateCreate || creatingNamespace" variant="primary"
           >{{ creatingNamespace ? 'Creating...' : t('generic.create') }}</trailhand-button
+        >
+      </div>
+    </trailhand-modal>
+    <trailhand-modal
+      :open.prop="showDeleteModal"
+      title="Are you sure?"
+      @modal-open="() => deleteNamespaceInput?.focus()"
+      @modal-close="closeDeleteModal"
+    >
+      <div class="modal-content">
+        <p>You are attempting to delete the Namespace <strong>{{ namespaceToDelete?.meta.name }}</strong>.</p>
+        <p>Enter <strong>{{ namespaceToDelete?.meta.name }}</strong> below to confirm:</p>
+        <trailhand-text-input
+          ref="deleteNamespaceInput"
+          :value="confirmDeleteInput"
+          size="large"
+          @text-input-change="confirmDeleteInput = $event.detail.value"
+          @keydown="(e: KeyboardEvent) => { if (e.key === 'Enter' && validateDelete) onSubmitDelete(); }"
+        ></trailhand-text-input>
+        <Banner
+          v-for="(err, i) in errors"
+          :key="i"
+          color="error"
+          :label="err"
+        />
+      </div>
+      <div slot="footer">
+        <trailhand-button @button-click="closeDeleteModal" variant="secondary" class="mr-10"
+          >Cancel</trailhand-button
+        >
+        <trailhand-button @button-click="onSubmitDelete" :disabled="!validateDelete || deletingNamespace" variant="destructive"
+          >{{ deletingNamespace ? 'Deleting...' : t('generic.delete') }}</trailhand-button
         >
       </div>
     </trailhand-modal>
