@@ -9,39 +9,40 @@ import { epinioExceptionToErrorsArray } from '../utils/errors';
 import { validateKubernetesName } from '@shell/utils/validators/kubernetes-name';
 import { startPolling, stopPolling } from '../utils/polling';
 import { makeActionMenu } from '../utils/table-formatters';
+import EpinioNamespace from 'models/namespaces';
 
 defineProps<{
   schema: object,
-  rows: Array,
+  rows: Array<EpinioNamespace>,
 }>();
 
-const store = useStore();
+const store = useStore() as any;
 const t = store.getters['i18n/t'];
 
-const errors = ref<Array>([]);
+const errors = ref<Array<string>>([]);
 const resource: string = EPINIO_TYPES.NAMESPACE;
 
-const displayRows = ref<any[]>([]);
+const displayRows = ref<EpinioNamespace[]>([]);
 
-const value = ref<Array>({ meta: { name: '' } });
+const value = ref<EpinioNamespace>({ meta: { name: '' } } as EpinioNamespace);
 const showCreateModal = ref<boolean>(false);
 const namespaceNameInput = ref<HTMLElement | null>(null);
 const creatingNamespace = ref<boolean>(false);
 
-const namespaceToDelete = ref<Object | null>(null);
+const namespaceToDelete = ref<EpinioNamespace | null>(null);
 const showDeleteModal = ref<boolean>(false);
 const deleteNamespaceInput = ref<HTMLElement | null>(null);
 const deletingNamespace = ref<boolean>(false);
 const confirmDeleteInput = ref<string>('');
 
 watchEffect(() => {
-  const all = store.getters['epinio/all'](EPINIO_TYPES.NAMESPACE) as any[];
+  const all = store.getters['epinio/all'](EPINIO_TYPES.NAMESPACE) as EpinioNamespace[];
 
   // Touch meta so _MERGE polling (which deletes/re-adds all properties) re-runs this effect
-  all.forEach((row: any) => { void row.meta; });
+  all.forEach((row) => { void row.meta; });
 
   // Add custom namespace delete action to replace the built in rancher shell flow
-  const overrides = all.map((row: any) => {
+  const overrides = all.map((row) => {
   if (row.canDelete) {
     Object.defineProperty(row, 'availableActions', {
       value: [{
@@ -125,7 +126,7 @@ async function onSubmitCreate() {
   }
 }
 
-function getNamespaceErrors(name) {
+function getNamespaceErrors(name: string) {
   const kubernetesErrors = validateKubernetesName(
     name || '',
     t('epinio.namespace.name'),
