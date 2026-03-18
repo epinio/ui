@@ -202,7 +202,7 @@ const columns: DataTableColumn[] = [
     mode="main"
   />
   <div
-    v-else-if="clusters.length === 0"
+    v-else-if="allClusters.length === 0"
     class="root"
   >
     <h2>{{ t('epinio.instances.none.header') }}</h2>
