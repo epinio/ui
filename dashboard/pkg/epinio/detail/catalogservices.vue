@@ -1,17 +1,14 @@
 <script setup lang="ts">
 import { useStore } from 'vuex';
+import { useRouter } from 'vue-router';
 import { ref, onMounted } from 'vue';
 
 import EpinioCatalogServiceModel from '../models/catalogservices';
 import { EPINIO_TYPES } from '../types';
-
-import DataTable from '../components/tables/DataTable.vue';
-import type { DataTableColumn } from '../components/tables/types';
-import BadgeStateFormatter from '@shell/components/formatter/BadgeStateFormatter.vue';
-import LinkDetail from '@shell/components/formatter/LinkDetail.vue';
+import { makeStateTag, makeRouterLink, makeRouterLinksOrEmpty } from '../utils/table-formatters';
 
 const store = useStore();
-
+const router = useRouter();
 const t = store.getters['i18n/t'];
 
 const props = defineProps<{ value: EpinioCatalogServiceModel }>();
@@ -23,20 +20,29 @@ onMounted(async () => {
   pending.value = false;
 });
 
-const columns: DataTableColumn[] = [
+const handleNavigate = (event: CustomEvent) => {
+  router.push(event.detail.url);
+};
+
+const columns = [
   {
     field: 'stateDisplay',
     label: 'State',
-    width: '100px'
+    width: '100px',
+    formatter: (_v: any, row: any) => makeStateTag(row)
   },
   {
     field: 'nameDisplay',
-    label: 'Name'
+    label: 'Name',
+    link:  (row: any) => {
+      try { return router.resolve(row.detailLocation).href; } catch { return '#'; }
+    }
   },
   {
     field: 'catalog_service',
     label: 'Catalog Service',
-    sortable: false
+    sortable:  false,
+    formatter: (_v: any, row: any) => makeRouterLink(row.catalog_service, row.serviceLocation, router)
   },
   {
     field: 'catalog_service_version',
@@ -45,7 +51,8 @@ const columns: DataTableColumn[] = [
   {
     field: 'boundApps',
     label: 'Bound Applications',
-    sortable: false
+    sortable:  false,
+    formatter: (_v: any, row: any) => makeRouterLinksOrEmpty(row.applications, router)
   },
   {
     field: 'meta.createdAt',
@@ -60,50 +67,20 @@ const columns: DataTableColumn[] = [
     <h2 class="mt-20">
       {{ t('epinio.catalogService.detail.servicesTitle', { catalogService: props.value.name }) }}
     </h2>
-    <DataTable
+    <trailhand-table
       :rows="props.value.services"
       :columns="columns"
-      :loading="pending"
-    >
-      <template #cell:stateDisplay="{ row }">
-        <BadgeStateFormatter
-          :row="row"
-          :value="row.stateDisplay"
-        />
-      </template>
-      <template #cell:nameDisplay="{ row }">
-        <LinkDetail
-          :row="row"
-          :value="row.nameDisplay"
-        />
-      </template>
-      <template #cell:catalog_service="{ row }">
-        <LinkDetail
-          v-if="row.serviceLocation"
-          :row="row.serviceLocation"
-          :value="row.catalog_service"
-        />
-        <span v-else>{{ row.catalog_service }}</span>
-      </template>
-      <template #cell:boundApps="{ row }">
-        <span v-if="row.applications && row.applications.length">
-          <template v-for="(app, index) in row.applications" :key="app.id">
-            <LinkDetail
-              :row="app"
-              :value="app.meta.name"
-            />
-            <span
-              v-if="index < row.applications.length - 1"
-              :key="app.id + 'i'"
-            >, </span>
-          </template>
-        </span>
-        <span
-          v-else
-          class="text-muted"
-        >&nbsp;</span>
-      </template>
-
-    </DataTable>
+      :searchable="true"
+      key-field="id"
+      @navigate="handleNavigate"
+    />
   </div>
 </template>
+
+<style lang="scss" scoped>
+trailhand-table {
+  --sortable-table-row-hover-bg: var(--sortable-table-hover-bg);
+  --sortable-table-header-hover-bg: var(--sortable-table-hover-bg);
+  --sortable-table-header-sorted-bg: var(--sortable-table-hover-bg);
+}
+</style>

@@ -1,63 +1,66 @@
 <script setup lang="ts">
-import DataTable from '../components/tables/DataTable.vue';
-import type { DataTableColumn } from '../components/tables/types';
 import { EPINIO_TYPES } from '../types';
-import LinkDetail from '@shell/components/formatter/LinkDetail.vue';
-import BadgeStateFormatter from '@shell/components/formatter/BadgeStateFormatter.vue';
-
 import { useStore } from 'vuex';
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { useRouter } from 'vue-router';
+import { computed, onMounted, onUnmounted } from 'vue';
 import { startPolling, stopPolling } from '../utils/polling';
+import Masthead from '@shell/components/ResourceList/Masthead';
+import { createEpinioRoute } from '../utils/custom-routing';
+import { makeEmptyCell, makeRouterLinks, makeRouterLinksOrEmpty, makeActionMenu } from '../utils/table-formatters';
 
 const store = useStore();
+const router = useRouter();
 
 defineProps<{ schema: object }>(); // Keep for compatibility
 
-const pending = ref<boolean>(true);
+const resource: string = EPINIO_TYPES.CONFIGURATION;
 
-onMounted(async () => {
-  store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.APP });
-  store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.SERVICE_INSTANCE });
-  await store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.CONFIGURATION });
-
-  pending.value = false;
-  startPolling([
-    "applications",
-    "namespaces",
-    "appcharts",
-    "configurations",
-    "services"
-  ], store);
+onMounted(() => {
+  store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.CONFIGURATION });
+  startPolling(['configurations'], store);
 });
 
 onUnmounted(() => {
-  stopPolling([
-    "applications",
-    "namespaces",
-    "appcharts",
-    "configurations",
-    "services"
-  ]);
+  stopPolling(['configurations']);
 });
+
+const handleCreateClick = () => {
+  store.$router.push(createEpinioRoute('c-cluster-resource-create', { resource: EPINIO_TYPES.CONFIGURATION }));
+};
 
 const rows = computed(() => {
-  return store.getters['epinio/all'](EPINIO_TYPES.CONFIGURATION);
+  const all = store.getters['epinio/all'](EPINIO_TYPES.CONFIGURATION) as any[];
+
+  all.forEach((row: any) => { void row.status; void row.stateDisplay; void row.meta; });
+
+  return [...all];
 });
 
-const columns: DataTableColumn[] = [
+const handleNavigate = (event: CustomEvent) => {
+  router.push(event.detail.url);
+};
+
+const columns = [
   {
     field: 'nameDisplay',
-    label: 'Name'
+    label: 'Name',
+    link: (row: any) => {
+      try { return router.resolve(row.detailLocation).href; } catch { return '#'; }
+    }
   },
   {
     field: 'boundApps',
     label: 'Bound Applications',
-    sortable: false
+    sortable: false,
+    formatter: (_v: any, row: any) => makeRouterLinksOrEmpty(row.applications, router)
   },
   {
     field: 'service',
     label: 'Service',
-    sortable: false
+    sortable: false,
+    formatter: (_v: any, row: any) => row.service
+      ? makeRouterLinks([row.service], router)
+      : makeEmptyCell()
   },
   {
     field: 'variableCount',
@@ -76,52 +79,34 @@ const columns: DataTableColumn[] = [
 </script>
 
 <template>
-  <DataTable
+  <Masthead
+    :schema="schema"
+    :resource="resource"
+  >
+    <template #createButton>
+      <trailhand-button
+        variant="primary"
+        size="large"
+        @click="handleCreateClick"
+      >
+        {{ t('generic.create') }}
+      </trailhand-button>
+    </template>
+  </Masthead>
+  <trailhand-table
+    :ref="(el: any) => { if (el) el.renderActions = makeActionMenu; }"
     :rows="rows"
     :columns="columns"
-    :loading="pending"
-  >
-    <template #cell:stateDisplay="{ row }">
-      <BadgeStateFormatter
-        :row="row"
-        :value="row.stateDisplay"
-      />
-    </template>
-    <template #cell:nameDisplay="{ row }">
-      <LinkDetail
-        :row="row"
-        :value="row.nameDisplay"
-      />
-    </template>
-    <template #cell:service="{ row }">
-      <LinkDetail
-        v-if="row.service"
-        :key="row.service.id"
-        :row="row.service"
-        :value="row.service.meta.name"
-      />
-      <span
-        v-else
-        class="text-muted"
-      >&nbsp;</span>
-    </template>
-    <template #cell:boundApps="{ row }">
-      <span v-if="row.applications && row.applications.length">
-        <template v-for="(app, index) in row.applications" :key="app.id">
-          <LinkDetail
-            :row="app"
-            :value="app.meta.name"
-          />
-          <span
-            v-if="index < row.applications.length - 1"
-            :key="app.id + 'i'"
-          >, </span>
-        </template>
-      </span>
-      <span
-        v-else
-        class="text-muted"
-      >&nbsp;</span>
-    </template>
-  </DataTable>
+    :searchable="true"
+    key-field="id"
+    @navigate="handleNavigate"
+  />
 </template>
+
+<style lang="scss" scoped>
+trailhand-table {
+  --sortable-table-row-hover-bg: var(--sortable-table-hover-bg);
+  --sortable-table-header-hover-bg: var(--sortable-table-hover-bg);
+  --sortable-table-header-sorted-bg: var(--sortable-table-hover-bg);
+}
+</style>

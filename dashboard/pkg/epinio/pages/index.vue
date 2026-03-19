@@ -3,17 +3,14 @@ import { ref, onMounted, computed } from 'vue';
 import { useStore } from 'vuex';
 
 import Loading from '@shell/components/Loading.vue';
-import DataTable from '../components/tables/DataTable.vue';
-import type { DataTableColumn } from '../components/tables/types';
 import AsyncButton from '@shell/components/AsyncButton.vue';
-import Link from '@shell/components/formatter/Link.vue';
-import BadgeStateFormatter from '@shell/components/formatter/BadgeStateFormatter.vue';
 import { MANAGEMENT } from '@shell/config/types';
 
 import { EPINIO_MGMT_STORE, EPINIO_TYPES } from '../types';
 import { _MERGE } from '@shell/plugins/dashboard-store/actions';
 import EpinioCluster, { EpinioInfoPath } from '../models/epiniomgmt/epinio.io.management.cluster';
 import epinioAuth, { EpinioAuthTypes } from '../utils/auth';
+import { makeEmptyCell, makeStateTag } from '../utils/table-formatters';
 
 const store = useStore();
 const t = store.getters['i18n/t'];
@@ -119,7 +116,6 @@ const setClusterState = (
 }
 
 const testCluster = (c: EpinioCluster) => {
-  // Call '/ready' on each cluster. If there's a network error there's a good chance the user has to permit an invalid cert
   setClusterState(c, 'updating', {
     state: {
       transitioning: true,
@@ -163,19 +159,57 @@ const testCluster = (c: EpinioCluster) => {
   });
 }
 
-const columns: DataTableColumn[] = [
+const columns = [
   {
     field: 'stateDisplay',
     label: 'State',
-    width: '100px'
+    width: '100px',
+    formatter: (_v: any, row: any) => makeStateTag(row)
   },
   {
     field: 'name',
-    label: 'Name'
+    label: 'Name',
+    formatter: (_v: any, row: any) => {
+      if (row.state === 'available') {
+        const a = document.createElement('a');
+
+        a.textContent = row.name;
+        a.style.cursor = 'pointer';
+        a.addEventListener('click', () => login(row));
+
+        return a;
+      }
+
+      const span = document.createElement('span');
+
+      span.textContent = row.name || '';
+
+      return span;
+    }
   },
   {
     field: 'api',
-    label: 'API'
+    label: 'API',
+    formatter: (_v: any, row: any) => {
+      if (row.state === 'uninstalled') return makeEmptyCell();
+
+      if (row.state !== 'available') {
+        const a = document.createElement('a');
+
+        a.href = row.infoUrl || '#';
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+        a.textContent = row.api || '';
+
+        return a;
+      }
+
+      const span = document.createElement('span');
+
+      span.textContent = row.api || '';
+
+      return span;
+    }
   },
   {
     field: 'version',
@@ -211,53 +245,17 @@ const columns: DataTableColumn[] = [
           @click="rediscover"
         />
       </div>
-      <DataTable
-        :rows="displayClusters"
+      <trailhand-table
+        :rows="[...displayClusters]"
         :columns="columns"
         :searchable="false"
-      >
-        <template #cell:stateDisplay="{row}">
-          <div class="epinio-row">
-            <BadgeStateFormatter
-              :row="row"
-              :value="row.stateDisplay"
-            />
-          </div>
-        </template>
-        <template #cell:name="{row}">
-          <div class="epinio-row">
-            <a
-              v-if="row.state === 'available'"
-              @click="login(row)"
-            >{{ row.name }}</a>
-            <template v-else>
-              {{ row.name }}
-            </template>
-          </div>
-        </template>
-        <template #cell:api="{row}">
-          <div class="epinio-row">
-            <template v-if="row.state === 'uninstalled'">
-            </template>
-            <Link
-              v-else-if="row.state !== 'available'"
-              :row="row"
-              :value="{ text: row.api, url: row.infoUrl }"
-            />
-            <template v-else>
-              {{ row.api }}
-            </template>
-          </div>
-        </template>
-      </DataTable>
-
+        key-field="id"
+      />
     </div>
-
-</div>
+  </div>
 </template>
 
 <style lang="scss" scoped>
-
 div.root {
   align-items: center;
   padding-top: 50px;
@@ -266,21 +264,16 @@ div.root {
   .epinios-table {
     & > h4 {
       padding-top: 50px;
-      padding-bottom : 20px;
+      padding-bottom: 20px;
     }
     min-width: 60%;
-
-    .epinio-row {
-      height: 40px;
-      display: flex;
-      align-items: center;
-
-      a {
-        cursor: pointer;
-      }
-    }
   }
 }
 
+trailhand-table {
+  --sortable-table-row-hover-bg: var(--sortable-table-hover-bg);
+  --sortable-table-header-hover-bg: var(--sortable-table-hover-bg);
+  --sortable-table-header-sorted-bg: var(--sortable-table-hover-bg);
+}
 </style>
 

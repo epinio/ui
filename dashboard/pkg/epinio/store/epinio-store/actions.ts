@@ -292,6 +292,8 @@ export default {
     await dispatch(`loadSchemas`);
     await dispatch(`findAll`, { type: EPINIO_TYPES.NAMESPACE });
     dispatch(`findAll`, { type: EPINIO_TYPES.APP }); // This is used often, get a kick start
+    dispatch('findAll', { type: EPINIO_TYPES.CONFIGURATION });
+    dispatch('findAll', { type: EPINIO_TYPES.SERVICE_INSTANCE });
     await dispatch('cleanNamespaces', null, { root: true });
 
     const key = createNamespaceFilterKeyWithId(id, EPINIO_PRODUCT_NAME);
