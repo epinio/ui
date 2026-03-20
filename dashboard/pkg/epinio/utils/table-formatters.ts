@@ -108,15 +108,24 @@ export function makeActionMenu(row: any): HTMLElement {
   const el = document.createElement('trailhand-action-menu') as any;
 
   el.resource = row;
-  el.actions = (row.availableActions || []).map((action: any) => {
+  const actions = [] as any[];
+  (row.availableActions || []).forEach((action: any) => {
+    // do not add the showConfiguration action to the menu
+    if (action.action === 'showConfiguration') {
+      return;
+    }
+
     if (action.divider || typeof action.action !== 'string') {
-      return action;
+      actions.push(action);
+      return;
     }
 
     const actionName = action.action;
 
-    return { ...action, action: () => row[actionName]?.() };
+    actions.push({ ...action, action: () => row[actionName]?.() });
   });
+
+  el.actions = actions;
 
   return el;
 }
