@@ -118,15 +118,18 @@ export default class ApplicationActionResource extends Resource {
   }
 
   async deploy({ source }) {
-    const stageId = source.type === APPLICATION_SOURCE_TYPE.ARCHIVE
-      ? this.application.buildCache.stage.stage.id
-      : null;
+    const isContainer = source.type === APPLICATION_SOURCE_TYPE.CONTAINER_URL;
+    const image = isContainer ? source.container.url : undefined;
 
-    const image = source.type === APPLICATION_SOURCE_TYPE.CONTAINER_URL
-      ? source.container.url
-      : this.application.buildCache.stage.image;
+    const blobUid = isContainer ? undefined : this.application.buildCache.store?.blobUid;
+    const builderImage = isContainer ? undefined : source.builderImage?.value;
 
-    await this.application.deploy(stageId, image, this.createDeployOrigin(source));
+    await this.application.deploy({
+      blobUid,
+      builderImage,
+      image,
+      origin: this.createDeployOrigin(source)
+    });
     this.application.showAppLog();
   }
 

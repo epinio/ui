@@ -178,6 +178,7 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
       store:         `${ this.getUrl() }/store`,
       stage:         `${ this.getUrl() }/stage`,
       deploy:        `${ this.getUrl() }/deploy`,
+      deployments:   `${ this.getUrl() }/deployments`,
       configBinding: `${ this.getUrl() }/configurationbindings`,
       logs:          `${ this.getUrl() }/logs`.replace('/api/v1', '/wapi/v1'), // /namespaces/:namespace/applications/:app/logs
       importGit:     `${ this.getUrl() }/import-git`,
@@ -797,39 +798,78 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
     }
   }
 
-  async deploy(stageId, image, origin) {
-    this.trace('Deploying Application bits');
+  async deploy({ blobUid, builderImage, image, origin }) {
+    this.trace('Starting async stage/build/deploy');
 
-    const stage = { };
-
-    if (stageId) {
-      stage.id = stageId;
-    }
-
-    try {
-      const res = await this.followLink('deploy', {
-        method:  'post',
-        headers: { 'content-type': 'application/json' },
-        data:    {
-          app: {
-            name:      this.meta.name,
-            namespace: this.meta.namespace
-          },
-          stage,
-          image,
-          origin
-        }
-      });
-
-      this.route = res.route;
-    } catch (e) {
-      if (e.errors?.[0].status === 500) {
-        // On fresh epinio's the first deploy takes some time, so give the app some more time.
-        // Note - this will do the same for any 500... as we dont have a status code for the timeout
-        await this.waitForPseudoDeploy(e);
-      } else {
-        throw e;
+    const opt = {
+      url:     this.linkFor('deployments'),
+      method:  'post',
+      headers: { 'content-type': 'application/json' },
+      data:    {
+        app: {
+          name:      this.meta.name,
+          namespace: this.meta.namespace
+        },
+        blobuid:      blobUid,
+        builderimage: builderImage,
+        image,
+        origin
       }
+    };
+
+    const { data } = await this.$dispatch('request', { opt, type: this.type });
+
+    // cache for follow-up actions (logs, UI progress, etc.)
+    this.buildCache = this.buildCache || {};
+    this.buildCache.deployment = data;
+
+    await this.waitForDeployment(data.id);
+  }
+
+  async getDeploymentStatus(deploymentId) {
+    const opt = {
+      url:    `${ this.linkFor('deployments') }/${ deploymentId }`,
+      method: 'get',
+    };
+
+    const { data } = await this.$dispatch('request', { opt, type: this.type });
+    return data;
+  }
+
+  async waitForDeployment(deploymentId, { timeoutMs = 20 * 60 * 1000, intervalMs = 2000 } = {}) {
+    const start = Date.now();
+    let stagingLogShown = false;
+
+    while (true) {
+      const status = await this.getDeploymentStatus(deploymentId);
+
+      // Once staging begins, we can show staging logs
+      if (status?.stage_id && !this.buildCache?.deployment?.stage_id) {
+        this.buildCache.deployment.stage_id = status.stage_id;
+      }
+      if (status?.stage_id && !stagingLogShown) {
+        stagingLogShown = true;
+        this.showStagingLog(status.stage_id);
+      }
+
+      if (status?.status === 'succeeded') {
+        await this.forceFetch();
+        return status;
+      }
+
+      if (status?.status === 'failed') {
+        const err = new Error(status?.error || 'Deployment failed');
+        err.status = status;
+        throw err;
+      }
+
+      if (Date.now() - start > timeoutMs) {
+        const err = new Error('Timed out waiting for deployment');
+        err.status = status;
+        throw err;
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, intervalMs));
     }
   }
 
