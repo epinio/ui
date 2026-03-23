@@ -117,6 +117,9 @@ export default class EpinioServiceModel extends EpinioNamespacedResource {
   }
 
   async remove() {
+    if (this.boundapps?.length) {
+      await Promise.all(this.boundapps.map((appName) => this.unbindApp(appName)));
+    }
     await this.delete(true);
   }
 
