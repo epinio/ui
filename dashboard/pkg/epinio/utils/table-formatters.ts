@@ -359,3 +359,41 @@ export function makeProgressStateCell(row: any): HTMLElement {
 
   return tag;
 }
+
+/**
+ * Overrides a property on a table row object with a new value, making it writable and configurable.
+ */
+export function overrideTableRowProp(row: any, prop: string, value: any): any {
+  console.log(`Overriding row property: ${ prop } with value:`, value);
+  Object.defineProperty(row, prop, {
+      value: value,
+      writable: true,
+      configurable: true,
+    });
+
+  return row;
+};
+
+type RowOverride = {
+  prop: string;
+  value: any | ((row: any) => any);
+  conditionFn?: (row: any) => boolean;
+}
+
+/**
+ * Applies multiple property overrides to each row in a table, based on optional conditions.
+ * Each override specifies the property to override, the new value (or a function to compute it),
+ * and an optional condition function that determines whether to apply the override for a given row.
+ * Returns a new array of rows with the overrides applied.
+ */
+export function overrideTableRows<T extends object>(rows: T[], overrides: RowOverride[]): T[] {
+  return rows.map((row) => {
+    overrides.forEach((override) => {
+      if (!override.conditionFn || override.conditionFn(row)) {
+        const value = typeof override.value === 'function' ? override.value(row) : override.value;
+        overrideTableRowProp(row, override.prop, value);
+      }
+    });
+    return row;
+  });
+}
