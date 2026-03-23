@@ -817,13 +817,78 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
       }
     };
 
-    const { data } = await this.$dispatch('request', { opt, type: this.type });
+    let deployment;
+    let deploymentId;
+
+    try {
+      const response = await this.$dispatch('request', { opt, type: this.type });
+
+      deployment = response?.data || response;
+      deploymentId = deployment?.id;
+    } catch (e) {
+      // Backward compatibility: older servers don't provide the async endpoint.
+      return this.deploySync({ blobUid, builderImage, image, origin, originalError: e });
+    }
+
+    if (!deploymentId) {
+      // Backward compatibility: endpoint exists but doesn't return async payload.
+      return this.deploySync({ blobUid, builderImage, image, origin });
+    }
 
     // cache for follow-up actions (logs, UI progress, etc.)
     this.buildCache = this.buildCache || {};
-    this.buildCache.deployment = data;
+    this.buildCache.deployment = deployment;
 
-    await this.waitForDeployment(data.id);
+    await this.waitForDeployment(deploymentId);
+  }
+
+  async deploySync({ blobUid, builderImage, image, origin, originalError }) {
+    this.trace('Falling back to sync deploy flow');
+
+    let stageId = null;
+    let imageToDeploy = image;
+
+    if (blobUid) {
+      const { image: builtImage, stage } = await this.stage(blobUid, builderImage);
+
+      stageId = stage?.id;
+      imageToDeploy = builtImage;
+
+      if (stageId) {
+        this.showStagingLog(stageId);
+        await this.waitForStaging(stageId);
+      }
+    }
+
+    const stage = {};
+
+    if (stageId) {
+      stage.id = stageId;
+    }
+
+    try {
+      const res = await this.followLink('deploy', {
+        method:  'post',
+        headers: { 'content-type': 'application/json' },
+        data:    {
+          app: {
+            name:      this.meta.name,
+            namespace: this.meta.namespace
+          },
+          stage,
+          image: imageToDeploy,
+          origin
+        }
+      });
+
+      this.route = res.route;
+    } catch (e) {
+      if (e.errors?.[0].status === 500) {
+        await this.waitForPseudoDeploy(e);
+      } else {
+        throw (originalError || e);
+      }
+    }
   }
 
   async getDeploymentStatus(deploymentId) {
@@ -832,8 +897,8 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
       method: 'get',
     };
 
-    const { data } = await this.$dispatch('request', { opt, type: this.type });
-    return data;
+    const response = await this.$dispatch('request', { opt, type: this.type });
+    return response?.data || response;
   }
 
   async waitForDeployment(deploymentId, { timeoutMs = 20 * 60 * 1000, intervalMs = 2000 } = {}) {
