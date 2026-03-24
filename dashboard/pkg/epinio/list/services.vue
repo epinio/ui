@@ -191,7 +191,7 @@ const columns = [
     <div class="modal-content">
       <p>You are attempting to delete the Instance <strong>{{ serviceToDelete?.meta.name }}</strong>.</p>
       <div v-if="(serviceToDelete as any)?.boundapps?.length">
-        <p>The following applications are bound to the Service Instance about to be deleted. Please unbind them before proceeding.</p>
+        <p><strong>Caution: </strong>The following applications are bound to the Service Instance about to be deleted. Proceeding will unbind them prior to deletion.</p>
         <ul>
           <li v-for="app in (serviceToDelete as any)?.boundapps || []" :key="app">{{ app }}</li>
         </ul>
@@ -208,7 +208,7 @@ const columns = [
       <trailhand-button @button-click="closeDeleteModal" variant="secondary" class="mr-10"
         >Cancel</trailhand-button
       >
-      <trailhand-button @button-click="onSubmitDelete" :disabled="deletingService || (serviceToDelete as any)?.boundapps?.length" variant="destructive"
+      <trailhand-button @button-click="onSubmitDelete" :disabled="deletingService" variant="destructive"
         >{{ deletingService ? 'Deleting...' : t('generic.delete') }}</trailhand-button
       >
     </div>
