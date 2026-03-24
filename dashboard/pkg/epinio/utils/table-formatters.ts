@@ -364,7 +364,6 @@ export function makeProgressStateCell(row: any): HTMLElement {
  * Overrides a property on a table row object with a new value, making it writable and configurable.
  */
 export function overrideTableRowProp(row: any, prop: string, value: any): any {
-  console.log(`Overriding row property: ${ prop } with value:`, value);
   Object.defineProperty(row, prop, {
       value: value,
       writable: true,

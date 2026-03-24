@@ -6,12 +6,11 @@ import { useRouter } from 'vue-router';
 import { EPINIO_TYPES } from '../types';
 import { startPolling, stopPolling } from '../utils/polling';
 import Masthead from '@shell/components/ResourceList/Masthead';
-import Banner from '@components/Banner/Banner.vue';
 import { createEpinioRoute } from '../utils/custom-routing';
 import { makeStateTag, makeRouterLink, makeRouterLinksOrEmpty, makeActionMenu } from '../utils/table-formatters';
 import EpinioServiceModel from 'models/services';
 import { overrideTableRows } from '../utils/table-formatters';
-import { epinioExceptionToErrorsArray } from '../utils/errors';
+import ServiceDeleteModal from '../components/service/ServiceDeleteModal.vue';
 
 defineProps<{
   schema: object,
@@ -22,10 +21,7 @@ const resource: string = EPINIO_TYPES.SERVICE_INSTANCE;
 const store = useStore();
 const router = useRouter();
 
-const showDeleteModal = ref<boolean>(false);
-const serviceToDelete = ref<EpinioServiceModel | null>(null);
-const errors = ref<Array<string>>([]);
-const deletingService = ref<boolean>(false);
+const deleteModal = ref<InstanceType<typeof ServiceDeleteModal> | null>(null);
 
 onMounted(() => {
   store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.SERVICE_INSTANCE });
@@ -79,8 +75,7 @@ const rows = computed(() => {
   {
     prop: 'removeService',
     value: (row: EpinioServiceModel) => () => {
-      serviceToDelete.value = row;
-      openDeleteModal();
+      deleteModal.value?.openDelete(row);
     },
     conditionFn: (row: EpinioServiceModel) => {
       return row.canDelete;
@@ -95,32 +90,6 @@ const handleNavigate = (event: CustomEvent) => {
   router.push(event.detail.url);
 };
 
-function openDeleteModal() {
-  showDeleteModal.value = true;
-}
-
-function closeDeleteModal() {
-  showDeleteModal.value = false;
-  errors.value = [];
-}
-
-async function onSubmitDelete() {
-  if (!serviceToDelete.value) {
-    return;
-  }
-  try {
-    deletingService.value = true;
-    await serviceToDelete.value.remove();
-    closeDeleteModal();
-    store.dispatch('epinio/findAll', { type: EPINIO_TYPES.SERVICE_INSTANCE, opt: { force: true } });
-    store.dispatch('findAll', { type: 'applications', opt: { force: true } });
-  } catch(e) {
-    errors.value = [];
-    errors.value = epinioExceptionToErrorsArray(e).map(JSON.stringify);
-  } finally {
-    deletingService.value = false;
-  }
-}
 
 const columns = [
   {
@@ -183,36 +152,7 @@ const columns = [
     key-field="id"
     @navigate="handleNavigate"
   />
-  <trailhand-modal
-    :open.prop="showDeleteModal"
-    title="Are you sure?"
-    @modal-close="closeDeleteModal"
-  >
-    <div class="modal-content">
-      <p>You are attempting to delete the Instance <strong>{{ serviceToDelete?.meta.name }}</strong>.</p>
-      <div v-if="(serviceToDelete as any)?.boundapps?.length">
-        <p><strong>Caution: </strong>The following applications are bound to the Service Instance about to be deleted. Proceeding will unbind them prior to deletion.</p>
-        <ul>
-          <li v-for="app in (serviceToDelete as any)?.boundapps || []" :key="app">{{ app }}</li>
-        </ul>
-      </div>
-      <p v-else>No applications are bound to this Service Instance.</p>
-      <Banner
-          v-for="(err, i) in errors"
-          :key="i"
-          color="error"
-          :label="err"
-        />
-    </div>
-    <div slot="footer">
-      <trailhand-button @button-click="closeDeleteModal" variant="secondary" class="mr-10"
-        >Cancel</trailhand-button
-      >
-      <trailhand-button @button-click="onSubmitDelete" :disabled="deletingService" variant="destructive"
-        >{{ deletingService ? 'Deleting...' : t('generic.delete') }}</trailhand-button
-      >
-    </div>
-  </trailhand-modal>
+  <ServiceDeleteModal ref="deleteModal" />
 </template>
 
 <style lang="scss" scoped>
