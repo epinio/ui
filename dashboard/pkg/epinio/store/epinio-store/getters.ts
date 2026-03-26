@@ -45,6 +45,10 @@ export default {
     return url;
   },
 
+  paginationMeta: (state: any) => (type: string) => state.paginationMeta?.[type] ?? null,
+
+  currentPaginationPage: (state: any) => (type: string) => state.paginationPage?.[type] ?? 1,
+
   namespaceFilterOptions: (state: any, getters: any, rootState: any, rootGetters: any) => ({
     addNamespace,
     divider
