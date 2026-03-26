@@ -57,7 +57,7 @@ export function useEpinioBindAppsMixin(props: any) {
         `${ serviceInstance.meta.namespace }/${ serviceInstance.meta.name }`,
       );
 
-      if (freshServiceInstance) {
+      if (freshServiceInstance?.status === 'deployed') {
         return true;
       }
       // This is an async fn, but we're in a sync fn. It might create a backlog if previous requests don't complete in time
