@@ -10,6 +10,7 @@ import { validateKubernetesName } from '@shell/utils/validators/kubernetes-name'
 import { startPolling, stopPolling } from '../utils/polling';
 import { makeActionMenu } from '../utils/table-formatters';
 import EpinioNamespace from 'models/namespaces';
+import { overrideTableRows } from '../utils/table-formatters';
 
 defineProps<{
   schema: object,
@@ -42,34 +43,33 @@ watchEffect(() => {
   all.forEach((row) => { void row.meta; });
 
   // Add custom namespace delete action to replace the built in rancher shell flow
-  const overrides = all.map((row) => {
-  if (row.canDelete) {
-    Object.defineProperty(row, 'availableActions', {
-      value: [{
-        action: 'removeNamespace',
-        altAction: 'remove',
-        bulkAction: 'removeNamespace',
-        bulkable: true,
-        enabled: true,
-        icon: 'icon icon-trash',
-        label: 'Delete',
-        weight: -10
-      }],
-      writable: true,
-      configurable: true,
-    });
-    Object.defineProperty(row, 'removeNamespace', {
-      value: () => {
-        namespaceToDelete.value = row;
-        openDeleteModal();
-      },
-      writable: true,
-      configurable: true,
-    });
-  }
-  return row;
-});
-  displayRows.value = [...overrides];
+  const overrideProps = [{
+    prop: 'availableActions',
+    value: [{
+      action: 'removeNamespace',
+      altAction: 'remove',
+      bulkAction: 'removeNamespace',
+      bulkable: true,
+      enabled: true,
+      icon: 'icon icon-trash',
+      label: 'Delete',
+      weight: -10
+    }],
+    conditionFn: (row: EpinioNamespace) => {
+      return row.canDelete;
+    },
+  },
+  {
+    prop: 'removeNamespace',
+    value: (row: EpinioNamespace) => () => {
+      namespaceToDelete.value = row;
+      openDeleteModal();
+    },
+    conditionFn: (row: EpinioNamespace) => {
+      return row.canDelete;
+    },
+  }];
+  displayRows.value = overrideTableRows(all, overrideProps);
 });
 
 const validateCreate = computed(() => {

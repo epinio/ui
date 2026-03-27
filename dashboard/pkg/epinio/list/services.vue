@@ -7,6 +7,9 @@ import { EPINIO_TYPES, EPINIO_SERVICE_PARAM } from '../types';
 import { startPolling, stopPolling } from '../utils/polling';
 import Masthead from '@shell/components/ResourceList/Masthead';
 import { makeStateTag, makeRouterLink, makeRouterLinksOrEmpty, makeActionMenu } from '../utils/table-formatters';
+import EpinioServiceModel from 'models/services';
+import { overrideTableRows } from '../utils/table-formatters';
+import ServiceDeleteModal from '../components/service/ServiceDeleteModal.vue';
 import ServiceInstanceModal from '../components/service/ServiceInstanceModal.vue';
 
 defineProps<{
@@ -19,6 +22,7 @@ const router = useRouter();
 
 const resource: string = EPINIO_TYPES.SERVICE_INSTANCE;
 const serviceModal = ref<InstanceType<typeof ServiceInstanceModal> | null>(null);
+const deleteModal = ref<InstanceType<typeof ServiceDeleteModal> | null>(null);
 const displayRows = ref<any[]>([]);
 
 watchEffect(() => {
@@ -26,25 +30,59 @@ watchEffect(() => {
 
   all.forEach((row: any) => { void row.status; void row.stateDisplay; void row.meta; });
 
-  const overrides = all.map((row) => {
-    Object.defineProperty(row, 'availableActions', {
-      value: [
-        { action: 'editServiceModal', label: 'Edit', enabled: true },
-        { action: 'remove', altAction: 'remove', label: 'Delete', enabled: row.canDelete, bulkable: true, bulkAction: 'remove' },
-      ],
-      writable: true,
-      configurable: true,
-    });
-    Object.defineProperty(row, 'editServiceModal', {
-      value: () => serviceModal.value?.openEdit(row),
-      writable: true,
-      configurable: true,
-    });
+  // Filter empty rows that are added during delete
+  const filtered = all.filter((row) => row.id);
 
-    return row;
-  });
+  // Add custom service delete action to replace the built in rancher shell flow
+  const overrideProps = [
+    {
+      prop: 'availableActions',
+      value: (row: EpinioServiceModel) => (
+        [
+          {
+            action: 'removeService',
+            altAction: 'remove',
+            bulkAction: 'removeService',
+            bulkable: true, 
+            enabled: row.canDelete,
+            icon: 'icon icon-trash',
+            label: 'Delete',
+            weight: -10
+          }, 
+          {
+            action: 'editServiceModal',
+            label: 'Edit',
+            enabled: true
+          }
+        ]
+      ),
+      conditionFn: (row: EpinioServiceModel) => {
+        return true;
+      },
+    },
+    {
+      prop: 'removeService',
+      value: (row: EpinioServiceModel) => () => {
+        deleteModal.value?.openDelete(row);
+      },
+      conditionFn: (row: EpinioServiceModel) => {
+        return row.canDelete;
+      }, 
+    },
+    {
+      prop: 'editServiceModal',
+      value: (row: EpinioServiceModel) => () => {
+        serviceModal.value?.openEdit(row);
+      },
+      conditionFn: (row: EpinioServiceModel) => {
+        return true;
+      }, 
+    }
+  ];
 
-  displayRows.value = [...overrides];
+  const processedRows = overrideTableRows(filtered, overrideProps);
+
+  displayRows.value = [...processedRows];
 });
 
 onMounted(() => {
@@ -68,6 +106,7 @@ onUnmounted(() => {
 const handleNavigate = (event: CustomEvent) => {
   router.push(event.detail.url);
 };
+
 
 const columns = [
   {
@@ -142,6 +181,7 @@ const columns = [
       @navigate="handleNavigate"
     />
     <ServiceInstanceModal ref="serviceModal" />
+    <ServiceDeleteModal ref="deleteModal" />
   </div>
 </template>
 
@@ -150,5 +190,11 @@ trailhand-table {
   --sortable-table-row-hover-bg: var(--sortable-table-hover-bg);
   --sortable-table-header-hover-bg: var(--sortable-table-hover-bg);
   --sortable-table-header-sorted-bg: var(--sortable-table-hover-bg);
+}
+.modal-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  max-width: 500px;
 }
 </style>
