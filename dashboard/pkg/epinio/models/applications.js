@@ -547,7 +547,93 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
     });
   }
 
-  async gitFetch(url, rev) {
+  /**
+   * Registers git credentials with Epinio (Kubernetes secret) when the user provided
+   * an SSH key or HTTPS token in the UI, so import-git can clone private repositories.
+   */
+  async ensureGitCredentialsForSource(source) {
+    if (!source?.gitAuth) {
+      return;
+    }
+    const ssh = (source.gitAuth.sshPrivateKey || '').trim();
+    const username = (source.gitAuth.username || '').trim();
+    const password = (source.gitAuth.password || '').trim();
+    if (!ssh && !(username && password)) {
+      return;
+    }
+
+    let baseURL;
+    let provider;
+    switch (source.type) {
+    case APPLICATION_SOURCE_TYPE.GIT_HUB:
+      baseURL = 'https://github.com';
+      provider = 'github';
+      break;
+    case APPLICATION_SOURCE_TYPE.GIT_LAB:
+      baseURL = 'https://gitlab.com';
+      provider = 'gitlab';
+      break;
+    case APPLICATION_SOURCE_TYPE.GIT_URL: {
+      let u;
+      try {
+        u = new URL(source.gitUrl.url);
+      } catch (e) {
+        throw new Error('Invalid git URL');
+      }
+      baseURL = `${ u.protocol }//${ u.host }`;
+      provider = 'git';
+      if (u.hostname === 'github.com' || u.hostname.endsWith('.github.com')) {
+        provider = 'github';
+      } else if (u.hostname === 'gitlab.com') {
+        provider = 'gitlab';
+      }
+      break;
+    }
+    default:
+      return;
+    }
+
+    let id = `ui-${ Date.now().toString(36) }${ Math.random().toString(36).slice(2, 10) }`
+      .toLowerCase()
+      .replace(/[^a-z0-9-]/g, '-');
+    if (id.length > 63) {
+      id = id.slice(0, 63).replace(/-+$/, '');
+    }
+
+    const payload = {
+      id,
+      url:      baseURL,
+      provider,
+    };
+    if (ssh) {
+      payload.privatekey = ssh;
+    }
+    if (username) {
+      payload.username = username;
+    }
+    if (password) {
+      payload.password = password;
+    }
+
+    const url = this.$getters['urlFor'](this.type, this.id, { url: '/api/v1/gitconfigs' });
+
+    await this.$dispatch('request', {
+      opt: {
+        url,
+        method:  'POST',
+        headers: {
+          'content-type': 'application/json',
+          accept:         'application/json',
+        },
+        data: JSON.stringify(payload),
+      },
+      type: this.type,
+    });
+  }
+
+  async gitFetch(url, rev, source) {
+    await this.ensureGitCredentialsForSource(source);
+
     this.trace('Downloading and storing git repo');
     const formData = new FormData();
 

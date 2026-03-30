@@ -262,6 +262,16 @@ epinio:
           label: GitHub
         gitlab:
           label: GitLab
+        gitAuth:
+          title: Private repository (optional)
+          banner: Private repos need credentials before Epinio can fetch code. Use an SSH private key (recommended) or a personal access token over HTTPS. Epinio stores these as a git configuration in the cluster.
+          sshLabel: SSH private key
+          sshPlaceholder: "-----BEGIN OPENSSH PRIVATE KEY----- ..."
+          keyFileButton: Load key file
+          httpsTitle: Or HTTPS token
+          httpsHelp: For GitHub, create a personal access token with repo scope; use any username (e.g. git) and the token as the password.
+          username: Username
+          password: Password or token
 
       configurations:
         label: Bindings

@@ -97,12 +97,23 @@ export interface AppSourceBuilderImage {
 /**
  * Contains information used within a UI session to represent where an application came from
  */
+/** Optional credentials; Epinio creates a gitconfig before import so private repos work. */
+export interface AppSourceGitAuth {
+  /** PEM OpenSSH / RSA private key; add matching public key on GitHub/GitLab. */
+  sshPrivateKey?: string,
+  /** For HTTPS token auth (e.g. GitHub PAT as password; username is often arbitrary). */
+  username?: string,
+  password?: string,
+}
+
 export interface EpinioAppSource {
   type: string,
   archive?: AppSourceArchive | undefined,
   container: AppSourceContainer,
   git: AppSourceGit,
   gitUrl: AppSourceGitUrl,
+  /** Set when the repository requires authentication (private repo). */
+  gitAuth?: AppSourceGitAuth,
   builderImage?: AppSourceBuilderImage,
   appChart: string,
 }

@@ -13,6 +13,7 @@ import RadioGroup from '@components/Form/Radio/RadioGroup.vue';
 import { sortBy } from '@shell/utils/sort';
 import { generateZip } from '@shell/utils/download';
 import Collapse from '@shell/components/Collapse.vue';
+import Banner from '@components/Banner/Banner.vue';
 import {
   APPLICATION_SOURCE_TYPE,
   EpinioApplicationChartResource,
@@ -95,6 +96,12 @@ const git = reactive({
   }
 });
 
+const gitAuth = reactive({
+  sshPrivateKey: props.source?.gitAuth?.sshPrivateKey || '',
+  username:      props.source?.gitAuth?.username || '',
+  password:      props.source?.gitAuth?.password || '',
+});
+
 const builderImage = reactive({
   value: builderImageValue.value,
   default: builderImageValue.value === defaultBuilderImage.value
@@ -121,6 +128,10 @@ const appCharts = computed(() =>
 
 const showBuilderImage = computed(() =>
   [APPLICATION_SOURCE_TYPE.ARCHIVE, APPLICATION_SOURCE_TYPE.FOLDER, APPLICATION_SOURCE_TYPE.GIT_URL, APPLICATION_SOURCE_TYPE.GIT_HUB, APPLICATION_SOURCE_TYPE.GIT_LAB].includes(type.value)
+);
+
+const showGitAuth = computed(() =>
+  [APPLICATION_SOURCE_TYPE.GIT_URL, APPLICATION_SOURCE_TYPE.GIT_HUB, APPLICATION_SOURCE_TYPE.GIT_LAB].includes(type.value)
 );
 
 const gitSource = computed(() => ({
@@ -169,9 +180,23 @@ function update() {
     gitUrl,
     builderImage,
     appChart: appChart.value,
-    git
+    git,
+    gitAuth
   });
   valid.value = validate();
+}
+
+function onPrivateKeyFileSelected(files: File[]) {
+  const f = files?.[0];
+  if (!f) {
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = () => {
+    gitAuth.sshPrivateKey = String(reader.result || '');
+    update();
+  };
+  reader.readAsText(f);
 }
 
 function updateAppInfo(info: EpinioAppInfo) {
@@ -442,6 +467,62 @@ onMounted(() => {
         @change="gitUpdate"
       />
     </template>
+
+    <div
+      v-if="showGitAuth"
+      class="spacer source"
+    >
+      <h3>{{ t('epinio.applications.steps.source.gitAuth.title') }}</h3>
+      <Banner
+        color="info"
+        class="mb-10"
+      >
+        {{ t('epinio.applications.steps.source.gitAuth.banner') }}
+      </Banner>
+      <div class="mb-10">
+        <label class="text-label">{{ t('epinio.applications.steps.source.gitAuth.sshLabel') }}</label>
+        <textarea
+          v-model="gitAuth.sshPrivateKey"
+          class="input-role"
+          rows="6"
+          :placeholder="t('epinio.applications.steps.source.gitAuth.sshPlaceholder')"
+          @input="update"
+        />
+      </div>
+      <div class="button-row mb-10">
+        <FileSelector
+          class="role-tertiary add"
+          :label="t('epinio.applications.steps.source.gitAuth.keyFileButton')"
+          :mode="mode"
+          :raw-data="true"
+          :accept="'.pem,.key,text/*'"
+          @selected="onPrivateKeyFileSelected"
+        />
+      </div>
+      <h4>{{ t('epinio.applications.steps.source.gitAuth.httpsTitle') }}</h4>
+      <p class="text-muted mb-10">
+        {{ t('epinio.applications.steps.source.gitAuth.httpsHelp') }}
+      </p>
+      <div class="row">
+        <div class="col span-6">
+          <LabeledInput
+            v-model:value="gitAuth.username"
+            :label="t('epinio.applications.steps.source.gitAuth.username')"
+            :mode="mode"
+            @input="update"
+          />
+        </div>
+        <div class="col span-6">
+          <LabeledInput
+            v-model:value="gitAuth.password"
+            type="password"
+            :label="t('epinio.applications.steps.source.gitAuth.password')"
+            :mode="mode"
+            @input="update"
+          />
+        </div>
+      </div>
+    </div>
 
     <Collapse
       v-model:value:open="open"

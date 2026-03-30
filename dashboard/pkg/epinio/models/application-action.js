@@ -100,7 +100,7 @@ export default class ApplicationActionResource extends Resource {
     const rev = source.git?.commit || source.gitUrl?.branch;
     const url = source.git?.url || source.gitUrl?.url;
 
-    return await this.application.gitFetch(url, rev);
+    return await this.application.gitFetch(url, rev, source);
   }
 
   async build({ source }) {
