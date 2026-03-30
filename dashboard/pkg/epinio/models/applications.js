@@ -259,6 +259,16 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
   }
 
   get appData() {
+    if (!this.origin) {
+      return {
+        source: {
+          type:         APPLICATION_SOURCE_TYPE.FOLDER,
+          builderImage: this.staging?.builder,
+          appchart:     this.configuration?.appchart,
+        },
+      };
+    }
+
     const type = AppUtils.getSourceType(this.origin);
 
     const opt = {};
@@ -873,13 +883,38 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
     try {
       await this.$dispatch('request', { opt, type: this.type });
     } catch (e) {
-      if (e._status === 500 && iteration === 0) {
-        // On fresh epinio's the first stage/build takes some time. Ideally we'd poll for the staging state, but this isn't available,
-        // so be patient and give the same request another try
-        await this.waitForStaging(stageId, 1);
-      } else {
-        throw e;
+      const maxRetries = 6; // allow more time for first-run staging
+      if (e?._status === 500 && iteration < maxRetries) {
+        const delayMs = 1000 * (iteration + 1);
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+        await this.waitForStaging(stageId, iteration + 1);
+        return;
       }
+
+      const namespace = this.meta?.namespace;
+      const name = this.meta?.name;
+      if (namespace && name) {
+        await this.waitForTestFn(() => {
+          const fresh = this.$getters['byId'](EPINIO_TYPES.APP, `${ namespace }/${ name }`);
+          const currentStageId = fresh?.stage_id || fresh?.stageId || fresh?.stage?.id;
+
+          if (currentStageId && currentStageId !== stageId) {
+            return false;
+          }
+
+          const st = fresh?.stagingstatus || fresh?.stagingStatus;
+          if (st === 'failed' || st === 'error') {
+            throw new Error(`staging ${ stageId } ${ st }: ${ fresh?.statusmessage || '' }`);
+          }
+
+          return st === 'done';
+        }, `staging ${ stageId } done`, 20000, 2000).catch(() => {
+          throw e;
+        });
+        return;
+      }
+
+      throw e;
     }
   }
 
@@ -909,9 +944,11 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
 
       this.route = res.route;
     } catch (e) {
-      if (e.errors?.[0].status === 500) {
-        // On fresh epinio's the first deploy takes some time, so give the app some more time.
-        // Note - this will do the same for any 500... as we dont have a status code for the timeout
+      const status = e?._status || e?.response?.status;
+      const isTimeout = status === 504;
+      const isInternal = status === 500;
+
+      if (isTimeout || isInternal || e.errors?.[0].status === 500) {
         await this.waitForPseudoDeploy(e);
       } else {
         throw e;

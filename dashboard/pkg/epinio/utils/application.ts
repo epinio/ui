@@ -8,6 +8,9 @@ interface Utils {
 }
 
 function getSourceType(origin: EpinioApplicationResource['origin']): APPLICATION_SOURCE_TYPE {
+  if (!origin || origin.Kind === undefined) {
+    return APPLICATION_SOURCE_TYPE.FOLDER;
+  }
   switch (origin.Kind) {
   case APPLICATION_MANIFEST_SOURCE_TYPE.PATH:
     return origin.archive ? APPLICATION_SOURCE_TYPE.ARCHIVE : APPLICATION_SOURCE_TYPE.FOLDER;
@@ -21,6 +24,9 @@ function getSourceType(origin: EpinioApplicationResource['origin']): APPLICATION
 }
 
 function getManifestSourceType(origin: EpinioApplicationResource['origin']): APPLICATION_SOURCE_TYPE {
+  if (!origin) {
+    return APPLICATION_SOURCE_TYPE.FOLDER;
+  }
   if (origin.git) {
     return (origin.git.provider || APPLICATION_SOURCE_TYPE.GIT_URL) as unknown as APPLICATION_SOURCE_TYPE;
   }
