@@ -21,6 +21,7 @@ import Tab from '@shell/components/Tabbed/Tab.vue';
 import AppGitDeployment from '../components/application/AppGitDeployment.vue';
 import Link from '@shell/components/formatter/Link.vue';
 import Banner from '@components/Banner/Banner.vue';
+import LabeledInput from '@components/Form/LabeledInput/LabeledInput.vue';
 
 day.extend(relativeTime);
 
@@ -33,6 +34,11 @@ const props = defineProps<{
 const store = useStore();
 
 const t = store.getters['i18n/t'];
+
+/** API returns snake_case for webhook fields from Epinio app show. */
+const webhookUrl = computed(() => (props.value as any).webhook_url || '');
+const webhookSecret = computed(() => (props.value as any).webhook_secret || '');
+const showGitHubWebhook = computed(() => !!webhookUrl.value);
 
 const saving = ref(false);
 const gitSource = ref<any>(null);
@@ -417,6 +423,36 @@ const commitPosition = computed(() => {
                 />
               </div>
               <hr class="mt-10 mb-10">
+              <div
+                v-if="showGitHubWebhook"
+                class="deployment__webhook mb-20"
+              >
+                <h4>{{ t('epinio.applications.detail.deployment.details.webhook.title') }}</h4>
+                <Banner
+                  color="info"
+                  class="mb-10"
+                >
+                  {{ t('epinio.applications.detail.deployment.details.webhook.help') }}
+                </Banner>
+                <div class="row">
+                  <div class="col span-6">
+                    <LabeledInput
+                      :value="webhookUrl"
+                      mode="view"
+                      :label="t('epinio.applications.detail.deployment.details.webhook.urlLabel')"
+                    />
+                  </div>
+                  <div class="col span-6">
+                    <LabeledInput
+                      :value="webhookSecret"
+                      type="password"
+                      mode="view"
+                      :label="t('epinio.applications.detail.deployment.details.webhook.secretLabel')"
+                    />
+                  </div>
+                </div>
+                <hr class="mt-10 mb-10">
+              </div>
               <div class="deployment__origin__list">
                 <ul>
                   <li>

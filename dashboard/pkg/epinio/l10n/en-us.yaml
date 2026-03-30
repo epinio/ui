@@ -142,6 +142,11 @@ epinio:
         details:
           label: Deployment Details
           origin: Origin
+          webhook:
+            title: GitHub webhook
+            urlLabel: Webhook URL
+            secretLabel: Webhook secret
+            help: Add this payload URL and secret in the GitHub repository under Settings → Webhooks (content type application/json, push events). Epinio verifies requests with the secret and rebuilds the app on each push to the tracked branch.
           git:
             created: Created
             updated: Updated

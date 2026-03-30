@@ -150,6 +150,10 @@ export interface EpinioApplicationResource {
     routes: string[]
   },
   image_url: string
+  /** Set when the app is deployed from GitHub; use for repository webhooks. */
+  webhook_url?: string
+  /** HMAC secret to enter in GitHub next to the webhook URL. */
+  webhook_secret?: string
   meta: EpinioMeta
   origin: {
     Kind: number,
