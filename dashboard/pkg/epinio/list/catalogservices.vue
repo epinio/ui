@@ -22,8 +22,6 @@ const serviceIconMap = {
   'redis': new URL('../assets/icons/redis.png', import.meta.url).href,
 }
 
-console.log('serviceIconMap', serviceIconMap);
-
 onMounted(async () => {
   await store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.CATALOG_SERVICE });
   pending.value = false;
@@ -39,7 +37,6 @@ const list = computed(() => {
   const catalogList = store.getters['epinio/all'](EPINIO_TYPES.CATALOG_SERVICE)
 
   if (!searchQuery.value) {
-    console.log('catalogList', catalogList);
     return catalogList;
   } else {
     const query = searchQuery.value.toLowerCase();
