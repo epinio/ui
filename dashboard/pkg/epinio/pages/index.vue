@@ -85,6 +85,13 @@ const rediscover = async (buttonCb: (success: boolean) => void)  => {
   buttonCb(true);
 }
 
+const openInstall = (c: EpinioCluster) => {
+  store.dispatch('cluster/promptModal', {
+    component:      'InstallDialog',
+    componentProps: { cluster: c },
+  });
+};
+
 const login = async (c: EpinioCluster) =>{
   const isLoggedIn = await epinioAuth.isLoggedIn(c.createAuthConfig(EpinioAuthTypes.AGNOSTIC));
 
@@ -180,6 +187,11 @@ const columns: DataTableColumn[] = [
   {
     field: 'version',
     label: 'Version'
+  },
+  {
+    field:    'actions',
+    label:    'Actions',
+    width:    '120px'
   }
 ];
 </script>
@@ -190,7 +202,7 @@ const columns: DataTableColumn[] = [
     mode="main"
   />
   <div
-    v-else-if="clusters.length === 0"
+    v-else-if="allClusters.length === 0"
     class="root"
   >
     <h2>{{ t('epinio.instances.none.header') }}</h2>
@@ -247,6 +259,17 @@ const columns: DataTableColumn[] = [
             <template v-else>
               {{ row.api }}
             </template>
+          </div>
+        </template>
+        <template #cell:actions="{row}">
+          <div class="epinio-row">
+            <button
+              v-if="row.state === 'uninstalled'"
+              class="btn btn-sm role-primary"
+              @click="openInstall(row)"
+            >
+              Install
+            </button>
           </div>
         </template>
       </DataTable>
