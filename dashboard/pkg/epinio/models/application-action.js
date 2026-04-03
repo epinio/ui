@@ -53,7 +53,9 @@ export default class ApplicationActionResource extends Resource {
       set(this, 'run', false);
     } catch (err) {
       set(this, 'state', APPLICATION_ACTION_STATE.FAIL);
-      set(this, 'stateMessage', epinioExceptionToErrorsArray(err)[0].toString());
+      const errorItem = epinioExceptionToErrorsArray(err)[0];
+      const message = typeof errorItem === 'string' ? errorItem : errorItem?.message || JSON.stringify(errorItem);
+      set(this, 'stateMessage', message);
       throw err;
     }
   }
