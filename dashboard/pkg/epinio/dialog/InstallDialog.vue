@@ -14,39 +14,46 @@ const emit = defineEmits<{
 
 const props = defineProps<{
   cluster: EpinioCluster,
+  onSuccess?: () => void,
 }>();
 
-// ── constants ──────────────────────────────────────────────────────────────
+// constants
 const OPERATOR_NAMESPACE  = 'epinio-system';
-const OPERATOR_IMAGE      = 'ghcr.io/epinio/install-operator:latest';
+const OPERATOR_IMAGE      = 'ghcr.io/epinio/install-operator:v1.0.0';
 const OPERATOR_DEPLOYMENT = 'install-operator-controller-manager';
 const OPERATOR_SA         = 'controller-manager';
 const CR_GROUP            = 'epinio.apps.example.com';
 const CR_VERSION          = 'v1alpha1';
 const CR_PLURAL           = 'installepinios';
 
-// ── form state ─────────────────────────────────────────────────────────────
-const domain          = ref('');
-const targetNamespace = ref('epinio');
-const version         = ref('');
+// form state
+const domain                     = ref('');
+const targetNamespace            = ref('epinio');
+const version                    = ref('');
+const useExistingIngress         = ref(false);
+const nginxReleaseName           = ref('');
+const nginxReleaseNamespace      = ref('');
+const useExistingCertManager     = ref(false);
+const certManagerReleaseName     = ref('');
+const certManagerReleaseNamespace = ref('');
 
-// ── page state ─────────────────────────────────────────────────────────────
+// page state
 type Phase = 'form' | 'bootstrapping' | 'polling' | 'done' | 'failed';
 const phase         = ref<Phase>('form');
 const busy          = ref(false);
 const errors        = ref<string[]>([]);
 const bootstrapStep = ref('');
 
-// ── steps list for bootstrapping UI ────────────────────────────────────────
+// steps list for bootstrapping UI
 type StepStatus = 'pending' | 'running' | 'done' | 'skipped';
 interface BootstrapStep { label: string; status: StepStatus }
 const bootstrapSteps = ref<BootstrapStep[]>([]);
 
-// ── installed CR identity (for polling) ────────────────────────────────────
+// installed CR identity (for polling)
 const crName        = ref('');
 const statusMessage = ref('');
 
-// ── polling ────────────────────────────────────────────────────────────────
+// polling
 let pollTimer: ReturnType<typeof setTimeout> | null = null;
 let pollCount = 0;
 const POLL_MAX = 90; // 90 × 4 s = 6 min max wait for operator
@@ -60,7 +67,7 @@ function stopPolling() {
   }
 }
 
-// ── helpers ────────────────────────────────────────────────────────────────
+// helpers
 const cid = () => props.cluster.id;
 
 function rawUrl(path: string) {
@@ -133,7 +140,7 @@ function completeStep(label: string, skipped = false) {
   if (step) step.status = skipped ? 'skipped' : 'done';
 }
 
-// ── operator bootstrap ─────────────────────────────────────────────────────
+// operator bootstrap
 async function isOperatorDeployed(): Promise<boolean> {
   try {
     const dep = await k8sRequest({ url: rawUrl(`/apis/apps/v1/namespaces/${ OPERATOR_NAMESPACE }/deployments/${ OPERATOR_DEPLOYMENT }`) });
@@ -160,7 +167,7 @@ async function bootstrapOperator(): Promise<void> {
 
   bootstrapSteps.value = steps.map((label) => ({ label, status: 'pending' as StepStatus }));
 
-  // 1 ── check if already deployed
+  // 1 - check if already deployed
   setStep('Check operator');
   const deployed = await isOperatorDeployed();
 
@@ -173,12 +180,12 @@ async function bootstrapOperator(): Promise<void> {
     return;
   }
 
-  // 2 ── namespace
+  // 2 - namespace
   setStep('Create namespace');
   await ensureOperatorNamespace();
   completeStep('Create namespace');
 
-  // 3 ── CRD
+  // 3 - CRD
   setStep('Register CRD');
   await applyResource(
     rawUrl('/apis/apiextensions.k8s.io/v1/customresourcedefinitions'),
@@ -214,6 +221,10 @@ async function bootstrapOperator(): Promise<void> {
                     domain:          { type: 'string' },
                     targetNamespace: { type: 'string' },
                     version:         { type: 'string' },
+                    nginxReleaseName:            { type: 'string' },
+                    nginxReleaseNamespace:        { type: 'string' },
+                    certManagerReleaseName:      { type: 'string' },
+                    certManagerReleaseNamespace: { type: 'string' },
                     imagePullSecret:          { type: 'string' },
                     imageRegistry:            { type: 'string' },
                     imageRegistryUsername:    { type: 'string' },
@@ -252,7 +263,7 @@ async function bootstrapOperator(): Promise<void> {
   );
   completeStep('Register CRD');
 
-  // 4 ── ServiceAccount
+  // 4 - ServiceAccount
   setStep('Create ServiceAccount');
   await applyResource(
     rawUrl(`/api/v1/namespaces/${ OPERATOR_NAMESPACE }/serviceaccounts`),
@@ -260,7 +271,7 @@ async function bootstrapOperator(): Promise<void> {
   );
   completeStep('Create ServiceAccount');
 
-  // 5 ── RBAC
+  // 5 - RBAC
   setStep('Configure RBAC');
   // Manager ClusterRole
   await applyResource(
@@ -394,7 +405,7 @@ async function bootstrapOperator(): Promise<void> {
   );
   completeStep('Deploy operator');
 
-  // 7 ── wait for pod ready
+  // 7 - wait for pod ready
   setStep('Wait for operator');
   await waitForDeploymentReady();
   completeStep('Wait for operator');
@@ -430,7 +441,7 @@ async function waitForCRDReady(): Promise<void> {
   }
 }
 
-// ── ensure namespace ────────────────────────────────────────────────────────
+// ensure namespace
 async function ensureOperatorNamespace(): Promise<void> {
   try {
     await k8sRequest({ url: rawUrl(`/api/v1/namespaces/${ OPERATOR_NAMESPACE }`) });
@@ -450,7 +461,7 @@ async function ensureOperatorNamespace(): Promise<void> {
   }
 }
 
-// ── duplicate check ─────────────────────────────────────────────────────────
+// duplicate check
 async function hasActiveInstall(ns: string): Promise<boolean> {
   try {
     const list  = await k8sRequest({ url: crUrl() });
@@ -469,24 +480,26 @@ async function hasActiveInstall(ns: string): Promise<boolean> {
   }
 }
 
-// ── submit ──────────────────────────────────────────────────────────────────
+// submit
 async function install() {
   errors.value = [];
   if (!domain.value.trim())          errors.value.push('Domain is required');
   if (!targetNamespace.value.trim()) errors.value.push('Target Namespace is required');
   if (!version.value.trim())         errors.value.push('Version is required');
+  if (useExistingIngress.value && !nginxReleaseName.value.trim())      errors.value.push('Nginx Release Name is required when using an existing ingress');
+  if (useExistingCertManager.value && !certManagerReleaseName.value.trim()) errors.value.push('Cert Manager Release Name is required when using an existing cert-manager');
   if (errors.value.length) return;
 
   busy.value = true;
   try {
-    // Step A — bootstrap operator if not present
+    // Step A - bootstrap operator if not present
     await bootstrapOperator();
 
-    // Step B — wait for CRD to be served (after fresh install)
+    // Step B - wait for CRD to be served (after fresh install)
     bootstrapStep.value = 'Verifying CRD availability…';
     await waitForCRDReady();
 
-    // Step C — duplicate guard
+    // Step C - duplicate guard
     const duplicate = await hasActiveInstall(targetNamespace.value.trim());
 
     if (duplicate) {
@@ -508,6 +521,14 @@ async function install() {
           domain:          domain.value.trim(),
           targetNamespace: targetNamespace.value.trim(),
           version:         version.value.trim(),
+          ...(useExistingIngress.value && nginxReleaseName.value.trim() && {
+            nginxReleaseName:       nginxReleaseName.value.trim(),
+            ...(nginxReleaseNamespace.value.trim() && { nginxReleaseNamespace: nginxReleaseNamespace.value.trim() }),
+          }),
+          ...(useExistingCertManager.value && certManagerReleaseName.value.trim() && {
+            certManagerReleaseName:       certManagerReleaseName.value.trim(),
+            ...(certManagerReleaseNamespace.value.trim() && { certManagerReleaseNamespace: certManagerReleaseNamespace.value.trim() }),
+          }),
         },
       },
     });
@@ -525,7 +546,7 @@ async function install() {
   }
 }
 
-// ── polling loop ────────────────────────────────────────────────────────────
+// polling loop
 function schedulePoll(delayMs = 4000) {
   pollCount++;
   if (pollCount > POLL_MAX) {
@@ -551,6 +572,7 @@ async function poll() {
       statusMessage.value = available.message || 'Epinio installed successfully.';
       phase.value = 'done';
       stopPolling();
+      props.onSuccess?.();
     } else if (degraded?.status === 'True') {
       statusMessage.value = degraded.message || 'Install failed.';
       phase.value = 'failed';
@@ -579,8 +601,6 @@ function close() {
     <h4 class="install-dialog__title">
       Install Epinio on <strong>{{ cluster.name }}</strong>
     </h4>
-
-    <!-- ── FORM ── -->
     <template v-if="phase === 'form'">
       <div
         v-if="errors.length"
@@ -626,6 +646,65 @@ function close() {
           />
         </div>
 
+        <div class="mb-10">
+          <label class="install-dialog__checkbox-label">
+            <input
+              v-model="useExistingIngress"
+              type="checkbox"
+              :disabled="busy"
+            />
+            <span>Use existing Nginx Ingress (skip installation)</span>
+          </label>
+        </div>
+        <template v-if="useExistingIngress">
+          <div class="mb-10 install-dialog__indent">
+            <LabeledInput
+              v-model:value="nginxReleaseName"
+              label="Nginx Release Name"
+              placeholder="e.g. rke2-ingress-nginx"
+              :required="true"
+              :disabled="busy"
+            />
+          </div>
+          <div class="mb-20 install-dialog__indent">
+            <LabeledInput
+              v-model:value="nginxReleaseNamespace"
+              label="Nginx Release Namespace"
+              placeholder="defaults to ingress-nginx"
+              :disabled="busy"
+            />
+          </div>
+        </template>
+        <div class="mb-10">
+          <label class="install-dialog__checkbox-label">
+            <input
+              v-model="useExistingCertManager"
+              type="checkbox"
+              :disabled="busy"
+            />
+            <span>Use existing Cert Manager (skip installation)</span>
+          </label>
+        </div>
+        <template v-if="useExistingCertManager">
+          <div class="mb-10 install-dialog__indent">
+            <LabeledInput
+              v-model:value="certManagerReleaseName"
+              label="Cert Manager Release Name"
+              placeholder="e.g. rancher-cert-manager"
+              :required="true"
+              :disabled="busy"
+            />
+          </div>
+          <div class="mb-20 install-dialog__indent">
+            <LabeledInput
+              v-model:value="certManagerReleaseNamespace"
+              label="Cert Manager Release Namespace"
+              placeholder="defaults to cert-manager"
+              :disabled="busy"
+            />
+          </div>
+        </template>
+
         <div class="install-dialog__actions">
           <button
             type="button"
@@ -646,8 +725,6 @@ function close() {
         </div>
       </form>
     </template>
-
-    <!-- ── BOOTSTRAPPING ── -->
     <template v-else-if="phase === 'bootstrapping'">
       <div class="install-dialog__steps">
         <div
@@ -692,8 +769,6 @@ function close() {
         </button>
       </div>
     </template>
-
-    <!-- ── POLLING / IN PROGRESS ── -->
     <template v-else-if="phase === 'polling'">
       <div class="install-dialog__status">
         <i class="icon icon-spinner icon-spin install-dialog__spinner" />
@@ -708,8 +783,6 @@ function close() {
         </button>
       </div>
     </template>
-
-    <!-- ── SUCCESS ── -->
     <template v-else-if="phase === 'done'">
       <Banner
         color="success"
@@ -724,8 +797,6 @@ function close() {
         </button>
       </div>
     </template>
-
-    <!-- ── FAILED ── -->
     <template v-else-if="phase === 'failed'">
       <Banner
         color="error"
@@ -812,6 +883,20 @@ function close() {
   &__spinner {
     font-size: 2rem;
     color: var(--primary);
+  }
+
+  &__checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-size: 14px;
+
+    input[type="checkbox"] { cursor: pointer; }
+  }
+
+  &__indent {
+    padding-left: 24px;
   }
 
   &__actions {

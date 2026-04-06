@@ -88,7 +88,18 @@ const rediscover = async (buttonCb: (success: boolean) => void)  => {
 const openInstall = (c: EpinioCluster) => {
   store.dispatch('cluster/promptModal', {
     component:      'InstallDialog',
-    componentProps: { cluster: c },
+    componentProps: {
+      cluster:   c,
+      onSuccess: () => {
+        store.dispatch(
+          `${ EPINIO_MGMT_STORE }/findAll`,
+          { type: EPINIO_TYPES.CLUSTER, opt: { force: true, load: _MERGE } },
+        ).then(() => {
+          clusters.value = store.getters[`${ EPINIO_MGMT_STORE }/all`](EPINIO_TYPES.CLUSTER);
+          clusters.value.forEach((cluster: EpinioCluster) => testCluster(cluster));
+        });
+      },
+    },
   });
 };
 
@@ -268,7 +279,7 @@ const columns: DataTableColumn[] = [
               class="btn btn-sm role-primary"
               @click="openInstall(row)"
             >
-              Install
+              Install Epinio
             </button>
           </div>
         </template>
