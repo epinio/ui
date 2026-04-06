@@ -36,6 +36,9 @@ const openCreateRoute = () => {
 
 const rows = computed(() => store.getters['epinio/all'](resource));
 
+const windowWidth = ref(window.innerWidth);
+const onResize = () => { windowWidth.value = window.innerWidth; };
+
 // Group applications by namespace
 const groupedByNamespace = computed(() => {
   // Access the cache key to trigger namespace filter changes
@@ -80,7 +83,7 @@ function getFilteredApps(apps: any[], namespace: string): any[] {
   }
 
   return apps.filter(app =>
-    columns.some(col => {
+    columns.value.some((col: { field: string }) => {
       const value = String(getNestedValue(app, col.field) ?? '');
 
       return value.toLowerCase().includes(query);
@@ -88,16 +91,19 @@ function getFilteredApps(apps: any[], namespace: string): any[] {
   );
 }
 
-const columns = [
+// Define all possible columns with their properties and formatters. 
+// We'll filter this list based on window width to determine which columns to show.
+const allColumns = [
   {
     field: 'stateDisplay',
     label: 'State',
-    width: '130px',
+    width: '125px',
     formatter: (_value: string, row: any) => makeStateTag(row)
   },
   {
     field: 'nameDisplay',
     label: 'Name',
+    width: '180px',
     link: (row: any) => {
       try {
         return router.resolve(row.detailLocation).href;
@@ -108,36 +114,72 @@ const columns = [
   },
   {
     field: 'deployment.status',
-    label: 'Status'
+    label: 'Status',
+    width: '75px',
   },
   {
     field: 'route',
     label: 'Routes',
+    width: '180px',
     sortable: false,
     formatter: (_value: any, row: any) => makeAppRoutesCell(row)
   },
   {
     field: 'boundConfigs',
     label: 'Bound Configs',
+    width: '180px',
     sortable: false,
     formatter: (_value: any, row: any) => makeRouterLinksOrEmpty(row.allConfigurations, router)
   },
   {
     field: 'boundServices',
     label: 'Bound Services',
+    width: '180px',
     sortable: false,
     formatter: (_value: any, row: any) => makeBoundServicesCell(row, router)
   },
   {
     field: 'deployment.username',
-    label: 'Last Deployed By'
+    label: 'Last Deployed By',
+    width: '150px',
   },
   {
     field: 'meta.createdAt',
     label: 'Age',
+    width: '50px',
     formatter: 'age'
   }
 ];
+
+// Drop lower-priority columns at smaller window widths to avoid horizontal scrolling.
+//   < 875px: show only State and Name
+//   <1100px: all columns except Routes
+//   <1275px: all columns except Routes, Bound Configs, and Bound Services
+//   <1500px: all columns except Last Deployed By
+//   <1700px: all columns
+const columns = computed(() => {
+  const w = windowWidth.value;
+  const hide = new Set<string>();
+
+  if (w < 1700) {
+    hide.add('deployment.username');
+  }
+  if (w < 1500) {
+    hide.add('deployment.status');
+  }
+  if (w < 1275) {
+    hide.add('boundConfigs');
+    hide.add('boundServices');
+  }
+  if (w < 1100) {
+    hide.add('meta.createdAt');
+  }
+  if (w < 875) {
+    hide.add('route');
+  }
+
+  return allColumns.filter(col => !hide.has(col.field));
+});
 
 // Handle internal navigation events emitted by trailhand-table link cells
 const handleNavigate = (event: CustomEvent) => {
@@ -147,6 +189,7 @@ const handleNavigate = (event: CustomEvent) => {
 };
 
 onMounted(async () => {
+  window.addEventListener('resize', onResize);
   await store.dispatch('epinio/findAll', { type: EPINIO_TYPES.APP });
   // Non-blocking fetch
   store.dispatch('epinio/findAll', { type: EPINIO_TYPES.CONFIGURATION });
@@ -165,6 +208,7 @@ onMounted(async () => {
 });
 
 onUnmounted(() => {
+  window.removeEventListener('resize', onResize);
   stopPolling([
     'namespaces',
     'applications',
@@ -234,6 +278,7 @@ onUnmounted(() => {
     --sortable-table-row-hover-bg: var(--sortable-table-hover-bg);
     --sortable-table-header-hover-bg: var(--sortable-table-hover-bg);
     --sortable-table-header-sorted-bg: var(--sortable-table-hover-bg);
+    overflow-wrap: anywhere; // inherited into shadow DOM — prevents long strings from overflowing column boundaries
   }
 }
 
