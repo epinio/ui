@@ -103,7 +103,7 @@ const allColumns = [
   {
     field: 'nameDisplay',
     label: 'Name',
-    width: '225px',
+    width: '180px',
     link: (row: any) => {
       try {
         return router.resolve(row.detailLocation).href;
@@ -120,21 +120,21 @@ const allColumns = [
   {
     field: 'route',
     label: 'Routes',
-    width: '225px',
+    width: '180px',
     sortable: false,
     formatter: (_value: any, row: any) => makeAppRoutesCell(row)
   },
   {
     field: 'boundConfigs',
     label: 'Bound Configs',
-    width: '200px',
+    width: '180px',
     sortable: false,
     formatter: (_value: any, row: any) => makeRouterLinksOrEmpty(row.allConfigurations, router)
   },
   {
     field: 'boundServices',
     label: 'Bound Services',
-    width: '200px',
+    width: '180px',
     sortable: false,
     formatter: (_value: any, row: any) => makeBoundServicesCell(row, router)
   },
@@ -146,31 +146,36 @@ const allColumns = [
   {
     field: 'meta.createdAt',
     label: 'Age',
-    width: '75px',
+    width: '50px',
     formatter: 'age'
   }
 ];
 
 // Drop lower-priority columns at smaller window widths to avoid horizontal scrolling.
-//   < 900px : State, Name, Status
-//   < 1100px: + Routes
-//   < 1300px: + Age, Last Deployed By
-//  >= 1300px: all columns
+//   < 875px: show only State and Name
+//   <1100px: all columns except Routes
+//   <1275px: all columns except Routes, Bound Configs, and Bound Services
+//   <1500px: all columns except Last Deployed By
+//   <1700px: all columns
 const columns = computed(() => {
   const w = windowWidth.value;
   const hide = new Set<string>();
 
-  if (w < 1300) {
+  if (w < 1700) {
+    hide.add('deployment.username');
+  }
+  if (w < 1500) {
+    hide.add('deployment.status');
+  }
+  if (w < 1275) {
     hide.add('boundConfigs');
     hide.add('boundServices');
   }
   if (w < 1100) {
-    hide.add('route');
-    hide.add('deployment.username');
     hide.add('meta.createdAt');
   }
-  if (w < 900) {
-    hide.add('deployment.status');
+  if (w < 875) {
+    hide.add('route');
   }
 
   return allColumns.filter(col => !hide.has(col.field));
@@ -273,6 +278,7 @@ onUnmounted(() => {
     --sortable-table-row-hover-bg: var(--sortable-table-hover-bg);
     --sortable-table-header-hover-bg: var(--sortable-table-hover-bg);
     --sortable-table-header-sorted-bg: var(--sortable-table-hover-bg);
+    overflow-wrap: anywhere; // inherited into shadow DOM — prevents long strings from overflowing column boundaries
   }
 }
 
