@@ -81,7 +81,7 @@ export default class EpinioConfigurationModel extends EpinioNamespacedResource {
         'content-type': 'application/json',
         accept:         'application/json'
       },
-      data: { ...this.data }
+      data: { data: { ...this.data } }
     });
   }
 
