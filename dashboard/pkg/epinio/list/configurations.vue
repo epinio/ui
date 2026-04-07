@@ -7,6 +7,7 @@ import { startPolling, stopPolling } from '../utils/polling';
 import Masthead from '@shell/components/ResourceList/Masthead';
 import { makeEmptyCell, makeRouterLinks, makeRouterLinksOrEmpty, makeActionMenu, overrideTableRows } from '../utils/table-formatters';
 import ConfigurationModal from '../components/configuration/ConfigurationModal.vue';
+import ConfigurationDeleteModal from '../components/configuration/ConfigurationDeleteModal.vue';
 
 const store = useStore();
 const router = useRouter();
@@ -15,6 +16,7 @@ defineProps<{ schema: object }>(); // Keep for compatibility
 
 const resource: string = EPINIO_TYPES.CONFIGURATION;
 const configModal = ref<InstanceType<typeof ConfigurationModal> | null>(null);
+const deleteModal = ref<InstanceType<typeof ConfigurationDeleteModal> | null>(null);
 const windowWidth = ref(window.innerWidth);
 const onResize = () => { windowWidth.value = window.innerWidth; };
 const displayRows = ref<any[]>([]);
@@ -58,14 +60,11 @@ watchEffect(() => {
           icon:       'icon icon-edit',
         },
         {
-          action:     'promptRemove',
-          altAction:  'remove',
-          bulkAction: 'promptRemove',
-          bulkable:   true,
-          enabled:    row._canDelete,
-          icon:       'icon icon-trash',
-          label:      'Delete',
-          weight:     -10,
+          action:  'deleteConfigModal',
+          label:   'Delete',
+          enabled: row.configuration?.type === 'custom',
+          icon:    'icon icon-trash',
+          weight:  -10,
         },
       ],
       conditionFn: () => true,
@@ -73,6 +72,11 @@ watchEffect(() => {
     {
       prop:        'editConfigModal',
       value:       (row: any) => () => { configModal.value?.openEdit(row); },
+      conditionFn: (row: any) => row.configuration?.type === 'custom',
+    },
+    {
+      prop:        'deleteConfigModal',
+      value:       (row: any) => () => { deleteModal.value?.openDelete(row); },
       conditionFn: (row: any) => row.configuration?.type === 'custom',
     },
   ];
@@ -182,6 +186,7 @@ const columns = computed(() => {
       @navigate="handleNavigate"
     />
     <ConfigurationModal ref="configModal" />
+    <ConfigurationDeleteModal ref="deleteModal" />
   </div>
 </template>
 
