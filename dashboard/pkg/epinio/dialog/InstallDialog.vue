@@ -19,10 +19,10 @@ const props = defineProps<{
 
 // constants
 const OPERATOR_NAMESPACE  = 'epinio-system';
-const OPERATOR_IMAGE      = 'ghcr.io/epinio/install-operator:v1.0.0';
+const OPERATOR_IMAGE      = 'ghcr.io/epinio/install-operator:v1.0.1';
 const OPERATOR_DEPLOYMENT = 'install-operator-controller-manager';
 const OPERATOR_SA         = 'controller-manager';
-const CR_GROUP            = 'epinio.apps.example.com';
+const CR_GROUP            = 'epinio.apps.epinio.io';
 const CR_VERSION          = 'v1alpha1';
 const CR_PLURAL           = 'installepinios';
 
@@ -192,7 +192,7 @@ async function bootstrapOperator(): Promise<void> {
     {
       apiVersion: 'apiextensions.k8s.io/v1',
       kind:       'CustomResourceDefinition',
-      metadata:   { name: 'installepinios.epinio.apps.example.com' },
+      metadata:   { name: 'installepinios.epinio.apps.epinio.io' },
       spec:       {
         group: CR_GROUP,
         names: {
