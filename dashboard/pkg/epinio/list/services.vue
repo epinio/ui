@@ -26,12 +26,19 @@ const deleteModal = ref<InstanceType<typeof ServiceDeleteModal> | null>(null);
 const displayRows = ref<any[]>([]);
 
 watchEffect(() => {
+  void store.state.activeNamespaceCacheKey;
+  const activeNamespaces = store.state.activeNamespaceCache;
   const all = store.getters['epinio/all'](EPINIO_TYPES.SERVICE_INSTANCE) as any[];
 
   all.forEach((row: any) => { void row.status; void row.stateDisplay; void row.meta; });
 
-  // Filter empty rows that are added during delete
-  const filtered = all.filter((row) => row.id);
+  // Filter empty rows that are added during delete, and filter by active namespace
+  const filtered = all.filter((row) => {
+    if (!row.id) return false;
+    const ns = row.meta?.namespace;
+
+    return !activeNamespaces || Object.keys(activeNamespaces).length === 0 || activeNamespaces[ns];
+  });
 
   // Add custom service delete action to replace the built in rancher shell flow
   const overrideProps = [
