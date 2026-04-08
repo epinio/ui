@@ -139,15 +139,6 @@ export function init($plugin: any, store: any) {
 
   // Configuration resource (isCreatable: false so shell doesn't show Create; list shows it only when canCreateConfiguration)
   configureType(EPINIO_TYPES.CONFIGURATION, {
-<<<<<<< new-rbac
-    isCreatable: false,
-    isEditable:  true,
-    isRemovable: true,
-    showState:   false,
-    canYaml:     false,
-    customRoute: createEpinioRoute('c-cluster-resource', { resource: EPINIO_TYPES.CONFIGURATION }),
-    showListMasthead: false,
-=======
     isCreatable:      true,
     isEditable:       true,
     isRemovable:      true,
@@ -155,7 +146,6 @@ export function init($plugin: any, store: any) {
     canYaml:          false,
     customRoute:      createEpinioRoute('c-cluster-resource', { resource: EPINIO_TYPES.CONFIGURATION }),
     showListMasthead: false
->>>>>>> development
   });
 
   // Groups
