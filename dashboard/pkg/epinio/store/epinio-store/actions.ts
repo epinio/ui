@@ -13,11 +13,13 @@ import {
   EPINIO_MGMT_STORE,
   EPINIO_PRODUCT_NAME,
   EPINIO_STANDALONE_CLUSTER_NAME,
-  EPINIO_TYPES
+  EPINIO_TYPES,
+  type EpinioMe
 } from '../../types';
 import EpinioCluster from '../../models/epiniomgmt/epinio.io.management.cluster';
 import { RedirectToError } from '@shell/utils/error';
 import { allHashSettled } from '@shell/utils/promise';
+import { buildPermissionsFromRoles } from '../../utils/permissions';
 
 const createId = (schema: any, resource: any) => {
   const name = resource.meta?.name || resource.name;
@@ -361,6 +363,17 @@ export default {
     commit('version', version);
 
     return info;
+  },
+
+  me: async( { dispatch, commit }: any ): Promise<EpinioMe> => {
+    // Always fetch fresh so permissions reflect the current user (no stale cache after login switch)
+    const me = await dispatch('request', { opt: { url: `/api/v1/me` } });
+    const permissions = buildPermissionsFromRoles(me.roles || []);
+
+    commit('me', me);
+    commit('permissions', permissions);
+
+    return me;
   },
 
 };
