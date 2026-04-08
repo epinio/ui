@@ -16,7 +16,6 @@ const t = store.getters['i18n/t'];
 
 defineProps<{ schema: object }>(); // Keep for compatibility
 
-const schema = ref(store.getters['epinio/schemaFor'](EPINIO_TYPES.CONFIGURATION));
 const resource = EPINIO_TYPES.CONFIGURATION;
 
 const createLocation = computed(() =>

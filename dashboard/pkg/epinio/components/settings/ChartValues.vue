@@ -92,7 +92,7 @@ const onInputCheckbox = (key: string, value: boolean) => {
         :label="key"
         :mode="props.mode"
         :disabled="props.disabled"
-        @input="onInputCheckbox(key, $event)"
+        @update:value="onInputCheckbox(key, $event)"
       />
       <LabeledSelect
         v-else-if="setting.type === 'string' && setting.enum"
