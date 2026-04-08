@@ -139,12 +139,13 @@ export function init($plugin: any, store: any) {
 
   // Configuration resource
   configureType(EPINIO_TYPES.CONFIGURATION, {
-    isCreatable: true,
-    isEditable:  true,
-    isRemovable: true,
-    showState:   false,
-    canYaml:     false,
-    customRoute: createEpinioRoute('c-cluster-resource', { resource: EPINIO_TYPES.CONFIGURATION }),
+    isCreatable:      true,
+    isEditable:       true,
+    isRemovable:      true,
+    showState:        false,
+    canYaml:          false,
+    customRoute:      createEpinioRoute('c-cluster-resource', { resource: EPINIO_TYPES.CONFIGURATION }),
+    showListMasthead: false
   });
 
   // Groups
