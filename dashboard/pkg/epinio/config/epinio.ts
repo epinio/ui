@@ -137,8 +137,17 @@ export function init($plugin: any, store: any) {
     customRoute: createEpinioRoute('c-cluster-resource', { resource: EPINIO_TYPES.APP_CHARTS }),
   });
 
-  // Configuration resource
+  // Configuration resource (isCreatable: false so shell doesn't show Create; list shows it only when canCreateConfiguration)
   configureType(EPINIO_TYPES.CONFIGURATION, {
+<<<<<<< new-rbac
+    isCreatable: false,
+    isEditable:  true,
+    isRemovable: true,
+    showState:   false,
+    canYaml:     false,
+    customRoute: createEpinioRoute('c-cluster-resource', { resource: EPINIO_TYPES.CONFIGURATION }),
+    showListMasthead: false,
+=======
     isCreatable:      true,
     isEditable:       true,
     isRemovable:      true,
@@ -146,6 +155,7 @@ export function init($plugin: any, store: any) {
     canYaml:          false,
     customRoute:      createEpinioRoute('c-cluster-resource', { resource: EPINIO_TYPES.CONFIGURATION }),
     showListMasthead: false
+>>>>>>> development
   });
 
   // Groups
@@ -153,14 +163,15 @@ export function init($plugin: any, store: any) {
   const SERVICE_GROUP = 'Services';
   const ABOUT = 'System';
 
-  // Service Instance
+  // Service Instance (isCreatable: false so shell doesn't show Create; our list/services.vue shows it only when canCreateService)
   configureType(EPINIO_TYPES.SERVICE_INSTANCE, {
-    isCreatable: true,
+    isCreatable: false,
     isEditable:  true,
     isRemovable: true,
     showState:   true,
     canYaml:     false,
     customRoute: createEpinioRoute('c-cluster-resource', { resource: EPINIO_TYPES.SERVICE_INSTANCE }),
+    showListMasthead: false, // Custom masthead with RBAC-gated Create button
   });
 
   // Catalog Service
