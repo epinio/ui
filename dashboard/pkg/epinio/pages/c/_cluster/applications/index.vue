@@ -67,6 +67,17 @@ const groupedByNamespace = computed(() => {
 });
 
 const pending = ref(true);
+const paginating = ref<Record<string, boolean>>({});
+
+const handlePageChange = async(e: CustomEvent, namespace: string) => {
+  if (paginating.value[namespace]) return;
+  paginating.value = { ...paginating.value, [namespace]: true };
+  try {
+    await store.dispatch('epinio/goToPage', { type: resource, page: e.detail.page });
+  } finally {
+    paginating.value = { ...paginating.value, [namespace]: false };
+  }
+};
 
 // Per-namespace search queries (keyed by namespace name)
 const searchQueries = ref<Record<string, string>>({});
@@ -258,7 +269,12 @@ onUnmounted(() => {
         :rows="getFilteredApps(apps, String(namespace))"
         :columns="columns"
         :searchable="false"
+        :total-items="store.getters['epinio/paginationMeta'](resource)?.totalItems ?? store.getters['epinio/all'](resource).length"
+        :loading="paginating[namespace]"
+        :server-side="!!store.getters['epinio/paginationMeta'](resource)"
+        rows-per-page="10"
         @navigate="handleNavigate"
+        @page-change="(e: CustomEvent) => handlePageChange(e, String(namespace))"
       />
     </div>
   </div>

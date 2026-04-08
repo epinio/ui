@@ -21,6 +21,18 @@ const t = store.getters['i18n/t'];
 const router = useRouter();
 
 const resource: string = EPINIO_TYPES.SERVICE_INSTANCE;
+const paginating = ref(false);
+
+const handlePageChange = async(e: CustomEvent) => {
+  if (paginating.value) return;
+  paginating.value = true;
+  try {
+    await store.dispatch('epinio/goToPage', { type: resource, page: e.detail.page });
+  } finally {
+    paginating.value = false;
+  }
+};
+
 const serviceModal = ref<InstanceType<typeof ServiceInstanceModal> | null>(null);
 const deleteModal = ref<InstanceType<typeof ServiceDeleteModal> | null>(null);
 const displayRows = ref<any[]>([]);
@@ -114,7 +126,6 @@ const handleNavigate = (event: CustomEvent) => {
   router.push(event.detail.url);
 };
 
-
 const columns = [
   {
     field: 'stateDisplay',
@@ -184,8 +195,13 @@ const columns = [
       :rows="displayRows"
       :columns="columns"
       :searchable="true"
+      :total-items="store.getters['epinio/paginationMeta'](resource)?.totalItems ?? store.getters['epinio/all'](resource).length"
+      :loading="paginating"
+      :server-side="!!store.getters['epinio/paginationMeta'](resource)"
+      rows-per-page="10"
       key-field="id"
       @navigate="handleNavigate"
+      @page-change="handlePageChange"
     />
     <ServiceInstanceModal ref="serviceModal" />
     <ServiceDeleteModal ref="deleteModal" />

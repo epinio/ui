@@ -22,8 +22,18 @@ const t = store.getters['i18n/t'];
 
 const errors = ref<Array<string>>([]);
 const resource: string = EPINIO_TYPES.NAMESPACE;
-
+const paginating = ref(false);
 const displayRows = ref<EpinioNamespace[]>([]);
+
+const handlePageChange = async(e: CustomEvent) => {
+  if (paginating.value) return;
+  paginating.value = true;
+  try {
+    await store.dispatch('epinio/goToPage', { type: resource, page: e.detail.page });
+  } finally {
+    paginating.value = false;
+  }
+};
 
 const value = ref<EpinioNamespace>({ meta: { name: '' } } as EpinioNamespace);
 const showCreateModal = ref<boolean>(false);
@@ -220,7 +230,12 @@ const columns = [
       :ref="(el: any) => { if (el) el.renderActions = makeActionMenu; }"
       :rows="displayRows"
       :columns="columns"
+      :total-items="store.getters['epinio/paginationMeta'](resource)?.totalItems ?? store.getters['epinio/all'](resource).length"
+      :loading="paginating"
+      :server-side="!!store.getters['epinio/paginationMeta'](resource)"
+      rows-per-page="10"
       key-field="_key"
+      @page-change="handlePageChange"
     />
     <trailhand-modal
       :open.prop="showCreateModal"

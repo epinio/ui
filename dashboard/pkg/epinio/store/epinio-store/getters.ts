@@ -40,8 +40,7 @@ export default {
     return url;
   },
 
-  urlOptions: () => (url: any) => {
-    // This is where Epinio API filter, limit, sort will be applied
+  urlOptions: (_state: any) => (url: any) => {
     return url;
   },
 

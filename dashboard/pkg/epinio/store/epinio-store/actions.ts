@@ -381,9 +381,12 @@ export default {
     return info;
   },
 
-  goToPage: async({ commit, dispatch }: any, { type, page }: SetPaginationPagePayload) => {
+  goToPage: async({ commit, dispatch, getters }: any, { type, page }: SetPaginationPagePayload) => {
     commit('setPaginationPage', { type, page });
-    await dispatch('findAll', { type, opt: { force: true } });
+    const schema = getters.schemaFor(type);
+    const url = `${ schema?.links?.collection }?page=${ page }&pageSize=10`;
+
+    await dispatch('findAll', { type, opt: { force: true, url } });
   },
 
 };

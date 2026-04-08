@@ -9,7 +9,18 @@ defineProps<{ schema: object }>(); // Keep for compatibility
 const store = useStore();
 
 const pending = ref(true);
+const paginating = ref(false);
 const rows = ref<any[]>([]);
+
+const handlePageChange = async(e: CustomEvent) => {
+  if (paginating.value) return;
+  paginating.value = true;
+  try {
+    await store.dispatch('epinio/goToPage', { type: EPINIO_TYPES.APP_CHARTS, page: e.detail.page });
+  } finally {
+    paginating.value = false;
+  }
+};
 
 watchEffect(() => {
   const all = store.getters['epinio/all'](EPINIO_TYPES.APP_CHARTS) as any[];
@@ -55,8 +66,12 @@ const columns = [
     :rows="rows"
     :columns="columns"
     :searchable="true"
-    :loading="pending"
+    :loading="pending || paginating"
+    :total-items="store.getters['epinio/paginationMeta'](EPINIO_TYPES.APP_CHARTS)?.totalItems ?? store.getters['epinio/all'](EPINIO_TYPES.APP_CHARTS).length"
+    :server-side="!!store.getters['epinio/paginationMeta'](EPINIO_TYPES.APP_CHARTS)"
+    rows-per-page="10"
     key-field="id"
+    @page-change="handlePageChange"
   />
 </template>
 
