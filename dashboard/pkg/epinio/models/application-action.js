@@ -104,13 +104,18 @@ export default class ApplicationActionResource extends Resource {
   }
 
   async build({ source }) {
-    const { stage } = await this.application.stage(
-      this.application.buildCache.store.blobUid,
-      source.builderImage.value
-    );
+    const isContainer = source.type === APPLICATION_SOURCE_TYPE.CONTAINER_URL;
+    const image = isContainer ? source.container.url : undefined;
+    const blobUid = isContainer ? undefined : this.application.buildCache.store?.blobUid;
+    const builderImage = isContainer ? undefined : source.builderImage?.value;
 
-    this.application.showStagingLog(stage.id);
-    await this.application.waitForStaging(stage.id);
+    await this.application.waitAsyncBuildPhase({
+      blobUid,
+      builderImage,
+      image,
+      origin: this.createDeployOrigin(source),
+      isContainer
+    });
   }
 
   async updateSource() {
@@ -124,11 +129,12 @@ export default class ApplicationActionResource extends Resource {
     const blobUid = isContainer ? undefined : this.application.buildCache.store?.blobUid;
     const builderImage = isContainer ? undefined : source.builderImage?.value;
 
-    await this.application.deploy({
+    await this.application.waitAsyncDeployPhase({
       blobUid,
       builderImage,
       image,
-      origin: this.createDeployOrigin(source)
+      origin: this.createDeployOrigin(source),
+      isContainer
     });
     this.application.showAppLog();
   }

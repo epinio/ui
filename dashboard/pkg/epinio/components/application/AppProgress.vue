@@ -159,12 +159,16 @@ const createActions = async () => {
 
   if ([APPLICATION_SOURCE_TYPE.ARCHIVE, APPLICATION_SOURCE_TYPE.FOLDER, APPLICATION_SOURCE_TYPE.GIT_URL,
        APPLICATION_SOURCE_TYPE.GIT_HUB, APPLICATION_SOURCE_TYPE.GIT_LAB].includes(srcType)) {
-    // Build (stage) is handled server-side as part of the async deploy workflow.
+    actions.value.push(await store.dispatch('epinio/create', {
+      action: APPLICATION_ACTION_TYPE.BUILD,
+      index: 7,
+      ...coreArgs
+    }));
   }
 
   actions.value.push(await store.dispatch('epinio/create', {
     action: APPLICATION_ACTION_TYPE.DEPLOY,
-    index: 7,
+    index: 8,
     ...coreArgs
   }));
 

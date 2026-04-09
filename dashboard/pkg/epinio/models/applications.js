@@ -798,8 +798,48 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
     }
   }
 
-  async deploy({ blobUid, builderImage, image, origin }) {
-    this.trace('Starting async stage/build/deploy');
+  /**
+   * Build phase: wait until server leaves staging (async) or finish client-side stage+wait (sync fallback).
+   * Container sources skip this step.
+   */
+  async waitAsyncBuildPhase({ blobUid, builderImage, image, origin, isContainer }) {
+    this.trace('Async build phase');
+    if (isContainer) {
+      return;
+    }
+    await this.ensureAsyncDeployStarted({ blobUid, builderImage, image, origin });
+    if (this.buildCache.deployMode === 'sync') {
+      await this.buildSyncOnly(blobUid, builderImage);
+      return;
+    }
+    const id = this.buildCache.asyncDeployDeploymentId;
+    const status = await this.pollDeploymentUntil(id, (s) => ['deploying', 'succeeded', 'failed'].includes(s.status));
+    if (status?.status === 'failed') {
+      const err = new Error(status?.error || 'Build failed');
+      err.status = status;
+      throw err;
+    }
+  }
+
+  /**
+   * Deploy phase: wait for terminal async status or run sync deploy (fallback).
+   */
+  async waitAsyncDeployPhase({ blobUid, builderImage, image, origin, isContainer }) {
+    this.trace('Async deploy phase');
+    await this.ensureAsyncDeployStarted({ blobUid, builderImage, image, origin });
+    if (this.buildCache.deployMode === 'sync') {
+      await this.deploySyncOnly({ image, origin });
+      await this.forceFetch();
+      return;
+    }
+    await this.waitForDeployment(this.buildCache.asyncDeployDeploymentId);
+  }
+
+  async ensureAsyncDeployStarted({ blobUid, builderImage, image, origin }) {
+    this.buildCache = this.buildCache || {};
+    if (this.buildCache.deployMode === 'sync' || this.buildCache.asyncDeployDeploymentId) {
+      return;
+    }
 
     const opt = {
       url:     this.linkFor('deployments'),
@@ -822,46 +862,38 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
 
     try {
       const response = await this.$dispatch('request', { opt, type: this.type });
-
       deployment = response?.data || response;
       deploymentId = deployment?.id;
     } catch (e) {
-      // Backward compatibility: older servers don't provide the async endpoint.
-      return this.deploySync({ blobUid, builderImage, image, origin, originalError: e });
+      this.buildCache.deployMode = 'sync';
+      return;
     }
 
     if (!deploymentId) {
-      // Backward compatibility: endpoint exists but doesn't return async payload.
-      return this.deploySync({ blobUid, builderImage, image, origin });
+      this.buildCache.deployMode = 'sync';
+      return;
     }
 
-    // cache for follow-up actions (logs, UI progress, etc.)
-    this.buildCache = this.buildCache || {};
+    this.buildCache.asyncDeployDeploymentId = deploymentId;
     this.buildCache.deployment = deployment;
-
-    await this.waitForDeployment(deploymentId);
   }
 
-  async deploySync({ blobUid, builderImage, image, origin, originalError }) {
-    this.trace('Falling back to sync deploy flow');
-
-    let stageId = null;
-    let imageToDeploy = image;
-
-    if (blobUid) {
-      const { image: builtImage, stage } = await this.stage(blobUid, builderImage);
-
-      stageId = stage?.id;
-      imageToDeploy = builtImage;
-
-      if (stageId) {
-        this.showStagingLog(stageId);
-        await this.waitForStaging(stageId);
-      }
+  async buildSyncOnly(blobUid, builderImage) {
+    this.trace('Sync build (stage) only');
+    const { image: builtImage, stage } = await this.stage(blobUid, builderImage);
+    this.buildCache.stageForSync = { stage, image: builtImage };
+    if (stage?.id) {
+      this.showStagingLog(stage.id);
+      await this.waitForStaging(stage.id);
     }
+  }
+
+  async deploySyncOnly({ image, origin }) {
+    this.trace('Sync deploy only');
+    const stageId = this.buildCache.stageForSync?.stage?.id;
+    const imageToDeploy = image ?? this.buildCache.stageForSync?.image;
 
     const stage = {};
-
     if (stageId) {
       stage.id = stageId;
     }
@@ -886,8 +918,38 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
       if (e.errors?.[0].status === 500) {
         await this.waitForPseudoDeploy(e);
       } else {
-        throw (originalError || e);
+        throw e;
       }
+    }
+  }
+
+  async pollDeploymentUntil(deploymentId, donePred, { timeoutMs = 20 * 60 * 1000, intervalMs = 2000 } = {}) {
+    const start = Date.now();
+    let stagingLogShown = false;
+
+    while (true) {
+      const status = await this.getDeploymentStatus(deploymentId);
+
+      if (status?.stage_id && !stagingLogShown) {
+        stagingLogShown = true;
+        this.showStagingLog(status.stage_id);
+      }
+
+      if (donePred(status)) {
+        return status;
+      }
+
+      if (status?.status === 'failed') {
+        return status;
+      }
+
+      if (Date.now() - start > timeoutMs) {
+        const err = new Error('Timed out waiting for deployment');
+        err.status = status;
+        throw err;
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, intervalMs));
     }
   }
 
