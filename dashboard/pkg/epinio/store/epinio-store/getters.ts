@@ -66,4 +66,15 @@ export default {
   info: (state: any) => () => state.info,
 
   version: (state: any) => () => state.version,
+
+  me: (state: any) => () => state.me,
+
+  permissions: (state: any) => () => state.permissions,
+
+  // Convenience helper: check if the current user has a given action permission
+  can: (state: any, getters: any) => (actionId: string): boolean => {
+    const perms = getters.permissions?.() || {};
+
+    return !!perms[actionId];
+  },
 };

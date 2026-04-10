@@ -34,7 +34,8 @@ const store = useStore();
 
 const t = store.getters['i18n/t'];
 
-const saving = ref(false);
+const scalingInFlight = ref(false);
+const debouncePending = ref(false);
 const gitSource = ref<any>(null);
 const gitDeployment = ref({
   deployedCommit: { short: '', long: '' },
@@ -124,6 +125,10 @@ const commitActions = [{
   enabled: true
 }];
 
+// Debounce settings for scaling instances
+const UPDATE_INSTANCES_DEBOUNCE_MS = 2000; // 2s; adjust as needed
+let updateInstancesTimeout: number | null = null;
+
 onMounted(async () => {
   await store.dispatch('epinio/findAll', { type: EPINIO_TYPES.SERVICE_INSTANCE });
   await store.dispatch('epinio/findAll', { type: EPINIO_TYPES.CONFIGURATION });
@@ -135,16 +140,34 @@ onMounted(async () => {
 });
 
 async function updateInstances(newInstances: number) {
-  saving.value = true;
-  try {
-    props.value.configuration.instances = newInstances;
-    await props.value.update();
-    await props.value.forceFetch();
-  } catch (err) {
-    console.error(`Failed to scale Application: `, epinioExceptionToErrorsArray(err));
+  // Update desired and configured instances immediately so the UI reflects the target
+  props.value.desiredInstances = newInstances;
+  props.value.configuration.instances = newInstances;
+
+  // Debounce the API call so rapid clicks collapse into one request
+  if (updateInstancesTimeout !== null) {
+    clearTimeout(updateInstancesTimeout);
   }
-  saving.value = false;
+  debouncePending.value = true;
+
+  updateInstancesTimeout = window.setTimeout(async () => {
+    debouncePending.value = false;
+    scalingInFlight.value = true;
+
+    try {
+      await props.value.update();
+      await props.value.forceFetch();
+    } catch (err) {
+      console.error('[Epinio instances] Failed to scale Application', epinioExceptionToErrorsArray(err));
+    } finally {
+      scalingInFlight.value = false;
+      debouncePending.value = false;
+      updateInstancesTimeout = null;
+    }
+  }, UPDATE_INSTANCES_DEBOUNCE_MS);
 }
+
+const showScaleSpinner = computed(() => debouncePending.value || scalingInFlight.value);
 
 function formatURL(str: string) {
   const matchGit = str.match('^(https|git)(:\/\/|@)([^\/:]+)[\/:]([^\/:]+)\/(.+)(.git)*$'); // eslint-disable-line no-useless-escape
@@ -333,10 +356,16 @@ const commitPosition = computed(() => {
                 <PlusMinus
                   v-model:value="value.desiredInstances"
                   class="mt-15 mb-10"
-                  :disabled="saving"
+                  :disabled="scalingInFlight"
                   @minus="updateInstances(value.desiredInstances - 1)"
                   @plus="updateInstances(value.desiredInstances + 1)"
                 />
+                <div
+                  v-if="showScaleSpinner"
+                  class="scale-instances__spinner mt-5"
+                >
+                  <i class="icon-spinner animate-spin" />
+                </div>
               </div>
 
               <div class="deployment__origin__row">
@@ -744,6 +773,13 @@ const commitPosition = computed(() => {
     margin: 0 3px 0 -3px;
     font-size: 25px;
   }
+}
+
+.scale-instances__spinner {
+  display: inline-flex;
+  align-items: center;
+  font-size: 12px;
+  color: var(--muted-text);
 }
 
 .deployment__origin__list {

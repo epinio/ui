@@ -28,9 +28,25 @@ const openCreateRoute = () => {
   store.$router.push(createLocation.value);
 };
 
-const rows = computed(() => store.getters['epinio/all'](resource));
+// Strict RBAC: only show Create when we know the user has app write perms (hides for view_only)
+const canCreateApp = computed(() => {
+  const can = store.getters['epinio/can'];
+  const perms = store.getters['epinio/permissions']?.();
 
-// Group applications by namespace
+  // If we don't have a permission helper or a populated perms map yet, hide Create
+  if (!can || !perms || Object.keys(perms).length === 0) {
+    return false;
+  }
+
+  // Any of these actions implies the ability to create an app
+  return can('app_create') || can('app_write') || can('app');
+});
+
+const rows = computed(() => store.getters['epinio/all'](resource));
+const allNamespaces = computed(() => store.getters['epinio/all'](EPINIO_TYPES.NAMESPACE) || []);
+
+// Group applications by namespace. Include every namespace so the applications table
+// is shown even when a namespace has no applications.
 const groupedByNamespace = computed(() => {
   // Access the cache key to trigger namespace filter changes
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -39,19 +55,31 @@ const groupedByNamespace = computed(() => {
 
   const groups: Record<string, any[]> = {};
 
+  // Determine which namespace names to show (all, or filtered)
+  const showAll = !activeNamespaces || Object.keys(activeNamespaces).length === 0;
+  const namespaceNamesToShow = new Set<string>();
+
+  allNamespaces.value.forEach((ns: any) => {
+    const name = ns.meta?.name || ns.name;
+    if (name && (showAll || activeNamespaces[name])) {
+      namespaceNamesToShow.add(name);
+    }
+  });
+
+  // Initialize every visible namespace with an empty apps array
+  namespaceNamesToShow.forEach((name) => {
+    groups[name] = [];
+  });
+
+  // Assign each application to its namespace group
   rows.value.forEach((app: any) => {
     const namespace = app.meta?.namespace || 'default';
-
-    // Only include this namespace if it's in the active filter
-    // If no filter is active or filter is empty, show all namespaces
-    if (!activeNamespaces || Object.keys(activeNamespaces).length === 0 || activeNamespaces[namespace]) {
-      if (!groups[namespace]) {
-        groups[namespace] = [];
-      }
+    if (namespaceNamesToShow.has(namespace)) {
       groups[namespace].push(app);
     }
   });
 
+  // Fallback when no namespaces are loaded yet
   if (Object.keys(groups).length === 0) {
     groups['workspace'] = [];
   }
@@ -102,7 +130,10 @@ const columns: DataTableColumn[] = [
 ];
 
 onMounted(async () => {
+  await store.dispatch('epinio/me');
   await store.dispatch('epinio/findAll', { type: EPINIO_TYPES.APP });
+  // Ensure namespaces are loaded so we can show the applications table for every namespace (EPINIO-494)
+  await store.dispatch('epinio/findAll', { type: EPINIO_TYPES.NAMESPACE });
   // Non-blocking fetch
   store.dispatch('epinio/findAll', { type: EPINIO_TYPES.CONFIGURATION });
   store.dispatch('epinio/findAll', { type: EPINIO_TYPES.SERVICE_INSTANCE });
@@ -140,6 +171,7 @@ onUnmounted(() => {
     >
       <template #createButton>
         <button
+          v-if="canCreateApp"
           class="btn role-primary"
           @click="openCreateRoute"
         >
