@@ -44,14 +44,14 @@ export default class EpinioCatalogServiceModel extends EpinioMetaResource {
   }
 
   createService() {
-    const serviceCreateLocation = createEpinioRoute(`c-cluster-resource-create`, {
-     cluster:  this.$rootGetters['clusterId'],
-     resource: EPINIO_TYPES.SERVICE_INSTANCE,
+    const serviceListLocation = createEpinioRoute(`c-cluster-resource`, {
+      cluster:  this.$rootGetters['clusterId'],
+      resource: EPINIO_TYPES.SERVICE_INSTANCE,
     });
 
     return this.currentRouter().push({
-     ...serviceCreateLocation,
-     query: { [EPINIO_SERVICE_PARAM]: this.name }
+      ...serviceListLocation,
+      query: { mode: 'openModal', [EPINIO_SERVICE_PARAM]: this.name }
     });
   }
 }
