@@ -809,7 +809,7 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
     try {
       localStorage.setItem(this.asyncDeployStorageKey(), deploymentId);
     } catch (e) {
-      // Ignore storage failures (private mode / blocked storage).
+      console.log(e);
     }
   }
 
@@ -817,6 +817,7 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
     try {
       return localStorage.getItem(this.asyncDeployStorageKey()) || undefined;
     } catch (e) {
+      console.log(e);
       return undefined;
     }
   }
@@ -825,7 +826,8 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
     try {
       localStorage.removeItem(this.asyncDeployStorageKey());
     } catch (e) {
-      // Ignore storage failures.
+      console.log(e);
+      return undefined;
     }
   }
 
@@ -859,14 +861,10 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
   }
 
   extractDeploymentIdFromResponse(response, payload) {
-    // First prefer explicit payload ids.
-    const payloadId = this.extractDeploymentId(payload);
-    if (payloadId) {
-      return payloadId;
-    }
-
-    // Some proxies return 202 without body but preserve headers.
-    const headers = response?.headers || response?.response?.headers || {};
+    // The Location header is the authoritative source — the shell request wrapper
+    // runs bodies through epiniofy, which overwrites `id` with createId() and loses
+    // the server's deployment id when the body has no meta.name / name.
+    const headers = response?._headers || response?.headers || response?.response?.headers || {};
     const location = headers?.location || headers?.Location;
     const locationId = this.extractDeploymentIdFromLocation(location);
 
@@ -874,7 +872,11 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
       return locationId;
     }
 
-    // Last resort: try common wrappers.
+    const payloadId = this.extractDeploymentId(payload);
+    if (payloadId) {
+      return payloadId;
+    }
+
     return this.extractDeploymentId(response);
   }
 
@@ -909,7 +911,7 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
   /**
    * Deploy phase: wait for terminal async status or run sync deploy (fallback).
    */
-  async waitAsyncDeployPhase({ blobUid, builderImage, image, origin, isContainer }) {
+  async waitAsyncDeployPhase({ blobUid, builderImage, image, origin }) {
     this.trace('Async deploy phase');
     await this.ensureAsyncDeployStarted({ blobUid, builderImage, image, origin });
     if (this.buildCache.deployMode === 'sync') {
@@ -946,6 +948,7 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
         this.buildCache.asyncDeployDeploymentId = persistedId;
         return;
       } catch (e) {
+        console.log(e);
         // Stale id, start a fresh async deployment.
         this.clearPersistedAsyncDeploymentId();
       }
@@ -955,6 +958,9 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
       url:     this.linkFor('deployments'),
       method:  'post',
       headers: { 'content-type': 'application/json' },
+      // Bypass the epinio store's epiniofy() transform, which overwrites the body's
+      // `id` field (via createId) and costs us the server's deployment id.
+      responseType: 'json',
       data:    {
         app: {
           name:      this.meta.name,
@@ -972,7 +978,8 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
 
     try {
       const response = await this.$dispatch('request', { opt, type: this.type });
-      deployment = this.extractDeploymentPayload(response);
+      // With responseType set, `response` is the raw axios response: {data, headers, ...}.
+      deployment = response?.data ?? response;
       deploymentId = this.extractDeploymentIdFromResponse(response, deployment);
     } catch (e) {
       const status = e?._status || e?.errors?.[0]?.status;
@@ -1076,12 +1083,14 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
 
   async getDeploymentStatus(deploymentId) {
     const opt = {
-      url:    `${ this.linkFor('deployments') }/${ deploymentId }`,
-      method: 'get',
+      url:          `${ this.linkFor('deployments') }/${ deploymentId }`,
+      method:       'get',
+      responseType: 'json',
     };
 
     const response = await this.$dispatch('request', { opt, type: this.type });
-    return response?.data || response;
+
+    return response?.data ?? response;
   }
 
   async waitForDeployment(deploymentId, { timeoutMs = 20 * 60 * 1000, intervalMs = 2000 } = {}) {
