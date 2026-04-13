@@ -239,8 +239,12 @@ function onBulkFileChange(event: Event) {
       }
     });
 
+    // If there are new rows, add them to the existing config data. If the existing data is just one empty row, replace it instead.
     if (newRows.length) {
-      configData.value = [...configData.value, ...newRows];
+      const existing = configData.value;
+      const onlyEmptyRow = existing.length === 1 && !existing[0].key && !existing[0].value;
+
+      configData.value = onlyEmptyRow ? newRows : [...existing, ...newRows];
     }
   };
   reader.readAsText(file);
