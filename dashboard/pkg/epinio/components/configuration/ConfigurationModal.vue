@@ -407,6 +407,7 @@ defineExpose({ openCreate, openView, openEdit });
                 <span>Name <span class="required">*</span></span>
                 <span>Value <span class="required">*</span></span>
                 <span />
+                <span />
               </div>
               <div
                 v-for="(row, i) in configData"
@@ -420,11 +421,10 @@ defineExpose({ openCreate, openView, openEdit });
                   @text-input-change="(e: CustomEvent) => updateRowKey(i, e.detail.value)"
                 />
                 <div class="value-cell">
-                  <trailhand-text-input
+                  <trailhand-code-editor
                     :value="row.value"
                     :disabled="isView"
-                    style="width: 100%"
-                    @text-input-change="(e: CustomEvent) => updateRowValue(i, e.detail.value)"
+                    @code-input-change="(e: CustomEvent) => updateRowValue(i, e.detail.value)"
                   />
                   <input
                     v-if="isEditing"
@@ -433,14 +433,14 @@ defineExpose({ openCreate, openView, openEdit });
                     class="hidden-file-input"
                     @change="(e) => onValueFileChange(i, e)"
                   >
-                  <button
-                    v-if="isEditing"
-                    class="upload-link"
-                    @click="triggerValueFileUpload(i)"
-                  >
-                    Upload
-                  </button>
                 </div>
+                <button
+                  v-if="isEditing"
+                  class="upload-link"
+                  @click="triggerValueFileUpload(i)"
+                >
+                  Upload
+                </button>
                 <button
                   v-if="isEditing"
                   class="remove-link"
@@ -563,7 +563,7 @@ defineExpose({ openCreate, openView, openEdit });
 
 .config-data-header {
   display: grid;
-  grid-template-columns: 1fr 1fr 60px;
+  grid-template-columns: 0.8fr 1fr 40px 40px;
   gap: 8px;
   font-size: 12px;
   font-weight: 400;
@@ -577,7 +577,7 @@ defineExpose({ openCreate, openView, openEdit });
 
 .config-data-row {
   display: grid;
-  grid-template-columns: 1fr 1fr 60px;
+  grid-template-columns: 0.8fr 1fr 40px 40px;
   gap: 8px;
   align-items: center;
 }
@@ -593,10 +593,6 @@ defineExpose({ openCreate, openView, openEdit });
 }
 
 .upload-link {
-  position: absolute;
-  right: 8px;
-  top: 50%;
-  transform: translateY(-50%);
   background: none;
   border: none;
   padding: 0;
