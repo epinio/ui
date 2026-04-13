@@ -8,9 +8,7 @@ import Masthead from '@shell/components/ResourceList/Masthead';
 
 import { EPINIO_TYPES } from '../../../../types';
 import { createEpinioRoute } from '../../../../utils/custom-routing';
-
 import { startPolling, stopPolling } from '../../../../utils/polling';
-
 import {
   makeActionMenu,
   makeStateTag,
@@ -29,57 +27,108 @@ const schema = ref(store.getters['epinio/schemaFor'](resource));
 const createLocation = computed(() =>
   createEpinioRoute('c-cluster-applications-createapp', { cluster: store.getters['clusterId'] })
 );
+const openCreateRoute = () => router.push(createLocation.value);
 
-const openCreateRoute = () => {
-  router.push(createLocation.value);
-};
+const pending = ref(true);
 
-const rows = computed(() => store.getters['epinio/all'](resource));
+// Global state
+// Touch stateDisplay and meta to ensure reactivity with _MERGE polling that replaces all properties.
+const rows = computed(() => {
+  const all = store.getters['epinio/all'](EPINIO_TYPES.APP) as any[];
 
-const windowWidth = ref(window.innerWidth);
-const onResize = () => { windowWidth.value = window.innerWidth; };
+  all.forEach((row: any) => { void row.stateDisplay; void row.meta; });
 
-// Group applications by namespace
+  return [...all];
+});
+
+// Groups all apps by namespace, respecting the active namespace filter.
 const groupedByNamespace = computed(() => {
-  // Access the cache key to trigger namespace filter changes
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const cacheKey = store.state.activeNamespaceCacheKey;
+  const _cacheKey = store.state.activeNamespaceCacheKey;
   const activeNamespaces = store.state.activeNamespaceCache;
-
   const groups: Record<string, any[]> = {};
 
   rows.value.forEach((app: any) => {
     const namespace = app.meta?.namespace || 'default';
-
     if (!activeNamespaces || Object.keys(activeNamespaces).length === 0 || activeNamespaces[namespace]) {
-      if (!groups[namespace]) {
-        groups[namespace] = [];
-      }
+      if (!groups[namespace]) groups[namespace] = [];
       groups[namespace].push(app);
     }
   });
 
-  if (Object.keys(groups).length === 0) {
-    groups['workspace'] = [];
-  }
-
   return groups;
 });
 
-const pending = ref(true);
-const paginating = ref<Record<string, boolean>>({});
+// Sorted list of namespaces that have at least one app.
+const namespacesWithApps = computed(() =>
+  Object.keys(groupedByNamespace.value)
+    .filter(ns => groupedByNamespace.value[ns].length > 0)
+    .sort()
+);
 
-const handlePageChange = async(e: CustomEvent, namespace: string) => {
-  if (paginating.value[namespace]) return;
-  paginating.value = { ...paginating.value, [namespace]: true };
-  try {
-    await store.dispatch('epinio/goToPage', { type: resource, page: e.detail.page });
-  } finally {
-    paginating.value = { ...paginating.value, [namespace]: false };
-  }
-};
+// Responsive columns
+// Touch windowWidth to trigger recomputation on resize
 
-// Per-namespace search queries (keyed by namespace name)
+const windowWidth = ref(window.innerWidth);
+const onResize = () => { windowWidth.value = window.innerWidth; };
+
+const allColumns = [
+  {
+    field:     'stateDisplay',
+    label:     'State',
+    width:     '125px',
+    formatter: (_value: string, row: any) => makeStateTag(row)
+  },
+  {
+    field: 'nameDisplay',
+    label: 'Name',
+    width: '180px',
+    link:  (row: any) => {
+      try { return router.resolve(row.detailLocation).href; } catch { return '#'; }
+    }
+  },
+  { field: 'deployment.status', label: 'Status', width: '75px' },
+  {
+    field:     'route',
+    label:     'Routes',
+    width:     '180px',
+    sortable:  false,
+    formatter: (_value: any, row: any) => makeAppRoutesCell(row)
+  },
+  {
+    field:     'boundConfigs',
+    label:     'Bound Configs',
+    width:     '180px',
+    sortable:  false,
+    formatter: (_value: any, row: any) => makeRouterLinksOrEmpty(row.allConfigurations, router)
+  },
+  {
+    field:     'boundServices',
+    label:     'Bound Services',
+    width:     '180px',
+    sortable:  false,
+    formatter: (_value: any, row: any) => makeBoundServicesCell(row, router)
+  },
+  { field: 'deployment.username', label: 'Last Deployed By', width: '150px' },
+  { field: 'meta.createdAt',      label: 'Age',              width: '50px', formatter: 'age' }
+];
+
+const columns = computed(() => {
+  const w = windowWidth.value;
+  const hide = new Set<string>();
+
+  if (w < 1700) hide.add('deployment.username');
+  if (w < 1500) hide.add('deployment.status');
+  if (w < 1275) { hide.add('boundConfigs'); hide.add('boundServices'); }
+  if (w < 1100) hide.add('meta.createdAt');
+  if (w < 875)  hide.add('route');
+
+  return allColumns.filter(col => !hide.has(col.field));
+});
+
+// Per-namespace search
+// Stores the search query for each namespace group. Keys are namespace names, values are the current search query for that namespace.
+
 const searchQueries = ref<Record<string, string>>({});
 
 function getNestedValue(obj: any, path: string): any {
@@ -89,9 +138,7 @@ function getNestedValue(obj: any, path: string): any {
 function getFilteredApps(apps: any[], namespace: string): any[] {
   const query = (searchQueries.value[namespace] || '').toLowerCase().trim();
 
-  if (!query) {
-    return apps;
-  }
+  if (!query) return apps;
 
   return apps.filter(app =>
     columns.value.some((col: { field: string }) => {
@@ -102,130 +149,29 @@ function getFilteredApps(apps: any[], namespace: string): any[] {
   );
 }
 
-// Define all possible columns with their properties and formatters. 
-// We'll filter this list based on window width to determine which columns to show.
-const allColumns = [
-  {
-    field: 'stateDisplay',
-    label: 'State',
-    width: '125px',
-    formatter: (_value: string, row: any) => makeStateTag(row)
-  },
-  {
-    field: 'nameDisplay',
-    label: 'Name',
-    width: '180px',
-    link: (row: any) => {
-      try {
-        return router.resolve(row.detailLocation).href;
-      } catch {
-        return '#';
-      }
-    }
-  },
-  {
-    field: 'deployment.status',
-    label: 'Status',
-    width: '75px',
-  },
-  {
-    field: 'route',
-    label: 'Routes',
-    width: '180px',
-    sortable: false,
-    formatter: (_value: any, row: any) => makeAppRoutesCell(row)
-  },
-  {
-    field: 'boundConfigs',
-    label: 'Bound Configs',
-    width: '180px',
-    sortable: false,
-    formatter: (_value: any, row: any) => makeRouterLinksOrEmpty(row.allConfigurations, router)
-  },
-  {
-    field: 'boundServices',
-    label: 'Bound Services',
-    width: '180px',
-    sortable: false,
-    formatter: (_value: any, row: any) => makeBoundServicesCell(row, router)
-  },
-  {
-    field: 'deployment.username',
-    label: 'Last Deployed By',
-    width: '150px',
-  },
-  {
-    field: 'meta.createdAt',
-    label: 'Age',
-    width: '50px',
-    formatter: 'age'
-  }
-];
+const handleNavigate = (event: CustomEvent) => router.push(event.detail.url);
 
-// Drop lower-priority columns at smaller window widths to avoid horizontal scrolling.
-//   < 875px: show only State and Name
-//   <1100px: all columns except Routes
-//   <1275px: all columns except Routes, Bound Configs, and Bound Services
-//   <1500px: all columns except Last Deployed By
-//   <1700px: all columns
-const columns = computed(() => {
-  const w = windowWidth.value;
-  const hide = new Set<string>();
-
-  if (w < 1700) {
-    hide.add('deployment.username');
-  }
-  if (w < 1500) {
-    hide.add('deployment.status');
-  }
-  if (w < 1275) {
-    hide.add('boundConfigs');
-    hide.add('boundServices');
-  }
-  if (w < 1100) {
-    hide.add('meta.createdAt');
-  }
-  if (w < 875) {
-    hide.add('route');
-  }
-
-  return allColumns.filter(col => !hide.has(col.field));
-});
-
-// Handle internal navigation events emitted by trailhand-table link cells
-const handleNavigate = (event: CustomEvent) => {
-  const { url } = event.detail;
-
-  router.push(url);
-};
+// Lifecycle
+// Initial fetch of all apps, then start polling.
 
 onMounted(async () => {
   window.addEventListener('resize', onResize);
+
+  // ONE global fetch: no page params so backend returns all apps.
   await store.dispatch('epinio/findAll', { type: EPINIO_TYPES.APP });
-  // Non-blocking fetch
+
+  // Non-blocking: needed for bound-resource columns.
   store.dispatch('epinio/findAll', { type: EPINIO_TYPES.CONFIGURATION });
   store.dispatch('epinio/findAll', { type: EPINIO_TYPES.SERVICE_INSTANCE });
 
   pending.value = false;
-  startPolling(
-    [
-      'namespaces',
-      'applications',
-      'configurations',
-      'services',
-    ],
-    store
-  );
+
+  startPolling(['namespaces', 'applications', 'configurations', 'services'], store);
 });
 
 onUnmounted(() => {
   window.removeEventListener('resize', onResize);
-  stopPolling([
-    'namespaces',
-    'applications',
-    'configurations',
-    'services'
-  ]);
+  stopPolling(['namespaces', 'applications', 'configurations', 'services']);
 });
 </script>
 
@@ -248,16 +194,16 @@ onUnmounted(() => {
     </Masthead>
 
     <div
-      v-for="(apps, namespace) in groupedByNamespace"
-      :key="namespace"
+      v-for="ns in namespacesWithApps"
+      :key="ns"
       class="namespace-group"
     >
       <div class="namespace-group-header">
         <h3 class="namespace-header">
-          Namespace: <span class="namespace-name">{{ namespace }}</span>
+          Namespace: <span class="namespace-name">{{ ns }}</span>
         </h3>
         <input
-          v-model="searchQueries[namespace]"
+          v-model="searchQueries[ns]"
           type="text"
           class="namespace-search-input"
           placeholder="Search..."
@@ -266,15 +212,10 @@ onUnmounted(() => {
 
       <trailhand-table
         :ref="(el: any) => { if (el) el.renderActions = makeActionMenu; }"
-        :rows="getFilteredApps(apps, String(namespace))"
+        :rows="getFilteredApps(groupedByNamespace[ns], ns)"
         :columns="columns"
         :searchable="false"
-        :total-items="store.getters['epinio/paginationMeta'](resource)?.totalItems ?? store.getters['epinio/all'](resource).length"
-        :loading="paginating[namespace]"
-        :server-side="!!store.getters['epinio/paginationMeta'](resource)"
-        rows-per-page="10"
         @navigate="handleNavigate"
-        @page-change="(e: CustomEvent) => handlePageChange(e, String(namespace))"
       />
     </div>
   </div>
@@ -288,13 +229,11 @@ onUnmounted(() => {
     margin-bottom: 0;
   }
 
-  // Map Rancher shell's hover variable name to what trailhand-table expects
-  // CSS custom properties inherit into shadow DOM, fixing the dark mode white flash
   trailhand-table {
     --sortable-table-row-hover-bg: var(--sortable-table-hover-bg);
     --sortable-table-header-hover-bg: var(--sortable-table-hover-bg);
     --sortable-table-header-sorted-bg: var(--sortable-table-hover-bg);
-    overflow-wrap: anywhere; // inherited into shadow DOM — prevents long strings from overflowing column boundaries
+    overflow-wrap: anywhere;
   }
 }
 
