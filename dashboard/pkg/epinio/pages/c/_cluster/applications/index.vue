@@ -31,8 +31,10 @@ const openCreateRoute = () => router.push(createLocation.value);
 
 const pending = ref(true);
 
-// Global state
-// Touch stateDisplay and meta to ensure reactivity with _MERGE polling that replaces all properties.
+// ── Global store rows ────────────────────────────────────────────────────────
+// ONE global findAll seeds the initial display instantly (no page params →
+// backend returns all apps). Touch reactive properties so _MERGE polling
+// updates that mutate items in-place are tracked by Vue.
 const rows = computed(() => {
   const all = store.getters['epinio/all'](EPINIO_TYPES.APP) as any[];
 
@@ -41,10 +43,9 @@ const rows = computed(() => {
   return [...all];
 });
 
-// Groups all apps by namespace, respecting the active namespace filter.
+// Groups all apps by namespace respecting the active namespace filter.
 const groupedByNamespace = computed(() => {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const _cacheKey = store.state.activeNamespaceCacheKey;
+  void store.state.activeNamespaceCacheKey;
   const activeNamespaces = store.state.activeNamespaceCache;
   const groups: Record<string, any[]> = {};
 
@@ -59,15 +60,53 @@ const groupedByNamespace = computed(() => {
   return groups;
 });
 
-// Sorted list of namespaces that have at least one app.
-const namespacesWithApps = computed(() =>
-  Object.keys(groupedByNamespace.value)
-    .filter(ns => groupedByNamespace.value[ns].length > 0)
-    .sort()
-);
+// Per-namespace pagination state
+
+type PaginationMeta = { page: number; pageSize: number; totalItems: number; totalPages: number };
+
+const namespaceRows         = ref<Record<string, any[]>>({});
+const namespaceLoading      = ref<Record<string, boolean>>({});
+const namespaceMeta         = ref<Record<string, PaginationMeta | null>>({});
+const namespaceCurrentPages = ref<Record<string, number>>({});
+
+// Returns the best available rows for a namespace: namespace-specific once
+// fetched, global store rows before that (instant initial display).
+function getDisplayRows(ns: string): any[] {
+  return namespaceRows.value[ns] ?? groupedByNamespace.value[ns] ?? [];
+}
+
+// silent=true → skip loading overlay (polling and background meta seeding)
+async function fetchNamespaceApps(namespace: string, page = 1, silent = false) {
+  if (!silent) {
+    namespaceLoading.value = { ...namespaceLoading.value, [namespace]: true };
+  }
+  namespaceCurrentPages.value = { ...namespaceCurrentPages.value, [namespace]: page };
+
+  try {
+    const { items, meta } = await store.dispatch('epinio/findAppsInNamespace', { namespace, page });
+
+    namespaceRows.value = { ...namespaceRows.value, [namespace]: items };
+    namespaceMeta.value = { ...namespaceMeta.value, [namespace]: meta };
+  } finally {
+    if (!silent) {
+      namespaceLoading.value = { ...namespaceLoading.value, [namespace]: false };
+    }
+  }
+}
+
+async function handlePageChange(event: CustomEvent, namespace: string) {
+  await fetchNamespaceApps(namespace, event.detail.page);
+}
+
+// Only render namespace groups that have apps in either source.
+const namespacesWithApps = computed(() => {
+  const fromGlobal   = Object.keys(groupedByNamespace.value).filter(ns => groupedByNamespace.value[ns].length > 0);
+  const fromSpecific = Object.keys(namespaceRows.value).filter(ns => (namespaceRows.value[ns]?.length ?? 0) > 0);
+
+  return [...new Set([...fromGlobal, ...fromSpecific])].sort();
+});
 
 // Responsive columns
-// Touch windowWidth to trigger recomputation on resize
 
 const windowWidth = ref(window.innerWidth);
 const onResize = () => { windowWidth.value = window.innerWidth; };
@@ -127,7 +166,6 @@ const columns = computed(() => {
 });
 
 // Per-namespace search
-// Stores the search query for each namespace group. Keys are namespace names, values are the current search query for that namespace.
 
 const searchQueries = ref<Record<string, string>>({});
 
@@ -152,12 +190,11 @@ function getFilteredApps(apps: any[], namespace: string): any[] {
 const handleNavigate = (event: CustomEvent) => router.push(event.detail.url);
 
 // Lifecycle
-// Initial fetch of all apps, then start polling.
 
 onMounted(async () => {
   window.addEventListener('resize', onResize);
 
-  // ONE global fetch: no page params so backend returns all apps.
+  // ONE global fetch, no page params so backend returns all apps.
   await store.dispatch('epinio/findAll', { type: EPINIO_TYPES.APP });
 
   // Non-blocking: needed for bound-resource columns.
@@ -166,6 +203,14 @@ onMounted(async () => {
 
   pending.value = false;
 
+  // Background: silently fetch page 1 per namespace to populate pagination
+  // meta. No loading overlays, initial display from global data is already
+  // visible. Fires AFTER pending=false so the tables are already rendered.
+  const seenNamespaces = Object.keys(groupedByNamespace.value);
+
+  seenNamespaces.forEach(ns => fetchNamespaceApps(ns, 1, true));
+
+  // ONE global poll per cycle, not one per namespace.
   startPolling(['namespaces', 'applications', 'configurations', 'services'], store);
 });
 
@@ -210,12 +255,23 @@ onUnmounted(() => {
         >
       </div>
 
+      <!--
+        server-side becomes true once per-namespace meta arrives.
+        Until then the table shows up to 10 global rows with no pagination
+        controls (never more than one page worth). Loading overlay only
+        appears on explicit user-initiated page changes, not polling.
+      -->
       <trailhand-table
         :ref="(el: any) => { if (el) el.renderActions = makeActionMenu; }"
-        :rows="getFilteredApps(groupedByNamespace[ns], ns)"
+        :rows="getFilteredApps(getDisplayRows(ns), ns)"
         :columns="columns"
         :searchable="false"
+        :server-side="!!namespaceMeta[ns]"
+        :total-items="namespaceMeta[ns]?.totalItems ?? 0"
+        :current-page="namespaceCurrentPages[ns] ?? 1"
+        :loading="namespaceLoading[ns] ?? false"
         @navigate="handleNavigate"
+        @page-change="(e: CustomEvent) => handlePageChange(e, ns)"
       />
     </div>
   </div>

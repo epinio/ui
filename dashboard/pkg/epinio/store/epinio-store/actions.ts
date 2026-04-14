@@ -404,7 +404,7 @@ export default {
 
     // classify() instantiates the proper model class so computed properties
     // (stateDisplay, nameDisplay, detailLocation, allConfigurations, etc.)
-    // are available for the column formatters — same as what findAll does.
+    // are available for the column formatters, same as what findAll does.
     const items = rawItems.map((item: any) => classify(ctx, item));
 
     return {
