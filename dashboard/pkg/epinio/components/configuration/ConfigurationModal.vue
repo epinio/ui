@@ -369,6 +369,13 @@ defineExpose({ openCreate, openView, openEdit });
     @modal-close="handleModalClose"
   >
     <div class="modal-content">
+      <!-- Service-managed notice: shown when a config was created by a service (not directly by a user) -->
+      <Banner
+        v-if="!isCreate && configModel?.configuration?.origin"
+        color="info"
+        :label="`This configuration is managed by the '${configModel.configuration.origin}' service. It cannot be edited or deleted here. To make changes, update the '${configModel.configuration.origin}' service.`"
+      />
+
       <trailhand-form-card>
         <!-- Namespace + Name -->
         <trailhand-form-row columns="2">
