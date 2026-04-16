@@ -60,6 +60,14 @@ const emit = defineEmits<{
   (e: 'valid', valid: boolean): void;
 }>();
 
+const isEdit = computed(() => props.mode === _EDIT);
+const isView = computed(() => props.mode === 'view');
+
+const manifestFileInput = ref<HTMLInputElement | null>(null);
+const archiveFileInput = ref<HTMLInputElement | null>(null);
+const folderFileInput = ref<HTMLInputElement | null>(null);
+const fileDialogActive = ref(false);
+
 // Defaults
 const defaultBuilderImage = ref(props.info?.default_builder_image || DEFAULT_BUILD_PACK); 
 const builderImageValue = ref(props.source?.builderImage || defaultBuilderImage.value);
@@ -218,7 +226,6 @@ function urlRule() {
     gitUrl.validGitUrl = true;
   } else {
     gitUrl.validGitUrl = false;
-    return t('epinio.applications.steps.source.git_url.error.label');
   }
 }
 
@@ -226,6 +233,36 @@ function onFileSelected(file: File) {
   archive.tarball = file;
   archive.fileName = file.name;
   update();
+}
+
+function handleArchiveFileClick() {
+  if (archiveFileInput.value) {
+    fileDialogActive.value = true;
+    archiveFileInput.value.click();
+  }
+}
+
+function handleArchiveFileChange(event: Event) {
+  const input = event.target as HTMLInputElement;
+  if (input.files && input.files[0]) {
+    onFileSelected(input.files[0]);
+    input.value = ''; // Clear the input so the same file can be selected again if needed
+  }
+}
+
+function handleFromManifestClick() {
+  if (manifestFileInput.value) {
+    fileDialogActive.value = true;
+    manifestFileInput.value.click();
+  }
+}
+
+function handleManifestFileChange(event: Event) {
+  const input = event.target as HTMLInputElement;
+  if (input.files && input.files[0]) {
+    onManifestFileSelected(input.files[0] as any);
+    input.value = ''; // Clear the input so the same file can be selected again if needed
+  }
 }
 
 function onManifestFileSelected(file: string) {
@@ -276,6 +313,21 @@ function onManifestFileSelected(file: string) {
   }
 }
 
+function handleFolderFileClick() {
+  if (folderFileInput.value) {
+    fileDialogActive.value = true;
+    folderFileInput.value.click();
+  }
+}
+
+function handleFolderFileChange(event: Event) {
+  const input = event.target as HTMLInputElement;
+  if (input.files && input.files.length > 0) {
+    onFolderSelected(input.files as any);
+    input.value = ''; // Clear the input so the same folder can be selected again if needed
+  }
+}
+
 function onFolderSelected(files: FileWithRelativePath | FileWithRelativePath[]) {
   const safeFiles = Array.isArray(files) ? files : [files];
   let folderName = '';
@@ -320,17 +372,28 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="appSource">
+  <div class="appSource" id="modal-container-element">
     <div class="button-row source">
-      <LabeledSelect
+      <trailhand-dropdown
+        style="flex: 1"
+        :options="types"
+        :value="type"
+        label="Source Type"
+        :required="true"
+        :disabled="isEdit || isView"
+        placeholder="Select a source type"
+        @dropdown-change="(e: CustomEvent) => type = e.detail.value"
+        data-testid="epinio_app-source_type"
+      ></trailhand-dropdown>
+      <!-- <LabeledSelect
         v-model:value="type"
         data-testid="epinio_app-source_type"
         label="Source Type"
         :options="types"
         :mode="mode"
         :clearable="false"
-      />
-      <FileSelector
+      /> -->
+      <!-- <FileSelector
         v-clean-tooltip="t('epinio.applications.steps.source.manifest.tooltip')"
         data-testid="epinio_app-source_manifest"
         class="role-tertiary add mt-5"
@@ -338,22 +401,45 @@ onMounted(() => {
         :mode="mode"
         :raw-data="false"
         @selected="onManifestFileSelected"
-      />
+      /> -->
+      <trailhand-button
+        variant="alternate"
+        @button-click="handleFromManifestClick"
+        data-testid="epinio_app-source_manifest"
+      >
+        From Manifest
+      </trailhand-button>
+      <input
+        ref="manifestFileInput"
+        type="file"
+        class="hidden-file-input"
+        @change="handleManifestFileChange"
+        @cancel="fileDialogActive = false"
+      >
     </div>
 
     <template v-if="type === APPLICATION_SOURCE_TYPE.ARCHIVE">
       <div class="spacer source">
         <h3>{{ t('epinio.applications.steps.source.archive.file.label') }}</h3>
         <div class="button-row">
-          <LabeledInput
+          <!-- <LabeledInput
             v-model:value="archive.fileName"
             data-testid="epinio_app-source_archive_name"
             :disabled="true"
             :tooltip="t('epinio.applications.steps.source.archive.file.tooltip')"
             :label="t('epinio.applications.steps.source.archive.file.inputLabel')"
             :required="true"
+          /> -->
+          <trailhand-text-input
+            style="flex: 1"
+            :value="archive.fileName"
+            data-testid="epinio_app-source_archive_name"
+            :disabled="true"
+            :label="t('epinio.applications.steps.source.archive.file.inputLabel')"
+            :required="true"
+            size="small"
           />
-          <FileSelector
+          <!-- <FileSelector
             data-testid="epinio_app-source_archive_file"
             class="role-tertiary add mt-5"
             :label="t('epinio.applications.steps.source.archive.file.button')"
@@ -361,7 +447,22 @@ onMounted(() => {
             :raw-data="true"
             :accept="'.zip, .tar, .gz, .bz2, .xz'"
             @selected="onFileSelected"
-          />
+          /> -->
+          <trailhand-button
+            variant="alternate"
+            @button-click="handleArchiveFileClick"
+            data-testid="epinio_app-source_archive_file"
+          >
+            Select File
+          </trailhand-button>
+          <input
+            ref="archiveFileInput"
+            type="file"
+            class="hidden-file-input"
+            @change="handleArchiveFileChange"
+            @cancel="fileDialogActive = false"
+            accept=".zip, .tar, .gz, .bz2, .xz"
+          >
         </div>
       </div>
     </template>
@@ -370,15 +471,24 @@ onMounted(() => {
       <div class="spacer source">
         <h3>{{ t('epinio.applications.steps.source.folder.file.label') }}</h3>
         <div class="button-row">
-          <LabeledInput
+          <!-- <LabeledInput
             v-model:value="archive.fileName"
             data-testid="epinio_app-source_folder_name"
             :disabled="true"
             :tooltip="t('epinio.applications.steps.source.folder.file.tooltip')"
             :label="t('epinio.applications.steps.source.folder.file.inputLabel')"
             :required="true"
+          /> -->
+          <trailhand-text-input
+            style="flex: 1"
+            :value="archive.fileName"
+            data-testid="epinio_app-source_folder_name"
+            :disabled="true"
+            :label="t('epinio.applications.steps.source.folder.file.inputLabel')"
+            :required="true"
+            size="small"
           />
-          <FileSelector
+          <!-- <FileSelector
             data-testid="epinio_app-source_folder_file"
             class="role-tertiary add mt-5"
             :label="t('epinio.applications.steps.source.folder.file.button')"
@@ -386,7 +496,21 @@ onMounted(() => {
             :raw-data="true"
             :directory="true"
             @selected="onFolderSelected"
-          />
+          /> -->
+          <trailhand-button
+            variant="alternate"
+            @button-click="handleFolderFileClick"
+            data-testid="epinio_app-source_folder_file"
+          >
+            Select Folder
+          </trailhand-button>
+          <input
+            ref="folderFileInput"
+            type="file"
+            class="hidden-file-input"
+            @change="handleFolderFileChange"
+            @cancel="fileDialogActive = false"
+          >
         </div>
       </div>
     </template>
@@ -394,13 +518,21 @@ onMounted(() => {
     <template v-else-if="type === APPLICATION_SOURCE_TYPE.CONTAINER_URL">
       <div class="spacer source">
         <h3>{{ t('epinio.applications.steps.source.container_url.url.label') }}</h3>
-        <LabeledInput
+        <!-- <LabeledInput
           v-model:value="container.url"
           data-testid="epinio_app-source_container"
           :tooltip="t('epinio.applications.steps.source.container_url.url.tooltip')"
           :label="t('epinio.applications.steps.source.container_url.url.inputLabel')"
           :required="true"
           @input="update"
+        /> -->
+        <trailhand-text-input
+          style="width: 100%;"
+          :value="container.url"
+          data-testid="epinio_app-source_container"
+          :label="t('epinio.applications.steps.source.container_url.url.inputLabel')"
+          :required="true"
+          @text-input-change="(e: CustomEvent) => { container.url = e.detail.value; update(); }"
         />
       </div>
     </template>
@@ -408,7 +540,7 @@ onMounted(() => {
     <template v-else-if="type === APPLICATION_SOURCE_TYPE.GIT_URL">
       <div class="spacer source">
         <h3>{{ t('epinio.applications.steps.source.git_url.url.label') }}</h3>
-        <LabeledInput
+        <!-- <LabeledInput
           v-model:value="gitUrl.url"
           v-focus
           data-testid="epinio_app-source_git-url"
@@ -419,11 +551,23 @@ onMounted(() => {
           :rules="[urlRule]"
           @delay="100"
           @input="update"
+        /> -->
+        <trailhand-text-input
+          style="width: 100%;"
+          :value="gitUrl.url"
+          data-testid="epinio_app-source_git-url"
+          :label="t('epinio.applications.steps.source.git_url.url.inputLabel')"
+          :placeholder="'https://github.com/{user or org}/{repository}'"
+          :required="true"
+          @text-input-change="(e: CustomEvent) => { gitUrl.url = e.detail.value; urlRule(); update(); }"
         />
+        <p v-if="gitUrl.url && !gitUrl.validGitUrl" class="error">
+          {{ t('epinio.applications.steps.source.git_url.error.label') }}
+        </p> 
       </div>
       <div class="spacer source">
         <h3>{{ t('epinio.applications.steps.source.git_url.branch.label') }}</h3>
-        <LabeledInput
+        <!-- <LabeledInput
           v-model:value="gitUrl.branch"
           data-testid="epinio_app-source_git-branch"
           :tooltip="t('epinio.applications.steps.source.git_url.branch.tooltip')"
@@ -431,6 +575,15 @@ onMounted(() => {
           :required="true"
           :disabled="!gitUrl.validGitUrl"
           @input="update"
+        /> -->
+        <trailhand-text-input
+          style="width: 100%;"
+          :value="gitUrl.branch"
+          data-testid="epinio_app-source_git-branch"
+          :label="t('epinio.applications.steps.source.git_url.branch.inputLabel')"
+          :required="true"
+          :disabled="!gitUrl.validGitUrl"
+          @text-input-change="(e: CustomEvent) => { gitUrl.branch = e.detail.value; update(); }"
         />
       </div>
     </template>
@@ -443,12 +596,9 @@ onMounted(() => {
       />
     </template>
 
-    <Collapse
-      v-model:value:open="open"
-      :title="'Advanced Settings'"
-      class="pt-30 pb-30 source"
-    >
-      <LabeledSelect
+    <div class="spacer source">
+      <h3>Advanced Settings</h3>
+      <!-- <LabeledSelect
         v-model:value="appChart"
         data-testid="epinio_app-source_appchart"
         :label="t('epinio.applications.steps.source.archive.appchart.label')"
@@ -460,10 +610,20 @@ onMounted(() => {
         :reduce="(e) => e.value"
         :disabled="mode === EDIT"
         @input="update"
+      /> -->
+      <trailhand-dropdown
+        style="width: 100%;"
+        :value="appChart"
+        data-testid="epinio_app-source_appchart"
+        :label="t('epinio.applications.steps.source.archive.appchart.label')"
+        :options="appCharts"
+        :disabled="isEdit || isView"
+        placeholder="Select an application chart"
+        @dropdown-change="(e: CustomEvent) => { appChart = e.detail.value; update(); }"
       />
 
       <template v-if="showBuilderImage">
-        <RadioGroup
+        <!-- <RadioGroup
           v-model:value="builderImage.default"
           class="mt-20"
           name="defaultBuilderImage"
@@ -475,17 +635,34 @@ onMounted(() => {
           :options="[true, false]"
           :label-key="'epinio.applications.steps.source.archive.builderimage.label'"
           @update:value="onImageType"
-        />
-        <LabeledInput
-          v-model:value="builderImage.value"
-          data-testid="epinio_app-source_builder-value"
-          :disabled="builderImage.default"
-          :tooltip="t('epinio.applications.steps.source.archive.builderimage.tooltip')"
-          :mode="mode"
-          @input="update"
-        />
+        /> -->
+        <div class="spacer source builder-image">
+          <h4>Paketo Builder Image</h4>
+          <trailhand-checkbox
+            :checked="!builderImage.default"
+            @checkbox-change="onImageType(!builderImage.default)"
+            data-testid="epinio_app-source_builder-default"
+          >
+            Use Custom Builder Image
+          </trailhand-checkbox>
+          <!-- <LabeledInput
+            v-model:value="builderImage.value"
+            data-testid="epinio_app-source_builder-value"
+            :disabled="builderImage.default"
+            :tooltip="t('epinio.applications.steps.source.archive.builderimage.tooltip')"
+            :mode="mode"
+            @input="update"
+          /> -->
+          <trailhand-text-input
+            style="width: 100%;"
+            :value="builderImage.value"
+            data-testid="epinio_app-source_builder-value"
+            :disabled="builderImage.default"
+            @text-input-change="(e: CustomEvent) => { builderImage.value = e.detail.value; update(); }"
+          />
+        </div>
       </template>
-    </Collapse>
+    </div>
   </div>
 </template>
 
@@ -500,11 +677,8 @@ onMounted(() => {
 
   .button-row {
     display: flex;
-    align-items: center;
-    .file-selector {
-      margin-top: 0 !important;
-      margin-left: 5px;
-    }
+    align-items: flex-end;
+    gap: 1rem;
   }
 
   .collapse {
@@ -514,5 +688,13 @@ onMounted(() => {
 .archive {
   display: flex;
   flex-direction: column;
+}
+.hidden-file-input {
+  display: none;
+}
+.builder-image {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 </style>
