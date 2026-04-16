@@ -25,9 +25,11 @@ const saving = ref(false);
 const errors = ref<string[]>([]);
 const showDiscardConfirm = ref(false);
 
-// Hidden file inputs, one for "add from file" (bulk), one per value row (single)
+// Hidden file inputs, both rendered outside the modal to avoid focus-return side effects
 const bulkFileInput = ref<HTMLInputElement | null>(null);
-const valueFileInputs = ref<Record<number, HTMLInputElement>>({});
+const rowFileInput = ref<HTMLInputElement | null>(null);
+const currentUploadRow = ref<number | null>(null);
+const fileDialogActive = ref(false);
 
 const isView = computed(() => modalMode.value === 'view');
 const isEdit = computed(() => modalMode.value === 'edit');
@@ -82,7 +84,7 @@ const validationPassed = computed(() => {
   return isEdit.value && isDirty.value;
 });
 
-const modalTitle = computed(() => formName.value || 'Advanced Configurations');
+const modalTitle = computed(() => isCreate.value ? 'Advanced Configurations' : (formName.value || 'Advanced Configurations'));
 
 const modalSubtitle = computed(() => {
   if (isCreate.value) return 'Create New';
@@ -143,6 +145,7 @@ function openEdit(row: any) {
 }
 
 function handleModalClose() {
+  if (fileDialogActive.value) return;
   if (isDirty.value) {
     showDiscardConfirm.value = true;
   } else {
@@ -188,35 +191,43 @@ function updateRowValue(i: number, value: string) {
   configData.value = configData.value.map((row, idx) => idx === i ? { ...row, value } : row);
 }
 
-// Upload a file and set its contents as the value for row i
+// Upload a file and set its contents as the value for row i.
+// Uses a single shared input rendered outside the modal so that when the OS
+// file dialog closes, focus does not return inside the modal shadow DOM and
+// accidentally trigger modal-close.
 function triggerValueFileUpload(i: number) {
-  const input = valueFileInputs.value[i];
-
-  if (input) input.click();
+  if (!rowFileInput.value) return;
+  currentUploadRow.value = i;
+  fileDialogActive.value = true;
+  rowFileInput.value.click();
 }
 
-function onValueFileChange(i: number, event: Event) {
+function onRowFileChange(event: Event) {
+  fileDialogActive.value = false;
   const file = (event.target as HTMLInputElement).files?.[0];
 
-  if (!file) return;
+  if (file && currentUploadRow.value !== null) {
+    const row = currentUploadRow.value;
+    const reader = new FileReader();
 
-  const reader = new FileReader();
-
-  reader.onload = (e) => {
-    updateRowValue(i, (e.target?.result as string) || '');
-  };
-  reader.readAsText(file);
-  // Reset so the same file can be re-selected
+    reader.onload = (e) => {
+      updateRowValue(row, (e.target?.result as string) || '');
+    };
+    reader.readAsText(file);
+  }
   (event.target as HTMLInputElement).value = '';
+  currentUploadRow.value = null;
 }
 
 // "Add from file", parse a KEY=VALUE file and add rows
 function triggerBulkFileUpload() {
+  fileDialogActive.value = true;
   bulkFileInput.value?.click();
 }
 
 // Parse a simple KEY=VALUE file, ignoring empty lines and comments (lines starting with #)
 function onBulkFileChange(event: Event) {
+  fileDialogActive.value = false;
   const file = (event.target as HTMLInputElement).files?.[0];
 
   if (!file) return;
@@ -239,8 +250,12 @@ function onBulkFileChange(event: Event) {
       }
     });
 
+    // If there are new rows, add them to the existing config data. If the existing data is just one empty row, replace it instead.
     if (newRows.length) {
-      configData.value = [...configData.value, ...newRows];
+      const existing = configData.value;
+      const onlyEmptyRow = existing.length === 1 && !existing[0].key && !existing[0].value;
+
+      configData.value = onlyEmptyRow ? newRows : [...existing, ...newRows];
     }
   };
   reader.readAsText(file);
@@ -330,12 +345,20 @@ defineExpose({ openCreate, openView, openEdit });
 </script>
 
 <template>
-  <!-- Hidden file input for bulk "Add from file" -->
+  <!-- Hidden file inputs rendered outside the modal to prevent focus-return from closing it -->
   <input
     ref="bulkFileInput"
     type="file"
     class="hidden-file-input"
     @change="onBulkFileChange"
+    @cancel="fileDialogActive = false"
+  >
+  <input
+    ref="rowFileInput"
+    type="file"
+    class="hidden-file-input"
+    @change="onRowFileChange"
+    @cancel="fileDialogActive = false"
   >
 
   <trailhand-modal
@@ -426,13 +449,6 @@ defineExpose({ openCreate, openView, openEdit });
                     :disabled="isView"
                     @code-input-change="(e: CustomEvent) => updateRowValue(i, e.detail.value)"
                   />
-                  <input
-                    v-if="isEditing"
-                    :ref="(el) => { if (el) valueFileInputs[i] = el as HTMLInputElement; }"
-                    type="file"
-                    class="hidden-file-input"
-                    @change="(e) => onValueFileChange(i, e)"
-                  >
                 </div>
                 <button
                   v-if="isEditing"
