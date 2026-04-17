@@ -16,11 +16,6 @@ import { EPINIO_TYPES, EpinioNamespace, EpinioAppInfo } from '../../types';
 import Application from '../../models/applications';
 import { objValuesToString } from '../../utils/settings';
 
-/*interface Data {
-  errors: string[],
-  values?: EpinioAppInfo
-}*/
-
 const store = useStore();
 
 const t = store.getters['i18n/t'];
@@ -43,14 +38,19 @@ const errors = ref<string[]>([]); // eslint-disable-line @typescript-eslint/no-u
 const values = ref<EpinioAppInfo | undefined>(undefined);
 const validSettings = ref<{ [key: string]: boolean }>({});
 const showEnvValues = ref(false);
-
+const envVariables = ref<{ key: string; value: string }[]>([]);
+const bulkFileInput = ref<HTMLInputElement | null>(null);
+const fileDialogActive = ref(false);
 
 // Computed properties
 const namespaces = computed(() => {
   return sortBy(store.getters['epinio/all'](EPINIO_TYPES.NAMESPACE), 'name', false);
 });
 
-const namespaceNames = computed(() => namespaces.value.map((n: EpinioNamespace) => n.meta?.name));
+const namespaceNames = computed(() => namespaces.value.map((n: EpinioNamespace) => ({
+  label: n.metadata.name,
+  value: n.metadata.name
+})));
 
 const valid = computed(() => {
   if (!values.value) {
@@ -151,6 +151,7 @@ onMounted(() => {
     },
   };
 
+  envVariables.value = Object.entries(valuesData.configuration.environment).map(([key, value]) => ({ key, value }));
   values.value = valuesData;
   validSettings.value = {};
 
@@ -181,6 +182,17 @@ watch(() => values.value?.configuration.routes, update);
 watch(valid, (newValid) => {
   emit('valid', newValid);
 });
+watch(envVariables, (newEnvVars) => {
+  values.value.configuration.environment = newEnvVars.reduce((acc, { key, value }) => {
+    if (key && value) {
+      acc[key] = value;
+      return acc;
+    } else {
+      return acc;
+    }
+  }, {});
+  update();
+}, { deep: true });
 
 // Handler for name and namespace updates
 function handleNameNsUpdate(updatedValue: { metadata?: { name?: string; namespace?: string } }) {
@@ -235,44 +247,128 @@ const moveBooleansToFront = (settingsObj: any) => {
 
   return Object.fromEntries(entries);
 };
+
+const addRow = () => {
+  envVariables.value.push({ key: '', value: '' });
+};
+
+const removeRow = (index: number) => {
+  envVariables.value.splice(index, 1);
+};
+
+const updateRowKey = (index: number, newKey: string) => {
+  envVariables.value[index].key = newKey;
+};
+
+const updateRowValue = (index: number, newValue: string) => {
+  envVariables.value[index].value = newValue;
+};
+
+// "Add from file", parse a KEY=VALUE file and add rows
+function triggerBulkFileUpload() {
+  fileDialogActive.value = true;
+  bulkFileInput.value?.click();
+}
+
+// Parse a simple KEY=VALUE file, ignoring empty lines and comments (lines starting with #)
+function onBulkFileChange(event: Event) {
+  fileDialogActive.value = false;
+  const file = (event.target as HTMLInputElement).files?.[0];
+
+  if (!file) return;
+
+  const reader = new FileReader();
+
+  reader.onload = (e) => {
+    const text = (e.target?.result as string) || '';
+    const newRows: Array<{ key: string; value: string }> = [];
+
+    text.split('\n').forEach((line) => {
+      const trimmed = line.trim();
+
+      if (!trimmed || trimmed.startsWith('#')) return;
+
+      const sep = trimmed.indexOf('=');
+
+      if (sep > 0) {
+        newRows.push({ key: trimmed.slice(0, sep).trim(), value: trimmed.slice(sep + 1) });
+      }
+    });
+
+    // If there are new rows, add them to the existing config data. If the existing data is just one empty row, replace it instead.
+    if (newRows.length) {
+      const existing = envVariables.value;
+      const onlyEmptyRow = existing.length === 1 && !existing[0].key && !existing[0].value;
+
+      envVariables.value = onlyEmptyRow ? newRows : [...existing, ...newRows];
+    }
+  };
+  reader.readAsText(file);
+  (event.target as HTMLInputElement).value = '';
+}
+
+const isEditing = computed(() => props.mode === _EDIT);
 </script>
 
 <template>
   <Loading v-if="!values" />
-  <div v-else>
-    <div class="col">
-      <NameNsDescription
-        data-testid="epinio_app-info_name-ns"
-        :namespaces-override="namespaceNames"
-        :create-namespace-override="true"
-        :description-hidden="true"
-        :value="{metadata: values.meta}"
+  <trailhand-form-card v-else>
+    <trailhand-form-row columns="3">
+      <trailhand-dropdown
+        :value="values.meta.namespace"
+        :options="namespaceNames"
+        label="Namespace"
+        :placeholder="t('epinio.applications.create.namespacePlaceholder')"
         :mode="props.mode"
-        @update:value="handleNameNsUpdate"
-        @createNamespace="ns => values.meta.namespace = ns"
-      />
-    </div>
-    <div class="col span-6">
-      <LabeledInput
-        v-model:value="values.configuration.instances"
-        data-testid="epinio_app-info_instances"
-        type="number"
-        min="0"
+        data-testid="epinio_app-info_namespace"
         required
-        :mode="props.mode"
-        :label="t('epinio.applications.create.instances')"
+        @dropdown-change="(e: CustomEvent) => handleNameNsUpdate({ metadata: { namespace: e.detail.value } })"
       />
-    </div>
-    <div class="spacer" />
-    <div class="col span-8">
-      <ArrayList
-        v-model:value="values.configuration.routes"
-        data-testid="epinio_app-info_routes"
-        :title="t('epinio.applications.create.routes.title')"
-        :protip="t('epinio.applications.create.routes.tooltip')"
+      <trailhand-text-input
+        :value="values.meta.name"
+        data-testid="epinio_app-info_name"
+        label="Name"
+        :placeholder="t('epinio.applications.create.namePlaceholder')"
         :mode="props.mode"
-        :value-placeholder="t('epinio.applications.create.routes.placeholder')"
+        required
+        @text-input-change="(e: CustomEvent) => handleNameNsUpdate({ metadata: { name: e.detail.value } })"
       />
+      <trailhand-text-input
+        :value="values.configuration.instances"
+        data-testid="epinio_app-info_instances"
+        label="Instances"
+        :placeholder="t('epinio.applications.create.instancesPlaceholder')"
+        :mode="props.mode"
+        @text-input-change="(e: CustomEvent) => {values.configuration.instances = e.detail.value; update()}"
+        required
+        type="number"
+       />
+    </trailhand-form-row>
+    <div>
+      <h3>Routes</h3>
+      <div v-for="(route, index) in values.configuration.routes" :key="index" class="route-item">
+        <trailhand-text-input
+          style="flex: 1;"
+          :value="route"
+          :placeholder="t('epinio.applications.create.routes.placeholder')"
+          :mode="props.mode"
+          @text-input-change="(e: CustomEvent) => { values.configuration.routes[index] = e.detail.value; update(); }"
+        />
+        <button
+          v-if="props.mode !== 'view'"
+          class="remove-link"
+          @click="() => { values.configuration.routes.splice(index, 1); update(); }"
+        >
+          Remove
+        </button>
+      </div>
+      <trailhand-button
+        v-if="props.mode !== 'view'"
+        variant="secondary"
+        @button-click="() => { values.configuration.routes.push(''); update(); }"
+      >
+        Add Row
+      </trailhand-button>
     </div>
     <div class="spacer" />
     <div v-if="isEdit" class="col span-8">
@@ -307,19 +403,66 @@ const moveBooleansToFront = (settingsObj: any) => {
             <img v-else :src="eyeOffIcon" alt="Hide values" class="icon" />
           </button>
         </div>
-        <KeyValue
-          v-model:value="values.configuration.environment"
-          :value-concealed="props.mode === 'view' || !showEnvValues"
-          data-testid="epinio_app-info_envs"
-          :mode="props.mode"
-          :key-label="t('epinio.applications.create.envvar.keyLabel')"
-          :value-label="t('epinio.applications.create.envvar.valueLabel')"
-          :parse-lines-from-file="true"
-        />
+        <div class="env-var-data">
+          <template v-if="envVariables.length > 0 || isEditing">
+
+            <div
+              v-for="(envVar, i) in envVariables"
+              :key="i"
+              class="env-var-row"
+            >
+              <trailhand-text-input
+                style="flex: 1;"
+                :value="envVar.key"
+                label="Key"
+                required
+                placeholder="e.g. foo"
+                @text-input-change="(e: CustomEvent) => updateRowKey(i, e.detail.value)"
+              />
+              <trailhand-code-editor
+                style="flex: 1;"
+                :value="envVar.value"
+                label="Value"
+                required
+                @code-input-change="(e: CustomEvent) => updateRowValue(i, e.detail.value)"
+              />
+              <button
+                class="remove-link"
+                @click="removeRow(i)"
+              >
+                Remove
+              </button>
+            </div>
+          </template>
+          <div
+            class="config-data-actions"
+          >
+            <trailhand-button
+              variant="secondary"
+              size="small"
+              @button-click="addRow"
+            >
+              Add
+            </trailhand-button>
+            <trailhand-button
+              variant="secondary"
+              size="small"
+              @button-click="triggerBulkFileUpload"
+            >
+              Read From File
+            </trailhand-button>
+            <input
+              ref="bulkFileInput"
+              type="file"
+              class="hidden-file-input"
+              @change="onBulkFileChange"
+              @cancel="fileDialogActive = false"
+            >
+          </div>
+        </div>
       </div>
-      <div class="mb-20" /> <!-- allow a small amount of padding at bottom -->
     </div>
-  </div>
+  </trailhand-form-card>
 </template>
 
 <style scoped>
@@ -353,5 +496,40 @@ const moveBooleansToFront = (settingsObj: any) => {
   .icon-button .icon {
     width: 25px;
     height: 25px;
+  }
+
+  .route-item {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+
+  .env-var-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 8px;
+    align-items: flex-end;
+  }
+
+
+  .remove-link {
+    background: none;
+    border: none;
+    padding: 0;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--error);
+    cursor: pointer;
+    text-align: left;
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+
+  .hidden-file-input {
+    display: none;
   }
 </style>

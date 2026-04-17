@@ -72,7 +72,7 @@ const onInputCheckbox = (key: string, value: boolean) => {
   <div class="chart-values">
     <h3>{{ props.title }}</h3>
     <div v-for="(setting, key) in props.chart" :key="key" class="chart-values-item">
-      <LabeledInput
+      <!-- <LabeledInput
         v-if="setting.type === 'number' || setting.type === 'integer'"
         :id="key"
         v-model:value="props.value[key]"
@@ -84,8 +84,20 @@ const onInputCheckbox = (key: string, value: boolean) => {
         :tooltip="numericPlaceholder(setting)"
         :mode="props.mode"
         :disabled="props.disabled"
-      />
-      <Checkbox
+      /> -->
+      <trailhand-text-input
+        v-if="setting.type === 'number' || setting.type === 'integer'"
+        :id="key"
+        :value="props.value[key]"
+        :label="key"
+        type="number"
+        :min="setting.minimum"
+        :max="setting.maximum"
+        :rules="[rules(key, setting.minimum, setting.maximum)]"
+        :disabled="props.disabled"
+        @text-input-change="(e: CustomEvent) => props.value[key] = e.detail.value"
+       />
+      <!-- <Checkbox
         v-else-if="setting.type === 'bool'"
         :id="key"
         :value="props.value[key] === 'true'"
@@ -93,8 +105,16 @@ const onInputCheckbox = (key: string, value: boolean) => {
         :mode="props.mode"
         :disabled="props.disabled"
         @update:value="onInputCheckbox(key, $event)"
-      />
-      <LabeledSelect
+      /> -->
+      <trailhand-checkbox
+        v-else-if="setting.type === 'bool'"
+        :id="key"
+        :value="props.value[key] === 'true'"
+        :label="key"
+        :disabled="props.disabled"
+        @checkbox-change="(e: CustomEvent) => onInputCheckbox(key, e.detail.value)"
+       />
+      <!-- <LabeledSelect
         v-else-if="setting.type === 'string' && setting.enum"
         :id="key"
         v-model:value="props.value[key]"
@@ -102,15 +122,32 @@ const onInputCheckbox = (key: string, value: boolean) => {
         :options="setting.enum"
         :mode="props.mode"
         :disabled="props.disabled"
-      />
-      <LabeledInput
+      /> -->
+      <trailhand-dropdown
+        v-else-if="setting.type === 'string' && setting.enum"
+        :id="key"
+        :value="props.value[key]"
+        :label="key"
+        :options="setting.enum"
+        :disabled="props.disabled"
+        @dropdown-change="(e: CustomEvent) => props.value[key] = e.detail.value"
+       />
+       <!-- <LabeledInput
         v-else-if="setting.type === 'string'"
         :id="key"
         v-model:value="props.value[key]"
         :label="key"
         :mode="props.mode"
         :disabled="props.disabled"
-      />
+       /> -->
+       <trailhand-text-input
+        v-else-if="setting.type === 'string'"
+        :id="key"
+        :value="props.value[key]"
+        :label="key"
+        :disabled="props.disabled"
+        @text-input-change="(e: CustomEvent) => props.value[key] = e.detail.value"
+       />
     </div>
   </div>
 </template>
