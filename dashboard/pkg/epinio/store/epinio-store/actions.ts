@@ -130,7 +130,11 @@ export default {
               totalPages: (out as any).totalPages
             };
 
-            commit('setPaginationMeta', { type, meta: pagination });
+            // Allow callers to opt out of updating global pagination state
+            // (e.g. per-namespace fetches that maintain their own meta)
+            if (!opt._skipPaginationMeta) {
+              commit('setPaginationMeta', { type, meta: pagination });
+            }
 
             res.data = {
               data:        items.map((o: any) => epiniofy(o, schema, type)),
@@ -309,7 +313,6 @@ export default {
   loadCluster: async( { dispatch, commit, rootGetters }: any, { id }: any ) => {
     await dispatch(`loadSchemas`);
     await dispatch(`findAll`, { type: EPINIO_TYPES.NAMESPACE });
-    dispatch(`findAll`, { type: EPINIO_TYPES.APP }); // This is used often, get a kick start
     await dispatch('cleanNamespaces', null, { root: true });
 
     const key = createNamespaceFilterKeyWithId(id, EPINIO_PRODUCT_NAME);
@@ -379,6 +382,34 @@ export default {
     commit('version', version);
 
     return info;
+  },
+
+  /**
+   * Fetch a single page of applications scoped to a specific namespace.
+   * Does NOT touch global paginationMeta so per-namespace tables stay independent.
+   * Returns { items: any[], meta: { page, pageSize, totalItems, totalPages } | null }
+   */
+  findAppsInNamespace: async(ctx: any, { namespace, page = 1 }: { namespace: string; page?: number }) => {
+    const { dispatch } = ctx;
+    const result = await dispatch('request', {
+      opt: {
+        url:                 `/api/v1/namespaces/${ namespace }/applications?page=${ page }&pageSize=10`,
+        _skipPaginationMeta: true,
+      },
+      type: EPINIO_TYPES.APP,
+    });
+
+    const rawItems: any[] = result?.data ?? [];
+
+    // classify() instantiates the proper model class so computed properties
+    // (stateDisplay, nameDisplay, detailLocation, allConfigurations, etc.)
+    // are available for the column formatters, same as what findAll does.
+    const items = rawItems.map((item: any) => classify(ctx, item));
+
+    return {
+      items,
+      meta: result?._pagination ?? null,
+    };
   },
 
   goToPage: async({ commit, dispatch }: any, { type, page }: SetPaginationPagePayload) => {
