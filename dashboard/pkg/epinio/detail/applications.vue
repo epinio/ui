@@ -83,8 +83,9 @@ const serviceColumns = [
     label: 'Name'
   },
   {
-    field: 'catalog_service',
-    label: 'Catalog Service'
+    field:     'catalog_service',
+    label:     'Catalog Service',
+    formatter: (_v: any, row: any) => row.external ? '(external)' : row.catalog_service
   },
   {
     field: 'catalog_service_version',
