@@ -219,6 +219,7 @@ export interface EpinioServiceResource {
   boundapps: string[],
   catalog_service: string,
   catalog_service_version: string,
+  external?: boolean,
   internal_routes?: string[],
   status: string,
 }

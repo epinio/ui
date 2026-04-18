@@ -159,7 +159,9 @@ const columns = [
     field: 'catalog_service',
     label: 'Catalog Service',
     sortable: false,
-    formatter: (_v: any, row: any) => makeRouterLink(row.catalog_service, row.serviceLocation, router)
+    formatter: (_v: any, row: any) => row.external
+      ? '(external)'
+      : makeRouterLink(row.catalog_service, row.serviceLocation, router)
   },
   {
     field: 'catalog_service_version',
