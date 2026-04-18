@@ -14,6 +14,14 @@ const props = defineProps<{ schema: object }>(); // eslint-disable-line @typescr
 const pending = ref(true);
 const searchQuery = ref(null);
 
+const serviceIconMap = {
+  'mongodb': new URL('../assets/icons/mongodb.png', import.meta.url).href,
+  'mysql': new URL('../assets/icons/mysql.png', import.meta.url).href,
+  'postgresql': new URL('../assets/icons/postgresql.png', import.meta.url).href,
+  'rabbitmq': new URL('../assets/icons/rabbitmq.png', import.meta.url).href,  
+  'redis': new URL('../assets/icons/redis.png', import.meta.url).href,
+}
+
 onMounted(async () => {
   await store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.CATALOG_SERVICE });
   pending.value = false;
@@ -51,24 +59,28 @@ const colorFor = () => {
 <template>
   <Loading v-if="pending" />
   <div v-else>
-    <div class="filter-block">
-      <input
+    <div class="filter-block" id="modal-container-element">
+      <trailhand-text-input
         v-model="searchQuery"
         type="search"
         class="input-sm"
         :placeholder="t('catalog.charts.search')"
-      >
+      />
     </div>
 
-    <SelectIconGrid
-      :rows="list"
-      :color-for="colorFor"
-      name-field="name"
-      icon-field="serviceIcon"
-      key-field="name"
-      description-field="short_description"
-      @clicked="(row) => showDetails(row)"
-    />
+    <div class="cards-container">
+      <trailhand-card
+        v-for="service in list"
+        :key="service.id"
+        :card-title="service.meta.name"
+        :description="service.short_description"
+        :icon-src="serviceIconMap[service.chart] || null"
+        :icon-name="serviceIconMap[service.chart] ? null : 'database'"
+        clickable
+        @click="showDetails(service)"
+      >
+    </trailhand-card>
+    </div>
   </div>
 </template>
 
@@ -78,6 +90,25 @@ const colorFor = () => {
   justify-content: flex-end;
   input {
     width: 315px;
+  }
+}
+
+.cards-container {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-top: 16px;
+}
+
+@media (max-width: 992px) {
+  .cards-container {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .cards-container {
+    grid-template-columns: repeat(1, 1fr);
   }
 }
 </style>

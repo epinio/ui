@@ -18,6 +18,7 @@ import {
 import EpinioCluster from '../../models/epiniomgmt/epinio.io.management.cluster';
 import { RedirectToError } from '@shell/utils/error';
 import { allHashSettled } from '@shell/utils/promise';
+import { SetPaginationPagePayload } from './types';
 
 const createId = (schema: any, resource: any) => {
   const name = resource.meta?.name || resource.name;
@@ -52,7 +53,7 @@ export default {
   async request(context: any, {
     opt, type, clusterId, growlOnError = false
   }: any) {
-    const { rootGetters, dispatch, getters } = context;
+    const { rootGetters, dispatch, getters, commit } = context;
 
     const spoofedRes = await handleSpoofedRequest(rootGetters, EPINIO_PRODUCT_NAME, opt, EPINIO_PRODUCT_NAME);
 
@@ -117,9 +118,30 @@ export default {
           const schema = getters.schemaFor(type);
 
           if (Array.isArray(out)) {
+            // Non-paginated collection
             res.data = { data: out.map((o) => epiniofy(o, schema, type)) };
+          } else if (Array.isArray((out as any).items)) {
+            // Paginated collection: unwrap items but preserve pagination metadata
+            const items = (out as any).items;
+            const pagination = {
+              page:       (out as any).page,
+              pageSize:   (out as any).pageSize,
+              totalItems: (out as any).totalItems,
+              totalPages: (out as any).totalPages
+            };
+
+            // Allow callers to opt out of updating global pagination state
+            // (e.g. per-namespace fetches that maintain their own meta)
+            if (!opt._skipPaginationMeta) {
+              commit('setPaginationMeta', { type, meta: pagination });
+            }
+
+            res.data = {
+              data:        items.map((o: any) => epiniofy(o, schema, type)),
+              _pagination: pagination
+            };
           } else {
-            // `find` action turns this into `{data: out}`
+            // Single resource: `find` action turns this into `{data: out}`
             res.data = epiniofy(out, schema, type);
           }
 
@@ -292,8 +314,6 @@ export default {
     await dispatch(`loadSchemas`);
     await dispatch(`findAll`, { type: EPINIO_TYPES.NAMESPACE });
     dispatch(`findAll`, { type: EPINIO_TYPES.APP }); // This is used often, get a kick start
-    dispatch('findAll', { type: EPINIO_TYPES.CONFIGURATION });
-    dispatch('findAll', { type: EPINIO_TYPES.SERVICE_INSTANCE });
     await dispatch('cleanNamespaces', null, { root: true });
 
     const key = createNamespaceFilterKeyWithId(id, EPINIO_PRODUCT_NAME);
@@ -363,6 +383,39 @@ export default {
     commit('version', version);
 
     return info;
+  },
+
+  /**
+   * Fetch a single page of applications scoped to a specific namespace.
+   * Does NOT touch global paginationMeta so per-namespace tables stay independent.
+   * Returns { items: any[], meta: { page, pageSize, totalItems, totalPages } | null }
+   */
+  findAppsInNamespace: async(ctx: any, { namespace, page = 1 }: { namespace: string; page?: number }) => {
+    const { dispatch } = ctx;
+    const result = await dispatch('request', {
+      opt: {
+        url:                 `/api/v1/namespaces/${ namespace }/applications?page=${ page }&pageSize=10`,
+        _skipPaginationMeta: true,
+      },
+      type: EPINIO_TYPES.APP,
+    });
+
+    const rawItems: any[] = result?.data ?? [];
+
+    // classify() instantiates the proper model class so computed properties
+    // (stateDisplay, nameDisplay, detailLocation, allConfigurations, etc.)
+    // are available for the column formatters, same as what findAll does.
+    const items = rawItems.map((item: any) => classify(ctx, item));
+
+    return {
+      items,
+      meta: result?._pagination ?? null,
+    };
+  },
+
+  goToPage: async({ commit, dispatch }: any, { type, page }: SetPaginationPagePayload) => {
+    commit('setPaginationPage', { type, page });
+    await dispatch('findAll', { type, opt: { force: true } });
   },
 
 };
