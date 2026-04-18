@@ -22,8 +22,24 @@ const t = store.getters['i18n/t'];
 
 const errors = ref<Array<string>>([]);
 const resource: string = EPINIO_TYPES.NAMESPACE;
-
 const displayRows = ref<EpinioNamespace[]>([]);
+
+const paginationMeta = computed(() => store.getters['epinio/paginationMeta'](resource));
+const currentPage = computed(() => store.getters['epinio/currentPaginationPage'](resource));
+
+const paginating = ref(false);
+
+async function goToPage(page: number) {
+  const meta = paginationMeta.value;
+
+  if (meta && (page < 1 || page > meta.totalPages)) return;
+  paginating.value = true;
+  try {
+    await store.dispatch('epinio/goToPage', { type: resource, page });
+  } finally {
+    paginating.value = false;
+  }
+}
 
 const value = ref<EpinioNamespace>({ meta: { name: '' } } as EpinioNamespace);
 const showCreateModal = ref<boolean>(false);
@@ -220,7 +236,12 @@ const columns = [
       :ref="(el: any) => { if (el) el.renderActions = makeActionMenu; }"
       :rows="displayRows"
       :columns="columns"
+      :server-side="!!paginationMeta"
+      :total-items="paginationMeta?.totalItems ?? displayRows.length"
+      :current-page="currentPage"
+      :loading="paginating"
       key-field="_key"
+      @page-change="(e: CustomEvent) => goToPage(e.detail.page)"
     />
     <trailhand-modal
       :open.prop="showCreateModal"
@@ -309,9 +330,9 @@ const columns = [
 }
 
 .modal-content {
-  display: flex; 
-  flex-direction: column; 
-  gap: 1rem; 
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
   width: 500px;
 }
 
@@ -320,5 +341,6 @@ trailhand-table {
   --sortable-table-header-hover-bg: var(--sortable-table-hover-bg);
   --sortable-table-header-sorted-bg: var(--sortable-table-hover-bg);
 }
+
 </style>
 

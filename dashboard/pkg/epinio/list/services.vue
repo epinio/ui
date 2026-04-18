@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref, watchEffect } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watchEffect } from 'vue';
 import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
 
@@ -21,6 +21,23 @@ const t = store.getters['i18n/t'];
 const router = useRouter();
 
 const resource: string = EPINIO_TYPES.SERVICE_INSTANCE;
+const paginationMeta = computed(() => store.getters['epinio/paginationMeta'](resource));
+const currentPage = computed(() => store.getters['epinio/currentPaginationPage'](resource));
+
+const paginating = ref(false);
+
+async function goToPage(page: number) {
+  const meta = paginationMeta.value;
+
+  if (meta && (page < 1 || page > meta.totalPages)) return;
+  paginating.value = true;
+  try {
+    await store.dispatch('epinio/goToPage', { type: resource, page });
+  } finally {
+    paginating.value = false;
+  }
+}
+
 const serviceModal = ref<InstanceType<typeof ServiceInstanceModal> | null>(null);
 const deleteModal = ref<InstanceType<typeof ServiceDeleteModal> | null>(null);
 const displayRows = ref<any[]>([]);
@@ -114,7 +131,6 @@ const handleNavigate = (event: CustomEvent) => {
   router.push(event.detail.url);
 };
 
-
 const columns = [
   {
     field: 'stateDisplay',
@@ -186,8 +202,13 @@ const columns = [
       :rows="displayRows"
       :columns="columns"
       :searchable="true"
+      :server-side="!!paginationMeta"
+      :total-items="paginationMeta?.totalItems ?? displayRows.length"
+      :current-page="currentPage"
+      :loading="paginating"
       key-field="id"
       @navigate="handleNavigate"
+      @page-change="(e: CustomEvent) => goToPage(e.detail.page)"
     />
     <ServiceInstanceModal ref="serviceModal" />
     <ServiceDeleteModal ref="deleteModal" />
@@ -200,10 +221,12 @@ trailhand-table {
   --sortable-table-header-hover-bg: var(--sortable-table-hover-bg);
   --sortable-table-header-sorted-bg: var(--sortable-table-hover-bg);
 }
+
 .modal-content {
   display: flex;
   flex-direction: column;
   gap: 1rem;
   max-width: 500px;
 }
+
 </style>

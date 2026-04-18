@@ -1,11 +1,11 @@
 {
   "name": "epinio",
-  "version": "v1.13.9",
+  "version": "v1.13.10",
   "engines": {
     "node": ">=20"
   },
   "dependencies": {
-    "@krumio/trailhand-ui": "^1.9.14",
+    "@krumio/trailhand-ui": "^1.9.17",
     "@rancher/shell": "3.0.7",
     "@types/lodash": "^4.17.16",
     "eslint": "^9.28.0",
