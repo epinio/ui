@@ -334,6 +334,22 @@ const commitPosition = computed(() => {
     </div>
 
     <h3
+      class="mt-20"
+    >
+      CVE Scan
+    </h3>
+
+    <SimpleBox>
+      CVEs Fixed
+      <ul v-if="value.cve && value.cve.fixed && value.cve.fixed.length">
+        <li v-for="fixed in value.cve.fixed" :key="fixed.VulnerabilityID">
+          {{ fixed.VulnerabilityID }} - {{ fixed.Title }}
+        </li>
+      </ul>
+      <p v-else>No Items Found</p>
+    </SimpleBox>
+
+    <h3
       v-if="value.deployment"
       class="mt-20"
     >

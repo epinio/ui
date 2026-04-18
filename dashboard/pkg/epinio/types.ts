@@ -169,6 +169,7 @@ export interface EpinioApplicationResource {
   }
   status: string
   statusmessage: string
+  cve: any,
 }
 
 export type EpinioApplication = EpinioApplicationResource & EpinioApplicationModel & EpinioMetaProperty;
