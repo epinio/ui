@@ -4,13 +4,14 @@ import { ref, computed, watch, onMounted } from 'vue';
 import { useStore } from 'vuex';
 import { sortBy } from '@shell/utils/sort';
 import { _VIEW } from '@shell/config/query-params';
-import { EpinioConfiguration, EpinioService, EPINIO_TYPES, EPINIO_APP_MANIFEST } from '../../types';
+import { EpinioConfiguration, EpinioService, EPINIO_TYPES, EPINIO_APP_MANIFEST, EpinioAppBindings } from '../../types';
 import Application from '../../models/applications';
 
 interface Props {
   initialApplication?: Application;
   application: Application;
   mode: string;
+  bindings?: EpinioAppBindings;
 }
 
 const props = defineProps<Props>();
@@ -21,8 +22,8 @@ const store = useStore();
 const t = store.getters['i18n/t'];
 
 const values = ref({
-  configurations: [] as string[],
-  services: [] as EpinioService[],
+  configurations: props.bindings?.configurations || [] as string[],
+  services: props.bindings?.services || [] as EpinioService[],
 });
 
 const fetchData = async () => {
@@ -136,7 +137,7 @@ watch(hasServices, (neu, old) => {
 <template>
   <div class="configurations">
     <trailhand-dropdown
-      :value="values.configurations"
+      :values="values.configurations"
       data-testid="epinio_app-configuration_configurations"
       :disabled="noConfigs || isView"
       :options="configurations"
@@ -147,7 +148,7 @@ watch(hasServices, (neu, old) => {
       @dropdown-change="(e: CustomEvent) => values.configurations = e.detail.values"
       />
     <trailhand-dropdown
-      :value="values.services"
+      :values="values.services"
       data-testid="epinio_app-configuration_services"
       :disabled="noServices || isView"
       :options="services"

@@ -70,7 +70,7 @@ const fileDialogActive = ref(false);
 
 // Defaults
 const defaultBuilderImage = ref(props.info?.default_builder_image || DEFAULT_BUILD_PACK); 
-const builderImageValue = ref(props.source?.builderImage || defaultBuilderImage.value);
+const builderImageValue = ref(props.source?.builderImage.value || defaultBuilderImage.value);
 
 // Reactive State
 const open = ref(false);
@@ -175,7 +175,10 @@ function update() {
     archive,
     container,
     gitUrl,
-    builderImage,
+    builderImage: {
+      value: builderImageValue.value,
+      default:  builderImageValue.value === defaultBuilderImage.value
+    },
     appChart: appChart.value,
     git
   });
@@ -655,10 +658,10 @@ onMounted(() => {
           /> -->
           <trailhand-text-input
             style="width: 100%;"
-            :value="builderImage.value"
+            :value="builderImageValue"
             data-testid="epinio_app-source_builder-value"
             :disabled="builderImage.default"
-            @text-input-change="(e: CustomEvent) => { builderImage.value = e.detail.value; update(); }"
+            @text-input-change="(e: CustomEvent) => { builderImageValue = e.detail.value; update(); }"
           />
         </div>
       </template>
