@@ -37,6 +37,18 @@ const handleCreateClick = () => {
   configModal.value?.openCreate();
 };
 
+// Strict RBAC: only show Create when user has configuration write (hides for view_only)
+const canCreateConfiguration = computed(() => {
+  const can = store.getters['epinio/can'];
+  const perms = store.getters['epinio/permissions']?.();
+
+  if (!can || !perms || Object.keys(perms).length === 0) {
+    return false;
+  }
+
+  return can('configuration_write') || can('configuration');
+});
+
 watchEffect(() => {
   void store.state.activeNamespaceCacheKey;
   const activeNamespaces = store.state.activeNamespaceCache;
@@ -187,6 +199,7 @@ const columns = computed(() => {
     >
       <template #createButton>
         <trailhand-button
+          v-if="canCreateConfiguration"
           variant="primary"
           size="large"
           @click="handleCreateClick"
