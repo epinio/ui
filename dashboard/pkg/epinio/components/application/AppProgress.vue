@@ -18,7 +18,8 @@ const props = defineProps<{
   source: EpinioAppSource,
   bindings?: EpinioAppBindings | null,
   mode: string,
-  step: any
+  tab: any,
+  active: boolean,
 }>();
 
 const emit = defineEmits(['finished']);
@@ -114,7 +115,7 @@ const create = async () => {
 
 watch(running, (neu, prev) => {
   if (prev && !neu) {
-    props.step.ready = true;
+    props.tab.completed = true;
   }
 });
 
@@ -202,7 +203,13 @@ const createActions = async () => {
   create();
 };
 
-onMounted(createActions);
+// onMounted(createActions);
+
+watch(() => props.active, (isActive) => {
+  if (isActive && !actions.value.length) {
+    createActions();
+  }
+});
 </script>
 
 <template>

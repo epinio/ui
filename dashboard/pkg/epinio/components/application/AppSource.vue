@@ -375,7 +375,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="appSource" id="modal-container-element">
+  <div class="appSource">
     <div class="button-row source">
       <trailhand-dropdown
         style="flex: 1"
@@ -383,7 +383,6 @@ onMounted(() => {
         :value="type"
         label="Source Type"
         :required="true"
-        :disabled="isEdit || isView"
         placeholder="Select a source type"
         @dropdown-change="(e: CustomEvent) => type = e.detail.value"
         data-testid="epinio_app-source_type"

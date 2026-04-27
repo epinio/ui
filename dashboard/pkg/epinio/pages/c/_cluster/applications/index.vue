@@ -6,6 +6,7 @@ import { useRouter } from 'vue-router';
 import Loading from '@shell/components/Loading';
 import Masthead from '@shell/components/ResourceList/Masthead';
 
+import AppModal from '../../../../components/application/AppModal.vue';
 import { EPINIO_TYPES } from '../../../../types';
 import { createEpinioRoute } from '../../../../utils/custom-routing';
 
@@ -18,6 +19,8 @@ import {
   makeRouterLinksOrEmpty,
   makeBoundServicesCell,
 } from '../../../../utils/table-formatters';
+import EpinioApplicationModel from 'models/applications';
+import { overrideTableRows } from '../../../../utils/table-formatters';
 
 const store = useStore();
 const router = useRouter();
@@ -25,6 +28,7 @@ const t = store.getters['i18n/t'];
 
 const resource = EPINIO_TYPES.APP;
 const schema = ref(store.getters['epinio/schemaFor'](resource));
+const appModal = ref<InstanceType<typeof AppModal> | null>(null);
 
 const createLocation = computed(() =>
   createEpinioRoute('c-cluster-applications-createapp', { cluster: store.getters['clusterId'] })
@@ -78,17 +82,54 @@ function getNestedValue(obj: any, path: string): any {
 function getFilteredApps(apps: any[], namespace: string): any[] {
   const query = (searchQueries.value[namespace] || '').toLowerCase().trim();
 
+  const overrideProps = [
+    {
+      prop: 'availableActions',
+      value: (row: EpinioApplicationModel) => {
+        const actions = [...row.availableActions];
+        const goToEditIndex = actions.findIndex((a: any) => a.action === 'goToEdit');
+        const newAction = {
+            action: 'goToEdit',
+            label: 'Edit',
+            enabled: true
+          };
+        if (goToEditIndex !== -1) {
+          actions.splice(goToEditIndex, 1, newAction);
+        } else {
+          actions.push(newAction);
+        }
+        return actions;
+      },
+      conditionFn: (row: EpinioApplicationModel) => {
+        return true;
+      },
+    },
+    {
+      prop: 'goToEdit',
+      value: (row: EpinioApplicationModel) => () => {
+        appModal.value?.openEdit(row);
+      },
+      conditionFn: (row: EpinioApplicationModel) => {
+        return true;
+      }, 
+    }
+  ];
+
   if (!query) {
+    return overrideTableRows(apps, overrideProps);
     return apps;
   }
 
-  return apps.filter(app =>
+  const filteredApps = apps.filter(app =>
     columns.value.some((col: { field: string }) => {
       const value = String(getNestedValue(app, col.field) ?? '');
 
       return value.toLowerCase().includes(query);
     })
   );
+
+  return overrideTableRows(filteredApps, overrideProps);
+  return filteredApps;
 }
 
 // Define all possible columns with their properties and formatters. 
@@ -231,6 +272,13 @@ onUnmounted(() => {
           size="large"
           @click="openCreateRoute"
         >
+          Old Create
+        </trailhand-button>
+        <trailhand-button
+          variant="primary"
+          size="large"
+          @click="appModal?.openCreate()"
+        >
           {{ t('generic.create') }}
         </trailhand-button>
       </template>
@@ -262,6 +310,7 @@ onUnmounted(() => {
       />
     </div>
   </div>
+  <AppModal ref="appModal" />
 </template>
 
 <style lang="scss" scoped>

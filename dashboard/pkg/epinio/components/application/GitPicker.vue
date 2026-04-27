@@ -19,7 +19,6 @@ const store = useStore();
 const t = store.getters['i18n/t'];
 
 const debounceTime = inject<number>('debounceTime', 1000);
-
 // State
 const hasError = reactive({ acc: false, repo: false, branch: false, commits: false });
 const repos = ref<object[]>([]);
@@ -27,14 +26,14 @@ const branches = ref<object[]>([]);
 const commits = ref<any[]>([]);
 const selectedAccOrOrg = ref<string | undefined>(props.value?.selectedAccOrOrg);
 const selectedRepo = ref<object | undefined>(props.value?.selectedRepo);
-const selectedRepoId = computed(() => selectedRepo.value?.id);
+const selectedRepoName = computed(() => selectedRepo.value?.name);
 const selectedBranch = ref<object | undefined>(props.value?.selectedBranch);
 const selectedBranchName = computed(() => selectedBranch.value?.name);
 const selectedCommit = ref<Commit | null>(props.value?.selectedCommit);
 
 // Computed
 const preparedRepos = computed(() =>
-  normalizeArray(repos.value, (item: any) => ({ value: item.id, label: item.name }))
+  normalizeArray(repos.value, (item: any) => ({ value: item.name, label: item.name }))
 );
 
 const preparedBranches = computed(() =>
@@ -341,13 +340,13 @@ watch(() => props.value, async(neu, old) => {
       >
         <trailhand-dropdown
           style="width: 100%"
-          :value="selectedRepoId"
+          :value="selectedRepoName"
           data-testid="git_picker-repo"
           :label="t(`gitPicker.${ type }.repo.inputLabel`)"
           :required="true"
           :options="preparedRepos"
           @dropdown-change="(e: CustomEvent) => { 
-            const selected = repos.find((r: any) => r.id === e.detail.value);
+            const selected = repos.find((r: any) => r.name === e.detail.value);
             selectedRepo = selected; 
           }"
           filterable

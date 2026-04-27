@@ -23,7 +23,7 @@ const t = store.getters['i18n/t'];
 
 const values = ref({
   configurations: props.bindings?.configurations || [] as string[],
-  services: props.bindings?.services || [] as EpinioService[],
+  services: props.bindings?.services.map((s: EpinioService) => s.id) || [] as string[],
 });
 
 const fetchData = async () => {
@@ -78,7 +78,12 @@ const isFromManifest = computed(
 );
 
 // Watchers
-watch(values, () => emit('change', values.value), { deep: true });
+watch(values, () => {
+  emit('change', {
+    configurations: values.value.configurations,
+    services: values.value.services.map((s: string) => namespacedServices.value.find((ns: any) => ns.id === s)),
+  })
+}, { deep: true });
 
 watch(noConfigs, (neu) => {
   if (neu && values.value.configurations?.length) {
@@ -114,10 +119,10 @@ watch(hasConfigs, (neu, old) => {
 watch(hasServices, (neu, old) => {
     if (!old && neu) {
       if (props.initialApplication?.configuration?.services) {
-        const serviceNames = props.initialApplication.configuration.services;
-        values.value.services = services.value.filter((s: any) =>
-          serviceNames.includes(s.value.metadata.name)
-        ).map((s: any) => s.value);
+        const serviceNames = props.initialApplication.configuration.services; 
+        values.value.services = namespacedServices.value
+          .filter((s: any) => serviceNames.includes(s.metadata.name))
+          .map((s: any) => s.id);
       }
     }
 
@@ -127,9 +132,9 @@ watch(hasServices, (neu, old) => {
           props.application.configuration.configurations.includes(nc.metadata.name) &&
           nc.isServiceRelated
         );
-      values.value.services = services.value
-        .filter((s: any) => configurations.some((d: any) => s.value.metadata.name === d.configuration.origin))
-        .map((elem: any) => elem.value);
+      values.value.services = namespacedServices.value
+        .filter((s: any) => configurations.some((d: any) => s.metadata.name === d.configuration.origin))
+        .map((elem: any) => elem.id);
     }
 }, { immediate: true });
 </script>
@@ -156,8 +161,8 @@ watch(hasServices, (neu, old) => {
       filterable
       :label="t('epinio.applications.steps.configurations.services.select.label')"
       :placeholder="noServices ? t('epinio.applications.steps.configurations.services.select.placeholderNoOptions') : t('epinio.applications.steps.configurations.services.select.placeholderWithOptions')"
-      @dropdown-change="(e: CustomEvent) => values.services = e.detail.values.map((s: any) => namespacedServices.find((ns: any) => ns.id === s))"
-      />
+      @dropdown-change="(e: CustomEvent) => values.services = e.detail.values"
+    />
   </div>
 </template>
 

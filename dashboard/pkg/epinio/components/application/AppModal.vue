@@ -1,0 +1,563 @@
+<script setup lang="ts">
+import { computed, ref, reactive, watch, onBeforeMount, nextTick } from 'vue';
+import { useStore } from 'vuex';
+
+import { epinioExceptionToErrorsArray } from '../../utils/errors';
+import { validateKubernetesName } from '@shell/utils/validators/kubernetes-name';
+import { objValuesToString } from '../../utils/settings';
+import Banner from '@components/Banner/Banner.vue';
+import ChartValues from '../settings/ChartValues.vue';
+import AppSource from './AppSource.vue';
+import AppInfo from './AppInfo.vue';
+import AppConfiguration from './AppConfiguration.vue';
+import AppProgress from './AppProgress.vue';
+import { EpinioAppInfo, EpinioAppBindings, EpinioAppSource, EPINIO_TYPES } from '../../types';
+import { _CREATE } from '@shell/config/query-params';
+import Tabs from './Tabs.vue';
+import { allHash } from '@shell/utils/promise';
+
+import isEqual from 'lodash/isEqual';
+import sortBy from 'lodash/sortBy';
+import EpinioApplicationModel from 'models/applications';
+
+const store = useStore() as any;
+const t = store.getters['i18n/t'];
+
+// Modal open state
+const showModal = ref(false);
+const modalMode = ref<'create' | 'edit' | 'view'>('create');
+// Model instance, used only for API calls
+const serviceModel = ref<any>(null);
+
+// Form fields (separate from the model to avoid proxy mutation issues)
+const loading = ref(true);
+const value = ref<any>(null);
+const mode = ref(_CREATE);
+const source = ref<EpinioAppSource>();
+const bindings = ref<EpinioAppBindings>();
+const appChart = reactive({ chartsList: undefined as any, selectedChart: undefined });
+const epinioInfo = ref<any>(null);
+const originalModel = ref<any>(null);
+
+const snapshot = ref<string | null>(null);
+
+// const formNamespace = ref('');
+// const formName = ref('');
+// const formCatalogService = ref('');
+
+
+const saving = ref(false);
+const errors = ref<string[]>([]);
+const activeTab = ref<string | number>('source')
+const tabs = ref([
+  { id: 'source', label: 'Source', completed: false, valid: false, disabled: false },
+  { id: 'details', label: 'Details', completed: false, valid: false, disabled: true },
+  { id: 'bindings', label: 'Bindings', completed: false, valid: false, disabled: true },
+  
+])
+
+const isEdit = computed(() => modalMode.value === 'edit');
+const isView = computed(() => modalMode.value === 'view');
+
+const nextTab = computed(() => {
+  const idx = tabs.value.findIndex(t => t.id === activeTab.value)
+  return tabs.value[idx + 1]?.id
+})
+
+const prevTab = computed(() => {
+  const idx = tabs.value.findIndex(t => t.id === activeTab.value)
+  return tabs.value[idx - 1]?.id
+})
+
+const isDirty = computed(() => {
+//   if (isView.value) return false;
+
+//   if (isEdit.value) {
+//     if (!serviceModel.value) return false;
+
+//     const settingsChanged = !isEqual(
+//       objValuesToString(chartValues),
+//       objValuesToString(serviceModel.value.settings || {})
+//     );
+//     const appsChanged = !isEqual(
+//       [...selectedApps.value].sort(),
+//       [...initialBoundApps.value].sort()
+//     );
+
+//     return settingsChanged || appsChanged;
+//   }
+
+//   return !!(formName.value || formCatalogService.value || selectedApps.value.length || Object.keys(chartValues).length);
+  if (!snapshot.value || !value.value) return false
+  return takeSnapshot() !== snapshot.value
+});
+
+const showDiscardConfirm = ref(false);
+
+const validationPassed = computed(() => {
+//   if (isEdit.value) {
+//     if (!serviceModel.value) return false;
+
+//     const newSettings = !isEqual(
+//       objValuesToString(chartValues),
+//       objValuesToString(serviceModel.value.settings || {})
+//     );
+//     const appBindingChanged = !isEqual(
+//       [...selectedApps.value].sort(),
+//       [...initialBoundApps.value].sort()
+//     );
+
+//     return newSettings || appBindingChanged;
+//   }
+
+//   if (!formCatalogService.value) return false;
+//   if (!formName.value) return false;
+//   if (!formNamespace.value) return false;
+//   if (showChartValues.value && !Object.values(validChartValues.value).every((v) => !!v)) return false;
+
+//   const nameErrors = validateKubernetesName(formName.value, '', store.getters, undefined, []);
+//   const nsErrors = validateKubernetesName(formNamespace.value, '', store.getters, undefined, []);
+
+//   return nameErrors.length === 0 && nsErrors.length === 0;
+});
+
+function takeSnapshot() {
+  return JSON.stringify({
+    source: {
+      ...source.value,
+      git: {
+        ...source.value?.git,
+        sourceData: undefined, // ignore dynamic data
+      },
+    },
+    bindings: bindings.value,
+    meta: value.value?.meta,
+    configuration: value.value?.configuration,
+  });
+}
+
+
+async function openCreate() {
+  errors.value = [];
+  modalMode.value = 'create';
+  loading.value = true;
+  showModal.value = true;  // open modal first so user sees loading state
+
+  const hash = await allHash({
+    ns: store.dispatch('epinio/findAll', { type: EPINIO_TYPES.NAMESPACE }),
+    charts: store.dispatch('epinio/findAll', { type: EPINIO_TYPES.APP_CHARTS }),
+    info: store.dispatch('epinio/info'),
+  });
+
+  epinioInfo.value = hash.info;
+  appChart.chartsList = hash.charts;
+  originalModel.value = await store.dispatch('epinio/create', { type: EPINIO_TYPES.APP });
+  value.value = await store.dispatch('epinio/clone', { resource: originalModel.value });
+
+  tabs.value.push({ id: 'progress', label: 'Progress', completed: false, valid: false, disabled: true });
+
+  loading.value = false;
+
+  await nextTick();
+  snapshot.value = takeSnapshot();
+}
+
+function openView(row: any) {
+//   errors.value = [];
+//   modalMode.value = 'view';
+
+//   serviceModel.value = row;
+//   formNamespace.value = row.meta?.namespace || '';
+//   formName.value = row.name || row.meta?.name || '';
+//   formCatalogService.value = row.catalog_service || '';
+
+//   selectedApps.value = [...(row.boundapps || [])];
+//   initialBoundApps.value = [...(row.boundapps || [])];
+
+//   const settings = objValuesToString(row.settings || {});
+
+//   Object.keys(chartValues).forEach(k => delete chartValues[k]);
+//   Object.assign(chartValues, settings);
+//   validChartValues.value = {};
+
+//   showModal.value = true;
+}
+
+async function openEdit(row: EpinioApplicationModel) {
+  errors.value = [];
+  modalMode.value = 'edit';
+  loading.value = true;
+  showModal.value = true;  // open modal first so user sees loading state
+
+  const hash = await allHash({
+    ns: store.dispatch('epinio/findAll', { type: EPINIO_TYPES.NAMESPACE }),
+    charts: store.dispatch('epinio/findAll', { type: EPINIO_TYPES.APP_CHARTS }),
+    info: store.dispatch('epinio/info'),
+  });
+
+  epinioInfo.value = hash.info;
+  appChart.chartsList = hash.charts;
+  originalModel.value = row;
+  console.log('openEdit originalModel', originalModel.value);
+  value.value = await store.dispatch('epinio/clone', { resource: originalModel.value });
+
+  source.value = row.appSource;
+  // bindings.value = {
+  //   configurations: row.baseConfigurationsNames || [],
+  //   services: row.services || [],
+  // };
+  // console.log('openEdit bindings', bindings.value);
+
+  tabs.value.forEach(tab => tab.disabled = false);
+
+  loading.value = false;
+
+  await nextTick();
+  snapshot.value = takeSnapshot();
+}
+
+function handleModalClose() {
+  if (isDirty.value) {
+    showDiscardConfirm.value = true;
+  } else {
+    closeModal();
+  }
+}
+
+function handleKeepEditing() {
+  showDiscardConfirm.value = false;
+}
+
+function handleDiscard() {
+  showDiscardConfirm.value = false;
+  closeModal();
+}
+
+function closeModal() {
+  // data
+  value.value = null;
+  originalModel.value = null;
+  source.value = undefined;
+  bindings.value = undefined;
+  epinioInfo.value = null;
+  appChart.chartsList = undefined;
+  appChart.selectedChart = undefined;
+
+  // ui state
+  activeTab.value = 'source';
+  tabs.value = tabs.value.filter(t => t.id !== 'progress') // remove progress tab added during create
+  tabs.value.forEach((tab, i) => {
+    tab.completed = false;
+    tab.disabled = i !== 0;
+  });
+  errors.value = [];
+  saving.value = false;
+  loading.value = true;  // reset to true so next open shows spinner while fetching
+  showDiscardConfirm.value = false;
+  showModal.value = false;
+  snapshot.value = null;
+
+  // modal mode back to default
+  modalMode.value = 'create';
+  serviceModel.value = null;
+}
+
+// Fetch data before mount
+// onBeforeMount(async () => {
+//   const hash = await allHash({
+//     ns: store.dispatch('epinio/findAll', { type: EPINIO_TYPES.NAMESPACE }),
+//     charts: store.dispatch('epinio/findAll', { type: EPINIO_TYPES.APP_CHARTS }),
+//     info: store.dispatch('epinio/info'),
+//   });
+
+//   epinioInfo.value = hash.info;
+//   appChart.chartsList = hash.charts;
+//   originalModel.value = await store.dispatch('epinio/create', { type: EPINIO_TYPES.APP });
+//   value.value = await store.dispatch('epinio/clone', { resource: originalModel.value });
+
+//   loading.value = false;
+// });
+
+// Track changes to mark as unsaved
+// watch([source, bindings, value], () => {
+//   setUnsavedChanges(true);
+// }, { deep: true });
+
+// when namepace changes, remove bindings
+watch(() => value.value?.meta.namespace, () => {
+  bindings.value = { configurations: [], services: [] };
+  set(value.value.configuration, { configurations: [] });
+});
+
+function set(obj: Record<string, any>, changes: Record<string, any>) {
+  Object.entries(changes).forEach(([key, val]) => {
+    obj[key] = val;
+  });
+}
+
+function updateInfo(changes: EpinioAppInfo) {
+  value.value.meta ||= {};
+  value.value.configuration ||= {};
+  set(value.value.meta, changes.meta);
+  set(value.value.configuration, { settings: appChart.settings });
+  set(value.value.configuration, changes.configuration);
+}
+
+function updateSource(changes: EpinioAppSource) {
+  source.value = {};
+  const { appChart: chartId, ...cleanChanges } = changes;
+
+  appChart.selectedChart = chartId;
+  value.value.configuration ||= {};
+  value.value.configuration.settings = undefined;
+
+  if (chartId) {
+    set(value.value.configuration, { appchart: chartId });
+    const chart = appChart.chartsList?.find((c: any) => c.id === chartId);
+
+    if (chart?.settings) {
+      const customSettings = Object.keys(chart.settings).reduce((acc, key) => {
+        acc[key] = '';
+        return acc;
+      }, {} as Record<string, any>);
+
+      set(value.value.configuration, { settings: customSettings });
+      set(value.value, { chart });
+    }
+  }
+
+  set(source.value, cleanChanges);
+}
+
+function updateManifestConfigurations(configs: string[]) {
+  set(value.value.configuration, { configurations: configs });
+}
+
+function updateConfigurations(changes: EpinioAppBindings) {
+  console.log('updateConfigurations', changes);
+  bindings.value = {};
+  set(bindings.value, changes);
+  set(value.value.configuration, { configurations: changes.configurations });
+}
+
+// function cancel() {
+//   store.$router.replace(value.value.listLocation);
+// }
+
+// function finish() {
+//   setUnsavedChanges(false); // Clear unsaved changes when app is deployed
+//   const route = createEpinioRoute('c-cluster-resource-id', {
+//     cluster: store.getters['clusterId'],
+//     resource: value.value.type,
+//     id: `${value.value.meta.namespace}/${value.value.meta.name}`
+//   });
+
+//   store.$router.replace(route);
+// }
+
+async function onSubmit() {
+  if (saving.value) return;
+  saving.value = true;
+  errors.value = [];
+
+  try {
+    if (isEdit.value) {
+      await value.value.update();
+
+      await value.value.updateConfigurations(
+        originalModel.value.baseConfigurationsNames || [],
+        bindings.value?.configurations || [],
+      );
+
+      await value.value.updateServices(
+        originalModel.value.services || [],
+        bindings.value?.services || [],
+      );
+
+      await value.value.forceFetch();
+      closeModal();
+    } else {
+      completeTab('bindings', 'progress');
+    }
+  } catch (err: any) {
+    errors.value = epinioExceptionToErrorsArray(err);
+  } finally {
+    saving.value = false;
+  }
+}
+
+function completeTab(tabId: string | number, nextTabId: string | number) {
+  const tab    = tabs.value.find((t) => t.id === tabId)
+  const next   = tabs.value.find((t) => t.id === nextTabId)
+  if (tab && !isEdit)  tab.completed = true
+  if (next) next.disabled = false
+  activeTab.value = nextTabId
+}
+
+defineExpose({ openCreate, openEdit, openView });
+</script>
+
+<template>
+  <trailhand-modal
+    :open.prop="showModal"
+    :dismissible.prop="false"
+    :title="(isEdit || isView) ? value?.meta?.name : 'Application'"
+    :subtitle="(isEdit || isView) ? (value?.stateDisplay || '') : 'Create New'"
+    @modal-close="handleModalClose"
+  >
+    <div class="modal-content" id="modal-container-element">
+      <Loading v-if="loading" />
+      <Tabs v-else :tabs="tabs" v-model="activeTab">
+        <template #source="{ tab }">
+          <AppSource
+            :application="value"
+            :source="source"
+            :mode="modalMode"
+            :info="epinioInfo"
+            @change="updateSource"
+            @change-app-info="updateInfo"
+            @change-app-config="updateManifestConfigurations"
+            @valid="(val) => {
+              if (!isEdit)tabs[0].completed = val;
+              tabs[0].valid = val;
+              tabs[1].disabled = !val;
+            }"
+          />
+        </template>
+
+        <template #details="{ tab }">
+          <AppInfo
+            :application="value"
+            :source="source"
+            :mode="modalMode"
+            :active="activeTab === tab.id"
+            @change="updateInfo"
+            @valid="(val) => {
+              if (!isEdit) tabs[1].completed = val;
+              tabs[1].valid = val;
+              tabs[2].disabled = !val;
+              // also disable final tab since the third tab has no required fields
+              if (tabs[3]) tabs[3].disabled = !val;
+            }"
+          />
+        </template>
+
+        <template #bindings="{ tab }">
+          <AppConfiguration
+            :application="value"
+            :initial-application="originalModel"
+            :mode="modalMode"
+            :bindings="bindings"
+            @change="updateConfigurations"
+          />
+        </template>
+
+        <template #progress="{ tab }">
+          <AppProgress
+            :application="value"
+            :source="source"
+            :bindings="bindings"
+            :mode="mode"
+            :tab="tab"
+            :active="activeTab === tab.id"
+          />
+      </template>
+      </Tabs>
+      <Banner
+        v-for="(err, i) in errors"
+        :key="i"
+        color="error"
+        :label="err"
+      />
+    </div>
+
+    <div slot="footer">
+      <template v-if="isView">
+        <trailhand-button
+          variant="secondary"
+          class="mr-10"
+          @button-click="closeModal"
+        >
+          Close
+        </trailhand-button>
+        <trailhand-button
+          variant="primary"
+          @button-click="modalMode = 'edit'"
+        >
+          Edit Configuration
+        </trailhand-button>
+      </template>
+      <template v-else-if="showDiscardConfirm">
+        <span class="discard-message">You have unsaved changes.</span>
+        <trailhand-button
+          variant="secondary"
+          class="mr-10"
+          @button-click="handleKeepEditing"
+        >
+          Keep Editing
+        </trailhand-button>
+        <trailhand-button
+          variant="destructive"
+          @button-click="handleDiscard"
+        >
+          Discard
+        </trailhand-button>
+      </template>
+      <template v-else>
+        <trailhand-button
+          variant="secondary"
+          class="mr-10"
+          @button-click="handleModalClose"
+        >
+          Cancel
+        </trailhand-button>
+        <trailhand-button
+          v-if="!!prevTab"
+          variant="secondary"
+          class="mr-10"
+          @button-click="activeTab = prevTab"
+        >
+          Previous
+        </trailhand-button>
+        <trailhand-button v-if="!nextTab && !isEdit"
+          variant="primary"
+          :disabled="false"
+          @button-click="closeModal"
+        >
+          Finish
+        </trailhand-button>
+        <trailhand-button v-else
+          :variant="!isEdit ? 'primary' : 'secondary'"
+          class="mr-10"
+          :disabled="tabs.find(t => t.id === nextTab)?.disabled"
+          @button-click="completeTab(activeTab, nextTab)"
+        >
+          Next
+        </trailhand-button>
+        <trailhand-button v-if="isEdit"
+          variant="primary"
+          :disabled="!isDirty || saving"
+          @button-click="onSubmit"
+        >
+          {{ saving ? 'Saving...' : t('generic.save') }}
+        </trailhand-button>
+      </template>
+    </div>
+  </trailhand-modal>
+</template>
+
+<style lang="scss" scoped>
+.modal-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 750px;
+  width: fit-content;
+}
+
+.discard-message {
+  font-size: 13px;
+  color: var(--body-text);
+  margin-right: 12px;
+}
+</style>

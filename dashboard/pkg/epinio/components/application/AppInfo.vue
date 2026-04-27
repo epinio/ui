@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { ref, watch, computed, onMounted } from 'vue';
+import { ref, watch, computed, onMounted, isReactive } from 'vue';
 import { useStore } from 'vuex';
 import NameNsDescription from '@shell/components/form/NameNsDescription.vue';
 import LabeledInput from '@components/Form/LabeledInput/LabeledInput.vue';
@@ -25,6 +25,7 @@ const props = defineProps<{
   application: Application;
   mode: string;
   source?: any;
+  active: boolean;
 }>();
 
 // Emit function
@@ -113,7 +114,6 @@ const generateDefaultName = () => {
       const imageWithTag = urlParts[urlParts.length - 1];
       baseName = imageWithTag.split(':')[0];
     }
-
     // Append random string to the end of the base name
     if (baseName) {
       const randomSuffix = Math.random().toString(36).substring(2, 8);
@@ -128,37 +128,71 @@ const generateDefaultName = () => {
 };
 
 // Mounted lifecycle hook
-onMounted(() => {
-  const defaultName = props.application.meta?.name || (props.mode !== _EDIT ? generateDefaultName() : '');
+// onMounted(() => {
+//   const defaultName = props.application.meta?.name || (props.mode !== _EDIT ? generateDefaultName() : '');
 
-  // In create mode, don't auto-select the first namespace - require explicit selection
-  const defaultNamespace = props.mode === _EDIT
-    ? (props.application.meta?.namespace || '')
-    : (props.application.meta?.namespace || '');
+//   // In create mode, don't auto-select the first namespace - require explicit selection
+//   const defaultNamespace = props.mode === _EDIT
+//     ? (props.application.meta?.namespace || '')
+//     : (props.application.meta?.namespace || '');
 
-  const valuesData: EpinioAppInfo = {
-    meta: {
-      name: defaultName,
-      namespace: defaultNamespace
-    },
-    chart: moveBooleansToFront(props.application.chart?.settings) || {},
-    configuration: {
-      configurations: props.application.configuration?.configurations || [],
-      instances: props.application.configuration?.instances || 1,
-      environment: props.application.configuration?.environment || {},
-      settings: props.application.configuration?.settings || {},
-      routes: props.application.configuration?.routes || [],
-    },
-  };
+//   const valuesData: EpinioAppInfo = {
+//     meta: {
+//       name: defaultName,
+//       namespace: defaultNamespace
+//     },
+//     chart: moveBooleansToFront(props.application.chart?.settings) || {},
+//     configuration: {
+//       configurations: props.application.configuration?.configurations || [],
+//       instances: props.application.configuration?.instances || 1,
+//       environment: props.application.configuration?.environment || {},
+//       settings: props.application.configuration?.settings || {},
+//       routes: props.application.configuration?.routes || [],
+//     },
+//   };
 
-  envVariables.value = Object.entries(valuesData.configuration.environment).map(([key, value]) => ({ key, value }));
-  values.value = valuesData;
-  validSettings.value = {};
+//   envVariables.value = Object.entries(valuesData.configuration.environment).map(([key, value]) => ({ key, value }));
+//   values.value = valuesData;
+//   validSettings.value = {};
 
-  emit('valid', valid.value);
+//   emit('valid', valid.value);
 
-  populateOnEdit();
-});
+//   populateOnEdit();
+// });
+
+watch(() => props.active, (isActive) => {
+  if (isActive) {
+    const defaultName = props.application.meta?.name || (props.mode !== _EDIT ? generateDefaultName() : '');
+
+    // In create mode, don't auto-select the first namespace - require explicit selection
+    const defaultNamespace = props.mode === _EDIT
+      ? (props.application.meta?.namespace || '')
+      : (props.application.meta?.namespace || '');
+
+    const valuesData: EpinioAppInfo = {
+      meta: {
+        name: defaultName,
+        namespace: defaultNamespace
+      },
+      chart: moveBooleansToFront(props.application.chart?.settings) || {},
+      configuration: {
+        configurations: props.application.configuration?.configurations || [],
+        instances: props.application.configuration?.instances || 1,
+        environment: props.application.configuration?.environment || {},
+        settings: props.application.configuration?.settings || {},
+        routes: props.application.configuration?.routes || [],
+      },
+    };
+
+    envVariables.value = Object.entries(valuesData.configuration.environment).map(([key, value]) => ({ key, value }));
+    values.value = valuesData;
+    validSettings.value = {};
+
+    emit('valid', valid.value);
+
+    populateOnEdit();
+  }
+})
 
 // Methods
 const update = () => {
