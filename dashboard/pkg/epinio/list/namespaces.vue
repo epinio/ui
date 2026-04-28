@@ -98,6 +98,18 @@ const validateCreate = computed(() => {
   return validationErrors.length === 0;
 });
 
+// Strict RBAC: only show Create when the user has namespace write perms (admin).
+const canCreateNamespace = computed(() => {
+  const can = store.getters['epinio/can'];
+  const perms = store.getters['epinio/permissions']?.();
+
+  if (!can || !perms || Object.keys(perms).length === 0) {
+    return false;
+  }
+
+  return can('namespace_write') || can('namespace');
+});
+
 const validateDelete = computed(() => {
   return confirmDeleteInput.value === namespaceToDelete.value?.meta.name;
 });
@@ -224,6 +236,7 @@ const columns = [
     >
       <template #createButton>
         <trailhand-button
+          v-if="canCreateNamespace"
           variant="primary"
           size="large"
           @click="openCreateModal"

@@ -207,6 +207,7 @@ export interface EpinioConfigurationResource {
     user: string,
     details: Map<string, object>,
     boundapps: string[],
+    origin?: string,
   }
 }
 
@@ -217,6 +218,7 @@ export interface EpinioServiceResource {
   boundapps: string[],
   catalog_service: string,
   catalog_service_version: string,
+  internal_routes?: string[],
   status: string,
 }
 
@@ -232,6 +234,21 @@ export interface EpinioInfo {
 export interface EpinioVersion {
   fullVersion: string,
   displayVersion: string,
+}
+
+// Mirrors pkg/api/core/v1/models.MeResponse / Role (simplified)
+export interface EpinioRole {
+  id: string,
+  name: string,
+  namespace?: string,
+  default?: boolean,
+}
+
+export interface EpinioMe {
+  user: string,
+  roles: EpinioRole[],
+  namespaces: string[],
+  gitconfigs: string[],
 }
 
 export interface EpinioNamespace extends EpinioMetaProperty {
