@@ -33,6 +33,9 @@ const validChartValues = ref<Record<string, boolean>>({});
 const saving = ref(false);
 const errors = ref<string[]>([]);
 
+// Captured separately so background list polls (which omit internal_routes) can't wipe it
+const internalRoutes = ref<string[]>([]);
+
 const namespaces = computed(() =>
   sortBy(store.getters['epinio/all'](EPINIO_TYPES.NAMESPACE), 'meta.name', false) as any[]
 );
@@ -146,6 +149,7 @@ function openView(row: any) {
   formNamespace.value = row.meta?.namespace || '';
   formName.value = row.name || row.meta?.name || '';
   formCatalogService.value = row.catalog_service || '';
+  internalRoutes.value = [];
 
   selectedApps.value = [...(row.boundapps || [])];
   initialBoundApps.value = [...(row.boundapps || [])];
@@ -157,6 +161,19 @@ function openView(row: any) {
   validChartValues.value = {};
 
   showModal.value = true;
+
+  // The list endpoint omits internal_routes, fetch the full record and capture routes locally
+  // so background list polls (which also omit internal_routes) cannot wipe them.
+  row.forceFetch().then(() => {
+    if (!showModal.value) return;
+    const id = `${ row.meta?.namespace }/${ row.meta?.name || row.name }`;
+    const updated = store.getters['epinio/byId'](EPINIO_TYPES.SERVICE_INSTANCE, id);
+
+    if (updated) {
+      serviceModel.value = updated;
+      internalRoutes.value = [...(updated.internal_routes || [])];
+    }
+  }).catch(() => {});
 }
 
 function openEdit(row: any) {
@@ -167,6 +184,7 @@ function openEdit(row: any) {
   formNamespace.value = row.meta?.namespace || '';
   formName.value = row.name || row.meta?.name || '';
   formCatalogService.value = row.catalog_service || '';
+  internalRoutes.value = [];
 
   selectedApps.value = [...(row.boundapps || [])];
   initialBoundApps.value = [...(row.boundapps || [])];
@@ -178,6 +196,19 @@ function openEdit(row: any) {
   validChartValues.value = {};
 
   showModal.value = true;
+
+  // The list endpoint omits internal_routes, fetch the full record and capture routes locally
+  // so background list polls (which also omit internal_routes) cannot wipe them.
+  row.forceFetch().then(() => {
+    if (!showModal.value) return;
+    const id = `${ row.meta?.namespace }/${ row.meta?.name || row.name }`;
+    const updated = store.getters['epinio/byId'](EPINIO_TYPES.SERVICE_INSTANCE, id);
+
+    if (updated) {
+      serviceModel.value = updated;
+      internalRoutes.value = [...(updated.internal_routes || [])];
+    }
+  }).catch(() => {});
 }
 
 function handleModalClose() {
@@ -208,6 +239,7 @@ function closeModal() {
   Object.keys(chartValues).forEach(k => delete chartValues[k]);
   validChartValues.value = {};
   errors.value = [];
+  internalRoutes.value = [];
   serviceModel.value = null;
   showDiscardConfirm.value = false;
   showModal.value = false;
@@ -327,10 +359,10 @@ defineExpose({ openCreate, openEdit, openView });
           ></trailhand-text-input>
         </trailhand-form-row>
 
-        <!-- Catalog Service -->
-        <trailhand-form-row>
+        <!-- Catalog Service + Version (version only in view/edit, 3/4 + 1/4 split via 4-col grid) -->
+        <trailhand-form-row :columns="(isView || isEdit) ? '4' : '1'">
           <trailhand-dropdown
-            style="width: 100%"
+            :style="(isView || isEdit) ? 'width: 100%; grid-column: span 3' : 'width: 100%'"
             :options="catalogServiceOpts"
             :value="formCatalogService"
             label="Catalog Service"
@@ -340,6 +372,22 @@ defineExpose({ openCreate, openEdit, openView });
             placeholder="Select the type of service to create"
             @dropdown-change="(e: CustomEvent) => { formCatalogService = e.detail.value; resetChartValues(); }"
           ></trailhand-dropdown>
+          <trailhand-text-input
+            v-if="isView || isEdit"
+            :value="serviceModel?.catalog_service_version || ''"
+            label="Cat. Service Version"
+            :disabled="true"
+          ></trailhand-text-input>
+        </trailhand-form-row>
+
+        <!-- Internal Routes (view/edit only, populated after individual fetch) -->
+        <trailhand-form-row v-if="(isView || isEdit) && internalRoutes.length">
+          <trailhand-code-editor
+            style="width: 100%"
+            :value="internalRoutes.join('\n')"
+            label="Internal Routes"
+            :disabled="true"
+          ></trailhand-code-editor>
         </trailhand-form-row>
 
         <!-- Bind to Application -->

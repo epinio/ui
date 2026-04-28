@@ -15,6 +15,7 @@ const router = useRouter();
 defineProps<{ schema: object }>(); // Keep for compatibility
 
 const resource: string = EPINIO_TYPES.CONFIGURATION;
+
 const configModal = ref<InstanceType<typeof ConfigurationModal> | null>(null);
 const deleteModal = ref<InstanceType<typeof ConfigurationDeleteModal> | null>(null);
 const windowWidth = ref(window.innerWidth);
@@ -35,6 +36,18 @@ onUnmounted(() => {
 const handleCreateClick = () => {
   configModal.value?.openCreate();
 };
+
+// Strict RBAC: only show Create when user has configuration write (hides for view_only)
+const canCreateConfiguration = computed(() => {
+  const can = store.getters['epinio/can'];
+  const perms = store.getters['epinio/permissions']?.();
+
+  if (!can || !perms || Object.keys(perms).length === 0) {
+    return false;
+  }
+
+  return can('configuration_write') || can('configuration');
+});
 
 watchEffect(() => {
   void store.state.activeNamespaceCacheKey;
@@ -87,6 +100,23 @@ watchEffect(() => {
 const handleNavigate = (event: CustomEvent) => {
   router.push(event.detail.url);
 };
+
+const paginationMeta = computed(() => store.getters['epinio/paginationMeta'](resource));
+const currentPage = computed(() => store.getters['epinio/currentPaginationPage'](resource));
+
+const paginating = ref(false);
+
+async function goToPage(page: number) {
+  const meta = paginationMeta.value;
+
+  if (meta && (page < 1 || page > meta.totalPages)) return;
+  paginating.value = true;
+  try {
+    await store.dispatch('epinio/goToPage', { type: resource, page });
+  } finally {
+    paginating.value = false;
+  }
+}
 
 const allColumns = [
   {
@@ -169,6 +199,7 @@ const columns = computed(() => {
     >
       <template #createButton>
         <trailhand-button
+          v-if="canCreateConfiguration"
           variant="primary"
           size="large"
           @click="handleCreateClick"
@@ -182,8 +213,13 @@ const columns = computed(() => {
       :rows="displayRows"
       :columns="columns"
       :searchable="true"
+      :server-side="!!paginationMeta"
+      :total-items="paginationMeta?.totalItems ?? displayRows.length"
+      :current-page="currentPage"
+      :loading="paginating"
       key-field="id"
       @navigate="handleNavigate"
+      @page-change="(e: CustomEvent) => goToPage(e.detail.page)"
     />
     <ConfigurationModal ref="configModal" />
     <ConfigurationDeleteModal ref="deleteModal" />
@@ -197,4 +233,5 @@ trailhand-table {
   --sortable-table-header-sorted-bg: var(--sortable-table-hover-bg);
   overflow-wrap: anywhere;
 }
+
 </style>

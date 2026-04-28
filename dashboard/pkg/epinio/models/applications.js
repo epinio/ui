@@ -48,6 +48,75 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
   // ------------------------------------------------------------------
   // Dashboard plumbing
 
+  get _availableActions() {
+    const base = super._availableActions || [];
+
+    const canGetter = this.$rootGetters?.['epinio/can'];
+    const perms = this.$rootGetters?.['epinio/permissions']?.();
+
+    // When permissions haven't loaded, show all actions — API enforces RBAC
+    if (!canGetter || !perms || Object.keys(perms).length === 0) {
+      return base;
+    }
+
+    const canEdit = canGetter('app_update') || canGetter('app_write') || canGetter('app');
+    const canDelete = canGetter('app_delete') || canGetter('app_write') || canGetter('app');
+    const canViewConfig = canGetter('configuration_read') || canGetter('configuration_write');
+    const canEditConfig = canGetter('configuration_write') || canGetter('configuration');
+    const canExec = canGetter('app_exec');
+
+    let skipNextDivider = false;
+
+    return base.filter((action) => {
+      if (skipNextDivider && action.divider) {
+        skipNextDivider = false;
+
+        return false;
+      }
+
+      if (action.action === 'showAppShell') {
+        return canExec;
+      }
+
+      if (action.action === 'showConfiguration') {
+        if (!canViewConfig) {
+          skipNextDivider = true; // base always has a divider after showConfiguration
+
+          return false;
+        }
+      }
+
+      if (action.action === 'goToEdit') {
+        return canEdit;
+      }
+
+      if (action.action === 'goToViewConfig') {
+        // "Edit Config" menu entry should only be shown to users
+        // who actually have configuration write permissions.
+        return canEditConfig;
+      }
+
+      if (action.action === 'promptRemove') {
+        return canDelete;
+      }
+
+      return true;
+    });
+  }
+
+  // Used by ResourceDetailDrawer (Show Configuration) to show/hide the "Edit Config" button.
+  // Require configuration_write so view-only users don't see it.
+  get canEdit() {
+    const base = this.canUpdate && this.canCustomEdit;
+    const canGetter = this.$rootGetters?.['epinio/can'];
+    const perms = this.$rootGetters?.['epinio/permissions']?.();
+    if (!canGetter || !perms || Object.keys(perms).length === 0) {
+      return false;
+    }
+    const canEditConfig = canGetter('configuration_write') || canGetter('configuration');
+    return !!(base && canEditConfig);
+  }
+
   get details() {
     const res = [];
 
@@ -106,7 +175,10 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
     const isRunning = [STATES.RUNNING].includes(this.status);
     const showAppLog = isRunning;
     const showStagingLog = !!this.stage_id;
-    const showAppShell = isRunning;
+    const canGetter = this.$rootGetters?.['epinio/can'];
+    const perms = this.$rootGetters?.['epinio/permissions']?.();
+    const canExec = canGetter && perms && Object.keys(perms).length > 0 ? canGetter('app_exec') : false;
+    const showAppShell = isRunning && canExec;
 
     if (showAppShell) {
       res.push({
@@ -163,10 +235,47 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
     }
 
     res.push(
-      ...super._availableActions
+      ...this._availableActions
     );
 
-    return res;
+    return this._pruneOrphanedDividers(res);
+  }
+
+  _pruneOrphanedDividers(actions) {
+    // Remove disabled items and consecutive dividers (mirrors resource-class availableActions logic)
+    let last = null;
+    let out = actions.filter((item) => {
+      if (item.enabled === false) {
+        return false;
+      }
+
+      const cur = item.divider;
+      const ok = !cur || (cur && !last);
+
+      last = cur;
+
+      return ok;
+    });
+
+    // Remove dividers at the beginning
+    while (out.length && out[0].divider) {
+      out.shift();
+    }
+
+    // Remove dividers at the end
+    while (out.length && out[out.length - 1].divider) {
+      out.pop();
+    }
+
+    // Remove consecutive dividers in the middle
+    for (let i = 1; i < out.length; i++) {
+      if (out[i].divider && out[i - 1].divider) {
+        out.splice(i, 1);
+        i--;
+      }
+    }
+
+    return out;
   }
 
   get links() {
@@ -178,6 +287,7 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
       store:         `${ this.getUrl() }/store`,
       stage:         `${ this.getUrl() }/stage`,
       deploy:        `${ this.getUrl() }/deploy`,
+      deployments:   `${ this.getUrl() }/deployments`,
       configBinding: `${ this.getUrl() }/configurationbindings`,
       logs:          `${ this.getUrl() }/logs`.replace('/api/v1', '/wapi/v1'), // /namespaces/:namespace/applications/:app/logs
       importGit:     `${ this.getUrl() }/import-git`,
@@ -797,11 +907,230 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
     }
   }
 
-  async deploy(stageId, image, origin) {
-    this.trace('Deploying Application bits');
+  asyncDeployStorageKey() {
+    return `epinio.async-deploy.${ this.meta.namespace }.${ this.meta.name }`;
+  }
 
-    const stage = { };
+  persistAsyncDeploymentId(deploymentId) {
+    if (!deploymentId) {
+      return;
+    }
+    try {
+      localStorage.setItem(this.asyncDeployStorageKey(), deploymentId);
+    } catch (e) {
+      console.log(e);
+    }
+  }
 
+  readPersistedAsyncDeploymentId() {
+    try {
+      return localStorage.getItem(this.asyncDeployStorageKey()) || undefined;
+    } catch (e) {
+      console.log(e);
+      return undefined;
+    }
+  }
+
+  clearPersistedAsyncDeploymentId() {
+    try {
+      localStorage.removeItem(this.asyncDeployStorageKey());
+    } catch (e) {
+      console.log(e);
+      return undefined;
+    }
+  }
+
+  extractDeploymentPayload(response) {
+    if (!response) {
+      return response;
+    }
+
+    // Different request wrappers may return payload in different slots.
+    return response?.data?.data || response?.data || response;
+  }
+
+  extractDeploymentId(payload) {
+    return payload?.id ||
+      payload?.deployment_id ||
+      payload?.deploymentId ||
+      payload?.status?.id ||
+      payload?.data?.id;
+  }
+
+  extractDeploymentIdFromLocation(location) {
+    if (!location || typeof location !== 'string') {
+      return undefined;
+    }
+
+    // Accept either absolute or relative Location header values.
+    const normalized = location.split('?')[0].replace(/\/+$/, '');
+    const parts = normalized.split('/');
+
+    return parts[parts.length - 1] || undefined;
+  }
+
+  extractDeploymentIdFromResponse(response, payload) {
+    // The Location header is the authoritative source — the shell request wrapper
+    // runs bodies through epiniofy, which overwrites `id` with createId() and loses
+    // the server's deployment id when the body has no meta.name / name.
+    const headers = response?._headers || response?.headers || response?.response?.headers || {};
+    const location = headers?.location || headers?.Location;
+    const locationId = this.extractDeploymentIdFromLocation(location);
+
+    if (locationId) {
+      return locationId;
+    }
+
+    const payloadId = this.extractDeploymentId(payload);
+    if (payloadId) {
+      return payloadId;
+    }
+
+    return this.extractDeploymentId(response);
+  }
+
+  /**
+   * Build phase: wait until server leaves staging (async) or finish client-side stage+wait (sync fallback).
+   * Container sources skip this step.
+   */
+  async waitAsyncBuildPhase({ blobUid, builderImage, image, origin, isContainer }) {
+    this.trace('Async build phase');
+    if (isContainer) {
+      return;
+    }
+    await this.ensureAsyncDeployStarted({ blobUid, builderImage, image, origin });
+    if (this.buildCache.deployMode === 'sync') {
+      await this.buildSyncOnly(blobUid, builderImage);
+      return;
+    }
+    const id = this.buildCache.asyncDeployDeploymentId;
+    if (!id) {
+      // Async deploy was accepted but no id was visible to the client/proxy wrapper.
+      // Do not fallback to sync build to avoid duplicate stage jobs.
+      return;
+    }
+    const status = await this.pollDeploymentUntil(id, (s) => ['deploying', 'succeeded', 'failed'].includes(s.status));
+    if (status?.status === 'failed') {
+      const err = new Error(status?.error || 'Build failed');
+      err.status = status;
+      throw err;
+    }
+  }
+
+  /**
+   * Deploy phase: wait for terminal async status or run sync deploy (fallback).
+   */
+  async waitAsyncDeployPhase({ blobUid, builderImage, image, origin }) {
+    this.trace('Async deploy phase');
+    await this.ensureAsyncDeployStarted({ blobUid, builderImage, image, origin });
+    if (this.buildCache.deployMode === 'sync') {
+      await this.deploySyncOnly({ image, origin });
+      await this.forceFetch();
+      return;
+    }
+    const id = this.buildCache.asyncDeployDeploymentId;
+
+    if (id) {
+      await this.waitForDeployment(id);
+      return;
+    }
+
+    // Some intermediaries can strip async response bodies/headers.
+    // If async deploy was started but no id is available, poll app status
+    // instead of switching to sync path (which can get stuck on refresh).
+    await this.waitForAppReadyOrError();
+    this.clearPersistedAsyncDeploymentId();
+    await this.forceFetch();
+  }
+
+  async ensureAsyncDeployStarted({ blobUid, builderImage, image, origin }) {
+    this.buildCache = this.buildCache || {};
+    if (this.buildCache.deployMode === 'sync' || this.buildCache.asyncDeployDeploymentId) {
+      return;
+    }
+
+    // Try to resume an in-flight async deployment after UI reload.
+    const persistedId = this.readPersistedAsyncDeploymentId();
+    if (persistedId) {
+      try {
+        await this.getDeploymentStatus(persistedId);
+        this.buildCache.asyncDeployDeploymentId = persistedId;
+        return;
+      } catch (e) {
+        console.log(e);
+        // Stale id, start a fresh async deployment.
+        this.clearPersistedAsyncDeploymentId();
+      }
+    }
+
+    const opt = {
+      url:     this.linkFor('deployments'),
+      method:  'post',
+      headers: { 'content-type': 'application/json' },
+      // Bypass the epinio store's epiniofy() transform, which overwrites the body's
+      // `id` field (via createId) and costs us the server's deployment id.
+      responseType: 'json',
+      data:    {
+        app: {
+          name:      this.meta.name,
+          namespace: this.meta.namespace
+        },
+        blobuid:      blobUid,
+        builderimage: builderImage,
+        image,
+        origin
+      }
+    };
+
+    let deployment;
+    let deploymentId;
+
+    try {
+      const response = await this.$dispatch('request', { opt, type: this.type });
+      // With responseType set, `response` is the raw axios response: {data, headers, ...}.
+      deployment = response?.data ?? response;
+      deploymentId = this.extractDeploymentIdFromResponse(response, deployment);
+    } catch (e) {
+      const status = e?._status || e?.errors?.[0]?.status;
+
+      // Only fallback when server does not support async deployment endpoints.
+      if (status === 404 || status === 405 || status === 500 || status === 502 || status === 503 || status === 504) {
+        this.buildCache.deployMode = 'sync';
+        this.clearPersistedAsyncDeploymentId();
+        return;
+      }
+
+      throw e;
+    }
+
+    if (!deploymentId) {
+      // Async start succeeded but deployment id is not visible to the client.
+      // Keep async mode and let deploy phase poll app status as a fallback.
+      this.buildCache.deployment = deployment;
+      return;
+    }
+
+    this.buildCache.asyncDeployDeploymentId = deploymentId;
+    this.buildCache.deployment = deployment;
+    this.persistAsyncDeploymentId(deploymentId);
+  }
+
+  async buildSyncOnly(blobUid, builderImage) {
+    this.trace('Sync build (stage) only');
+    const { image: builtImage, stage } = await this.stage(blobUid, builderImage);
+    this.buildCache.stageForSync = { stage, image: builtImage };
+    if (stage?.id) {
+      this.showStagingLog(stage.id);
+      await this.waitForStaging(stage.id);
+    }
+  }
+
+  async deploySyncOnly({ image, origin }) {
+    this.trace('Sync deploy only');
+    const stageId = this.buildCache.stageForSync?.stage?.id;
+    const imageToDeploy = image ?? this.buildCache.stageForSync?.image;
+
+    const stage = {};
     if (stageId) {
       stage.id = stageId;
     }
@@ -816,7 +1145,7 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
             namespace: this.meta.namespace
           },
           stage,
-          image,
+          image: imageToDeploy,
           origin
         }
       });
@@ -824,12 +1153,115 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
       this.route = res.route;
     } catch (e) {
       if (e.errors?.[0].status === 500) {
-        // On fresh epinio's the first deploy takes some time, so give the app some more time.
-        // Note - this will do the same for any 500... as we dont have a status code for the timeout
         await this.waitForPseudoDeploy(e);
       } else {
         throw e;
       }
+    }
+  }
+
+  async pollDeploymentUntil(deploymentId, donePred, { timeoutMs = 20 * 60 * 1000, intervalMs = 2000 } = {}) {
+    const start = Date.now();
+    let stagingLogShown = false;
+
+    while (true) {
+      const status = await this.getDeploymentStatus(deploymentId);
+
+      if (status?.stage_id && !stagingLogShown) {
+        stagingLogShown = true;
+        this.showStagingLog(status.stage_id);
+      }
+
+      if (donePred(status)) {
+        return status;
+      }
+
+      if (status?.status === 'failed') {
+        return status;
+      }
+
+      if (Date.now() - start > timeoutMs) {
+        const err = new Error('Timed out waiting for deployment');
+        err.status = status;
+        throw err;
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, intervalMs));
+    }
+  }
+
+  async getDeploymentStatus(deploymentId) {
+    const opt = {
+      url:          `${ this.linkFor('deployments') }/${ deploymentId }`,
+      method:       'get',
+      responseType: 'json',
+    };
+
+    const response = await this.$dispatch('request', { opt, type: this.type });
+
+    return response?.data ?? response;
+  }
+
+  async waitForDeployment(deploymentId, { timeoutMs = 20 * 60 * 1000, intervalMs = 2000 } = {}) {
+    const start = Date.now();
+    let stagingLogShown = false;
+
+    while (true) {
+      const status = await this.getDeploymentStatus(deploymentId);
+
+      // Once staging begins, we can show staging logs
+      if (status?.stage_id && !this.buildCache?.deployment?.stage_id) {
+        this.buildCache.deployment.stage_id = status.stage_id;
+      }
+      if (status?.stage_id && !stagingLogShown) {
+        stagingLogShown = true;
+        this.showStagingLog(status.stage_id);
+      }
+
+      if (status?.status === 'succeeded') {
+        this.clearPersistedAsyncDeploymentId();
+        await this.forceFetch();
+        return status;
+      }
+
+      if (status?.status === 'failed') {
+        this.clearPersistedAsyncDeploymentId();
+        const err = new Error(status?.error || 'Deployment failed');
+        err.status = status;
+        throw err;
+      }
+
+      if (Date.now() - start > timeoutMs) {
+        const err = new Error('Timed out waiting for deployment');
+        err.status = status;
+        throw err;
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, intervalMs));
+    }
+  }
+
+  async waitForAppReadyOrError({ timeoutMs = 20 * 60 * 1000, intervalMs = 2000 } = {}) {
+    const start = Date.now();
+
+    while (true) {
+      await this.forceFetch();
+      const fresh = this.$getters['byId'](EPINIO_TYPES.APP, `${ this.meta.namespace }/${ this.meta.name }`) || this;
+      const status = fresh?.status;
+
+      if (status === STATES.RUNNING) {
+        return;
+      }
+
+      if (status === STATES.ERROR) {
+        throw new Error(fresh?.statusmessage || 'Deployment failed');
+      }
+
+      if (Date.now() - start > timeoutMs) {
+        throw new Error('Timed out waiting for deployment');
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, intervalMs));
     }
   }
 

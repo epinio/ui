@@ -3,6 +3,21 @@ import { EPINIO_PRODUCT_NAME } from '../types';
 
 export default class ApplicationInstanceResource extends Resource {
   get _availableActions() {
+    const canGetter = this.$rootGetters?.['epinio/can'];
+    const perms = this.$rootGetters?.['epinio/permissions']?.();
+
+    // If permissions are not loaded yet, hide Shell (API will still enforce RBAC if somehow called)
+    if (!canGetter || !perms || Object.keys(perms).length === 0) {
+      return [];
+    }
+
+    const canExec = canGetter('app_exec');
+
+    if (!canExec) {
+      // view_only / read-only roles don't get the Shell action
+      return [];
+    }
+
     return [{
       action:  'showAppShell',
       label:   this.t('epinio.applications.actions.onlyShell.label'),

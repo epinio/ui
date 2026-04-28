@@ -2,6 +2,31 @@ import { EPINIO_TYPES } from '../types';
 import EpinioMetaResource from './epinio-namespaced-resource';
 
 export default class EpinioNamespace extends EpinioMetaResource {
+  get _availableActions() {
+    const base = super._availableActions || [];
+
+    const canGetter = this.$rootGetters?.['epinio/can'];
+
+    if (!canGetter) {
+      return base;
+    }
+
+    const canEdit = canGetter('namespace_write') || canGetter('namespace');
+    const canDelete = canGetter('namespace_write') || canGetter('namespace');
+
+    return base.filter((action) => {
+      if (action.action === 'goToEdit') {
+        return canEdit;
+      }
+
+      if (action.action === 'promptRemove') {
+        return canDelete;
+      }
+
+      return true;
+    });
+  }
+
   get links() {
     return {
       self:   this.getUrl(),
