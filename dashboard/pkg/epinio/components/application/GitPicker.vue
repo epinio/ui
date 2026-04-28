@@ -408,10 +408,6 @@ watch(() => props.value, async(neu, old) => {
     }
   }
 
-  .spacer {
-    max-width: 700px;
-  }
-
   .commits-table {
     margin: 0 1px;
     max-width: 1400px;

@@ -671,12 +671,6 @@ onMounted(() => {
 
 <style lang="scss" scoped>
 .appSource {
-  // max-width: 920px;
-
-  .source {
-    max-width: 700px;
-  }
-
   .button-row {
     display: flex;
     align-items: flex-end;

@@ -22,6 +22,8 @@ const props = defineProps<{
   active: boolean,
 }>();
 
+console.log('props.mode', props.mode);
+
 const emit = defineEmits(['finished']);
 
 const store = useStore();
@@ -120,7 +122,7 @@ watch(running, (neu, prev) => {
 });
 
 const createActions = async () => {
-  const REDEPLOY_SOURCE = store.$router.currentRoute._value.hash === '#source';
+  const REDEPLOY_SOURCE = props.mode === 'edit';
 
   const coreArgs = {
     application: props.application,

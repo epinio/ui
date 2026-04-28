@@ -25,14 +25,13 @@ const t = store.getters['i18n/t'];
 
 // Modal open state
 const showModal = ref(false);
-const modalMode = ref<'create' | 'edit' | 'view'>('create');
+const modalMode = ref<'create' | 'edit'>('create');
 // Model instance, used only for API calls
 const serviceModel = ref<any>(null);
 
 // Form fields (separate from the model to avoid proxy mutation issues)
 const loading = ref(true);
 const value = ref<any>(null);
-const mode = ref(_CREATE);
 const source = ref<EpinioAppSource>();
 const bindings = ref<EpinioAppBindings>();
 const appChart = reactive({ chartsList: undefined as any, selectedChart: undefined });
@@ -50,10 +49,10 @@ const saving = ref(false);
 const errors = ref<string[]>([]);
 const activeTab = ref<string | number>('source')
 const tabs = ref([
-  { id: 'source', label: 'Source', completed: false, valid: false, disabled: false },
-  { id: 'details', label: 'Details', completed: false, valid: false, disabled: true },
-  { id: 'bindings', label: 'Bindings', completed: false, valid: false, disabled: true },
-  
+  { id: 'source', label: 'Source', completed: false, valid: modalMode.value === 'edit', disabled: false },
+  { id: 'details', label: 'Details', completed: false, valid: modalMode.value === 'edit', disabled: true },
+  { id: 'bindings', label: 'Bindings', completed: false, valid: true, disabled: true },
+  { id: 'progress', label: 'Progress', completed: false, valid: true, disabled: true }
 ])
 
 const isEdit = computed(() => modalMode.value === 'edit');
@@ -70,56 +69,20 @@ const prevTab = computed(() => {
 })
 
 const isDirty = computed(() => {
-//   if (isView.value) return false;
-
-//   if (isEdit.value) {
-//     if (!serviceModel.value) return false;
-
-//     const settingsChanged = !isEqual(
-//       objValuesToString(chartValues),
-//       objValuesToString(serviceModel.value.settings || {})
-//     );
-//     const appsChanged = !isEqual(
-//       [...selectedApps.value].sort(),
-//       [...initialBoundApps.value].sort()
-//     );
-
-//     return settingsChanged || appsChanged;
-//   }
-
-//   return !!(formName.value || formCatalogService.value || selectedApps.value.length || Object.keys(chartValues).length);
   if (!snapshot.value || !value.value) return false
   return takeSnapshot() !== snapshot.value
 });
 
-const showDiscardConfirm = ref(false);
-
-const validationPassed = computed(() => {
-//   if (isEdit.value) {
-//     if (!serviceModel.value) return false;
-
-//     const newSettings = !isEqual(
-//       objValuesToString(chartValues),
-//       objValuesToString(serviceModel.value.settings || {})
-//     );
-//     const appBindingChanged = !isEqual(
-//       [...selectedApps.value].sort(),
-//       [...initialBoundApps.value].sort()
-//     );
-
-//     return newSettings || appBindingChanged;
-//   }
-
-//   if (!formCatalogService.value) return false;
-//   if (!formName.value) return false;
-//   if (!formNamespace.value) return false;
-//   if (showChartValues.value && !Object.values(validChartValues.value).every((v) => !!v)) return false;
-
-//   const nameErrors = validateKubernetesName(formName.value, '', store.getters, undefined, []);
-//   const nsErrors = validateKubernetesName(formNamespace.value, '', store.getters, undefined, []);
-
-//   return nameErrors.length === 0 && nsErrors.length === 0;
+const isSourceDirty = computed(() => {
+  if (!snapshot.value) return false;
+  
+  const snapshotSource = JSON.parse(snapshot.value).source;
+  const currentSource = JSON.parse(takeSnapshot()).source;
+  
+  return JSON.stringify(snapshotSource) !== JSON.stringify(currentSource);
 });
+
+const showDiscardConfirm = ref(false);
 
 function takeSnapshot() {
   return JSON.stringify({
@@ -154,33 +117,12 @@ async function openCreate() {
   originalModel.value = await store.dispatch('epinio/create', { type: EPINIO_TYPES.APP });
   value.value = await store.dispatch('epinio/clone', { resource: originalModel.value });
 
-  tabs.value.push({ id: 'progress', label: 'Progress', completed: false, valid: false, disabled: true });
+  // tabs.value.push({ id: 'progress', label: 'Progress', completed: false, valid: false, disabled: true });
 
   loading.value = false;
 
   await nextTick();
   snapshot.value = takeSnapshot();
-}
-
-function openView(row: any) {
-//   errors.value = [];
-//   modalMode.value = 'view';
-
-//   serviceModel.value = row;
-//   formNamespace.value = row.meta?.namespace || '';
-//   formName.value = row.name || row.meta?.name || '';
-//   formCatalogService.value = row.catalog_service || '';
-
-//   selectedApps.value = [...(row.boundapps || [])];
-//   initialBoundApps.value = [...(row.boundapps || [])];
-
-//   const settings = objValuesToString(row.settings || {});
-
-//   Object.keys(chartValues).forEach(k => delete chartValues[k]);
-//   Object.assign(chartValues, settings);
-//   validChartValues.value = {};
-
-//   showModal.value = true;
 }
 
 async function openEdit(row: EpinioApplicationModel) {
@@ -208,7 +150,7 @@ async function openEdit(row: EpinioApplicationModel) {
   // };
   // console.log('openEdit bindings', bindings.value);
 
-  tabs.value.forEach(tab => tab.disabled = false);
+  tabs.value.forEach(tab => tab.id !== 'progress' ? tab.disabled = false : null);
 
   loading.value = false;
 
@@ -245,7 +187,7 @@ function closeModal() {
 
   // ui state
   activeTab.value = 'source';
-  tabs.value = tabs.value.filter(t => t.id !== 'progress') // remove progress tab added during create
+  // tabs.value = tabs.value.filter(t => t.id !== 'progress') // remove progress tab added during create
   tabs.value.forEach((tab, i) => {
     tab.completed = false;
     tab.disabled = i !== 0;
@@ -304,6 +246,7 @@ function updateInfo(changes: EpinioAppInfo) {
 }
 
 function updateSource(changes: EpinioAppSource) {
+  console.log('updateSource', changes);
   source.value = {};
   const { appChart: chartId, ...cleanChanges } = changes;
 
@@ -362,27 +305,33 @@ async function onSubmit() {
 
   try {
     if (isEdit.value) {
+      console.log('Submitting with value', value.value);
+      // Always save metadata/config changes
       await value.value.update();
-
       await value.value.updateConfigurations(
         originalModel.value.baseConfigurationsNames || [],
         bindings.value?.configurations || [],
       );
-
       await value.value.updateServices(
         originalModel.value.services || [],
         bindings.value?.services || [],
       );
 
-      await value.value.forceFetch();
-      closeModal();
+      if (isSourceDirty.value) {
+        // Source changed — need full redeploy pipeline
+        saving.value = false;
+        completeTab('bindings', 'progress'); // progress tab handles the rest
+      } else {
+        await value.value.forceFetch();
+        closeModal();
+      }
     } else {
       completeTab('bindings', 'progress');
     }
   } catch (err: any) {
     errors.value = epinioExceptionToErrorsArray(err);
   } finally {
-    saving.value = false;
+    if (!isEdit.value) saving.value = false;
   }
 }
 
@@ -394,7 +343,7 @@ function completeTab(tabId: string | number, nextTabId: string | number) {
   activeTab.value = nextTabId
 }
 
-defineExpose({ openCreate, openEdit, openView });
+defineExpose({ openCreate, openEdit });
 </script>
 
 <template>
@@ -418,6 +367,7 @@ defineExpose({ openCreate, openEdit, openView });
             @change-app-info="updateInfo"
             @change-app-config="updateManifestConfigurations"
             @valid="(val) => {
+              console.log('SOURCE VALID', val);  
               if (!isEdit)tabs[0].completed = val;
               tabs[0].valid = val;
               tabs[1].disabled = !val;
@@ -433,11 +383,12 @@ defineExpose({ openCreate, openEdit, openView });
             :active="activeTab === tab.id"
             @change="updateInfo"
             @valid="(val) => {
+              console.log('DETAILS VALID', val);
               if (!isEdit) tabs[1].completed = val;
               tabs[1].valid = val;
               tabs[2].disabled = !val;
               // also disable final tab since the third tab has no required fields
-              if (tabs[3]) tabs[3].disabled = !val;
+              if (tabs[3] && !isEdit) tabs[3].disabled = !val;
             }"
           />
         </template>
@@ -457,7 +408,7 @@ defineExpose({ openCreate, openEdit, openView });
             :application="value"
             :source="source"
             :bindings="bindings"
-            :mode="mode"
+            :mode="modalMode"
             :tab="tab"
             :active="activeTab === tab.id"
           />
@@ -536,7 +487,7 @@ defineExpose({ openCreate, openEdit, openView });
         </trailhand-button>
         <trailhand-button v-if="isEdit"
           variant="primary"
-          :disabled="!isDirty || saving"
+          :disabled="!isDirty || saving || tabs.some(t => !t.valid)"
           @button-click="onSubmit"
         >
           {{ saving ? 'Saving...' : t('generic.save') }}
@@ -552,6 +503,7 @@ defineExpose({ openCreate, openEdit, openView });
   flex-direction: column;
   gap: 1rem;
   min-width: 750px;
+  min-height: 500px;
   width: fit-content;
 }
 

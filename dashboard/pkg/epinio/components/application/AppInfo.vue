@@ -340,8 +340,6 @@ function onBulkFileChange(event: Event) {
   reader.readAsText(file);
   (event.target as HTMLInputElement).value = '';
 }
-
-const isEditing = computed(() => props.mode === _EDIT);
 </script>
 
 <template>
@@ -353,7 +351,7 @@ const isEditing = computed(() => props.mode === _EDIT);
         :options="namespaceNames"
         label="Namespace"
         :placeholder="t('epinio.applications.create.namespacePlaceholder')"
-        :mode="props.mode"
+        :disabled="isEdit"
         data-testid="epinio_app-info_namespace"
         required
         @dropdown-change="(e: CustomEvent) => handleNameNsUpdate({ metadata: { namespace: e.detail.value } })"
@@ -363,7 +361,7 @@ const isEditing = computed(() => props.mode === _EDIT);
         data-testid="epinio_app-info_name"
         label="Name"
         :placeholder="t('epinio.applications.create.namePlaceholder')"
-        :mode="props.mode"
+        :disabled="isEdit"
         required
         @text-input-change="(e: CustomEvent) => handleNameNsUpdate({ metadata: { name: e.detail.value } })"
       />
@@ -372,7 +370,6 @@ const isEditing = computed(() => props.mode === _EDIT);
         data-testid="epinio_app-info_instances"
         label="Instances"
         :placeholder="t('epinio.applications.create.instancesPlaceholder')"
-        :mode="props.mode"
         @text-input-change="(e: CustomEvent) => {values.configuration.instances = e.detail.value; update()}"
         required
         type="number"
@@ -385,7 +382,6 @@ const isEditing = computed(() => props.mode === _EDIT);
           style="flex: 1;"
           :value="route"
           :placeholder="t('epinio.applications.create.routes.placeholder')"
-          :mode="props.mode"
           @text-input-change="(e: CustomEvent) => { values.configuration.routes[index] = e.detail.value; update(); }"
         />
         <button
@@ -404,13 +400,12 @@ const isEditing = computed(() => props.mode === _EDIT);
         Add Row
       </trailhand-button>
     </div>
-    <div class="spacer" />
-    <div v-if="isEdit" class="col span-8">
+    <div v-if="isEdit">
       <Banner color="info">
         {{ t('epinio.applications.create.settingsVars.description') }}
       </Banner>
     </div>
-    <div v-if="showApplicationVariables" class="col span-6">
+    <div v-if="showApplicationVariables">
       <ChartValues
         v-model:value="values.configuration.settings"
         :chart="values.chart"
@@ -419,80 +414,77 @@ const isEditing = computed(() => props.mode === _EDIT);
         :disabled="false"
         @valid="validSettings = $event"
       />
-      <div class="spacer" />
     </div>
-    <div class="col span-8">
-      <div class="env-var-section">
-        <div class="env-var-title-row">
-          <h3>{{ t('epinio.applications.create.envvar.title') }}</h3>
-          <button
-            v-if="props.mode === 'edit'"
-            class="icon-button"
-            type="button"
-            :title="showEnvValues ? 'Hide environment variable values' : 'Show environment variable values'"
-            :aria-label="showEnvValues ? 'Hide environment variable values' : 'Show environment variable values'"
-            @click="toggleEnvVisibility"
-          >
-            <img v-if="!showEnvValues" :src="eyeIcon" alt="Show values" class="icon" />
-            <img v-else :src="eyeOffIcon" alt="Hide values" class="icon" />
-          </button>
-        </div>
-        <div class="env-var-data">
-          <template v-if="envVariables.length > 0 || isEditing">
+    <div class="env-var-section">
+      <div class="env-var-title-row">
+        <h3>{{ t('epinio.applications.create.envvar.title') }}</h3>
+        <!-- <button
+          v-if="props.mode === 'edit'"
+          class="icon-button"
+          type="button"
+          :title="showEnvValues ? 'Hide environment variable values' : 'Show environment variable values'"
+          :aria-label="showEnvValues ? 'Hide environment variable values' : 'Show environment variable values'"
+          @click="toggleEnvVisibility"
+        >
+          <img v-if="!showEnvValues" :src="eyeIcon" alt="Show values" class="icon" />
+          <img v-else :src="eyeOffIcon" alt="Hide values" class="icon" />
+        </button> -->
+      </div>
+      <div class="env-var-data">
+        <template v-if="envVariables.length > 0 || isEdit">
 
-            <div
-              v-for="(envVar, i) in envVariables"
-              :key="i"
-              class="env-var-row"
-            >
-              <trailhand-text-input
-                style="flex: 1;"
-                :value="envVar.key"
-                label="Key"
-                required
-                placeholder="e.g. foo"
-                @text-input-change="(e: CustomEvent) => updateRowKey(i, e.detail.value)"
-              />
-              <trailhand-code-editor
-                style="flex: 1;"
-                :value="envVar.value"
-                label="Value"
-                required
-                @code-input-change="(e: CustomEvent) => updateRowValue(i, e.detail.value)"
-              />
-              <button
-                class="remove-link"
-                @click="removeRow(i)"
-              >
-                Remove
-              </button>
-            </div>
-          </template>
           <div
-            class="config-data-actions"
+            v-for="(envVar, i) in envVariables"
+            :key="i"
+            class="env-var-row"
           >
-            <trailhand-button
-              variant="secondary"
-              size="small"
-              @button-click="addRow"
+            <trailhand-text-input
+              style="flex: 1;"
+              :value="envVar.key"
+              label="Key"
+              required
+              placeholder="e.g. foo"
+              @text-input-change="(e: CustomEvent) => updateRowKey(i, e.detail.value)"
+            />
+            <trailhand-code-editor
+              style="flex: 1;"
+              :value="envVar.value"
+              label="Value"
+              required
+              @code-input-change="(e: CustomEvent) => updateRowValue(i, e.detail.value)"
+            />
+            <button
+              class="remove-link"
+              @click="removeRow(i)"
             >
-              Add
-            </trailhand-button>
-            <trailhand-button
-              variant="secondary"
-              size="small"
-              @button-click="triggerBulkFileUpload"
-            >
-              Read From File
-            </trailhand-button>
-            <input
-              ref="bulkFileInput"
-              type="file"
-              class="hidden-file-input"
-              @change="onBulkFileChange"
-              @cancel="fileDialogActive = false"
-            >
+              Remove
+            </button>
           </div>
+        </template>
+        <div
+          class="config-data-actions"
+        >
+          <trailhand-button
+            variant="secondary"
+            size="small"
+            @button-click="addRow"
+          >
+            Add
+          </trailhand-button>
+          <trailhand-button
+            variant="secondary"
+            size="small"
+            @button-click="triggerBulkFileUpload"
+          >
+            Read From File
+          </trailhand-button>
+          <input
+            ref="bulkFileInput"
+            type="file"
+            class="hidden-file-input"
+            @change="onBulkFileChange"
+            @cancel="fileDialogActive = false"
+          >
         </div>
       </div>
     </div>

@@ -87,13 +87,13 @@ const onInputCheckbox = (key: string, value: boolean) => {
       /> -->
       <trailhand-text-input
         v-if="setting.type === 'number' || setting.type === 'integer'"
+        style="flex: 1;"
         :id="key"
         :value="props.value[key]"
         :label="key"
         type="number"
         :min="setting.minimum"
         :max="setting.maximum"
-        :rules="[rules(key, setting.minimum, setting.maximum)]"
         :disabled="props.disabled"
         @text-input-change="(e: CustomEvent) => props.value[key] = e.detail.value"
        />
@@ -125,6 +125,7 @@ const onInputCheckbox = (key: string, value: boolean) => {
       /> -->
       <trailhand-dropdown
         v-else-if="setting.type === 'string' && setting.enum"
+        style="flex: 1;"
         :id="key"
         :value="props.value[key]"
         :label="key"
@@ -142,6 +143,7 @@ const onInputCheckbox = (key: string, value: boolean) => {
        /> -->
        <trailhand-text-input
         v-else-if="setting.type === 'string'"
+        style="flex: 1;"
         :id="key"
         :value="props.value[key]"
         :label="key"
@@ -156,6 +158,13 @@ const onInputCheckbox = (key: string, value: boolean) => {
 .chart-values {
   display: flex;
   flex-direction: column;
+  width: 100%;
+
+  .chart-values-item {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+  }
 
   &-item:not(:last-of-type) {
     margin-bottom: 20px;

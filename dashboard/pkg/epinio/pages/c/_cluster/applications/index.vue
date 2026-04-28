@@ -261,19 +261,19 @@ onUnmounted(() => {
 
 <template>
   <Loading v-if="pending" />
-  <div v-else>
+  <div class="outlet" v-else>
     <Masthead
       :schema="schema"
       :resource="resource"
     >
       <template #createButton>
-        <trailhand-button
+        <!-- <trailhand-button
           variant="primary"
           size="large"
           @click="openCreateRoute"
         >
           Old Create
-        </trailhand-button>
+        </trailhand-button> -->
         <trailhand-button
           variant="primary"
           size="large"
