@@ -227,6 +227,7 @@ watch(() => props.active, (isActive) => {
         key-field="key"
       />
     </div>
+    <h3>The application will continue {{ props.mode === 'edit' ? 'updating' : 'deploying' }} in the background. Feel free to close this modal.</h3>
   </div>
 </template>
 
@@ -234,10 +235,14 @@ watch(() => props.active, (isActive) => {
 .progress-container {
   display: flex;
   justify-content: center;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
 
   .progress {
     padding: 10px 0;
-
+    display: flex;
+    
     trailhand-table {
       --sortable-table-row-hover-bg: var(--sortable-table-hover-bg);
       --sortable-table-header-hover-bg: var(--sortable-table-hover-bg);

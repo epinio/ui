@@ -206,6 +206,7 @@ const columns = computed(() => {
         >
           {{ t('generic.create') }}
         </trailhand-button>
+        <div v-else></div>
       </template>
     </Masthead>
     <trailhand-table

@@ -1,10 +1,6 @@
 <script lang="ts" setup>
 import { ref, watch, computed, onMounted, isReactive } from 'vue';
 import { useStore } from 'vuex';
-import NameNsDescription from '@shell/components/form/NameNsDescription.vue';
-import LabeledInput from '@components/Form/LabeledInput/LabeledInput.vue';
-import KeyValue from '@shell/components/form/KeyValue.vue';
-import ArrayList from '@shell/components/form/ArrayList.vue';
 import Loading from '@shell/components/Loading.vue';
 import Banner from '@components/Banner/Banner.vue';
 import ChartValues from '../settings/ChartValues.vue';
@@ -77,13 +73,6 @@ const valid = computed(() => {
     Object.values(validSettings.value).every((v) => !!v);
 });
 
-const toggleEnvVisibility = () => {
-  showEnvValues.value = !showEnvValues.value;
-};
-
-const eyeIcon = new URL('../../assets/icons/eye-duotone-solid.svg', import.meta.url).href;
-const eyeOffIcon = new URL('../../assets/icons/eye-slash-duotone-solid.svg', import.meta.url).href;
-
 const showApplicationVariables = computed(() => {
   return Object.keys(values.value?.configuration?.settings || {}).length !== 0;
 });
@@ -126,39 +115,6 @@ const generateDefaultName = () => {
     return '';
   }
 };
-
-// Mounted lifecycle hook
-// onMounted(() => {
-//   const defaultName = props.application.meta?.name || (props.mode !== _EDIT ? generateDefaultName() : '');
-
-//   // In create mode, don't auto-select the first namespace - require explicit selection
-//   const defaultNamespace = props.mode === _EDIT
-//     ? (props.application.meta?.namespace || '')
-//     : (props.application.meta?.namespace || '');
-
-//   const valuesData: EpinioAppInfo = {
-//     meta: {
-//       name: defaultName,
-//       namespace: defaultNamespace
-//     },
-//     chart: moveBooleansToFront(props.application.chart?.settings) || {},
-//     configuration: {
-//       configurations: props.application.configuration?.configurations || [],
-//       instances: props.application.configuration?.instances || 1,
-//       environment: props.application.configuration?.environment || {},
-//       settings: props.application.configuration?.settings || {},
-//       routes: props.application.configuration?.routes || [],
-//     },
-//   };
-
-//   envVariables.value = Object.entries(valuesData.configuration.environment).map(([key, value]) => ({ key, value }));
-//   values.value = valuesData;
-//   validSettings.value = {};
-
-//   emit('valid', valid.value);
-
-//   populateOnEdit();
-// });
 
 watch(() => props.active, (isActive) => {
   if (isActive) {
@@ -418,17 +374,6 @@ function onBulkFileChange(event: Event) {
     <div class="env-var-section">
       <div class="env-var-title-row">
         <h3>{{ t('epinio.applications.create.envvar.title') }}</h3>
-        <!-- <button
-          v-if="props.mode === 'edit'"
-          class="icon-button"
-          type="button"
-          :title="showEnvValues ? 'Hide environment variable values' : 'Show environment variable values'"
-          :aria-label="showEnvValues ? 'Hide environment variable values' : 'Show environment variable values'"
-          @click="toggleEnvVisibility"
-        >
-          <img v-if="!showEnvValues" :src="eyeIcon" alt="Show values" class="icon" />
-          <img v-else :src="eyeOffIcon" alt="Hide values" class="icon" />
-        </button> -->
       </div>
       <div class="env-var-data">
         <template v-if="envVariables.length > 0 || isEdit">

@@ -5,23 +5,13 @@ import { useStore } from 'vuex';
 import jsyaml from 'js-yaml';
 
 import Application from '../../models/applications';
-import LabeledInput from '@components/Form/LabeledInput/LabeledInput.vue';
-import LabeledSelect from '@shell/components/form/LabeledSelect.vue';
-import FileSelector from '@shell/components/form/FileSelector.vue';
 import GitPicker from './GitPicker.vue';
-import RadioGroup from '@components/Form/Radio/RadioGroup.vue';
 import { sortBy } from '@shell/utils/sort';
 import { generateZip } from '@shell/utils/download';
-import Collapse from '@shell/components/Collapse.vue';
 import {
   APPLICATION_SOURCE_TYPE,
   EpinioApplicationChartResource,
   EpinioInfo,
-  //AppSourceArchive,
-  //AppSourceContainer,
-  //AppSourceGit,
-  //AppSourceGitUrl,
-  //AppSourceBuilderImage,
   EpinioAppSource,
   EPINIO_APP_MANIFEST
 } from '../../types';
@@ -387,23 +377,6 @@ onMounted(() => {
         @dropdown-change="(e: CustomEvent) => type = e.detail.value"
         data-testid="epinio_app-source_type"
       ></trailhand-dropdown>
-      <!-- <LabeledSelect
-        v-model:value="type"
-        data-testid="epinio_app-source_type"
-        label="Source Type"
-        :options="types"
-        :mode="mode"
-        :clearable="false"
-      /> -->
-      <!-- <FileSelector
-        v-clean-tooltip="t('epinio.applications.steps.source.manifest.tooltip')"
-        data-testid="epinio_app-source_manifest"
-        class="role-tertiary add mt-5"
-        :label="t('epinio.applications.steps.source.manifest.button')"
-        :mode="mode"
-        :raw-data="false"
-        @selected="onManifestFileSelected"
-      /> -->
       <trailhand-button
         variant="alternate"
         @button-click="handleFromManifestClick"
@@ -424,14 +397,6 @@ onMounted(() => {
       <div class="spacer source">
         <h3>{{ t('epinio.applications.steps.source.archive.file.label') }}</h3>
         <div class="button-row">
-          <!-- <LabeledInput
-            v-model:value="archive.fileName"
-            data-testid="epinio_app-source_archive_name"
-            :disabled="true"
-            :tooltip="t('epinio.applications.steps.source.archive.file.tooltip')"
-            :label="t('epinio.applications.steps.source.archive.file.inputLabel')"
-            :required="true"
-          /> -->
           <trailhand-text-input
             style="flex: 1"
             :value="archive.fileName"
@@ -441,15 +406,6 @@ onMounted(() => {
             :required="true"
             size="small"
           />
-          <!-- <FileSelector
-            data-testid="epinio_app-source_archive_file"
-            class="role-tertiary add mt-5"
-            :label="t('epinio.applications.steps.source.archive.file.button')"
-            :mode="mode"
-            :raw-data="true"
-            :accept="'.zip, .tar, .gz, .bz2, .xz'"
-            @selected="onFileSelected"
-          /> -->
           <trailhand-button
             variant="alternate"
             @button-click="handleArchiveFileClick"
@@ -473,14 +429,6 @@ onMounted(() => {
       <div class="spacer source">
         <h3>{{ t('epinio.applications.steps.source.folder.file.label') }}</h3>
         <div class="button-row">
-          <!-- <LabeledInput
-            v-model:value="archive.fileName"
-            data-testid="epinio_app-source_folder_name"
-            :disabled="true"
-            :tooltip="t('epinio.applications.steps.source.folder.file.tooltip')"
-            :label="t('epinio.applications.steps.source.folder.file.inputLabel')"
-            :required="true"
-          /> -->
           <trailhand-text-input
             style="flex: 1"
             :value="archive.fileName"
@@ -490,15 +438,6 @@ onMounted(() => {
             :required="true"
             size="small"
           />
-          <!-- <FileSelector
-            data-testid="epinio_app-source_folder_file"
-            class="role-tertiary add mt-5"
-            :label="t('epinio.applications.steps.source.folder.file.button')"
-            :mode="mode"
-            :raw-data="true"
-            :directory="true"
-            @selected="onFolderSelected"
-          /> -->
           <trailhand-button
             variant="alternate"
             @button-click="handleFolderFileClick"
@@ -520,14 +459,6 @@ onMounted(() => {
     <template v-else-if="type === APPLICATION_SOURCE_TYPE.CONTAINER_URL">
       <div class="spacer source">
         <h3>{{ t('epinio.applications.steps.source.container_url.url.label') }}</h3>
-        <!-- <LabeledInput
-          v-model:value="container.url"
-          data-testid="epinio_app-source_container"
-          :tooltip="t('epinio.applications.steps.source.container_url.url.tooltip')"
-          :label="t('epinio.applications.steps.source.container_url.url.inputLabel')"
-          :required="true"
-          @input="update"
-        /> -->
         <trailhand-text-input
           style="width: 100%;"
           :value="container.url"
@@ -542,18 +473,6 @@ onMounted(() => {
     <template v-else-if="type === APPLICATION_SOURCE_TYPE.GIT_URL">
       <div class="spacer source">
         <h3>{{ t('epinio.applications.steps.source.git_url.url.label') }}</h3>
-        <!-- <LabeledInput
-          v-model:value="gitUrl.url"
-          v-focus
-          data-testid="epinio_app-source_git-url"
-          :tooltip="t('epinio.applications.steps.source.git_url.url.tooltip')"
-          :label="t('epinio.applications.steps.source.git_url.url.inputLabel')"
-          :placeholder="'https://github.com/{user or org}/{repository}'"
-          :required="true"
-          :rules="[urlRule]"
-          @delay="100"
-          @input="update"
-        /> -->
         <trailhand-text-input
           style="width: 100%;"
           :value="gitUrl.url"
@@ -569,15 +488,6 @@ onMounted(() => {
       </div>
       <div class="spacer source">
         <h3>{{ t('epinio.applications.steps.source.git_url.branch.label') }}</h3>
-        <!-- <LabeledInput
-          v-model:value="gitUrl.branch"
-          data-testid="epinio_app-source_git-branch"
-          :tooltip="t('epinio.applications.steps.source.git_url.branch.tooltip')"
-          :label="t('epinio.applications.steps.source.git_url.branch.inputLabel')"
-          :required="true"
-          :disabled="!gitUrl.validGitUrl"
-          @input="update"
-        /> -->
         <trailhand-text-input
           style="width: 100%;"
           :value="gitUrl.branch"
@@ -600,19 +510,6 @@ onMounted(() => {
 
     <div class="spacer source">
       <h3>Advanced Settings</h3>
-      <!-- <LabeledSelect
-        v-model:value="appChart"
-        data-testid="epinio_app-source_appchart"
-        :label="t('epinio.applications.steps.source.archive.appchart.label')"
-        :options="appCharts"
-        :mode="mode"
-        :clearable="false"
-        :required="true"
-        :tooltip="t('typeDescription.appcharts')"
-        :reduce="(e) => e.value"
-        :disabled="mode === EDIT"
-        @input="update"
-      /> -->
       <trailhand-dropdown
         style="width: 100%;"
         :value="appChart"
@@ -625,19 +522,6 @@ onMounted(() => {
       />
 
       <template v-if="showBuilderImage">
-        <!-- <RadioGroup
-          v-model:value="builderImage.default"
-          class="mt-20"
-          name="defaultBuilderImage"
-          data-testid="epinio_app-source_builder-select"
-          :labels="[
-            t('epinio.applications.steps.source.archive.builderimage.default'),
-            t('epinio.applications.steps.source.archive.builderimage.custom')
-          ]"
-          :options="[true, false]"
-          :label-key="'epinio.applications.steps.source.archive.builderimage.label'"
-          @update:value="onImageType"
-        /> -->
         <div class="spacer source builder-image">
           <h4>Paketo Builder Image</h4>
           <trailhand-checkbox
@@ -647,14 +531,6 @@ onMounted(() => {
           >
             Use Custom Builder Image
           </trailhand-checkbox>
-          <!-- <LabeledInput
-            v-model:value="builderImage.value"
-            data-testid="epinio_app-source_builder-value"
-            :disabled="builderImage.default"
-            :tooltip="t('epinio.applications.steps.source.archive.builderimage.tooltip')"
-            :mode="mode"
-            @input="update"
-          /> -->
           <trailhand-text-input
             style="width: 100%;"
             :value="builderImageValue"

@@ -336,10 +336,16 @@ async function onSubmit() {
 }
 
 function completeTab(tabId: string | number, nextTabId: string | number) {
-  const tab    = tabs.value.find((t) => t.id === tabId)
-  const next   = tabs.value.find((t) => t.id === nextTabId)
-  if (tab && !isEdit)  tab.completed = true
+  const tab = tabs.value.find((t) => t.id === tabId)
+  const next = tabs.value.find((t) => t.id === nextTabId)
+  if (tab && !isEdit.value)  tab.completed = true
   if (next) next.disabled = false
+  // if moving to the last tab, disable all previous tabs to prevent jumping back and forth during deploy progress
+  if (nextTabId === 'progress') {
+    tabs.value.forEach(t => {
+      if (t.id !== 'progress') t.disabled = true
+    })
+  }
   activeTab.value = nextTabId
 }
 
@@ -455,7 +461,7 @@ defineExpose({ openCreate, openEdit });
         </trailhand-button>
       </template>
       <template v-else>
-        <trailhand-button
+        <trailhand-button v-if="nextTab"
           variant="secondary"
           class="mr-10"
           @button-click="handleModalClose"
@@ -463,7 +469,7 @@ defineExpose({ openCreate, openEdit });
           Cancel
         </trailhand-button>
         <trailhand-button
-          v-if="!!prevTab"
+          v-if="!!prevTab && nextTab"
           variant="secondary"
           class="mr-10"
           @button-click="activeTab = prevTab"
@@ -477,7 +483,7 @@ defineExpose({ openCreate, openEdit });
         >
           Finish
         </trailhand-button>
-        <trailhand-button v-else
+        <trailhand-button v-else-if="nextTab"
           :variant="!isEdit ? 'primary' : 'secondary'"
           class="mr-10"
           :disabled="tabs.find(t => t.id === nextTab)?.disabled"
@@ -485,12 +491,19 @@ defineExpose({ openCreate, openEdit });
         >
           Next
         </trailhand-button>
-        <trailhand-button v-if="isEdit"
+        <trailhand-button v-if="isEdit && nextTab"
           variant="primary"
           :disabled="!isDirty || saving || tabs.some(t => !t.valid)"
           @button-click="onSubmit"
         >
           {{ saving ? 'Saving...' : t('generic.save') }}
+        </trailhand-button>
+        <trailhand-button v-else-if="!nextTab && isEdit"
+          variant="primary"
+          :disabled="false"
+          @button-click="closeModal"
+        >
+          Finish
         </trailhand-button>
       </template>
     </div>
@@ -502,9 +515,9 @@ defineExpose({ openCreate, openEdit });
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  min-width: 750px;
+  width: 1000px;
   min-height: 500px;
-  width: fit-content;
+  // width: fit-content;
 }
 
 .discard-message {

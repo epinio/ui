@@ -4,8 +4,6 @@ import { useStore } from 'vuex';
 import { makeCommitShaCell, makeCommitAuthorCell } from '../../utils/table-formatters';
 import debounce from 'lodash/debounce';
 import { isArray } from '@shell/utils/array';
-import LabeledSelect from '@shell/components/form/LabeledSelect.vue';
-import LabeledInput from '@components/Form/LabeledInput/LabeledInput.vue';
 import { GitUtils, Commit } from '@shell/utils/git';
 
 const props = defineProps<{
