@@ -1,24 +1,22 @@
 <script setup lang="ts">
-import { ref, computed, defineProps, onMounted } from 'vue';
+import { ref, computed, onMounted, watchEffect } from 'vue';
 import { useStore } from 'vuex';
 import day from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 
 import Application from '../models/applications';
-import SimpleBox from '@shell/components/SimpleBox.vue';
 import { GitUtils } from '@shell/utils/git';
 import { isArray } from '@shell/utils/array';
-import ConsumptionGauge from '@shell/components/ConsumptionGauge.vue';
-import { APPLICATION_MANIFEST_SOURCE_TYPE, EPINIO_TYPES } from '../types';
-import PlusMinus from '@shell/components/form/PlusMinus.vue';
+import { EPINIO_TYPES } from '../types';
 import { epinioExceptionToErrorsArray } from '../utils/errors';
-import ApplicationCard from '../components/application/AppCardDetail.vue';
 import Tabs from '../components/application/Tabs.vue';
-import Tabbed from '@shell/components/Tabbed/index.vue';
-import Tab from '@shell/components/Tabbed/Tab.vue';
-import AppGitDeployment from '../components/application/AppGitDeployment.vue';
 import Banner from '@components/Banner/Banner.vue';
-import { makeStateTag, makeActionMenu, makeCommitShaCell, makeCommitAuthorCell } from '../utils/table-formatters';
+import { makeStateTag, makeActionMenu, makeCommitShaCell, makeCommitAuthorCell, overrideTableRows } from '../utils/table-formatters';
+import ServiceInstanceModal from '../components/service/ServiceInstanceModal.vue';
+import ServiceDeleteModal from '../components/service/ServiceDeleteModal.vue';
+import EpinioServiceModel from 'models/services';
+import ConfigurationModal from '../components/configuration/ConfigurationModal.vue';
+import ConfigurationDeleteModal from '../components/configuration/ConfigurationDeleteModal.vue';
 
 day.extend(relativeTime);
 
@@ -29,8 +27,6 @@ const props = defineProps<{
 }>();
 
 const store = useStore();
-
-console.log('[ApplicationDetail] Props value:', props.value);
 
 const t = store.getters['i18n/t'];
 
@@ -51,6 +47,14 @@ const resourceTabs = ref([
   { id: 'services', label: t('epinio.applications.detail.tables.services'), completed: false, valid: true, disabled: false },
   { id: 'configs', label: t('epinio.applications.detail.tables.configs'), completed: false, valid: true, disabled: false }
 ]);
+
+const serviceModal = ref<InstanceType<typeof ServiceInstanceModal> | null>(null);
+const serviceDeleteModal = ref<InstanceType<typeof ServiceDeleteModal> | null>(null);
+const serviceRows = ref<any[]>([]);
+
+const configModal = ref<InstanceType<typeof ConfigurationModal> | null>(null);
+const configDeleteModal = ref<InstanceType<typeof ConfigurationDeleteModal> | null>(null);
+const configRows = ref<any[]>([]);
 
 const instanceColumns = [
   {
@@ -129,6 +133,107 @@ const configColumns = [
     formatter: 'age'
   }
 ];
+
+watchEffect(() => {
+  const all = [...props.value.services];
+
+  all.forEach((row: any) => { void row.status; void row.stateDisplay; void row.meta; });
+
+  // Filter empty rows that are added during delete
+  const filtered = all.filter((row) => {
+    if (!row.id) return false;
+    else return true;
+  });
+
+  // Add custom service delete action to replace the built in rancher shell flow
+  const overrideProps = [
+    {
+      prop: 'availableActions',
+      value: (row: EpinioServiceModel) => (
+        [
+          {
+            action: 'removeService',
+            altAction: 'remove',
+            bulkAction: 'removeService',
+            bulkable: true, 
+            enabled: row.canDelete,
+            icon: 'icon icon-trash',
+            label: 'Delete',
+            weight: -10
+          }, 
+          {
+            action: 'editServiceModal',
+            label: 'Edit',
+            enabled: true
+          }
+        ]
+      ),
+      conditionFn: (row: EpinioServiceModel) => {
+        return true;
+      },
+    },
+    {
+      prop: 'removeService',
+      value: (row: EpinioServiceModel) => () => {
+        serviceDeleteModal.value?.openDelete(row);
+      },
+      conditionFn: (row: EpinioServiceModel) => {
+        return row.canDelete;
+      }, 
+    },
+    {
+      prop: 'editServiceModal',
+      value: (row: EpinioServiceModel) => () => {
+        serviceModal.value?.openEdit(row);
+      },
+      conditionFn: (row: EpinioServiceModel) => {
+        return true;
+      }, 
+    }
+  ];
+
+  serviceRows.value = [...overrideTableRows(filtered, overrideProps)];
+});
+
+watchEffect(() => {
+  const all = [...props.value.baseConfigurations];
+
+  all.forEach((row: any) => { void row.status; void row.stateDisplay; void row.meta; });
+
+  const overrides = [
+    {
+      prop: 'availableActions',
+      value: (row: any) => [
+        {
+          action:     'editConfigModal',
+          label:      'Edit',
+          enabled:    row.configuration?.type === 'custom',
+          icon:       'icon icon-edit',
+        },
+        {
+          action:  'deleteConfigModal',
+          label:   'Delete',
+          enabled: row.configuration?.type === 'custom',
+          icon:    'icon icon-trash',
+          weight:  -10,
+        },
+      ],
+      conditionFn: () => true,
+    },
+    {
+      prop:        'editConfigModal',
+      value:       (row: any) => () => { configModal.value?.openEdit(row); },
+      conditionFn: (row: any) => row.configuration?.type === 'custom',
+    },
+    {
+      prop:        'deleteConfigModal',
+      value:       (row: any) => () => { configDeleteModal.value?.openDelete(row); },
+      conditionFn: (row: any) => row.configuration?.type === 'custom',
+    },
+  ];
+
+  configRows.value = [...overrideTableRows(all, overrides)];
+});
 
 const commitActions = [{
   action: 'editFromCommit',
@@ -356,7 +461,7 @@ function formatDate(date, from) {
       class="deployment"
     >
       <!-- Source information -->
-      <Tabs  :tabs="deploymentTabs" v-model="activeDeploymentTab">
+      <Tabs  :tabs="deploymentTabs" v-model="activeDeploymentTab" variant="underline">
         <template #overview="{ tab }">
           <div class="simple-box-row app-instances">
             <trailhand-card variant="info" class="dashboard-card simple-box">
@@ -519,9 +624,10 @@ function formatDate(date, from) {
     </h3>
 
     <div>
-      <Tabs :tabs="resourceTabs" v-model="activeResourceTab">
+      <Tabs :tabs="resourceTabs" v-model="activeResourceTab" variant="underline">
         <template #instances="{ tab }">
           <trailhand-table
+            :ref="(el: any) => { if (el) el.renderActions = makeActionMenu; }"
             :columns="instanceColumns"
             :rows="value.instances"
             :searchable="false"
@@ -530,24 +636,29 @@ function formatDate(date, from) {
         </template>
         <template #services="{ tab }">
           <trailhand-table
+            :ref="(el: any) => { if (el) el.renderActions = makeActionMenu; }"
             :columns="serviceColumns"
-            :rows="value.services"
+            :rows="serviceRows"
             :searchable="false"
             :paginated="false"
           />
         </template>
         <template #configs="{ tab }">
           <trailhand-table
+            :ref="(el: any) => { if (el) el.renderActions = makeActionMenu; }"
             :columns="configColumns"
-            :rows="value.baseConfigurations"
+            :rows="configRows"
             :searchable="false"
             :paginated="false"
           />
         </template>
       </Tabs>
     </div>
-
   </div>
+  <ServiceInstanceModal ref="serviceModal" />
+  <ServiceDeleteModal ref="serviceDeleteModal" />
+  <ConfigurationModal ref="configModal" />
+  <ConfigurationDeleteModal ref="configDeleteModal" />
 </template>
 
 <style lang="scss" scoped>
