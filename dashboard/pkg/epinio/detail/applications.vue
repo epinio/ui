@@ -13,6 +13,7 @@ import { APPLICATION_MANIFEST_SOURCE_TYPE, EPINIO_TYPES } from '../types';
 import PlusMinus from '@shell/components/form/PlusMinus.vue';
 import { epinioExceptionToErrorsArray } from '../utils/errors';
 import ApplicationCard from '../components/application/AppCardDetail.vue';
+import Tabs from '../components/application/Tabs.vue';
 import Tabbed from '@shell/components/Tabbed/index.vue';
 import Tab from '@shell/components/Tabbed/Tab.vue';
 import AppGitDeployment from '../components/application/AppGitDeployment.vue';
@@ -29,6 +30,8 @@ const props = defineProps<{
 
 const store = useStore();
 
+console.log('[ApplicationDetail] Props value:', props.value);
+
 const t = store.getters['i18n/t'];
 
 const scalingInFlight = ref(false);
@@ -38,6 +41,16 @@ const gitDeployment = ref({
   deployedCommit: { short: '', long: '' },
   commits: null as any
 });
+const activeDeploymentTab = ref<string | number>('overview');
+const deploymentTabs = ref([
+  { id: 'overview', label: t('epinio.applications.detail.tables.overview'), completed: false, valid: true, disabled: false },
+])
+const activeResourceTab = ref<string | number>('instances');
+const resourceTabs = ref([
+  { id: 'instances', label: t('epinio.applications.detail.tables.instances'), completed: false, valid: true, disabled: false },
+  { id: 'services', label: t('epinio.applications.detail.tables.services'), completed: false, valid: true, disabled: false },
+  { id: 'configs', label: t('epinio.applications.detail.tables.configs'), completed: false, valid: true, disabled: false }
+]);
 
 const instanceColumns = [
   {
@@ -135,6 +148,9 @@ onMounted(async () => {
   if (props.value.appSource.git) {
     await fetchRepoDetails();
     setCommitDetails();
+    deploymentTabs.value.push(
+      { id: 'gitCommits', label: t('epinio.applications.detail.tables.gitCommits'), completed: false, valid: true, disabled: false }
+    );
   }
 });
 
@@ -278,59 +294,55 @@ const commitPosition = computed(() => {
     position: idx
   };
 });
+
+function formatDate(date, from) {
+  return from ? day(date).fromNow() : day(date).format('DD MMM YYYY');
+}
 </script>
 
 <template>
   <div class="content">
-    <div class="application-details">
-      <ApplicationCard>
-        <!-- Icon slot -->
-        <template #cardIcon>
-          <i
-            class="icon icon-fw"
-            :class="sourceIcon"
-          />
-        </template>
-
-        <!-- Routes links slot -->
-        <template #top-left>
-          <h1>Routes</h1>
-          <ul>
-            <li
-              v-for="route in value.configuration.routes"
-              :key="route.id"
-            >
-              <a
-                v-if="value.state === 'running'"
-                :key="route.id + 'a'"
-                :href="`https://${route}`"
-                target="_blank"
-                rel="noopener noreferrer nofollow"
-              >{{ `https://${route}` }}</a>
-              <span
-                v-else
-                :key="route.id + 'b'"
-              >{{ `https://${route}` }}</span>
-            </li>
-          </ul>
-        </template>
-
-        <!-- <template v-slot:top-right >
-        </template> -->
-
-        <!-- Resources count slot -->
-        <template #resourcesCount>
-          <div>
-            {{ value.envCount }} {{ t('epinio.applications.detail.counts.envVars') }}
-          </div>
-          <div>
-            {{ value.serviceConfigurations.length }} {{ t('epinio.applications.detail.counts.services') }}
-          </div>
-          <div>
-            {{ value.baseConfigurations.length }} {{ t('epinio.applications.detail.counts.config') }}
-          </div>
-        </template>
-      </ApplicationCard>
+    <div class="heading">
+      <div class="title-content">
+        <h1>Application: {{ value.meta.name }}</h1>
+        <p>{{ value.stateDisplay }}</p>
+      </div>
+      <h3>Namespace: {{ value.meta.namespace }}</h3>
+      <ul>
+        <li
+          v-for="route in value.configuration.routes"
+          :key="route.id"
+        >
+          <a
+            v-if="value.state === 'running'"
+            :key="route.id + 'a'"
+            :href="`https://${route}`"
+            target="_blank"
+            rel="noopener noreferrer nofollow"
+          >{{ `https://${route}` }}</a>
+          <span
+            v-else
+            :key="route.id + 'b'"
+          >{{ `https://${route}` }}</span>
+        </li>
+      </ul>
+    </div>
+    <div class="number-cards">
+      <trailhand-card class="dashboard-card" variant="info">
+        <div slot="title">
+          <p class="number-text"><span class="number">{{ value.envCount }}</span> {{ t('epinio.applications.detail.counts.envVars') }}</p>
+        </div>
+      </trailhand-card>
+      <trailhand-card class="dashboard-card" variant="info">
+        <div slot="title">
+          <p class="number-text"><span class="number">{{ value.serviceConfigurations.length }}</span> {{ t('epinio.applications.detail.counts.services') }}</p>
+        </div>
+      </trailhand-card>
+      <trailhand-card class="dashboard-card" variant="info">
+        <div slot="title">
+          <p class="number-text"><span class="number">{{ value.baseConfigurations.length }}</span> {{ t('epinio.applications.detail.counts.config') }}</p>
+        </div>
+      </trailhand-card>
     </div>
 
     <h3
@@ -339,163 +351,149 @@ const commitPosition = computed(() => {
     >
       {{ t('epinio.applications.detail.deployment.label') }}
     </h3>
-
     <div
       v-if="value.deployment"
       class="deployment"
     >
       <!-- Source information -->
-      <Tabbed>
-        <Tab
-          label-key="epinio.applications.detail.tables.overview"
-          name="overview"
-          :weight="3"
-        >
+      <Tabs  :tabs="deploymentTabs" v-model="activeDeploymentTab">
+        <template #overview="{ tab }">
           <div class="simple-box-row app-instances">
-            <SimpleBox>
-              <ConsumptionGauge
-                :resource-name="t('epinio.applications.detail.deployment.instances')"
-                :capacity="value.desiredInstances"
-                :used="value.readyInstances"
-                :used-as-resource-name="true"
-                :color-stops="{ 70: '--success', 30: '--warning', 0: '--error' }"
-              />
-              <div class="scale-instances">
-                <PlusMinus
-                  v-model:value="value.desiredInstances"
-                  class="mt-15 mb-10"
-                  :disabled="scalingInFlight"
-                  @minus="updateInstances(value.desiredInstances - 1)"
-                  @plus="updateInstances(value.desiredInstances + 1)"
-                />
-                <div
-                  v-if="showScaleSpinner"
-                  class="scale-instances__spinner mt-5"
-                >
-                  <i class="icon-spinner animate-spin" />
-                </div>
-              </div>
-
-              <div class="deployment__origin__row">
-                <hr class="mt-10 mb-10">
-                <h4 class="mt-10 mb-10">
-                  {{ t('epinio.applications.detail.deployment.metrics') }}
-                </h4>
-                <div
-                  v-if="gitSource"
-                  class="stats"
-                >
-                  <div>
-                    <h3>{{ t('tableHeaders.memory') }}</h3>
-                    <ul>
-                      <li> <span>Min: </span> {{ value.instanceMemory.min }}</li>
-                      <li> <span>Max: </span>{{ value.instanceMemory.max }}</li>
-                      <li><span>Avg: </span>{{ value.instanceMemory.avg }}</li>
-                    </ul>
-                  </div>
-                  <div>
-                    <h3>{{ t('tableHeaders.cpu') }}</h3>
-                    <ul>
-                      <li> <span>Min: </span> {{ value.instanceCpu.min }}</li>
-                      <li> <span>Max: </span>{{ value.instanceCpu.max }}</li>
-                      <li><span>Avg: </span>{{ value.instanceCpu.avg }}</li>
-                    </ul>
+            <trailhand-card variant="info" class="dashboard-card simple-box">
+              <div slot="title" class="consumption-card">
+                <div class="instances">
+                  <trailhand-progress-bar label="Instances" :value="value.readyInstances" :total="value.desiredInstances"></trailhand-progress-bar>
+                  <div class="instances-controls">
+                    <trailhand-button variant="secondary" size="small" :disabled="scalingInFlight || value.desiredInstances <= 0" @button-click="updateInstances(value.desiredInstances - 1)">
+                      <trailhand-icon name="minus" />
+                    </trailhand-button>
+                    <div
+                      v-if="showScaleSpinner"
+                      class="scale-instances__spinner mt-5"
+                    >
+                      <i class="icon-spinner animate-spin" />
+                    </div>
+                    <trailhand-button variant="secondary" size="small" :disabled="scalingInFlight" @button-click="updateInstances(value.desiredInstances + 1)">
+                      <trailhand-icon name="plus" />
+                    </trailhand-button>
                   </div>
                 </div>
-
-                <div
-                  v-else
-                  class="stats-table"
-                >
-                  <table class="mt-15">
-                    <thead>
-                      <tr>
-                        <th />
-                        <th>Min</th>
-                        <th>Max</th>
-                        <th>Avg</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td>{{ t('tableHeaders.memory') }}</td>
-                            <td>{{ value.instanceMemory.min }}</td>
-                            <td>{{ value.instanceMemory.max }}</td>
-                            <td>{{ value.instanceMemory.avg }}</td>
-                        </tr>
-                        <tr>
-                            <td>{{ t('tableHeaders.cpu') }}</td>
-                            <td>{{ value.instanceCpu.min }}</td>
-                            <td>{{ value.instanceCpu.max }}</td>
-                            <td>{{ value.instanceCpu.avg }}</td>
-                        </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </SimpleBox>
-            <SimpleBox v-if="value.appSourceInfo">
-              <div class="mb-10 deployment__details__header">
-                <i
-                  v-if="value.appSourceInfo.kind === APPLICATION_MANIFEST_SOURCE_TYPE.GIT"
-                  class="icon git-icon"
-                  :class="{[`icon-${gitType}`]: true}"
-                />
-                <h4>{{ t('epinio.applications.detail.deployment.details.label') }}</h4>
-              </div>
-              <div
-                v-if="gitSource"
-                class="repo-info"
-              >
-                <AppGitDeployment
-                  :git-deployment="gitDeployment"
-                  :git-source="gitSource"
-                  :commit-position="commitPosition"
-                />
-              </div>
-              <hr class="mt-10 mb-10">
-              <div class="deployment__origin__list">
-                <ul>
-                  <li>
-                    <h4>{{ t('epinio.applications.detail.deployment.details.origin') }}</h4>
-                    <span>{{ value.appSourceInfo.label }}</span>
-                  </li>
-
-                  <li
-                    v-for="d of value.appSourceInfo.details"
-                    :key="d.label"
+                <div class="deployment__origin__row">
+                  <div
+                    v-if="gitSource"
+                    class="stats"
                   >
-                    <h4>{{ d.label }}</h4>
-                    <span v-if="d.value && d.value.startsWith('http')">
-                      <a
-                        :href="d.value"
-                        target="_blank"
-                      >{{ formatURL(d.value) }}</a>
-                    </span>
-                    <span v-else-if="gitSource && d.value && d.value.match(/^[a-f0-9]{40}$/)">
-                      <a
-                        :href="`${gitSource.htmlUrl}/commit/${d.value}`"
-                        target="_blank"
-                      >{{ d.value }}</a>
-                    </span>
-                    <span v-else>{{ d.value }}</span>
-                  </li>
+                    <div>
+                      <h3>{{ t('tableHeaders.memory') }}</h3>
+                      <ul>
+                        <li> <span>Min </span> {{ value.instanceMemory.min }}</li>
+                        <li> <span>Max </span>{{ value.instanceMemory.max }}</li>
+                        <li><span>Avg </span>{{ value.instanceMemory.avg }}</li>
+                      </ul>
+                    </div>
+                    <div>
+                      <h3>{{ t('tableHeaders.cpu') }}</h3>
+                      <ul>
+                        <li> <span>Min </span> {{ value.instanceCpu.min }}</li>
+                        <li> <span>Max </span>{{ value.instanceCpu.max }}</li>
+                        <li><span>Avg </span>{{ value.instanceCpu.avg }}</li>
+                      </ul>
+                    </div>
+                  </div>
 
-                  <li>
-                    <h4>{{ t('epinio.applications.tableHeaders.deployedBy') }}</h4>
-                    <span> {{ value.deployment.username }}</span>
-                  </li>
-                </ul>
+                  <div
+                    v-else
+                    class="stats-table"
+                  >
+                    <table class="mt-15">
+                      <thead>
+                        <tr>
+                          <th />
+                          <th>Min</th>
+                          <th>Max</th>
+                          <th>Avg</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                          <tr>
+                              <td>{{ t('tableHeaders.memory') }}</td>
+                              <td>{{ value.instanceMemory.min }}</td>
+                              <td>{{ value.instanceMemory.max }}</td>
+                              <td>{{ value.instanceMemory.avg }}</td>
+                          </tr>
+                          <tr>
+                              <td>{{ t('tableHeaders.cpu') }}</td>
+                              <td>{{ value.instanceCpu.min }}</td>
+                              <td>{{ value.instanceCpu.max }}</td>
+                              <td>{{ value.instanceCpu.avg }}</td>
+                          </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
               </div>
-            </SimpleBox>
+            </trailhand-card>
+            <trailhand-card variant="info" class="dashboard-card simple-box" v-if="value.appSourceInfo">
+              <div slot="title" class="deployment__origin__list" >
+                <table>
+                  <tbody>
+                    <tr>
+                      <td class="origin-prop">
+                        {{ t('epinio.applications.detail.deployment.details.origin') }}
+                      </td>
+                      <td class="origin-value">
+                        {{ value.appSourceInfo.label }}
+                      </td>
+                    </tr>
+                    <tr v-for="d of value.appSourceInfo.details" :key="d.label">
+                      <td class="origin-prop">{{ d.label }}</td>
+                      <td class="origin-value" v-if="d.value && d.value.startsWith('http')">
+                        <a
+                          :href="d.value"
+                          target="_blank"
+                          class="origin-link"
+                        >{{ formatURL(d.value) }}</a>
+                      </td>
+                      <td class="origin-value" v-else-if="gitSource && d.value && d.value.match(/^[a-f0-9]{40}$/)">
+                        <a
+                          :href="`${gitSource.htmlUrl}/commit/${d.value}`"
+                          target="_blank"
+                          class="origin-link"
+                        >{{ d.value }}</a>
+                      </td>
+                      <td class="origin-value" v-else>{{ d.value }}</td>
+                    </tr>
+                    <tr v-if="gitSource">
+                      <td class="origin-prop">
+                        {{ t('epinio.applications.detail.deployment.details.git.created') }}
+                      </td>
+                      <td class="origin-value">
+                        {{ formatDate(gitSource.created_at, false) }}
+                      </td>
+                    </tr>
+                    <tr v-if="gitSource">
+                      <td class="origin-prop">
+                        {{ t('epinio.applications.detail.deployment.details.git.updated') }}
+                      </td>
+                      <td class="origin-value">
+                        {{ formatDate(gitSource.updated_at, true) }}
+                      </td>
+                    </tr>
+                    <tr>
+                      <td class="origin-prop">
+                        {{ t('epinio.applications.tableHeaders.deployedBy') }}
+                      </td>
+                      <td class="origin-value">
+                        {{ value.deployment.username }}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </trailhand-card>
           </div>
-        </Tab>
-        <Tab
-          v-if="gitSource && preparedCommits.length"
-          label-key="epinio.applications.detail.tables.gitCommits"
-          name="gitCommits"
-          :weight="2"
-        >
+        </template>
+        <template #gitCommits="{ tab }">
           <Banner
             color="info"
             class="redeploy-info"
@@ -512,8 +510,8 @@ const commitPosition = computed(() => {
             :paginated="true"
             :rows-per-page="10"
           />
-        </Tab>
-      </Tabbed>
+        </template>
+      </Tabs>
     </div>
 
     <h3 class="mt-20">
@@ -521,50 +519,131 @@ const commitPosition = computed(() => {
     </h3>
 
     <div>
-      <Tabbed>
-        <Tab
-          label-key="epinio.applications.detail.tables.instances"
-          name="instances"
-          :weight="3"
-        >
+      <Tabs :tabs="resourceTabs" v-model="activeResourceTab">
+        <template #instances="{ tab }">
           <trailhand-table
             :columns="instanceColumns"
             :rows="value.instances"
             :searchable="false"
             :paginated="false"
           />
-        </Tab>
-        <Tab
-          label-key="epinio.applications.detail.tables.services"
-          name="services"
-          :weight="2"
-        >
+        </template>
+        <template #services="{ tab }">
           <trailhand-table
             :columns="serviceColumns"
             :rows="value.services"
             :searchable="false"
             :paginated="false"
           />
-        </Tab>
-        <Tab
-          label-key="epinio.applications.detail.tables.configs"
-          name="configs"
-          :weight="1"
-        >
+        </template>
+        <template #configs="{ tab }">
           <trailhand-table
             :columns="configColumns"
             :rows="value.baseConfigurations"
             :searchable="false"
             :paginated="false"
           />
-        </Tab>
-      </Tabbed>
+        </template>
+      </Tabs>
     </div>
 
   </div>
 </template>
 
 <style lang="scss" scoped>
+.heading {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+
+  .title-content {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+
+    h1 {
+      margin: 0;
+      font-size: 24px;
+      font-weight: 500;
+      color: var(--th-color-text-primary);
+    }
+
+    p {
+      margin: 0;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--th-color-primary);
+    }
+  }
+
+  h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 400;
+    color: var(--th-color-text-secondary);
+  }
+
+  ul {
+    margin: 0;
+    padding: 0;
+    display: flex;
+    gap: 10px;
+
+    li {
+      list-style: none;
+      font-size: 14px;
+
+      a {
+        color: var(--th-color-link);
+        text-decoration: none;
+
+        &:hover {
+          text-decoration: underline;
+        }
+      }
+    }
+  }
+}
+
+.number-cards {
+  display: flex;
+  gap: 8px;
+  margin-top: 20px;
+
+  trailhand-card::part(body) {
+    display: none;
+  }
+
+  trailhand-card::part(action) {
+    display: none;
+  }
+
+  .dashboard-card {
+    .number-text {
+      font-size: 14px;
+      color: var(--th-color-text-secondary);
+      font-weight: 400;
+    }
+
+    .number {
+      font-size: 24px;
+      font-weight: 600;
+      color: var(--th-color-text-primary);
+    }
+  }
+}
+
+.instances {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+
+  .instances-controls {
+    display: flex;
+    justify-content: space-between;
+  }
+}
+
 .content {
   max-width: 1600px;
 }
@@ -574,6 +653,7 @@ trailhand-table {
   --sortable-table-header-hover-bg: var(--sortable-table-hover-bg);
   --sortable-table-header-sorted-bg: var(--sortable-table-hover-bg);
 }
+
 .simple-box-row {
   display: grid;
   grid-auto-columns: minmax(0, 1fr);
@@ -681,24 +761,15 @@ trailhand-table {
   margin: 12px 0;
   position: relative;
 
-  &::before {
-    content: "";
-    border-right: 1px solid var(--default);
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    left: 50%;
-    width: 1px;
-  }
-
   & > div:nth-child(2) {
     display: flex;
     flex-direction: column;
-    align-items: flex-end;
+    // align-items: flex-end;
   }
 
   h3 {
-    font-size: 16px;
+    font-size: 18px;
+    font-weight: 500;
   }
 
   ul {
@@ -710,13 +781,20 @@ trailhand-table {
 
     li {
       list-style: none;
-      font-size: 14px;
+      font-size: 16px;
+      font-weight: 500;
+
+      span {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--th-color-text-secondary);
+      }
     }
   }
 
   // For the second div in stats, style the ul differently
   & > div:nth-child(2) ul {
-    align-items: flex-end;
+    // align-items: flex-end;
   }
 
 }
@@ -741,22 +819,33 @@ trailhand-table {
 }
 
 .deployment__origin__list {
-  ul {
-    margin: 0;
-    padding: 0;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
+  table {
+    width: 100%;
+    border-collapse: collapse;
 
-    li {
-      margin: 5px;
-      list-style: none;
+    td {
+      padding: 8px 4px;
 
-      h4 {
-        color: var(--default-text);
-        font-weight: 300;
-        font-size: 14px;
-        margin: 0;
+      &.origin-prop {
+        font-size: 12px;
+        color: var(--th-color-text-secondary);
+        font-weight: 600;
       }
+
+      &.origin-value {
+        font-size: 16px;
+        color: var(--th-color-text-primary);
+        font-weight: 500;
+      }
+    }
+  }
+
+  .origin-link {
+    color: var(--th-color-link);
+    text-decoration: none;
+
+    &:hover {
+      text-decoration: underline;
     }
   }
 }

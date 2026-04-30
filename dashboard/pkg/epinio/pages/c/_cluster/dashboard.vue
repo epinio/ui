@@ -65,8 +65,9 @@ const sectionContent = ref<Array>([
     isLoaded: false,
     icon: 'table',
     cta: createEpinioRoute(
-      'c-cluster-applications-createapp',
+      'c-cluster-applications',
       { resource: EPINIO_TYPES.APP },
+      { query: { mode: 'openModal' }, }
     ),
     link: createEpinioRoute(
       'c-cluster-applications',
@@ -81,8 +82,9 @@ const sectionContent = ref<Array>([
     isLoaded: false,
     icon: 'rocket',
     cta: createEpinioRoute(
-      'c-cluster-resource-create',
+      'c-cluster-resource',
       { resource: EPINIO_TYPES.SERVICE_INSTANCE },
+      { query: { mode: 'openModal' } },
     ),
     link: createEpinioRoute(
       'c-cluster-resource',

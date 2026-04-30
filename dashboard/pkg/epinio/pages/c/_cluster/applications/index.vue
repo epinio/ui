@@ -31,7 +31,6 @@ const appModal = ref<InstanceType<typeof AppModal> | null>(null);
 const createLocation = computed(() =>
   createEpinioRoute('c-cluster-applications-createapp', { cluster: store.getters['clusterId'] })
 );
-const openCreateRoute = () => router.push(createLocation.value);
 
 const pending = ref(true);
 
@@ -258,6 +257,10 @@ onMounted(async () => {
 
   // Poll supporting resources
   startPolling(['namespaces', 'configurations', 'services'], store);
+
+  if (store.$router.currentRoute._value.query.mode === 'openModal') {
+    appModal.value?.openCreate();
+  }
 
   // Poll apps per namespace at their current page.
   appsPollIntervalId = window.setInterval(() => {
