@@ -1,12 +1,9 @@
 <script setup lang="ts">
-import { computed, ref, reactive, watch, onBeforeMount, nextTick } from 'vue';
+import { computed, ref, reactive, watch, nextTick } from 'vue';
 import { useStore } from 'vuex';
 
 import { epinioExceptionToErrorsArray } from '../../utils/errors';
-import { validateKubernetesName } from '@shell/utils/validators/kubernetes-name';
-import { objValuesToString } from '../../utils/settings';
 import Banner from '@components/Banner/Banner.vue';
-import ChartValues from '../settings/ChartValues.vue';
 import AppSource from './AppSource.vue';
 import AppInfo from './AppInfo.vue';
 import AppConfiguration from './AppConfiguration.vue';
@@ -15,9 +12,6 @@ import { EpinioAppInfo, EpinioAppBindings, EpinioAppSource, EPINIO_TYPES } from 
 import { _CREATE } from '@shell/config/query-params';
 import Tabs from './Tabs.vue';
 import { allHash } from '@shell/utils/promise';
-
-import isEqual from 'lodash/isEqual';
-import sortBy from 'lodash/sortBy';
 import EpinioApplicationModel from 'models/applications';
 
 const store = useStore() as any;
@@ -39,11 +33,6 @@ const epinioInfo = ref<any>(null);
 const originalModel = ref<any>(null);
 
 const snapshot = ref<string | null>(null);
-
-// const formNamespace = ref('');
-// const formName = ref('');
-// const formCatalogService = ref('');
-
 
 const saving = ref(false);
 const errors = ref<string[]>([]);
@@ -117,8 +106,6 @@ async function openCreate() {
   originalModel.value = await store.dispatch('epinio/create', { type: EPINIO_TYPES.APP });
   value.value = await store.dispatch('epinio/clone', { resource: originalModel.value });
 
-  // tabs.value.push({ id: 'progress', label: 'Progress', completed: false, valid: false, disabled: true });
-
   loading.value = false;
 
   await nextTick();
@@ -144,11 +131,6 @@ async function openEdit(row: EpinioApplicationModel) {
   value.value = await store.dispatch('epinio/clone', { resource: originalModel.value });
 
   source.value = row.appSource;
-  // bindings.value = {
-  //   configurations: row.baseConfigurationsNames || [],
-  //   services: row.services || [],
-  // };
-  // console.log('openEdit bindings', bindings.value);
 
   tabs.value.forEach(tab => tab.id !== 'progress' ? tab.disabled = false : null);
 
@@ -203,27 +185,6 @@ function closeModal() {
   modalMode.value = 'create';
   serviceModel.value = null;
 }
-
-// Fetch data before mount
-// onBeforeMount(async () => {
-//   const hash = await allHash({
-//     ns: store.dispatch('epinio/findAll', { type: EPINIO_TYPES.NAMESPACE }),
-//     charts: store.dispatch('epinio/findAll', { type: EPINIO_TYPES.APP_CHARTS }),
-//     info: store.dispatch('epinio/info'),
-//   });
-
-//   epinioInfo.value = hash.info;
-//   appChart.chartsList = hash.charts;
-//   originalModel.value = await store.dispatch('epinio/create', { type: EPINIO_TYPES.APP });
-//   value.value = await store.dispatch('epinio/clone', { resource: originalModel.value });
-
-//   loading.value = false;
-// });
-
-// Track changes to mark as unsaved
-// watch([source, bindings, value], () => {
-//   setUnsavedChanges(true);
-// }, { deep: true });
 
 // when namepace changes, remove bindings
 watch(() => value.value?.meta.namespace, () => {
@@ -282,21 +243,6 @@ function updateConfigurations(changes: EpinioAppBindings) {
   set(bindings.value, changes);
   set(value.value.configuration, { configurations: changes.configurations });
 }
-
-// function cancel() {
-//   store.$router.replace(value.value.listLocation);
-// }
-
-// function finish() {
-//   setUnsavedChanges(false); // Clear unsaved changes when app is deployed
-//   const route = createEpinioRoute('c-cluster-resource-id', {
-//     cluster: store.getters['clusterId'],
-//     resource: value.value.type,
-//     id: `${value.value.meta.namespace}/${value.value.meta.name}`
-//   });
-
-//   store.$router.replace(route);
-// }
 
 async function onSubmit() {
   if (saving.value) return;
@@ -359,6 +305,7 @@ defineExpose({ openCreate, openEdit });
     :title="(isEdit || isView) ? value?.meta?.name : 'Application'"
     :subtitle="(isEdit || isView) ? (value?.stateDisplay || '') : 'Create New'"
     @modal-close="handleModalClose"
+    position="top"
   >
     <div class="modal-content" id="modal-container-element">
       <Loading v-if="loading" />
@@ -373,7 +320,6 @@ defineExpose({ openCreate, openEdit });
             @change-app-info="updateInfo"
             @change-app-config="updateManifestConfigurations"
             @valid="(val) => {
-              console.log('SOURCE VALID', val);  
               if (!isEdit)tabs[0].completed = val;
               tabs[0].valid = val;
               tabs[1].disabled = !val;
@@ -389,7 +335,6 @@ defineExpose({ openCreate, openEdit });
             :active="activeTab === tab.id"
             @change="updateInfo"
             @valid="(val) => {
-              console.log('DETAILS VALID', val);
               if (!isEdit) tabs[1].completed = val;
               tabs[1].valid = val;
               tabs[2].disabled = !val;

@@ -329,6 +329,7 @@ function onBulkFileChange(event: Event) {
         @text-input-change="(e: CustomEvent) => {values.configuration.instances = e.detail.value; update()}"
         required
         type="number"
+        min="0"
        />
     </trailhand-form-row>
     <div>
@@ -350,7 +351,7 @@ function onBulkFileChange(event: Event) {
       </div>
       <trailhand-button
         v-if="props.mode !== 'view'"
-        variant="secondary"
+        variant="alternate"
         @button-click="() => { values.configuration.routes.push(''); update(); }"
       >
         Add Row
@@ -410,15 +411,13 @@ function onBulkFileChange(event: Event) {
           class="config-data-actions"
         >
           <trailhand-button
-            variant="secondary"
-            size="small"
+            variant="alternate"
             @button-click="addRow"
           >
             Add
           </trailhand-button>
           <trailhand-button
-            variant="secondary"
-            size="small"
+            variant="alternate"
             @button-click="triggerBulkFileUpload"
           >
             Read From File

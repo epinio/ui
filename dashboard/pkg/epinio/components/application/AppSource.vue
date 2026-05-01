@@ -404,7 +404,6 @@ onMounted(() => {
             :disabled="true"
             :label="t('epinio.applications.steps.source.archive.file.inputLabel')"
             :required="true"
-            size="small"
           />
           <trailhand-button
             variant="alternate"
@@ -436,7 +435,6 @@ onMounted(() => {
             :disabled="true"
             :label="t('epinio.applications.steps.source.folder.file.inputLabel')"
             :required="true"
-            size="small"
           />
           <trailhand-button
             variant="alternate"
