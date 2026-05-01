@@ -325,6 +325,7 @@ const bundleStatus = computed(() => {
           size="large"
           :disabled="reportLoading"
           @click="downloadReport"
+          class="download__button"
         >
           {{ reportLoading ? 'Downloading...' : t('epinio.downloadReport.action') }}
         </trailhand-button>
@@ -431,6 +432,10 @@ const bundleStatus = computed(() => {
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+trailhand-button.download__button {
+  width: 100%;
 }
 
 .support-bundle__description,
