@@ -22,8 +22,6 @@ const props = defineProps<{
   active: boolean,
 }>();
 
-console.log('props.mode', props.mode);
-
 const emit = defineEmits(['finished']);
 
 const store = useStore();
@@ -204,8 +202,6 @@ const createActions = async () => {
 
   create();
 };
-
-// onMounted(createActions);
 
 watch(() => props.active, (isActive) => {
   if (isActive && !actions.value.length) {

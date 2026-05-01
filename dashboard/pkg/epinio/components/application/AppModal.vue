@@ -127,7 +127,6 @@ async function openEdit(row: EpinioApplicationModel) {
   epinioInfo.value = hash.info;
   appChart.chartsList = hash.charts;
   originalModel.value = row;
-  console.log('openEdit originalModel', originalModel.value);
   value.value = await store.dispatch('epinio/clone', { resource: originalModel.value });
 
   source.value = row.appSource;
@@ -207,7 +206,6 @@ function updateInfo(changes: EpinioAppInfo) {
 }
 
 function updateSource(changes: EpinioAppSource) {
-  console.log('updateSource', changes);
   source.value = {};
   const { appChart: chartId, ...cleanChanges } = changes;
 
@@ -238,7 +236,6 @@ function updateManifestConfigurations(configs: string[]) {
 }
 
 function updateConfigurations(changes: EpinioAppBindings) {
-  console.log('updateConfigurations', changes);
   bindings.value = {};
   set(bindings.value, changes);
   set(value.value.configuration, { configurations: changes.configurations });
@@ -251,7 +248,6 @@ async function onSubmit() {
 
   try {
     if (isEdit.value) {
-      console.log('Submitting with value', value.value);
       // Always save metadata/config changes
       await value.value.update();
       await value.value.updateConfigurations(
@@ -462,7 +458,6 @@ defineExpose({ openCreate, openEdit });
   gap: 1rem;
   width: 1000px;
   min-height: 500px;
-  // width: fit-content;
 }
 
 .discard-message {

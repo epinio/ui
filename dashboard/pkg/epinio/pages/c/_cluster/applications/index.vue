@@ -287,13 +287,6 @@ onUnmounted(() => {
       :resource="resource"
     >
       <template #createButton>
-        <!-- <trailhand-button
-          variant="primary"
-          size="large"
-          @click="openCreateRoute"
-        >
-          Old Create
-        </trailhand-button> -->
         <trailhand-button
           variant="primary"
           size="large"
@@ -340,8 +333,8 @@ onUnmounted(() => {
         @page-change="(e: CustomEvent) => handlePageChange(e, ns)"
       />
     </div>
+    <AppModal ref="appModal" />
   </div>
-  <AppModal ref="appModal" />
 </template>
 
 <style lang="scss" scoped>
