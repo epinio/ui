@@ -41,7 +41,6 @@ const tabs = ref([
   { id: 'source', label: 'Source', completed: false, valid: modalMode.value === 'edit', disabled: false },
   { id: 'details', label: 'Details', completed: false, valid: modalMode.value === 'edit', disabled: true },
   { id: 'bindings', label: 'Bindings', completed: false, valid: true, disabled: true },
-  { id: 'progress', label: 'Progress', completed: false, valid: true, disabled: true }
 ])
 
 const isEdit = computed(() => modalMode.value === 'edit');
@@ -94,6 +93,8 @@ async function openCreate() {
   modalMode.value = 'create';
   loading.value = true;
   showModal.value = true;  // open modal first so user sees loading state
+
+  tabs.value.push({ id: 'progress', label: 'Progress', completed: false, valid: true, disabled: true });
 
   const hash = await allHash({
     ns: store.dispatch('epinio/findAll', { type: EPINIO_TYPES.NAMESPACE }),
@@ -168,7 +169,7 @@ function closeModal() {
 
   // ui state
   activeTab.value = 'source';
-  // tabs.value = tabs.value.filter(t => t.id !== 'progress') // remove progress tab added during create
+  tabs.value = tabs.value.filter(t => t.id !== 'progress') // remove progress tab added during create
   tabs.value.forEach((tab, i) => {
     tab.completed = false;
     tab.disabled = i !== 0;
@@ -189,6 +190,21 @@ function closeModal() {
 watch(() => value.value?.meta.namespace, () => {
   bindings.value = { configurations: [], services: [] };
   set(value.value.configuration, { configurations: [] });
+});
+
+watch(() => isSourceDirty.value, () => {
+  if (modalMode.value !== 'edit') {
+    return;
+  }
+  if (isSourceDirty.value) {
+    // add the progress tab if it doesn't exist (in case user goes back to source tab after completing it)
+    if (!tabs.value.find(t => t.id === 'progress')) {
+      tabs.value.push({ id: 'progress', label: 'Progress', completed: false, valid: true, disabled: true });
+    }
+  } else {
+    // remove the progress tab if source is back to original
+    tabs.value = tabs.value.filter(t => t.id !== 'progress');
+  }
 });
 
 function set(obj: Record<string, any>, changes: Record<string, any>) {
@@ -297,7 +313,7 @@ defineExpose({ openCreate, openEdit });
 <template>
   <trailhand-modal
     :open.prop="showModal"
-    :dismissible.prop="false"
+    :dismissible="false"
     :title="(isEdit || isView) ? value?.meta?.name : 'Application'"
     :subtitle="(isEdit || isView) ? (value?.stateDisplay || '') : 'Create New'"
     @modal-close="handleModalClose"
