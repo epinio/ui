@@ -342,7 +342,7 @@ const bundleStatus = computed(() => {
       </trailhand-card>
 
       <trailhand-card
-        icon-name="gear"
+        icon-name="tools"
         class="about-card bundle-card"
       >
         <span slot="title">{{ t('epinio.supportBundle.title') }}</span>
