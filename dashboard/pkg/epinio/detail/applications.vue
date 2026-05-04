@@ -17,6 +17,7 @@ import ServiceDeleteModal from '../components/service/ServiceDeleteModal.vue';
 import EpinioServiceModel from 'models/services';
 import ConfigurationModal from '../components/configuration/ConfigurationModal.vue';
 import ConfigurationDeleteModal from '../components/configuration/ConfigurationDeleteModal.vue';
+import AppModal from '../components/application/AppModal.vue';
 
 day.extend(relativeTime);
 
@@ -55,6 +56,8 @@ const serviceRows = ref<any[]>([]);
 const configModal = ref<InstanceType<typeof ConfigurationModal> | null>(null);
 const configDeleteModal = ref<InstanceType<typeof ConfigurationDeleteModal> | null>(null);
 const configRows = ref<any[]>([]);
+
+const appModal = ref<InstanceType<typeof AppModal> | null>(null);
 
 const instanceColumns = [
   {
@@ -408,9 +411,14 @@ function formatDate(date, from) {
 <template>
   <div class="content">
     <div class="heading">
-      <div class="title-content">
-        <h1>Application: {{ value.meta.name }}</h1>
-        <p>{{ value.stateDisplay }}</p>
+      <div class="heading-row">
+        <div class="title-content">
+          <h1>Application: {{ value.meta.name }}</h1>
+          <p>{{ value.stateDisplay }}</p>
+        </div>
+        <trailhand-button size="small" @button-click="appModal?.openEdit(value)">
+          <trailhand-icon name="gear" />
+        </trailhand-button>
       </div>
       <h3>Namespace: {{ value.meta.namespace }}</h3>
       <ul>
@@ -659,6 +667,7 @@ function formatDate(date, from) {
   <ServiceDeleteModal ref="serviceDeleteModal" />
   <ConfigurationModal ref="configModal" />
   <ConfigurationDeleteModal ref="configDeleteModal" />
+  <AppModal ref="appModal" />
 </template>
 
 <style lang="scss" scoped>
@@ -667,23 +676,29 @@ function formatDate(date, from) {
   flex-direction: column;
   gap: 8px;
 
-  .title-content {
+  .heading-row {
     display: flex;
-    align-items: flex-end;
-    gap: 10px;
+    justify-content: space-between;
+    align-items: center;
 
-    h1 {
-      margin: 0;
-      font-size: 24px;
-      font-weight: 500;
-      color: var(--th-color-text-primary);
-    }
+    .title-content {
+      display: flex;
+      align-items: flex-end;
+      gap: 10px;
 
-    p {
-      margin: 0;
-      font-size: 14px;
-      font-weight: 500;
-      color: var(--th-color-primary);
+      h1 {
+        margin: 0;
+        font-size: 24px;
+        font-weight: 500;
+        color: var(--th-color-text-primary);
+      }
+
+      p {
+        margin: 0;
+        font-size: 14px;
+        font-weight: 500;
+        color: var(--th-color-primary);
+      }
     }
   }
 
