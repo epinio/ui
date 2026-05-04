@@ -60,7 +60,7 @@ const fileDialogActive = ref(false);
 
 // Defaults
 const defaultBuilderImage = ref(props.info?.default_builder_image || DEFAULT_BUILD_PACK); 
-const builderImageValue = ref(props.source?.builderImage.value || defaultBuilderImage.value);
+const builderImageValue = ref(props.source?.builderImage?.value || defaultBuilderImage.value);
 
 // Reactive State
 const open = ref(false);
