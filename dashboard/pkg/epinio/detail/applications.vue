@@ -68,7 +68,14 @@ const instanceColumns = [
   },
   {
     field: 'name',
-    label: 'Name'
+    label: 'Name',
+    formatter: (_v: any, row: any) => {
+      const nameText = document.createElement('p');
+      nameText.textContent = row.nameDisplay || row.meta?.name || '';
+      nameText.style.whiteSpace = 'normal';
+      nameText.style.wordBreak = 'break-word';
+      return nameText;
+    }
   },
   {
     field: 'millicpus',
@@ -493,29 +500,6 @@ function formatDate(date, from) {
                 </div>
                 <div class="deployment__origin__row">
                   <div
-                    v-if="gitSource"
-                    class="stats"
-                  >
-                    <div>
-                      <h3>{{ t('tableHeaders.memory') }}</h3>
-                      <ul>
-                        <li> <span>Min </span> {{ value.instanceMemory.min }}</li>
-                        <li> <span>Max </span>{{ value.instanceMemory.max }}</li>
-                        <li><span>Avg </span>{{ value.instanceMemory.avg }}</li>
-                      </ul>
-                    </div>
-                    <div>
-                      <h3>{{ t('tableHeaders.cpu') }}</h3>
-                      <ul>
-                        <li> <span>Min </span> {{ value.instanceCpu.min }}</li>
-                        <li> <span>Max </span>{{ value.instanceCpu.max }}</li>
-                        <li><span>Avg </span>{{ value.instanceCpu.avg }}</li>
-                      </ul>
-                    </div>
-                  </div>
-
-                  <div
-                    v-else
                     class="stats-table"
                   >
                     <table class="mt-15">
