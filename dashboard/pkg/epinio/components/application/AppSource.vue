@@ -67,7 +67,7 @@ const open = ref(false);
 const gitSkipTypeReset = ref(false);
 const archive = reactive({
   tarball: props.source?.archive?.tarball || '',
-  fileName: props.source?.archive?.fileName || '',
+  fileName: props.source?.type === 'folder' ? props.application?.origin?.path : props.source?.archive?.fileName || '',
 });
 
 const container = reactive({
@@ -316,7 +316,7 @@ function handleFolderFileClick() {
 function handleFolderFileChange(event: Event) {
   const input = event.target as HTMLInputElement;
   if (input.files && input.files.length > 0) {
-    onFolderSelected(input.files as any);
+    onFolderSelected(Array.from(input.files) as FileWithRelativePath[]);
     input.value = ''; // Clear the input so the same folder can be selected again if needed
   }
 }
@@ -446,6 +446,7 @@ onMounted(() => {
           <input
             ref="folderFileInput"
             type="file"
+            webkitdirectory
             class="hidden-file-input"
             @change="handleFolderFileChange"
             @cancel="fileDialogActive = false"
