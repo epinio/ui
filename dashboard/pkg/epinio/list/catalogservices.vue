@@ -5,7 +5,6 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { EPINIO_TYPES } from '../types'
 
 import Loading from '@shell/components/Loading.vue'
-import SelectIconGrid from '@shell/components/SelectIconGrid.vue'
 import { startPolling, stopPolling } from '../utils/polling';
 
 const store = useStore()
@@ -13,14 +12,6 @@ const props = defineProps<{ schema: object }>(); // eslint-disable-line @typescr
 
 const pending = ref(true);
 const searchQuery = ref(null);
-
-const serviceIconMap = {
-  'mongodb': new URL('../assets/icons/mongodb.png', import.meta.url).href,
-  'mysql': new URL('../assets/icons/mysql.png', import.meta.url).href,
-  'postgresql': new URL('../assets/icons/postgresql.png', import.meta.url).href,
-  'rabbitmq': new URL('../assets/icons/rabbitmq.png', import.meta.url).href,  
-  'redis': new URL('../assets/icons/redis.png', import.meta.url).href,
-}
 
 onMounted(async () => {
   await store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.CATALOG_SERVICE });
@@ -51,9 +42,6 @@ const showDetails = (chart: any) => {
   store.$router.push(chart.detailLocation)
 }
 
-const colorFor = () => {
-  return `color-1`
-}
 </script>
 
 <template>
@@ -74,8 +62,8 @@ const colorFor = () => {
         :key="service.id"
         :card-title="service.meta.name"
         :description="service.short_description"
-        :icon-src="serviceIconMap[service.chart] || null"
-        :icon-name="serviceIconMap[service.chart] ? null : 'database'"
+        :icon-src="service.serviceIcon ? service.serviceIcon : null"
+        :icon-name="service.serviceIcon ? null : 'database'"
         clickable
         @click="showDetails(service)"
       >
