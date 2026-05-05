@@ -3,7 +3,6 @@ import { useStore } from 'vuex';
 import { ref, onMounted, onUnmounted, computed, watchEffect } from 'vue';
 import { EPINIO_TYPES } from '../types';
 import Banner from '@components/Banner/Banner.vue';
-import { _CREATE } from '@shell/config/query-params';
 import Masthead from '@shell/components/ResourceList/Masthead';
 import { epinioExceptionToErrorsArray } from '../utils/errors';
 import { validateKubernetesName } from '@shell/utils/validators/kubernetes-name';
@@ -104,7 +103,7 @@ const validateCreate = computed(() => {
     return false;
   }
 
-  const validationErrors = getNamespaceErrors(value.value.meta.name); // eslint-disable-line vue/no-side-effects-in-computed-properties
+  const validationErrors = getNamespaceErrors(value.value.meta.name);
 
   return validationErrors.length === 0;
 });
@@ -229,6 +228,11 @@ const columns = [
 ];
 </script>
 
+<!-- eslint-disable vue/no-deprecated-slot-attribute -->
+<!--
+  trailhand-modal is a Web Component, not a Vue component. The HTML standard
+  slot="x" attribute is correct here.
+-->
 <template>
   <div id="modal-container-element">
     <Masthead
@@ -282,10 +286,10 @@ const columns = [
         />  
       </div>
       <div slot="footer">
-        <trailhand-button @button-click="closeCreateModal" variant="secondary" class="mr-10"
+        <trailhand-button variant="secondary" class="mr-10" @button-click="closeCreateModal"
           >Cancel</trailhand-button
         >
-        <trailhand-button @button-click="onSubmitCreate" :disabled="!validateCreate || creatingNamespace" variant="primary"
+        <trailhand-button :disabled="!validateCreate || creatingNamespace" variant="primary" @button-click="onSubmitCreate"
           >{{ creatingNamespace ? 'Creating...' : t('generic.create') }}</trailhand-button
         >
       </div>
@@ -314,10 +318,10 @@ const columns = [
         />
       </div>
       <div slot="footer">
-        <trailhand-button @button-click="closeDeleteModal" variant="secondary" class="mr-10"
+        <trailhand-button variant="secondary" class="mr-10" @button-click="closeDeleteModal"
           >Cancel</trailhand-button
         >
-        <trailhand-button @button-click="onSubmitDelete" :disabled="!validateDelete || deletingNamespace" variant="destructive"
+        <trailhand-button :disabled="!validateDelete || deletingNamespace" variant="destructive" @button-click="onSubmitDelete"
           >{{ deletingNamespace ? 'Deleting...' : t('generic.delete') }}</trailhand-button
         >
       </div>

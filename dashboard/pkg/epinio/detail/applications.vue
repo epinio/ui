@@ -185,9 +185,7 @@ watchEffect(() => {
           }
         ]
       ),
-      conditionFn: (row: EpinioServiceModel) => {
-        return true;
-      },
+      conditionFn: () => true,
     },
     {
       prop: 'removeService',
@@ -203,9 +201,7 @@ watchEffect(() => {
       value: (row: EpinioServiceModel) => () => {
         serviceModal.value?.openEdit(row);
       },
-      conditionFn: (row: EpinioServiceModel) => {
-        return true;
-      },
+      conditionFn: () => true,
     }
   ];
 
@@ -389,39 +385,17 @@ const gitCommitsColumns = computed(() => [
   }
 ]);
 
-const sourceIcon = computed(() => props.value.appSourceInfo?.icon || 'icon-epinio');
-
-const commitPosition = computed(() => {
-  if (!preparedCommits.value.length && !gitDeployment.value.deployedCommit) {
-    return null;
-  }
-
-  let idx: number | null = null;
-
-  preparedCommits.value.forEach((ele: { commitId: string; }, i: number) => {
-    if (ele.commitId === gitDeployment.value?.deployedCommit?.long) {
-      idx = i - 1;
-    }
-  });
-
-  if (idx === null || idx < 0) {
-    return {
-      text: t('epinio.applications.gitSource.latestCommit'),
-      position: 0
-    };
-  }
-
-  return {
-    text: `${idx} ${t('epinio.applications.gitSource.behindCommits')}`,
-    position: idx
-  };
-});
-
 function formatDate(date, from) {
   return from ? day(date).fromNow() : day(date).format('DD MMM YYYY');
 }
 </script>
 
+<!-- eslint-disable vue/no-deprecated-slot-attribute -->
+<!--
+  trailhand-* are Web Components, not Vue components. The HTML standard
+  slot="x" attribute is correct here; eslint-plugin-vue's deprecation rule
+  only applies to Vue component slots.
+-->
 <template>
   <div class="content">
     <div class="heading">
@@ -487,8 +461,8 @@ function formatDate(date, from) {
       class="deployment"
     >
       <!-- Source information -->
-      <Tabs  :tabs="deploymentTabs" v-model="activeDeploymentTab" variant="underline">
-        <template #overview="{ tab }">
+      <Tabs  v-model="activeDeploymentTab" :tabs="deploymentTabs" variant="underline">
+        <template #overview>
           <div class="simple-box-row app-instances">
             <trailhand-card variant="info" class="dashboard-card simple-box">
               <div slot="title" class="consumption-card">
@@ -541,7 +515,7 @@ function formatDate(date, from) {
                 </div>
               </div>
             </trailhand-card>
-            <trailhand-card variant="info" class="dashboard-card simple-box" v-if="value.appSourceInfo">
+            <trailhand-card v-if="value.appSourceInfo" variant="info" class="dashboard-card simple-box">
               <div slot="title" class="deployment__origin__list" >
                 <table>
                   <tbody>
@@ -555,21 +529,21 @@ function formatDate(date, from) {
                     </tr>
                     <tr v-for="d of value.appSourceInfo.details" :key="d.label">
                       <td class="origin-prop">{{ d.label }}</td>
-                      <td class="origin-value" v-if="d.value && d.value.startsWith('http')">
+                      <td v-if="d.value && d.value.startsWith('http')" class="origin-value">
                         <a
                           :href="d.value"
                           target="_blank"
                           class="origin-link"
                         >{{ formatURL(d.value) }}</a>
                       </td>
-                      <td class="origin-value" v-else-if="gitSource && d.value && d.value.match(/^[a-f0-9]{40}$/)">
+                      <td v-else-if="gitSource && d.value && d.value.match(/^[a-f0-9]{40}$/)" class="origin-value">
                         <a
                           :href="`${gitSource.htmlUrl}/commit/${d.value}`"
                           target="_blank"
                           class="origin-link"
                         >{{ d.value }}</a>
                       </td>
-                      <td class="origin-value" v-else>{{ d.value }}</td>
+                      <td v-else class="origin-value">{{ d.value }}</td>
                     </tr>
                     <tr v-if="gitSource">
                       <td class="origin-prop">
@@ -601,7 +575,7 @@ function formatDate(date, from) {
             </trailhand-card>
           </div>
         </template>
-        <template #gitCommits="{ tab }">
+        <template #gitCommits>
           <Banner
             color="info"
             class="redeploy-info"
@@ -627,8 +601,8 @@ function formatDate(date, from) {
     </h3>
 
     <div>
-      <Tabs :tabs="resourceTabs" v-model="activeResourceTab" variant="underline">
-        <template #instances="{ tab }">
+      <Tabs v-model="activeResourceTab" :tabs="resourceTabs" variant="underline">
+        <template #instances>
           <trailhand-table
             :ref="(el: any) => { if (el) el.renderActions = makeActionMenu; }"
             :columns="instanceColumns"
@@ -637,7 +611,7 @@ function formatDate(date, from) {
             :paginated="false"
           />
         </template>
-        <template #services="{ tab }">
+        <template #services>
           <trailhand-table
             :ref="(el: any) => { if (el) el.renderActions = makeActionMenu; }"
             :columns="serviceColumns"
@@ -646,7 +620,7 @@ function formatDate(date, from) {
             :paginated="false"
           />
         </template>
-        <template #configs="{ tab }">
+        <template #configs>
           <trailhand-table
             :ref="(el: any) => { if (el) el.renderActions = makeActionMenu; }"
             :columns="configColumns"

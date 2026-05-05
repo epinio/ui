@@ -286,7 +286,7 @@ onUnmounted(() => {
 
 <template>
   <Loading v-if="pending" />
-  <div class="outlet" v-else>
+  <div v-else class="outlet">
     <Masthead
       :schema="schema"
       :resource="resource"
