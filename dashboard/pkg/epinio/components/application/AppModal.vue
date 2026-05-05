@@ -38,8 +38,8 @@ const saving = ref(false);
 const errors = ref<string[]>([]);
 const activeTab = ref<string | number>('source')
 const tabs = ref([
-  { id: 'source', label: 'Source', completed: false, valid: modalMode.value === 'edit', disabled: false },
-  { id: 'details', label: 'Details', completed: false, valid: modalMode.value === 'edit', disabled: true },
+  { id: 'source', label: 'Source', completed: false, valid: false, disabled: false },
+  { id: 'details', label: 'Details', completed: false, valid: false, disabled: true },
   { id: 'bindings', label: 'Bindings', completed: false, valid: true, disabled: true },
 ])
 
@@ -113,7 +113,7 @@ async function openCreate() {
   snapshot.value = takeSnapshot();
 }
 
-async function openEdit(row: EpinioApplicationModel) {
+async function openEdit(row: EpinioApplicationModel, commit?: string) {
   errors.value = [];
   modalMode.value = 'edit';
   loading.value = true;
@@ -132,12 +132,28 @@ async function openEdit(row: EpinioApplicationModel) {
 
   source.value = row.appSource;
 
-  tabs.value.forEach(tab => tab.id !== 'progress' ? tab.disabled = false : null);
+  tabs.value.forEach(tab => {
+    tab.id !== 'progress' ? tab.disabled = false : null
+    tab.valid = true;
+  });
 
-  loading.value = false;
+  if (!commit) loading.value = false;
 
   await nextTick();
   snapshot.value = takeSnapshot();
+
+  // if opened from a specific commit, update source
+  if (commit) {
+    const newSource = {
+      ...source.value,
+      git: {
+        ...source.value?.git,
+        commit: commit,
+      },
+    };
+    updateSource(newSource);
+    loading.value = false;
+  }
 }
 
 function handleModalClose() {

@@ -349,7 +349,7 @@ const preparedCommits = computed(() => {
   return arr.map((c: { sha: any; id: any; }) => ({
     ...GitUtils[gitType.value].normalize.commit(c),
     availableActions: commitActions,
-    editFromCommit: () => props.value.goToEdit({ commit: c.sha || c.id })
+    editFromCommit: () => appModal.value?.openEdit(props.value, c.sha)
   }));
 });
 
