@@ -203,10 +203,11 @@ const columns = [
           v-if="canCreate"
           variant="primary"
           size="large"
-          @click="serviceModal?.openCreate()"
+          @click="serviceModal.openCreate()"
         >
           {{ t('generic.create') }}
         </trailhand-button>
+        <div v-else />
       </template>
     </Masthead>
     <trailhand-table

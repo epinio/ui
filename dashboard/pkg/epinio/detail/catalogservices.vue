@@ -29,6 +29,7 @@ const canEdit = computed(() => {
   return can && (can('service_write') || can('service'));
 });
 const canDelete = canEdit;
+const canCreate = canEdit;
 
 watchEffect(() => {
   const all = store.getters['epinio/all'](EPINIO_TYPES.SERVICE_INSTANCE) as any[];
@@ -167,6 +168,7 @@ const columns = [
       </template>
       <template #createButton>
         <trailhand-button
+          v-if="canCreate"
           variant="primary"
           size="large"
           @click="serviceModal?.openCreate(value.id)"

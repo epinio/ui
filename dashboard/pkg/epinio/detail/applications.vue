@@ -147,8 +147,25 @@ const configColumns = [
 const canEdit = computed(() => {
   const canGetter = store.getters['epinio/can'];
   return canGetter && (
-    canGetter('app_create') || canGetter('app_write') || canGetter('app')
+    canGetter('app_update') || canGetter('app_write') || canGetter('app')
   );
+});
+const canScale = computed(() => {
+  const canGetter = store.getters['epinio/can'];
+  return canGetter && (
+    canGetter('app_scale') || canGetter('app_write') || canGetter('app')
+  );
+});
+// Bound resources on this page have their own scope: the services table
+// requires service write perms, the configurations table requires config
+// write perms — independent of app perms.
+const canEditService = computed(() => {
+  const canGetter = store.getters['epinio/can'];
+  return canGetter && (canGetter('service_write') || canGetter('service'));
+});
+const canEditConfig = computed(() => {
+  const canGetter = store.getters['epinio/can'];
+  return canGetter && (canGetter('configuration_write') || canGetter('configuration'));
 });
 
 watchEffect(() => {
@@ -162,46 +179,50 @@ watchEffect(() => {
     else return true;
   });
 
-  // Add custom service delete action to replace the built in rancher shell flow
+  // Bound-services row actions are gated by service write perms.
   const overrideProps = [
     {
       prop: 'availableActions',
-      value: (row: EpinioServiceModel) => (
-        [
-          {
-            action: 'removeService',
-            altAction: 'remove',
-            bulkAction: 'removeService',
-            bulkable: true,
-            enabled: row.canDelete,
-            icon: 'icon icon-trash',
-            label: 'Delete',
-            weight: -10
-          },
-          {
-            action: 'editServiceModal',
-            label: 'Edit',
-            enabled: true
-          }
-        ]
-      ),
-      conditionFn: () => true,
+      value: (row: EpinioServiceModel) => {
+        const out: any[] = [];
+
+        if (canEditService.value) {
+          out.push(
+            {
+              action: 'removeService',
+              altAction: 'remove',
+              bulkAction: 'removeService',
+              bulkable: true,
+              enabled: row.canDelete,
+              icon: 'icon icon-trash',
+              label: 'Delete',
+              weight: -10
+            },
+            {
+              action: 'editServiceModal',
+              label: 'Edit',
+              enabled: true
+            }
+          );
+        }
+
+        return out;
+      },
+      conditionFn: () => canEditService.value,
     },
     {
       prop: 'removeService',
       value: (row: EpinioServiceModel) => () => {
         serviceDeleteModal.value?.openDelete(row);
       },
-      conditionFn: (row: EpinioServiceModel) => {
-        return row.canDelete;
-      },
+      conditionFn: (row: EpinioServiceModel) => canEditService.value && row.canDelete,
     },
     {
       prop: 'editServiceModal',
       value: (row: EpinioServiceModel) => () => {
         serviceModal.value?.openEdit(row);
       },
-      conditionFn: () => true,
+      conditionFn: () => canEditService.value,
     }
   ];
 
@@ -216,44 +237,48 @@ watchEffect(() => {
   const overrides = [
     {
       prop: 'availableActions',
-      value: (row: any) => [
-        {
-          action:     'editConfigModal',
-          label:      'Edit',
-          enabled:    row.configuration?.type === 'custom',
-          icon:       'icon icon-edit',
-        },
-        {
-          action:  'deleteConfigModal',
-          label:   'Delete',
-          enabled: row.configuration?.type === 'custom',
-          icon:    'icon icon-trash',
-          weight:  -10,
-        },
-      ],
-      conditionFn: () => true,
+      value: (row: any) => {
+        if (!canEditConfig.value) return [];
+
+        return [
+          {
+            action:  'editConfigModal',
+            label:   'Edit',
+            enabled: row.configuration?.type === 'custom',
+            icon:    'icon icon-edit',
+          },
+          {
+            action:  'deleteConfigModal',
+            label:   'Delete',
+            enabled: row.configuration?.type === 'custom',
+            icon:    'icon icon-trash',
+            weight:  -10,
+          },
+        ];
+      },
+      conditionFn: () => canEditConfig.value,
     },
     {
       prop:        'editConfigModal',
       value:       (row: any) => () => { configModal.value?.openEdit(row); },
-      conditionFn: (row: any) => row.configuration?.type === 'custom',
+      conditionFn: (row: any) => canEditConfig.value && row.configuration?.type === 'custom',
     },
     {
       prop:        'deleteConfigModal',
       value:       (row: any) => () => { configDeleteModal.value?.openDelete(row); },
-      conditionFn: (row: any) => row.configuration?.type === 'custom',
+      conditionFn: (row: any) => canEditConfig.value && row.configuration?.type === 'custom',
     },
   ];
 
   configRows.value = [...overrideTableRows(all, overrides)];
 });
 
-const commitActions = [{
+const commitActions = computed(() => canEdit.value ? [{
   action: 'editFromCommit',
   label: t('epinio.applications.actions.editFromCommit.label'),
   icon: 'icon icon-edit',
   enabled: true
-}];
+}] : []);
 
 // Debounce settings for scaling instances
 const UPDATE_INSTANCES_DEBOUNCE_MS = 2000; // 2s; adjust as needed
@@ -348,7 +373,7 @@ const preparedCommits = computed(() => {
 
   return arr.map((c: { sha: any; id: any; }) => ({
     ...GitUtils[gitType.value].normalize.commit(c),
-    availableActions: commitActions,
+    availableActions: commitActions.value,
     editFromCommit: () => appModal.value?.openEdit(props.value, c.sha)
   }));
 });
@@ -469,7 +494,7 @@ function formatDate(date, from) {
                 <div class="instances">
                   <trailhand-progress-bar label="Instances" :value="value.readyInstances" :total="value.desiredInstances"></trailhand-progress-bar>
                   <div class="instances-controls">
-                    <trailhand-button variant="secondary" size="small" :disabled="scalingInFlight || value.desiredInstances <= 0" @button-click="updateInstances(value.desiredInstances - 1)">
+                    <trailhand-button v-if="canScale" variant="secondary" size="small" :disabled="scalingInFlight || value.desiredInstances <= 0" @button-click="updateInstances(value.desiredInstances - 1)">
                       <trailhand-icon name="minus" />
                     </trailhand-button>
                     <div
@@ -478,7 +503,7 @@ function formatDate(date, from) {
                     >
                       <i class="icon-spinner animate-spin" />
                     </div>
-                    <trailhand-button variant="secondary" size="small" :disabled="scalingInFlight" @button-click="updateInstances(value.desiredInstances + 1)">
+                    <trailhand-button v-if="canScale" variant="secondary" size="small" :disabled="scalingInFlight" @button-click="updateInstances(value.desiredInstances + 1)">
                       <trailhand-icon name="plus" />
                     </trailhand-button>
                   </div>

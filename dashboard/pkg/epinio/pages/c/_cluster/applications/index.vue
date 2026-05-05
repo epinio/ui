@@ -26,10 +26,16 @@ const t = store.getters['i18n/t'];
 const resource = EPINIO_TYPES.APP;
 const schema = ref(store.getters['epinio/schemaFor'](resource));
 const appModal = ref<InstanceType<typeof AppModal> | null>(null);
-const canEdit = computed(() => {
+const canCreate = computed(() => {
   const canGetter = store.getters['epinio/can'];
   return canGetter && (
     canGetter('app_create') || canGetter('app_write') || canGetter('app')
+  );
+});
+const canEdit = computed(() => {
+  const canGetter = store.getters['epinio/can'];
+  return canGetter && (
+    canGetter('app_update') || canGetter('app_write') || canGetter('app')
   );
 });
 
@@ -293,7 +299,7 @@ onUnmounted(() => {
     >
       <template #createButton>
         <trailhand-button
-          v-if="canEdit"
+          v-if="canCreate"
           variant="primary"
           size="large"
           @click="appModal?.openCreate()"

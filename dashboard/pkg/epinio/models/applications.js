@@ -63,7 +63,7 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
     const canDelete = canGetter('app_delete') || canGetter('app_write') || canGetter('app');
     const canViewConfig = canGetter('configuration_read') || canGetter('configuration_write');
     const canEditConfig = canGetter('configuration_write') || canGetter('configuration');
-    const canExec = canGetter('app_exec');
+    const canExec = canGetter('app_exec') || canGetter('app');
 
     let skipNextDivider = false;
 
@@ -190,11 +190,15 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
     // controls the user lacks permission for. Matches showAppShell behavior.
     const can = (id) => permsReady && canGetter(id);
 
-    const canExec = can('app_exec');
-    const canLogs = can('app_logs');
-    const canStage = can('app_stage');
-    const canRestart = can('app_restart');
-    const canExport = can('app_export');
+    // `app` is the top-level umbrella granting every app-scoped action.
+    // `app_write` is a write-side umbrella that pulls in all stage/restart/export
+    // actions per actions.yaml dependsOn. Logs and exec are not under
+    // app_write — they only collapse into the `app` umbrella.
+    const canExec = can('app_exec') || can('app');
+    const canLogs = can('app_logs') || can('app');
+    const canStage = can('app_stage') || can('app_write') || can('app');
+    const canRestart = can('app_restart') || can('app_write') || can('app');
+    const canExport = can('app_export') || can('app_write') || can('app');
 
     const showAppShell = isRunning && canExec;
     const showAppLog = isRunning && canLogs;
