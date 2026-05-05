@@ -144,6 +144,13 @@ const configColumns = [
   }
 ];
 
+const canEdit = computed(() => {
+  const canGetter = store.getters['epinio/can'];
+  return canGetter && (
+    canGetter('app_create') || canGetter('app_write') || canGetter('app')
+  );
+});
+
 watchEffect(() => {
   const all = [...props.value.services];
 
@@ -165,12 +172,12 @@ watchEffect(() => {
             action: 'removeService',
             altAction: 'remove',
             bulkAction: 'removeService',
-            bulkable: true, 
+            bulkable: true,
             enabled: row.canDelete,
             icon: 'icon icon-trash',
             label: 'Delete',
             weight: -10
-          }, 
+          },
           {
             action: 'editServiceModal',
             label: 'Edit',
@@ -189,7 +196,7 @@ watchEffect(() => {
       },
       conditionFn: (row: EpinioServiceModel) => {
         return row.canDelete;
-      }, 
+      },
     },
     {
       prop: 'editServiceModal',
@@ -198,7 +205,7 @@ watchEffect(() => {
       },
       conditionFn: (row: EpinioServiceModel) => {
         return true;
-      }, 
+      },
     }
   ];
 
@@ -423,7 +430,11 @@ function formatDate(date, from) {
           <h1>Application: {{ value.meta.name }}</h1>
           <p>{{ value.stateDisplay }}</p>
         </div>
-        <trailhand-button size="small" @button-click="appModal?.openEdit(value)">
+        <trailhand-button
+          v-if="canEdit"
+          size="small"
+          @button-click="appModal?.openEdit(value)"
+        >
           <trailhand-icon name="gear" />
         </trailhand-button>
       </div>

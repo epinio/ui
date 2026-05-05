@@ -24,6 +24,7 @@ const displayRows = ref<any[]>([]);
 
 onMounted(() => {
   window.addEventListener('resize', onResize);
+  store.dispatch('epinio/me');
   store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.CONFIGURATION });
   startPolling(['configurations'], store);
 });
@@ -49,6 +50,11 @@ const canCreateConfiguration = computed(() => {
   return can('configuration_write') || can('configuration');
 });
 
+// Edit/Delete share the same permission as Create — anything that mutates
+// a configuration requires configuration_write.
+const canEdit = canCreateConfiguration;
+const canDelete = canCreateConfiguration;
+
 watchEffect(() => {
   void store.state.activeNamespaceCacheKey;
   const activeNamespaces = store.state.activeNamespaceCache;
@@ -65,32 +71,40 @@ watchEffect(() => {
   const overrides = [
     {
       prop: 'availableActions',
-      value: (row: any) => [
-        {
-          action:     'editConfigModal',
-          label:      'Edit',
-          enabled:    row.configuration?.type === 'custom',
-          icon:       'icon icon-edit',
-        },
-        {
-          action:  'deleteConfigModal',
-          label:   'Delete',
-          enabled: row.configuration?.type === 'custom',
-          icon:    'icon icon-trash',
-          weight:  -10,
-        },
-      ],
-      conditionFn: () => true,
+      value: (row: any) => {
+        const out: any[] = [];
+
+        if (canEdit.value) {
+          out.push({
+            action:  'editConfigModal',
+            label:   'Edit',
+            enabled: row.configuration?.type === 'custom',
+            icon:    'icon icon-edit',
+          });
+        }
+        if (canDelete.value) {
+          out.push({
+            action:  'deleteConfigModal',
+            label:   'Delete',
+            enabled: row.configuration?.type === 'custom',
+            icon:    'icon icon-trash',
+            weight:  -10,
+          });
+        }
+
+        return out;
+      },
+      conditionFn: () => canEdit.value || canDelete.value,
     },
     {
       prop:        'editConfigModal',
       value:       (row: any) => () => { configModal.value?.openEdit(row); },
-      conditionFn: (row: any) => row.configuration?.type === 'custom',
+      conditionFn: (row: any) => canEdit.value && row.configuration?.type === 'custom',
     },
     {
       prop:        'deleteConfigModal',
       value:       (row: any) => () => { deleteModal.value?.openDelete(row); },
-      conditionFn: (row: any) => row.configuration?.type === 'custom',
+      conditionFn: (row: any) => canDelete.value && row.configuration?.type === 'custom',
     },
   ];
 

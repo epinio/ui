@@ -42,6 +42,14 @@ const serviceModal = ref<InstanceType<typeof ServiceInstanceModal> | null>(null)
 const deleteModal = ref<InstanceType<typeof ServiceDeleteModal> | null>(null);
 const displayRows = ref<any[]>([]);
 
+const canEdit = computed(() => {
+  const can = store.getters['epinio/can'];
+
+  return can && (can('service_write') || can('service'));
+});
+const canDelete = canEdit;
+const canCreate = canEdit;
+
 watchEffect(() => {
   void store.state.activeNamespaceCacheKey;
   const activeNamespaces = store.state.activeNamespaceCache;
@@ -57,50 +65,54 @@ watchEffect(() => {
     return !activeNamespaces || Object.keys(activeNamespaces).length === 0 || activeNamespaces[ns];
   });
 
-  // Add custom service delete action to replace the built in rancher shell flow
+  // Build the row action menu with RBAC gating. The model already gates the
+  // base actions; here we inject the modal-driven Edit/Delete entries only
+  // when the user has service write permissions.
+  const rowActions = (row: EpinioServiceModel) => {
+    const out: any[] = [];
+
+    if (canDelete.value) {
+      out.push({
+        action: 'removeService',
+        altAction: 'remove',
+        bulkAction: 'removeService',
+        bulkable: true,
+        enabled: row.canDelete,
+        icon: 'icon icon-trash',
+        label: 'Delete',
+        weight: -10
+      });
+    }
+    if (canEdit.value) {
+      out.push({
+        action: 'editServiceModal',
+        label: 'Edit',
+        enabled: true
+      });
+    }
+
+    return out;
+  };
+
   const overrideProps = [
     {
       prop: 'availableActions',
-      value: (row: EpinioServiceModel) => (
-        [
-          {
-            action: 'removeService',
-            altAction: 'remove',
-            bulkAction: 'removeService',
-            bulkable: true, 
-            enabled: row.canDelete,
-            icon: 'icon icon-trash',
-            label: 'Delete',
-            weight: -10
-          }, 
-          {
-            action: 'editServiceModal',
-            label: 'Edit',
-            enabled: true
-          }
-        ]
-      ),
-      conditionFn: (row: EpinioServiceModel) => {
-        return true;
-      },
+      value: rowActions,
+      conditionFn: () => canEdit.value || canDelete.value,
     },
     {
       prop: 'removeService',
       value: (row: EpinioServiceModel) => () => {
         deleteModal.value?.openDelete(row);
       },
-      conditionFn: (row: EpinioServiceModel) => {
-        return row.canDelete;
-      }, 
+      conditionFn: (row: EpinioServiceModel) => canDelete.value && row.canDelete,
     },
     {
       prop: 'editServiceModal',
       value: (row: EpinioServiceModel) => () => {
         serviceModal.value?.openEdit(row);
       },
-      conditionFn: (row: EpinioServiceModel) => {
-        return true;
-      }, 
+      conditionFn: () => canEdit.value,
     }
   ];
 
@@ -110,6 +122,7 @@ watchEffect(() => {
 });
 
 onMounted(() => {
+  store.dispatch('epinio/me');
   store.dispatch('epinio/findAll', { type: EPINIO_TYPES.SERVICE_INSTANCE });
   store.dispatch('epinio/findAll', { type: EPINIO_TYPES.NAMESPACE });
   store.dispatch('epinio/findAll', { type: EPINIO_TYPES.CATALOG_SERVICE });
@@ -187,6 +200,7 @@ const columns = [
     >
       <template #createButton>
         <trailhand-button
+          v-if="canCreate"
           variant="primary"
           size="large"
           @click="serviceModal?.openCreate()"

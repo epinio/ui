@@ -52,13 +52,28 @@ const deleteNamespaceInput = ref<HTMLElement | null>(null);
 const deletingNamespace = ref<boolean>(false);
 const confirmDeleteInput = ref<string>('');
 
+// Strict RBAC: only show Create/Delete when the user has namespace write perms (admin).
+// Defined ahead of the watchEffect that consumes them to avoid a TDZ on first run.
+const canCreateNamespace = computed(() => {
+  const can = store.getters['epinio/can'];
+  const perms = store.getters['epinio/permissions']?.();
+
+  if (!can || !perms || Object.keys(perms).length === 0) {
+    return false;
+  }
+
+  return can('namespace_write') || can('namespace');
+});
+const canDelete = canCreateNamespace;
+
 watchEffect(() => {
   const all = store.getters['epinio/all'](EPINIO_TYPES.NAMESPACE) as EpinioNamespace[];
 
   // Touch meta so _MERGE polling (which deletes/re-adds all properties) re-runs this effect
   all.forEach((row) => { void row.meta; });
 
-  // Add custom namespace delete action to replace the built in rancher shell flow
+  // Add custom namespace delete action to replace the built in rancher shell flow.
+  // Gate by namespace write perms so view-only / app-only roles don't see Delete.
   const overrideProps = [{
     prop: 'availableActions',
     value: [{
@@ -71,9 +86,7 @@ watchEffect(() => {
       label: 'Delete',
       weight: -10
     }],
-    conditionFn: (row: EpinioNamespace) => {
-      return row.canDelete;
-    },
+    conditionFn: (row: EpinioNamespace) => canDelete.value && row.canDelete,
   },
   {
     prop: 'removeNamespace',
@@ -81,9 +94,7 @@ watchEffect(() => {
       namespaceToDelete.value = row;
       openDeleteModal();
     },
-    conditionFn: (row: EpinioNamespace) => {
-      return row.canDelete;
-    },
+    conditionFn: (row: EpinioNamespace) => canDelete.value && row.canDelete,
   }];
   displayRows.value = overrideTableRows(all, overrideProps);
 });
@@ -98,23 +109,13 @@ const validateCreate = computed(() => {
   return validationErrors.length === 0;
 });
 
-// Strict RBAC: only show Create when the user has namespace write perms (admin).
-const canCreateNamespace = computed(() => {
-  const can = store.getters['epinio/can'];
-  const perms = store.getters['epinio/permissions']?.();
-
-  if (!can || !perms || Object.keys(perms).length === 0) {
-    return false;
-  }
-
-  return can('namespace_write') || can('namespace');
-});
 
 const validateDelete = computed(() => {
   return confirmDeleteInput.value === namespaceToDelete.value?.meta.name;
 });
 
 onMounted(() => {
+  store.dispatch('epinio/me');
   // Opens the create namespace modal if the query is passed as query param
   if (store.$router.currentRoute._value.query.mode === 'openModal') {
     openCreateModal();
