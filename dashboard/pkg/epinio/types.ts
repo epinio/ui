@@ -242,6 +242,7 @@ export interface EpinioRole {
   name: string,
   namespace?: string,
   default?: boolean,
+  actions?: string[],
 }
 
 export interface EpinioMe {

@@ -141,6 +141,14 @@ export function buildPermissionsFromRoles(roles: EpinioRole[]): EpinioPermission
       continue;
     }
 
+    // Prefer actions returned by the server (/api/v1/me). Fall back to the
+    // hardcoded ROLE_ACTIONS map only when the server didn't send any —
+    // i.e. older Epinio versions that don't include role.actions.
+    if (Array.isArray(role.actions) && role.actions.length > 0) {
+      role.actions.forEach((a) => actions.add(a));
+      continue;
+    }
+
     const mapped = ROLE_ACTIONS[roleId] || [];
     mapped.forEach((a) => actions.add(a));
   }

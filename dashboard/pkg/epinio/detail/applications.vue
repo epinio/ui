@@ -144,6 +144,32 @@ const configColumns = [
   }
 ];
 
+const canEdit = computed(() => {
+  const canGetter = store.getters['epinio/can'];
+  return canGetter && (
+    canGetter('app_update') || canGetter('app_write') || canGetter('app')
+  );
+});
+const canScale = computed(() => {
+  const canGetter = store.getters['epinio/can'];
+  return canGetter && (
+    canGetter('app_scale') || canGetter('app_write') || canGetter('app')
+  );
+});
+
+// Bound resources on this page have their own scope: the services table
+// requires service write perms, the configurations table requires config
+// write perms — independent of app perms.
+const canEditService = computed(() => {
+  const canGetter = store.getters['epinio/can'];
+  return canGetter && (canGetter('service_write') || canGetter('service'));
+});
+const canEditConfig = computed(() => {
+  const canGetter = store.getters['epinio/can'];
+  return canGetter && (canGetter('configuration_write') || canGetter('configuration'));
+}); 
+
+
 watchEffect(() => {
   const all = [...props.value.services];
 
@@ -155,50 +181,50 @@ watchEffect(() => {
     else return true;
   });
 
-  // Add custom service delete action to replace the built in rancher shell flow
+  // Bound-services row actions are gated by service write perms.
   const overrideProps = [
     {
       prop: 'availableActions',
-      value: (row: EpinioServiceModel) => (
-        [
-          {
-            action: 'removeService',
-            altAction: 'remove',
-            bulkAction: 'removeService',
-            bulkable: true, 
-            enabled: row.canDelete,
-            icon: 'icon icon-trash',
-            label: 'Delete',
-            weight: -10
-          }, 
-          {
-            action: 'editServiceModal',
-            label: 'Edit',
-            enabled: true
-          }
-        ]
-      ),
-      conditionFn: (row: EpinioServiceModel) => {
-        return true;
+      value: (row: EpinioServiceModel) => {
+        const out: any[] = [];
+
+        if (canEditService.value) {
+          out.push(
+            {
+              action: 'removeService',
+              altAction: 'remove',
+              bulkAction: 'removeService',
+              bulkable: true,
+              enabled: row.canDelete,
+              icon: 'icon icon-trash',
+              label: 'Delete',
+              weight: -10
+            },
+            {
+              action: 'editServiceModal',
+              label: 'Edit',
+              enabled: true
+            }
+          );
+        }
+
+        return out;
       },
+      conditionFn: () => true,
     },
     {
       prop: 'removeService',
       value: (row: EpinioServiceModel) => () => {
         serviceDeleteModal.value?.openDelete(row);
       },
-      conditionFn: (row: EpinioServiceModel) => {
-        return row.canDelete;
-      }, 
+      conditionFn: (row: EpinioServiceModel) => canEditService.value && row.canDelete,
     },
     {
       prop: 'editServiceModal',
       value: (row: EpinioServiceModel) => () => {
         serviceModal.value?.openEdit(row);
       },
-      conditionFn: (row: EpinioServiceModel) => {
-        return true;
-      }, 
+      conditionFn: () => canEditService.value,
     }
   ];
 
@@ -213,44 +239,48 @@ watchEffect(() => {
   const overrides = [
     {
       prop: 'availableActions',
-      value: (row: any) => [
-        {
-          action:     'editConfigModal',
-          label:      'Edit',
-          enabled:    row.configuration?.type === 'custom',
-          icon:       'icon icon-edit',
-        },
-        {
-          action:  'deleteConfigModal',
-          label:   'Delete',
-          enabled: row.configuration?.type === 'custom',
-          icon:    'icon icon-trash',
-          weight:  -10,
-        },
-      ],
+      value: (row: any) => {
+        if (!canEditConfig.value) return [];
+
+        return [
+          {
+            action:  'editConfigModal',
+            label:   'Edit',
+            enabled: row.configuration?.type === 'custom',
+            icon:    'icon icon-edit',
+          },
+          {
+            action:  'deleteConfigModal',
+            label:   'Delete',
+            enabled: row.configuration?.type === 'custom',
+            icon:    'icon icon-trash',
+            weight:  -10,
+          },
+        ];
+      },
       conditionFn: () => true,
     },
     {
       prop:        'editConfigModal',
       value:       (row: any) => () => { configModal.value?.openEdit(row); },
-      conditionFn: (row: any) => row.configuration?.type === 'custom',
+      conditionFn: (row: any) => canEditConfig.value && row.configuration?.type === 'custom',
     },
     {
       prop:        'deleteConfigModal',
       value:       (row: any) => () => { configDeleteModal.value?.openDelete(row); },
-      conditionFn: (row: any) => row.configuration?.type === 'custom',
+      conditionFn: (row: any) => canEditConfig.value && row.configuration?.type === 'custom',
     },
   ];
 
   configRows.value = [...overrideTableRows(all, overrides)];
 });
 
-const commitActions = [{
+const commitActions = computed(() => canEdit.value ? [{
   action: 'editFromCommit',
   label: t('epinio.applications.actions.editFromCommit.label'),
   icon: 'icon icon-edit',
   enabled: true
-}];
+}] : []);
 
 // Debounce settings for scaling instances
 const UPDATE_INSTANCES_DEBOUNCE_MS = 2000; // 2s; adjust as needed
@@ -345,7 +375,7 @@ const preparedCommits = computed(() => {
 
   return arr.map((c: { sha: any; id: any; }) => ({
     ...GitUtils[gitType.value].normalize.commit(c),
-    availableActions: commitActions,
+    availableActions: commitActions.value,
     editFromCommit: () => appModal.value?.openEdit(props.value, c.sha)
   }));
 });
@@ -382,39 +412,17 @@ const gitCommitsColumns = computed(() => [
   }
 ]);
 
-const sourceIcon = computed(() => props.value.appSourceInfo?.icon || 'icon-epinio');
-
-const commitPosition = computed(() => {
-  if (!preparedCommits.value.length && !gitDeployment.value.deployedCommit) {
-    return null;
-  }
-
-  let idx: number | null = null;
-
-  preparedCommits.value.forEach((ele: { commitId: string; }, i: number) => {
-    if (ele.commitId === gitDeployment.value?.deployedCommit?.long) {
-      idx = i - 1;
-    }
-  });
-
-  if (idx === null || idx < 0) {
-    return {
-      text: t('epinio.applications.gitSource.latestCommit'),
-      position: 0
-    };
-  }
-
-  return {
-    text: `${idx} ${t('epinio.applications.gitSource.behindCommits')}`,
-    position: idx
-  };
-});
-
 function formatDate(date, from) {
   return from ? day(date).fromNow() : day(date).format('DD MMM YYYY');
 }
 </script>
 
+<!-- eslint-disable vue/no-deprecated-slot-attribute -->
+<!--
+  trailhand-* are Web Components, not Vue components. The HTML standard
+  slot="x" attribute is correct here; eslint-plugin-vue's deprecation rule
+  only applies to Vue component slots.
+-->
 <template>
   <div class="content">
     <div class="heading">
@@ -423,7 +431,11 @@ function formatDate(date, from) {
           <h1>Application: {{ value.meta.name }}</h1>
           <p>{{ value.stateDisplay }}</p>
         </div>
-        <trailhand-button size="small" @button-click="appModal?.openEdit(value)">
+        <trailhand-button
+          v-if="canEdit"
+          size="small"
+          @button-click="appModal?.openEdit(value)"
+        >
           <trailhand-icon name="gear" />
         </trailhand-button>
       </div>
@@ -476,15 +488,15 @@ function formatDate(date, from) {
       class="deployment"
     >
       <!-- Source information -->
-      <Tabs  :tabs="deploymentTabs" v-model="activeDeploymentTab" variant="underline">
-        <template #overview="{ tab }">
+      <Tabs  v-model="activeDeploymentTab" :tabs="deploymentTabs" variant="underline">
+        <template #overview>
           <div class="simple-box-row app-instances">
             <trailhand-card variant="info" class="dashboard-card simple-box">
               <div slot="title" class="consumption-card">
                 <div class="instances">
                   <trailhand-progress-bar label="Instances" :value="value.readyInstances" :total="value.desiredInstances"></trailhand-progress-bar>
                   <div class="instances-controls">
-                    <trailhand-button variant="secondary" size="small" :disabled="scalingInFlight || value.desiredInstances <= 0" @button-click="updateInstances(value.desiredInstances - 1)">
+                    <trailhand-button v-if="canScale" variant="secondary" size="small" :disabled="scalingInFlight || value.desiredInstances <= 0" @button-click="updateInstances(value.desiredInstances - 1)">
                       <trailhand-icon name="minus" />
                     </trailhand-button>
                     <div
@@ -493,7 +505,7 @@ function formatDate(date, from) {
                     >
                       <i class="icon-spinner animate-spin" />
                     </div>
-                    <trailhand-button variant="secondary" size="small" :disabled="scalingInFlight" @button-click="updateInstances(value.desiredInstances + 1)">
+                    <trailhand-button v-if="canScale" variant="secondary" size="small" :disabled="scalingInFlight" @button-click="updateInstances(value.desiredInstances + 1)">
                       <trailhand-icon name="plus" />
                     </trailhand-button>
                   </div>
@@ -530,7 +542,7 @@ function formatDate(date, from) {
                 </div>
               </div>
             </trailhand-card>
-            <trailhand-card variant="info" class="dashboard-card simple-box" v-if="value.appSourceInfo">
+            <trailhand-card v-if="value.appSourceInfo" variant="info" class="dashboard-card simple-box">
               <div slot="title" class="deployment__origin__list" >
                 <table>
                   <tbody>
@@ -544,21 +556,21 @@ function formatDate(date, from) {
                     </tr>
                     <tr v-for="d of value.appSourceInfo.details" :key="d.label">
                       <td class="origin-prop">{{ d.label }}</td>
-                      <td class="origin-value" v-if="d.value && d.value.startsWith('http')">
+                      <td v-if="d.value && d.value.startsWith('http')" class="origin-value">
                         <a
                           :href="d.value"
                           target="_blank"
                           class="origin-link"
                         >{{ formatURL(d.value) }}</a>
                       </td>
-                      <td class="origin-value" v-else-if="gitSource && d.value && d.value.match(/^[a-f0-9]{40}$/)">
+                      <td v-else-if="gitSource && d.value && d.value.match(/^[a-f0-9]{40}$/)" class="origin-value">
                         <a
                           :href="`${gitSource.htmlUrl}/commit/${d.value}`"
                           target="_blank"
                           class="origin-link"
                         >{{ d.value }}</a>
                       </td>
-                      <td class="origin-value" v-else>{{ d.value }}</td>
+                      <td v-else class="origin-value">{{ d.value }}</td>
                     </tr>
                     <tr v-if="gitSource">
                       <td class="origin-prop">
@@ -590,7 +602,7 @@ function formatDate(date, from) {
             </trailhand-card>
           </div>
         </template>
-        <template #gitCommits="{ tab }">
+        <template #gitCommits>
           <Banner
             color="info"
             class="redeploy-info"
@@ -616,8 +628,8 @@ function formatDate(date, from) {
     </h3>
 
     <div>
-      <Tabs :tabs="resourceTabs" v-model="activeResourceTab" variant="underline">
-        <template #instances="{ tab }">
+      <Tabs v-model="activeResourceTab" :tabs="resourceTabs" variant="underline">
+        <template #instances>
           <trailhand-table
             :ref="(el: any) => { if (el) el.renderActions = makeActionMenu; }"
             :columns="instanceColumns"
@@ -626,7 +638,7 @@ function formatDate(date, from) {
             :paginated="false"
           />
         </template>
-        <template #services="{ tab }">
+        <template #services>
           <trailhand-table
             :ref="(el: any) => { if (el) el.renderActions = makeActionMenu; }"
             :columns="serviceColumns"
@@ -635,7 +647,7 @@ function formatDate(date, from) {
             :paginated="false"
           />
         </template>
-        <template #configs="{ tab }">
+        <template #configs>
           <trailhand-table
             :ref="(el: any) => { if (el) el.renderActions = makeActionMenu; }"
             :columns="configColumns"

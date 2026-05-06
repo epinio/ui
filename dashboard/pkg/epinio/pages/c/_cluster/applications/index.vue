@@ -8,7 +8,6 @@ import Masthead from '@shell/components/ResourceList/Masthead';
 
 import AppModal from '../../../../components/application/AppModal.vue';
 import { EPINIO_TYPES } from '../../../../types';
-import { createEpinioRoute } from '../../../../utils/custom-routing';
 import { startPolling, stopPolling } from '../../../../utils/polling';
 import {
   makeActionMenu,
@@ -27,10 +26,18 @@ const t = store.getters['i18n/t'];
 const resource = EPINIO_TYPES.APP;
 const schema = ref(store.getters['epinio/schemaFor'](resource));
 const appModal = ref<InstanceType<typeof AppModal> | null>(null);
-
-const createLocation = computed(() =>
-  createEpinioRoute('c-cluster-applications-createapp', { cluster: store.getters['clusterId'] })
-);
+const canCreate = computed(() => {
+  const canGetter = store.getters['epinio/can'];
+  return canGetter && (
+    canGetter('app_create') || canGetter('app_write') || canGetter('app')
+  );
+});
+const canEdit = computed(() => {
+  const canGetter = store.getters['epinio/can'];
+  return canGetter && (
+    canGetter('app_update') || canGetter('app_write') || canGetter('app')
+  );
+});
 
 const pending = ref(true);
 
@@ -179,6 +186,10 @@ function getNestedValue(obj: any, path: string): any {
 function getFilteredApps(apps: any[], namespace: string): any[] {
   const query = (searchQueries.value[namespace] || '').toLowerCase().trim();
 
+  // Only inject the modal-driven Edit action when the current user actually
+  // has app write permissions; otherwise the model's filter has already
+  // removed goToEdit and we shouldn't add it back.
+
   const overrideProps = [
     {
       prop: 'availableActions',
@@ -190,14 +201,16 @@ function getFilteredApps(apps: any[], namespace: string): any[] {
             label: 'Edit',
             enabled: true
           };
-        if (goToEditIndex !== -1) {
+        if (goToEditIndex !== -1 && canEdit.value) {
           actions.splice(goToEditIndex, 1, newAction);
-        } else {
+        } else if (canEdit.value) {
           actions.push(newAction);
+        } else if (goToEditIndex !== -1 && !canEdit.value) {
+          actions.splice(goToEditIndex, 1);
         }
         return actions;
       },
-      conditionFn: (row: EpinioApplicationModel) => {
+      conditionFn: () => {
         return true;
       },
     },
@@ -206,15 +219,14 @@ function getFilteredApps(apps: any[], namespace: string): any[] {
       value: (row: EpinioApplicationModel) => () => {
         appModal.value?.openEdit(row);
       },
-      conditionFn: (row: EpinioApplicationModel) => {
+      conditionFn: () => {
         return true;
-      }, 
+      },
     }
   ];
 
   if (!query) {
     return overrideTableRows(apps, overrideProps);
-    return apps;
   }
 
   const filteredApps = apps.filter(app =>
@@ -226,7 +238,6 @@ function getFilteredApps(apps: any[], namespace: string): any[] {
   );
 
   return overrideTableRows(filteredApps, overrideProps);
-  return filteredApps;
 }
 
 const handleNavigate = (event: CustomEvent) => router.push(event.detail.url);
@@ -248,6 +259,8 @@ onMounted(async () => {
   window.addEventListener('resize', onResize);
 
   pending.value = false;
+
+  store.dispatch('epinio/me');
 
   // Seed each namespace's first paginated page. loadCluster has already
   // awaited findAll(NAMESPACE), so the list is available.
@@ -281,19 +294,21 @@ onUnmounted(() => {
 
 <template>
   <Loading v-if="pending" />
-  <div class="outlet" v-else>
+  <div v-else class="outlet">
     <Masthead
       :schema="schema"
       :resource="resource"
     >
       <template #createButton>
         <trailhand-button
+          v-if="canCreate"
           variant="primary"
           size="large"
           @click="appModal?.openCreate()"
         >
           {{ t('generic.create') }}
         </trailhand-button>
+        <div v-else></div>
       </template>
     </Masthead>
 
