@@ -94,7 +94,7 @@ watchEffect(() => {
 
         return out;
       },
-      conditionFn: () => canEdit.value || canDelete.value,
+      conditionFn: () => true,
     },
     {
       prop:        'editConfigModal',

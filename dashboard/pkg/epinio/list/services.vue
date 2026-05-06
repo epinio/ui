@@ -98,7 +98,7 @@ watchEffect(() => {
     {
       prop: 'availableActions',
       value: rowActions,
-      conditionFn: () => canEdit.value || canDelete.value,
+      conditionFn: () => true,
     },
     {
       prop: 'removeService',

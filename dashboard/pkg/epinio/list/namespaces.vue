@@ -75,17 +75,23 @@ watchEffect(() => {
   // Gate by namespace write perms so view-only / app-only roles don't see Delete.
   const overrideProps = [{
     prop: 'availableActions',
-    value: [{
-      action: 'removeNamespace',
-      altAction: 'remove',
-      bulkAction: 'removeNamespace',
-      bulkable: true,
-      enabled: true,
-      icon: 'icon icon-trash',
-      label: 'Delete',
-      weight: -10
-    }],
-    conditionFn: (row: EpinioNamespace) => canDelete.value && row.canDelete,
+    value: (row: any) => {
+      if (!canDelete.value || !row.canDelete) {
+        return [];
+      }
+
+      return [{
+        action: 'removeNamespace',
+        altAction: 'remove',
+        bulkAction: 'removeNamespace',
+        bulkable: true,
+        enabled: true,
+        icon: 'icon icon-trash',
+        label: 'Delete',
+        weight: -10
+      }]
+    },
+    conditionFn: () => true,
   },
   {
     prop: 'removeNamespace',
@@ -248,6 +254,7 @@ const columns = [
         >
           {{ t('generic.create') }}
         </trailhand-button>
+        <div v-else></div>
       </template>
     </Masthead>
     <trailhand-table

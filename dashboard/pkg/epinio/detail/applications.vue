@@ -156,6 +156,7 @@ const canScale = computed(() => {
     canGetter('app_scale') || canGetter('app_write') || canGetter('app')
   );
 });
+
 // Bound resources on this page have their own scope: the services table
 // requires service write perms, the configurations table requires config
 // write perms — independent of app perms.
@@ -166,7 +167,8 @@ const canEditService = computed(() => {
 const canEditConfig = computed(() => {
   const canGetter = store.getters['epinio/can'];
   return canGetter && (canGetter('configuration_write') || canGetter('configuration'));
-});
+}); 
+
 
 watchEffect(() => {
   const all = [...props.value.services];
@@ -208,7 +210,7 @@ watchEffect(() => {
 
         return out;
       },
-      conditionFn: () => canEditService.value,
+      conditionFn: () => true,
     },
     {
       prop: 'removeService',
@@ -256,7 +258,7 @@ watchEffect(() => {
           },
         ];
       },
-      conditionFn: () => canEditConfig.value,
+      conditionFn: () => true,
     },
     {
       prop:        'editConfigModal',

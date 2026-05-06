@@ -190,7 +190,7 @@ function getFilteredApps(apps: any[], namespace: string): any[] {
   // has app write permissions; otherwise the model's filter has already
   // removed goToEdit and we shouldn't add it back.
 
-  const overrideProps = canEdit.value ? [
+  const overrideProps = [
     {
       prop: 'availableActions',
       value: (row: EpinioApplicationModel) => {
@@ -201,10 +201,12 @@ function getFilteredApps(apps: any[], namespace: string): any[] {
             label: 'Edit',
             enabled: true
           };
-        if (goToEditIndex !== -1) {
+        if (goToEditIndex !== -1 && canEdit.value) {
           actions.splice(goToEditIndex, 1, newAction);
-        } else {
+        } else if (canEdit.value) {
           actions.push(newAction);
+        } else if (goToEditIndex !== -1 && !canEdit.value) {
+          actions.splice(goToEditIndex, 1);
         }
         return actions;
       },
@@ -221,7 +223,7 @@ function getFilteredApps(apps: any[], namespace: string): any[] {
         return true;
       },
     }
-  ] : [];
+  ];
 
   if (!query) {
     return overrideTableRows(apps, overrideProps);
@@ -306,6 +308,7 @@ onUnmounted(() => {
         >
           {{ t('generic.create') }}
         </trailhand-button>
+        <div v-else></div>
       </template>
     </Masthead>
 
