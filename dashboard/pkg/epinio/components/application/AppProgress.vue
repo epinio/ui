@@ -18,7 +18,8 @@ const props = defineProps<{
   source: EpinioAppSource,
   bindings?: EpinioAppBindings | null,
   mode: string,
-  step: any
+  tab: any,
+  active: boolean,
 }>();
 
 const emit = defineEmits(['finished']);
@@ -114,12 +115,12 @@ const create = async () => {
 
 watch(running, (neu, prev) => {
   if (prev && !neu) {
-    props.step.ready = true;
+    props.tab.completed = true;
   }
 });
 
 const createActions = async () => {
-  const REDEPLOY_SOURCE = store.$router.currentRoute._value.hash === '#source';
+  const REDEPLOY_SOURCE = props.mode === 'edit';
 
   const coreArgs = {
     application: props.application,
@@ -202,7 +203,11 @@ const createActions = async () => {
   create();
 };
 
-onMounted(createActions);
+watch(() => props.active, (isActive) => {
+  if (isActive && !actions.value.length) {
+    createActions();
+  }
+});
 </script>
 
 <template>
@@ -218,6 +223,7 @@ onMounted(createActions);
         key-field="key"
       />
     </div>
+    <h3>The application will continue {{ props.mode === 'edit' ? 'updating' : 'deploying' }} in the background. Feel free to close this modal.</h3>
   </div>
 </template>
 
@@ -225,10 +231,14 @@ onMounted(createActions);
 .progress-container {
   display: flex;
   justify-content: center;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
 
   .progress {
     padding: 10px 0;
-
+    display: flex;
+    
     trailhand-table {
       --sortable-table-row-hover-bg: var(--sortable-table-hover-bg);
       --sortable-table-header-hover-bg: var(--sortable-table-hover-bg);

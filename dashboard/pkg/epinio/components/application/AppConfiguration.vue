@@ -3,15 +3,15 @@
 import { ref, computed, watch, onMounted } from 'vue';
 import { useStore } from 'vuex';
 import { sortBy } from '@shell/utils/sort';
-import LabeledSelect from '@shell/components/form/LabeledSelect.vue';
 import { _VIEW } from '@shell/config/query-params';
-import { EpinioConfiguration, EpinioService, EPINIO_TYPES, EPINIO_APP_MANIFEST } from '../../types';
+import { EpinioConfiguration, EpinioService, EPINIO_TYPES, EPINIO_APP_MANIFEST, EpinioAppBindings } from '../../types';
 import Application from '../../models/applications';
 
 interface Props {
   initialApplication?: Application;
   application: Application;
   mode: string;
+  bindings?: EpinioAppBindings;
 }
 
 const props = defineProps<Props>();
@@ -22,8 +22,8 @@ const store = useStore();
 const t = store.getters['i18n/t'];
 
 const values = ref({
-  configurations: [] as string[],
-  services: [] as EpinioService[],
+  configurations: props.bindings?.configurations || [] as string[],
+  services: props.bindings?.services.map((s: EpinioService) => s.id) || [] as string[],
 });
 
 const fetchData = async () => {
@@ -60,7 +60,7 @@ const configurations = computed(() => {
 const services = computed(() => {
   const list = namespacedServices.value.map((s: EpinioService) => ({
     label: `${s.metadata.name} (${s.catalog_service})`,
-    value: s,
+    value: s.id,
   }));
 
   return sortBy(list, 'label', false);
@@ -78,7 +78,12 @@ const isFromManifest = computed(
 );
 
 // Watchers
-watch(values, () => emit('change', values.value), { deep: true });
+watch(values, () => {
+  emit('change', {
+    configurations: values.value.configurations,
+    services: values.value.services.map((s: string) => namespacedServices.value.find((ns: any) => ns.id === s)),
+  })
+}, { deep: true });
 
 watch(noConfigs, (neu) => {
   if (neu && values.value.configurations?.length) {
@@ -114,10 +119,10 @@ watch(hasConfigs, (neu, old) => {
 watch(hasServices, (neu, old) => {
     if (!old && neu) {
       if (props.initialApplication?.configuration?.services) {
-        const serviceNames = props.initialApplication.configuration.services;
-        values.value.services = services.value.filter((s: any) =>
-          serviceNames.includes(s.value.metadata.name)
-        ).map((s: any) => s.value);
+        const serviceNames = props.initialApplication.configuration.services; 
+        values.value.services = namespacedServices.value
+          .filter((s: any) => serviceNames.includes(s.metadata.name))
+          .map((s: any) => s.id);
       }
     }
 
@@ -127,47 +132,44 @@ watch(hasServices, (neu, old) => {
           props.application.configuration.configurations.includes(nc.metadata.name) &&
           nc.isServiceRelated
         );
-      values.value.services = services.value
-        .filter((s: any) => configurations.some((d: any) => s.value.metadata.name === d.configuration.origin))
-        .map((elem: any) => elem.value);
+      values.value.services = namespacedServices.value
+        .filter((s: any) => configurations.some((d: any) => s.metadata.name === d.configuration.origin))
+        .map((elem: any) => elem.id);
     }
 }, { immediate: true });
 </script>
 
 <template>
-  <div>
-    <div class="col span-6">
-      <LabeledSelect
-        v-model:value="values.configurations"
-        data-testid="epinio_app-configuration_configurations"
-        :disabled="noConfigs || isView"
-        :options="configurations"
-        :searchable="true"
-        :mode="mode"
-        :multiple="true"
-        :label="t('typeLabel.configurations', { count: 2})"
-        :placeholder="noConfigs ? t('epinio.applications.steps.configurations.configurations.select.placeholderNoOptions') : t('epinio.applications.steps.configurations.configurations.select.placeholderWithOptions')"
+  <div class="configurations">
+    <trailhand-dropdown
+      :values="values.configurations"
+      data-testid="epinio_app-configuration_configurations"
+      :disabled="noConfigs || isView"
+      :options="configurations"
+      multiselect
+      filterable
+      :label="t('typeLabel.configurations', { count: 2})"
+      :placeholder="noConfigs ? t('epinio.applications.steps.configurations.configurations.select.placeholderNoOptions') : t('epinio.applications.steps.configurations.configurations.select.placeholderWithOptions')"
+      @dropdown-change="(e: CustomEvent) => values.configurations = e.detail.values"
       />
-    </div>
-    <div class="spacer" />
-    <div class="col span-6">
-      <LabeledSelect
-        v-model:value="values.services"
-        data-testid="epinio_app-configuration_services"
-        :disabled="noServices || isView"
-        :options="services"
-        :searchable="true"
-        :mode="mode"
-        :multiple="true"
-        :label="t('epinio.applications.steps.configurations.services.select.label')"
-        :placeholder="noServices ? t('epinio.applications.steps.configurations.services.select.placeholderNoOptions') : t('epinio.applications.steps.configurations.services.select.placeholderWithOptions')"
-      />
-    </div>
+    <trailhand-dropdown
+      :values="values.services"
+      data-testid="epinio_app-configuration_services"
+      :disabled="noServices || isView"
+      :options="services"
+      multiselect
+      filterable
+      :label="t('epinio.applications.steps.configurations.services.select.label')"
+      :placeholder="noServices ? t('epinio.applications.steps.configurations.services.select.placeholderNoOptions') : t('epinio.applications.steps.configurations.services.select.placeholderWithOptions')"
+      @dropdown-change="(e: CustomEvent) => values.services = e.detail.values"
+    />
   </div>
 </template>
 
 <style lang='scss' scoped>
-.labeled-select {
-  min-height: 79px;
+.configurations {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
 }
 </style>

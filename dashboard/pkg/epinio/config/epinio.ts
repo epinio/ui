@@ -134,6 +134,7 @@ export function init($plugin: any, store: any) {
     showState:   true,
     canYaml:     false,
     customRoute: createEpinioRoute('c-cluster-applications', { }),
+    resourceEditMasthead: false,
   });
 
   virtualType({

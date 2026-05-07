@@ -6,8 +6,8 @@ import { useRouter } from 'vue-router';
 import Loading from '@shell/components/Loading';
 import Masthead from '@shell/components/ResourceList/Masthead';
 
+import AppModal from '../../../../components/application/AppModal.vue';
 import { EPINIO_TYPES } from '../../../../types';
-import { createEpinioRoute } from '../../../../utils/custom-routing';
 import { startPolling, stopPolling } from '../../../../utils/polling';
 import {
   makeActionMenu,
@@ -16,6 +16,8 @@ import {
   makeRouterLinksOrEmpty,
   makeBoundServicesCell,
 } from '../../../../utils/table-formatters';
+import EpinioApplicationModel from 'models/applications';
+import { overrideTableRows } from '../../../../utils/table-formatters';
 
 const store = useStore();
 const router = useRouter();
@@ -23,11 +25,19 @@ const t = store.getters['i18n/t'];
 
 const resource = EPINIO_TYPES.APP;
 const schema = ref(store.getters['epinio/schemaFor'](resource));
-
-const createLocation = computed(() =>
-  createEpinioRoute('c-cluster-applications-createapp', { cluster: store.getters['clusterId'] })
-);
-const openCreateRoute = () => router.push(createLocation.value);
+const appModal = ref<InstanceType<typeof AppModal> | null>(null);
+const canCreate = computed(() => {
+  const canGetter = store.getters['epinio/can'];
+  return canGetter && (
+    canGetter('app_create') || canGetter('app_write') || canGetter('app')
+  );
+});
+const canEdit = computed(() => {
+  const canGetter = store.getters['epinio/can'];
+  return canGetter && (
+    canGetter('app_update') || canGetter('app_write') || canGetter('app')
+  );
+});
 
 const pending = ref(true);
 
@@ -176,15 +186,58 @@ function getNestedValue(obj: any, path: string): any {
 function getFilteredApps(apps: any[], namespace: string): any[] {
   const query = (searchQueries.value[namespace] || '').toLowerCase().trim();
 
-  if (!query) return apps;
+  // Only inject the modal-driven Edit action when the current user actually
+  // has app write permissions; otherwise the model's filter has already
+  // removed goToEdit and we shouldn't add it back.
 
-  return apps.filter(app =>
+  const overrideProps = [
+    {
+      prop: 'availableActions',
+      value: (row: EpinioApplicationModel) => {
+        const actions = [...row.availableActions];
+        const goToEditIndex = actions.findIndex((a: any) => a.action === 'goToEdit');
+        const newAction = {
+            action: 'goToEdit',
+            label: 'Edit',
+            enabled: true
+          };
+        if (goToEditIndex !== -1 && canEdit.value) {
+          actions.splice(goToEditIndex, 1, newAction);
+        } else if (canEdit.value) {
+          actions.push(newAction);
+        } else if (goToEditIndex !== -1 && !canEdit.value) {
+          actions.splice(goToEditIndex, 1);
+        }
+        return actions;
+      },
+      conditionFn: () => {
+        return true;
+      },
+    },
+    {
+      prop: 'goToEdit',
+      value: (row: EpinioApplicationModel) => () => {
+        appModal.value?.openEdit(row);
+      },
+      conditionFn: () => {
+        return true;
+      },
+    }
+  ];
+
+  if (!query) {
+    return overrideTableRows(apps, overrideProps);
+  }
+
+  const filteredApps = apps.filter(app =>
     columns.value.some((col: { field: string }) => {
       const value = String(getNestedValue(app, col.field) ?? '');
 
       return value.toLowerCase().includes(query);
     })
   );
+
+  return overrideTableRows(filteredApps, overrideProps);
 }
 
 const handleNavigate = (event: CustomEvent) => router.push(event.detail.url);
@@ -207,6 +260,8 @@ onMounted(async () => {
 
   pending.value = false;
 
+  store.dispatch('epinio/me');
+
   // Seed each namespace's first paginated page. loadCluster has already
   // awaited findAll(NAMESPACE), so the list is available.
   visibleNamespaceNames().forEach(ns => fetchNamespaceApps(ns, 1, false));
@@ -215,6 +270,10 @@ onMounted(async () => {
 
   // Poll supporting resources
   startPolling(['namespaces', 'configurations', 'services'], store);
+
+  if (store.$router.currentRoute._value.query.mode === 'openModal') {
+    appModal.value?.openCreate();
+  }
 
   // Poll apps per namespace at their current page.
   appsPollIntervalId = window.setInterval(() => {
@@ -235,19 +294,21 @@ onUnmounted(() => {
 
 <template>
   <Loading v-if="pending" />
-  <div v-else>
+  <div v-else class="outlet">
     <Masthead
       :schema="schema"
       :resource="resource"
     >
       <template #createButton>
         <trailhand-button
+          v-if="canCreate"
           variant="primary"
           size="large"
-          @click="openCreateRoute"
+          @click="appModal?.openCreate()"
         >
           {{ t('generic.create') }}
         </trailhand-button>
+        <div v-else></div>
       </template>
     </Masthead>
 
@@ -287,6 +348,7 @@ onUnmounted(() => {
         @page-change="(e: CustomEvent) => handlePageChange(e, ns)"
       />
     </div>
+    <AppModal ref="appModal" />
   </div>
 </template>
 

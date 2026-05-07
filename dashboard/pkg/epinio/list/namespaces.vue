@@ -3,7 +3,6 @@ import { useStore } from 'vuex';
 import { ref, onMounted, onUnmounted, computed, watchEffect } from 'vue';
 import { EPINIO_TYPES } from '../types';
 import Banner from '@components/Banner/Banner.vue';
-import { _CREATE } from '@shell/config/query-params';
 import Masthead from '@shell/components/ResourceList/Masthead';
 import { epinioExceptionToErrorsArray } from '../utils/errors';
 import { validateKubernetesName } from '@shell/utils/validators/kubernetes-name';
@@ -52,53 +51,8 @@ const deleteNamespaceInput = ref<HTMLElement | null>(null);
 const deletingNamespace = ref<boolean>(false);
 const confirmDeleteInput = ref<string>('');
 
-watchEffect(() => {
-  const all = store.getters['epinio/all'](EPINIO_TYPES.NAMESPACE) as EpinioNamespace[];
-
-  // Touch meta so _MERGE polling (which deletes/re-adds all properties) re-runs this effect
-  all.forEach((row) => { void row.meta; });
-
-  // Add custom namespace delete action to replace the built in rancher shell flow
-  const overrideProps = [{
-    prop: 'availableActions',
-    value: [{
-      action: 'removeNamespace',
-      altAction: 'remove',
-      bulkAction: 'removeNamespace',
-      bulkable: true,
-      enabled: true,
-      icon: 'icon icon-trash',
-      label: 'Delete',
-      weight: -10
-    }],
-    conditionFn: (row: EpinioNamespace) => {
-      return row.canDelete;
-    },
-  },
-  {
-    prop: 'removeNamespace',
-    value: (row: EpinioNamespace) => () => {
-      namespaceToDelete.value = row;
-      openDeleteModal();
-    },
-    conditionFn: (row: EpinioNamespace) => {
-      return row.canDelete;
-    },
-  }];
-  displayRows.value = overrideTableRows(all, overrideProps);
-});
-
-const validateCreate = computed(() => {
-  if (!value.value.meta.name?.length) {
-    return false;
-  }
-
-  const validationErrors = getNamespaceErrors(value.value.meta.name); // eslint-disable-line vue/no-side-effects-in-computed-properties
-
-  return validationErrors.length === 0;
-});
-
-// Strict RBAC: only show Create when the user has namespace write perms (admin).
+// Strict RBAC: only show Create/Delete when the user has namespace write perms (admin).
+// Defined ahead of the watchEffect that consumes them to avoid a TDZ on first run.
 const canCreateNamespace = computed(() => {
   const can = store.getters['epinio/can'];
   const perms = store.getters['epinio/permissions']?.();
@@ -109,12 +63,64 @@ const canCreateNamespace = computed(() => {
 
   return can('namespace_write') || can('namespace');
 });
+const canDelete = canCreateNamespace;
+
+watchEffect(() => {
+  const all = store.getters['epinio/all'](EPINIO_TYPES.NAMESPACE) as EpinioNamespace[];
+
+  // Touch meta so _MERGE polling (which deletes/re-adds all properties) re-runs this effect
+  all.forEach((row) => { void row.meta; });
+
+  // Add custom namespace delete action to replace the built in rancher shell flow.
+  // Gate by namespace write perms so view-only / app-only roles don't see Delete.
+  const overrideProps = [{
+    prop: 'availableActions',
+    value: (row: any) => {
+      if (!canDelete.value || !row.canDelete) {
+        return [];
+      }
+
+      return [{
+        action: 'removeNamespace',
+        altAction: 'remove',
+        bulkAction: 'removeNamespace',
+        bulkable: true,
+        enabled: true,
+        icon: 'icon icon-trash',
+        label: 'Delete',
+        weight: -10
+      }]
+    },
+    conditionFn: () => true,
+  },
+  {
+    prop: 'removeNamespace',
+    value: (row: EpinioNamespace) => () => {
+      namespaceToDelete.value = row;
+      openDeleteModal();
+    },
+    conditionFn: (row: EpinioNamespace) => canDelete.value && row.canDelete,
+  }];
+  displayRows.value = overrideTableRows(all, overrideProps);
+});
+
+const validateCreate = computed(() => {
+  if (!value.value.meta.name?.length) {
+    return false;
+  }
+
+  const validationErrors = getNamespaceErrors(value.value.meta.name);
+
+  return validationErrors.length === 0;
+});
+
 
 const validateDelete = computed(() => {
   return confirmDeleteInput.value === namespaceToDelete.value?.meta.name;
 });
 
 onMounted(() => {
+  store.dispatch('epinio/me');
   // Opens the create namespace modal if the query is passed as query param
   if (store.$router.currentRoute._value.query.mode === 'openModal') {
     openCreateModal();
@@ -228,6 +234,11 @@ const columns = [
 ];
 </script>
 
+<!-- eslint-disable vue/no-deprecated-slot-attribute -->
+<!--
+  trailhand-modal is a Web Component, not a Vue component. The HTML standard
+  slot="x" attribute is correct here.
+-->
 <template>
   <div id="modal-container-element">
     <Masthead
@@ -243,6 +254,7 @@ const columns = [
         >
           {{ t('generic.create') }}
         </trailhand-button>
+        <div v-else></div>
       </template>
     </Masthead>
     <trailhand-table
@@ -281,10 +293,10 @@ const columns = [
         />  
       </div>
       <div slot="footer">
-        <trailhand-button @button-click="closeCreateModal" variant="secondary" class="mr-10"
+        <trailhand-button variant="secondary" class="mr-10" @button-click="closeCreateModal"
           >Cancel</trailhand-button
         >
-        <trailhand-button @button-click="onSubmitCreate" :disabled="!validateCreate || creatingNamespace" variant="primary"
+        <trailhand-button :disabled="!validateCreate || creatingNamespace" variant="primary" @button-click="onSubmitCreate"
           >{{ creatingNamespace ? 'Creating...' : t('generic.create') }}</trailhand-button
         >
       </div>
@@ -313,10 +325,10 @@ const columns = [
         />
       </div>
       <div slot="footer">
-        <trailhand-button @button-click="closeDeleteModal" variant="secondary" class="mr-10"
+        <trailhand-button variant="secondary" class="mr-10" @button-click="closeDeleteModal"
           >Cancel</trailhand-button
         >
-        <trailhand-button @button-click="onSubmitDelete" :disabled="!validateDelete || deletingNamespace" variant="destructive"
+        <trailhand-button :disabled="!validateDelete || deletingNamespace" variant="destructive" @button-click="onSubmitDelete"
           >{{ deletingNamespace ? 'Deleting...' : t('generic.delete') }}</trailhand-button
         >
       </div>

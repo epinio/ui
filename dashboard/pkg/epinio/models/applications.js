@@ -63,7 +63,7 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
     const canDelete = canGetter('app_delete') || canGetter('app_write') || canGetter('app');
     const canViewConfig = canGetter('configuration_read') || canGetter('configuration_write');
     const canEditConfig = canGetter('configuration_write') || canGetter('configuration');
-    const canExec = canGetter('app_exec');
+    const canExec = canGetter('app_exec') || canGetter('app');
 
     let skipNextDivider = false;
 
@@ -84,9 +84,19 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
 
           return false;
         }
+        return false;
       }
 
-      if (action.action === 'goToEdit') {
+      // Anything that mutates the resource needs app write perms.
+      // Rancher's base Resource class injects goToEdit, goToEditYaml,
+      // goToClone, cloneYaml, etc. — gate them all by canEdit so a
+      // read-only role doesn't see "Edit YAML" / "Clone" entries.
+      if (
+        action.action === 'goToEdit' ||
+        action.action === 'goToEditYaml' ||
+        action.action === 'goToClone' ||
+        action.action === 'cloneYaml'
+      ) {
         return canEdit;
       }
 
@@ -173,12 +183,26 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
     const res = [];
 
     const isRunning = [STATES.RUNNING].includes(this.status);
-    const showAppLog = isRunning;
-    const showStagingLog = !!this.stage_id;
     const canGetter = this.$rootGetters?.['epinio/can'];
     const perms = this.$rootGetters?.['epinio/permissions']?.();
-    const canExec = canGetter && perms && Object.keys(perms).length > 0 ? canGetter('app_exec') : false;
+    const permsReady = !!(canGetter && perms && Object.keys(perms).length > 0);
+    // Until /me resolves we hide everything action-y rather than flashing
+    // controls the user lacks permission for. Matches showAppShell behavior.
+    const can = (id) => permsReady && canGetter(id);
+
+    // `app` is the top-level umbrella granting every app-scoped action.
+    // `app_write` is a write-side umbrella that pulls in all stage/restart/export
+    // actions per actions.yaml dependsOn. Logs and exec are not under
+    // app_write — they only collapse into the `app` umbrella.
+    const canExec = can('app_exec') || can('app');
+    const canLogs = can('app_logs') || can('app');
+    const canStage = can('app_stage') || can('app_write') || can('app');
+    const canRestart = can('app_restart') || can('app_write') || can('app');
+    const canExport = can('app_export') || can('app_write') || can('app');
+
     const showAppShell = isRunning && canExec;
+    const showAppLog = isRunning && canLogs;
+    const showStagingLog = !!this.stage_id && canLogs;
 
     if (showAppShell) {
       res.push({
@@ -188,41 +212,48 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
         enabled: showAppShell,
       });
     }
-    res.push(
-      {
-        action:  'showAppLog',
-        label:   this.t('epinio.applications.actions.viewAppLogs.label'),
-        icon:    'icon icon-fw icon-file',
-        enabled: showAppLog,
-      },
-      {
-        action:  'showStagingLog',
-        label:   this.t('epinio.applications.actions.viewStagingLogs.label'),
-        icon:    'icon icon-fw icon-file',
-        enabled: showStagingLog,
-      },
-    );
+    if (canLogs) {
+      res.push(
+        {
+          action:  'showAppLog',
+          label:   this.t('epinio.applications.actions.viewAppLogs.label'),
+          icon:    'icon icon-fw icon-file',
+          enabled: showAppLog,
+        },
+        {
+          action:  'showStagingLog',
+          label:   this.t('epinio.applications.actions.viewStagingLogs.label'),
+          icon:    'icon icon-fw icon-file',
+          enabled: showStagingLog,
+        },
+      );
+    }
 
-    res.push( {
-      action:  'restage',
-      label:   this.t('epinio.applications.actions.restage.label'),
-      icon:    'icon icon-fw icon-backup',
-      enabled: !!this.deployment?.stage_id
-    },
-    {
-      action:  'restart',
-      label:   this.t('epinio.applications.actions.restart.label'),
-      icon:    'icon icon-fw icon-refresh',
-      enabled: isRunning
-    },
-    {
-      action:  'exportApp',
-      label:   this.t('epinio.applications.export.label'),
-      icon:    'icon icon-fw icon-download',
-      enabled: isRunning
-    },
-    { divider: true },
-    );
+    if (canStage) {
+      res.push({
+        action:  'restage',
+        label:   this.t('epinio.applications.actions.restage.label'),
+        icon:    'icon icon-fw icon-backup',
+        enabled: !!this.deployment?.stage_id
+      });
+    }
+    if (canRestart) {
+      res.push({
+        action:  'restart',
+        label:   this.t('epinio.applications.actions.restart.label'),
+        icon:    'icon icon-fw icon-refresh',
+        enabled: isRunning
+      });
+    }
+    if (canExport) {
+      res.push({
+        action:  'exportApp',
+        label:   this.t('epinio.applications.export.label'),
+        icon:    'icon icon-fw icon-download',
+        enabled: isRunning
+      });
+    }
+    res.push({ divider: true });
 
     if (this.canViewDeployment) {
       res.push({
@@ -292,7 +323,7 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
       logs:          `${ this.getUrl() }/logs`.replace('/api/v1', '/wapi/v1'), // /namespaces/:namespace/applications/:app/logs
       importGit:     `${ this.getUrl() }/import-git`,
       restart:       `${ this.getUrl() }/restart`,
-      shell:         `${ this.getUrl() }/exec`.replace('/api/v1', '/wapi/v1'), // /namespaces/:namespace/applications/:app/exec
+      shell:         `${ this.getUrl() }/exec?tty=true`.replace('/api/v1', '/wapi/v1'), // /namespaces/:namespace/applications/:app/exec
     };
   }
 

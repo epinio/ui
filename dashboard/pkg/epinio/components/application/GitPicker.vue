@@ -4,8 +4,6 @@ import { useStore } from 'vuex';
 import { makeCommitShaCell, makeCommitAuthorCell } from '../../utils/table-formatters';
 import debounce from 'lodash/debounce';
 import { isArray } from '@shell/utils/array';
-import LabeledSelect from '@shell/components/form/LabeledSelect.vue';
-import LabeledInput from '@components/Form/LabeledInput/LabeledInput.vue';
 import { GitUtils, Commit } from '@shell/utils/git';
 
 const props = defineProps<{
@@ -19,24 +17,25 @@ const store = useStore();
 const t = store.getters['i18n/t'];
 
 const debounceTime = inject<number>('debounceTime', 1000);
-
 // State
-const hasError = reactive({ repo: false, branch: false, commits: false });
+const hasError = reactive({ acc: false, repo: false, branch: false, commits: false });
 const repos = ref<object[]>([]);
 const branches = ref<object[]>([]);
 const commits = ref<any[]>([]);
-const selectedAccOrOrg = ref<string | undefined>(undefined);
-const selectedRepo = ref<object | undefined>(undefined);
-const selectedBranch = ref<object | undefined>(undefined);
-const selectedCommit = ref<Commit | null>(null);
+const selectedAccOrOrg = ref<string | undefined>(props.value?.selectedAccOrOrg);
+const selectedRepo = ref<object | undefined>(props.value?.selectedRepo);
+const selectedRepoName = computed(() => selectedRepo.value?.name);
+const selectedBranch = ref<object | undefined>(props.value?.selectedBranch);
+const selectedBranchName = computed(() => selectedBranch.value?.name);
+const selectedCommit = ref<Commit | null>(props.value?.selectedCommit);
 
 // Computed
 const preparedRepos = computed(() =>
-  normalizeArray(repos.value, (item: any) => ({ id: item.id, name: item.name }))
+  normalizeArray(repos.value, (item: any) => ({ value: item.name, label: item.name }))
 );
 
 const preparedBranches = computed(() =>
-  normalizeArray(branches.value, (item: any) => ({ id: item.id, name: item.name }))
+  normalizeArray(branches.value, (item: any) => ({ value: item.name, label: item.name }))
 );
 
 const preparedCommits = computed<Commit[]>(() =>
@@ -113,6 +112,24 @@ const tableRows = computed(() => {
   return [...preparedCommits.value];
 });
 
+// Watch the account/org and perform a debounced search when it changes
+watch(() => selectedAccOrOrg.value, async(neu, old) => {
+  if (neu === old) return;
+  debouncedFetchRepos();
+});
+
+// Watch the repo and fetch branches when it changes
+watch(() => selectedRepo.value, async(neu, old) => {
+  if (neu === old) return;
+  await fetchBranches();
+});
+
+// Watch the branch and fetch commits when it changes
+watch(() => selectedBranch.value, async(neu, old) => {
+  if (neu === old) return;
+  await fetchCommits();
+});
+
 // Methods
 function normalizeArray(elem: any, normalize: (v: any) => object): any[] {
   const arr = isArray(elem) ? elem : [elem];
@@ -167,12 +184,14 @@ async function fetchRepos() {
       const res = await store.dispatch(`${ props.type }/fetchRecentRepos`, { username: selectedAccOrOrg.value });
 
       repos.value = res;
-      hasError.repo = false;
+      hasError.acc = false;
     } catch {
-      hasError.repo = true;
+      hasError.acc = true;
     }
   }
 }
+
+const debouncedFetchRepos = debounce(fetchRepos, debounceTime);
 
 async function fetchBranches() {
   selectedBranch.value = undefined;
@@ -254,10 +273,8 @@ async function searchRepo(query: string) {
         username: selectedAccOrOrg.value,
       });
 
-      hasError.repo = !!res.hasError;
-
-      if (!res.hasError && res.length >= 1) {
-        repos.value = res;
+      if (!res.hasError) {
+        repos.value = [...repos.value, res[0]];
       }
     } else {
       return resultInCurrentState;
@@ -265,50 +282,29 @@ async function searchRepo(query: string) {
   }
 }
 
+const debouncedSearchRepo = debounce(searchRepo, debounceTime);
+
 async function searchBranch(query: string) {
-  const res = await store.dispatch(`${ props.type }/search`, {
-    repo:     selectedRepo.value,
-    branch:   { name: query },
-    username: selectedAccOrOrg.value,
-  });
+  if (query.length) {
+    const resultInCurrentState = branches.value.filter((b: any) => b.name.startsWith(query));
 
-  hasError.branch = !!res.hasError;
+    if (!resultInCurrentState.length) {
+      const res = await store.dispatch(`${ props.type }/search`, {
+        repo:     selectedRepo.value,
+        branch:   { name: query },
+        username: selectedAccOrOrg.value,
+      });
 
-  if (!hasError.branch) {
-    branches.value = res;
+      if (!hasError.branch) {
+        branches.value = [...branches.value, res[0]];
+      }
+    } else {
+      return resultInCurrentState;
+    }
   }
 }
 
-function debounceRequest(callback: (param: any) => Promise<any>, timeout = debounceTime) {
-  return debounce(async(param: any) => await callback(param), timeout);
-}
-
-function searchForResult(callback: (query: string) => Promise<any>) {
-  return debounceRequest(async(query: string) => {
-    if (!query.length) return;
-
-    return await callback(query);
-  });
-}
-
-const onSearchRepo = searchForResult(searchRepo);
-const onSearchBranch = searchForResult(searchBranch);
-
-function reposRules() {
-  return hasError.repo ? t(`gitPicker.${ props.type }.errors.noAccount`) : null;
-}
-
-function branchesRules() {
-  return hasError.branch ? t(`gitPicker.${ props.type }.errors.noBranch`) : null;
-}
-
-function status(value: boolean): string | undefined {
-  return value ? 'error' : undefined;
-}
-
-function selectReduction(e: unknown) {
-  return e;
-}
+const debouncedSearchBranch = debounce(searchBranch, debounceTime);
 
 watch(() => props.value, async(neu, old) => {
   if (JSON.stringify(neu) === JSON.stringify(old)) return;
@@ -323,36 +319,36 @@ watch(() => props.value, async(neu, old) => {
   <div class="picker">
     <div class="row">
       <div class="spacer">
-        <LabeledInput
-          v-model:value="selectedAccOrOrg"
+        <trailhand-text-input
+          style="width: 100%"
+          :value="selectedAccOrOrg"
           data-testid="git_picker-username-or-org"
-          :tooltip="t(`gitPicker.${ type }.username.tooltip`)"
           :label="t(`gitPicker.${ type }.username.inputLabel`)"
           :required="true"
-          :rules="[reposRules]"
-          :delay="debounceTime"
-          :status="status(hasError.repo)"
-          @update:value="fetchRepos"
+          @text-input-change="(e: CustomEvent) => { selectedAccOrOrg = e.detail.value; }"
         />
+        <p v-if="hasError.acc" class="error-message">
+          {{ t(`gitPicker.${ type }.errors.noAccount`) }}
+        </p>
       </div>
 
       <div
         v-if="repos.length && !hasError.repo"
         class="spacer"
       >
-        <LabeledSelect
-          v-model:value="selectedRepo"
-          :required="true"
+        <trailhand-dropdown
+          style="width: 100%"
+          :value="selectedRepoName"
+          data-testid="git_picker-repo"
           :label="t(`gitPicker.${ type }.repo.inputLabel`)"
+          :required="true"
           :options="preparedRepos"
-          :clearable="true"
-          :searchable="true"
-          :reduce="selectReduction"
-          :rules="[reposRules]"
-          :status="status(hasError.repo)"
-          :option-label="'name'"
-          @search="onSearchRepo"
-          @update:value="fetchBranches"
+          @dropdown-change="(e: CustomEvent) => { 
+            const selected = repos.find((r: any) => r.name === e.detail.value);
+            selectedRepo = selected; 
+          }"
+          filterable
+          @dropdown-filter="(e: CustomEvent<{ filter: string }>) => { debouncedSearchRepo(e.detail.filter); }"
         />
       </div>
 
@@ -360,19 +356,19 @@ watch(() => props.value, async(neu, old) => {
         v-if="selectedRepo"
         class="spacer"
       >
-        <LabeledSelect
-          v-model:value="selectedBranch"
-          :required="true"
+        <trailhand-dropdown
+          style="width: 100%"
+          :value="selectedBranchName"
+          data-testid="git_picker-branch"
           :label="t(`gitPicker.${ type }.branch.inputLabel`)"
+          :required="true"
           :options="preparedBranches"
-          :clearable="false"
-          :reduce="selectReduction"
-          :searchable="true"
-          :rules="[branchesRules]"
-          :status="status(hasError.branch)"
-          :option-label="'name'"
-          @search="onSearchBranch"
-          @update:value="fetchCommits"
+          @dropdown-change="(e: CustomEvent) => { 
+            const selected = branches.find((b: any) => b.name === e.detail.value);
+            selectedBranch = selected; 
+          }"
+          filterable
+          @dropdown-filter="(e: CustomEvent<{ filter: string }>) => { debouncedSearchBranch(e.detail.filter); }"
         />
       </div>
 
@@ -410,10 +406,6 @@ watch(() => props.value, async(neu, old) => {
     }
   }
 
-  .spacer {
-    max-width: 700px;
-  }
-
   .commits-table {
     margin: 0 1px;
     max-width: 1400px;
@@ -424,5 +416,11 @@ watch(() => props.value, async(neu, old) => {
       --sortable-table-header-sorted-bg: var(--sortable-table-hover-bg);
     }
   }
+}
+
+.error-message {
+  color: var(--error);
+  font-size: 0.9em;
+  margin-top: 4px;
 }
 </style>

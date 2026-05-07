@@ -204,7 +204,10 @@ const connect = async () => {
     const type = e.detail.data.substr(0, 1);
     const msg = base64Decode(e.detail.data.substr(1));
 
-    if (`${ type }` === '1') {
+    // Kubelet exec WS channels: 1=stdout, 2=stderr, 3=error/status, 4=resize.
+    // Render both stdout and stderr in the terminal; only surface channel 3
+    // (proxy/status messages) to the console.
+    if (type === '1' || type === '2') {
       terminal.value.write(msg);
     } else {
       console.error(msg);

@@ -1,10 +1,6 @@
 <script lang="ts" setup>
-import { ref, watch, computed, onMounted } from 'vue';
+import { ref, watch, computed, onMounted, isReactive } from 'vue';
 import { useStore } from 'vuex';
-import NameNsDescription from '@shell/components/form/NameNsDescription.vue';
-import LabeledInput from '@components/Form/LabeledInput/LabeledInput.vue';
-import KeyValue from '@shell/components/form/KeyValue.vue';
-import ArrayList from '@shell/components/form/ArrayList.vue';
 import Loading from '@shell/components/Loading.vue';
 import Banner from '@components/Banner/Banner.vue';
 import ChartValues from '../settings/ChartValues.vue';
@@ -16,11 +12,6 @@ import { EPINIO_TYPES, EpinioNamespace, EpinioAppInfo } from '../../types';
 import Application from '../../models/applications';
 import { objValuesToString } from '../../utils/settings';
 
-/*interface Data {
-  errors: string[],
-  values?: EpinioAppInfo
-}*/
-
 const store = useStore();
 
 const t = store.getters['i18n/t'];
@@ -30,6 +21,7 @@ const props = defineProps<{
   application: Application;
   mode: string;
   source?: any;
+  active: boolean;
 }>();
 
 // Emit function
@@ -43,14 +35,19 @@ const errors = ref<string[]>([]); // eslint-disable-line @typescript-eslint/no-u
 const values = ref<EpinioAppInfo | undefined>(undefined);
 const validSettings = ref<{ [key: string]: boolean }>({});
 const showEnvValues = ref(false);
-
+const envVariables = ref<{ key: string; value: string }[]>([]);
+const bulkFileInput = ref<HTMLInputElement | null>(null);
+const fileDialogActive = ref(false);
 
 // Computed properties
 const namespaces = computed(() => {
   return sortBy(store.getters['epinio/all'](EPINIO_TYPES.NAMESPACE), 'name', false);
 });
 
-const namespaceNames = computed(() => namespaces.value.map((n: EpinioNamespace) => n.meta?.name));
+const namespaceNames = computed(() => namespaces.value.map((n: EpinioNamespace) => ({
+  label: n.metadata.name,
+  value: n.metadata.name
+})));
 
 const valid = computed(() => {
   if (!values.value) {
@@ -75,13 +72,6 @@ const valid = computed(() => {
   return validName && validNamespace && validInstances &&
     Object.values(validSettings.value).every((v) => !!v);
 });
-
-const toggleEnvVisibility = () => {
-  showEnvValues.value = !showEnvValues.value;
-};
-
-const eyeIcon = new URL('../../assets/icons/eye-duotone-solid.svg', import.meta.url).href;
-const eyeOffIcon = new URL('../../assets/icons/eye-slash-duotone-solid.svg', import.meta.url).href;
 
 const showApplicationVariables = computed(() => {
   return Object.keys(values.value?.configuration?.settings || {}).length !== 0;
@@ -113,7 +103,6 @@ const generateDefaultName = () => {
       const imageWithTag = urlParts[urlParts.length - 1];
       baseName = imageWithTag.split(':')[0];
     }
-
     // Append random string to the end of the base name
     if (baseName) {
       const randomSuffix = Math.random().toString(36).substring(2, 8);
@@ -127,37 +116,39 @@ const generateDefaultName = () => {
   }
 };
 
-// Mounted lifecycle hook
-onMounted(() => {
-  const defaultName = props.application.meta?.name || (props.mode !== _EDIT ? generateDefaultName() : '');
+watch(() => props.active, (isActive) => {
+  if (isActive) {
+    const defaultName = props.application.meta?.name || (props.mode !== _EDIT ? generateDefaultName() : '');
 
-  // In create mode, don't auto-select the first namespace - require explicit selection
-  const defaultNamespace = props.mode === _EDIT
-    ? (props.application.meta?.namespace || '')
-    : (props.application.meta?.namespace || '');
+    // In create mode, don't auto-select the first namespace - require explicit selection
+    const defaultNamespace = props.mode === _EDIT
+      ? (props.application.meta?.namespace || '')
+      : (props.application.meta?.namespace || '');
 
-  const valuesData: EpinioAppInfo = {
-    meta: {
-      name: defaultName,
-      namespace: defaultNamespace
-    },
-    chart: moveBooleansToFront(props.application.chart?.settings) || {},
-    configuration: {
-      configurations: props.application.configuration?.configurations || [],
-      instances: props.application.configuration?.instances || 1,
-      environment: props.application.configuration?.environment || {},
-      settings: props.application.configuration?.settings || {},
-      routes: props.application.configuration?.routes || [],
-    },
-  };
+    const valuesData: EpinioAppInfo = {
+      meta: {
+        name: defaultName,
+        namespace: defaultNamespace
+      },
+      chart: moveBooleansToFront(props.application.chart?.settings) || {},
+      configuration: {
+        configurations: props.application.configuration?.configurations || [],
+        instances: props.application.configuration?.instances || 1,
+        environment: props.application.configuration?.environment || {},
+        settings: props.application.configuration?.settings || {},
+        routes: props.application.configuration?.routes || [],
+      },
+    };
 
-  values.value = valuesData;
-  validSettings.value = {};
+    envVariables.value = Object.entries(valuesData.configuration.environment).map(([key, value]) => ({ key, value }));
+    values.value = valuesData;
+    validSettings.value = {};
 
-  emit('valid', valid.value);
+    emit('valid', valid.value);
 
-  populateOnEdit();
-});
+    populateOnEdit();
+  }
+})
 
 // Methods
 const update = () => {
@@ -181,6 +172,17 @@ watch(() => values.value?.configuration.routes, update);
 watch(valid, (newValid) => {
   emit('valid', newValid);
 });
+watch(envVariables, (newEnvVars) => {
+  values.value.configuration.environment = newEnvVars.reduce((acc, { key, value }) => {
+    if (key && value) {
+      acc[key] = value;
+      return acc;
+    } else {
+      return acc;
+    }
+  }, {});
+  update();
+}, { deep: true });
 
 // Handler for name and namespace updates
 function handleNameNsUpdate(updatedValue: { metadata?: { name?: string; namespace?: string } }) {
@@ -235,52 +237,132 @@ const moveBooleansToFront = (settingsObj: any) => {
 
   return Object.fromEntries(entries);
 };
+
+const addRow = () => {
+  envVariables.value.push({ key: '', value: '' });
+};
+
+const removeRow = (index: number) => {
+  envVariables.value.splice(index, 1);
+};
+
+const updateRowKey = (index: number, newKey: string) => {
+  envVariables.value[index].key = newKey;
+};
+
+const updateRowValue = (index: number, newValue: string) => {
+  envVariables.value[index].value = newValue;
+};
+
+// "Add from file", parse a KEY=VALUE file and add rows
+function triggerBulkFileUpload() {
+  fileDialogActive.value = true;
+  bulkFileInput.value?.click();
+}
+
+// Parse a simple KEY=VALUE file, ignoring empty lines and comments (lines starting with #)
+function onBulkFileChange(event: Event) {
+  fileDialogActive.value = false;
+  const file = (event.target as HTMLInputElement).files?.[0];
+
+  if (!file) return;
+
+  const reader = new FileReader();
+
+  reader.onload = (e) => {
+    const text = (e.target?.result as string) || '';
+    const newRows: Array<{ key: string; value: string }> = [];
+
+    text.split('\n').forEach((line) => {
+      const trimmed = line.trim();
+
+      if (!trimmed || trimmed.startsWith('#')) return;
+
+      const sep = trimmed.indexOf('=');
+
+      if (sep > 0) {
+        newRows.push({ key: trimmed.slice(0, sep).trim(), value: trimmed.slice(sep + 1) });
+      }
+    });
+
+    // If there are new rows, add them to the existing config data. If the existing data is just one empty row, replace it instead.
+    if (newRows.length) {
+      const existing = envVariables.value;
+      const onlyEmptyRow = existing.length === 1 && !existing[0].key && !existing[0].value;
+
+      envVariables.value = onlyEmptyRow ? newRows : [...existing, ...newRows];
+    }
+  };
+  reader.readAsText(file);
+  (event.target as HTMLInputElement).value = '';
+}
 </script>
 
 <template>
   <Loading v-if="!values" />
-  <div v-else>
-    <div class="col">
-      <NameNsDescription
-        data-testid="epinio_app-info_name-ns"
-        :namespaces-override="namespaceNames"
-        :create-namespace-override="true"
-        :description-hidden="true"
-        :value="{metadata: values.meta}"
-        :mode="props.mode"
-        @update:value="handleNameNsUpdate"
-        @createNamespace="ns => values.meta.namespace = ns"
+  <trailhand-form-card v-else>
+    <trailhand-form-row columns="3">
+      <trailhand-dropdown
+        :value="values.meta.namespace"
+        :options="namespaceNames"
+        label="Namespace"
+        :placeholder="t('epinio.applications.create.namespacePlaceholder')"
+        :disabled="isEdit"
+        data-testid="epinio_app-info_namespace"
+        required
+        @dropdown-change="(e: CustomEvent) => handleNameNsUpdate({ metadata: { namespace: e.detail.value } })"
       />
-    </div>
-    <div class="col span-6">
-      <LabeledInput
-        v-model:value="values.configuration.instances"
+      <trailhand-text-input
+        :value="values.meta.name"
+        data-testid="epinio_app-info_name"
+        label="Name"
+        :placeholder="t('epinio.applications.create.namePlaceholder')"
+        :disabled="isEdit"
+        required
+        @text-input-change="(e: CustomEvent) => handleNameNsUpdate({ metadata: { name: e.detail.value } })"
+      />
+      <trailhand-text-input
+        :value="values.configuration.instances"
         data-testid="epinio_app-info_instances"
+        label="Instances"
+        :placeholder="t('epinio.applications.create.instancesPlaceholder')"
+        @text-input-change="(e: CustomEvent) => {values.configuration.instances = e.detail.value; update()}"
+        required
         type="number"
         min="0"
-        required
-        :mode="props.mode"
-        :label="t('epinio.applications.create.instances')"
-      />
+       />
+    </trailhand-form-row>
+    <div>
+      <h3>Routes</h3>
+      <div v-for="(route, index) in values.configuration.routes" :key="index" class="route-item">
+        <trailhand-text-input
+          style="flex: 1;"
+          :value="route"
+          :placeholder="t('epinio.applications.create.routes.placeholder')"
+          @text-input-change="(e: CustomEvent) => { values.configuration.routes[index] = e.detail.value; update(); }"
+        />
+        <button
+          v-if="props.mode !== 'view'"
+          class="remove-link"
+          @click="() => { values.configuration.routes.splice(index, 1); update(); }"
+        >
+          Remove
+        </button>
+      </div>
+      <trailhand-button
+        v-if="props.mode !== 'view'"
+        variant="alternate"
+        @button-click="() => { values.configuration.routes.push(''); update(); }"
+      >
+        Add Row
+      </trailhand-button>
     </div>
-    <div class="spacer" />
-    <div class="col span-8">
-      <ArrayList
-        v-model:value="values.configuration.routes"
-        data-testid="epinio_app-info_routes"
-        :title="t('epinio.applications.create.routes.title')"
-        :protip="t('epinio.applications.create.routes.tooltip')"
-        :mode="props.mode"
-        :value-placeholder="t('epinio.applications.create.routes.placeholder')"
-      />
-    </div>
-    <div class="spacer" />
-    <div v-if="isEdit" class="col span-8">
+    <div v-if="isEdit">
       <Banner color="info">
         {{ t('epinio.applications.create.settingsVars.description') }}
       </Banner>
     </div>
-    <div v-if="showApplicationVariables" class="col span-6">
+    <div v-if="showApplicationVariables">
       <ChartValues
         v-model:value="values.configuration.settings"
         :chart="values.chart"
@@ -289,37 +371,68 @@ const moveBooleansToFront = (settingsObj: any) => {
         :disabled="false"
         @valid="validSettings = $event"
       />
-      <div class="spacer" />
     </div>
-    <div class="col span-8">
-      <div class="env-var-section">
-        <div class="env-var-title-row">
-          <h3>{{ t('epinio.applications.create.envvar.title') }}</h3>
-          <button
-            v-if="props.mode === 'edit'"
-            class="icon-button"
-            type="button"
-            :title="showEnvValues ? 'Hide environment variable values' : 'Show environment variable values'"
-            :aria-label="showEnvValues ? 'Hide environment variable values' : 'Show environment variable values'"
-            @click="toggleEnvVisibility"
-          >
-            <img v-if="!showEnvValues" :src="eyeIcon" alt="Show values" class="icon" />
-            <img v-else :src="eyeOffIcon" alt="Hide values" class="icon" />
-          </button>
-        </div>
-        <KeyValue
-          v-model:value="values.configuration.environment"
-          :value-concealed="props.mode === 'view' || !showEnvValues"
-          data-testid="epinio_app-info_envs"
-          :mode="props.mode"
-          :key-label="t('epinio.applications.create.envvar.keyLabel')"
-          :value-label="t('epinio.applications.create.envvar.valueLabel')"
-          :parse-lines-from-file="true"
-        />
+    <div class="env-var-section">
+      <div class="env-var-title-row">
+        <h3>{{ t('epinio.applications.create.envvar.title') }}</h3>
       </div>
-      <div class="mb-20" /> <!-- allow a small amount of padding at bottom -->
+      <div class="env-var-data">
+        <template v-if="envVariables.length > 0 || isEdit">
+
+          <div
+            v-for="(envVar, i) in envVariables"
+            :key="i"
+            class="env-var-row"
+          >
+            <trailhand-text-input
+              style="flex: 1;"
+              :value="envVar.key"
+              label="Key"
+              required
+              placeholder="e.g. foo"
+              @text-input-change="(e: CustomEvent) => updateRowKey(i, e.detail.value)"
+            />
+            <trailhand-code-editor
+              style="flex: 1;"
+              :value="envVar.value"
+              label="Value"
+              required
+              @code-input-change="(e: CustomEvent) => updateRowValue(i, e.detail.value)"
+            />
+            <button
+              class="remove-link"
+              @click="removeRow(i)"
+            >
+              Remove
+            </button>
+          </div>
+        </template>
+        <div
+          class="config-data-actions"
+        >
+          <trailhand-button
+            variant="alternate"
+            @button-click="addRow"
+          >
+            Add
+          </trailhand-button>
+          <trailhand-button
+            variant="alternate"
+            @button-click="triggerBulkFileUpload"
+          >
+            Read From File
+          </trailhand-button>
+          <input
+            ref="bulkFileInput"
+            type="file"
+            class="hidden-file-input"
+            @change="onBulkFileChange"
+            @cancel="fileDialogActive = false"
+          >
+        </div>
+      </div>
     </div>
-  </div>
+  </trailhand-form-card>
 </template>
 
 <style scoped>
@@ -353,5 +466,40 @@ const moveBooleansToFront = (settingsObj: any) => {
   .icon-button .icon {
     width: 25px;
     height: 25px;
+  }
+
+  .route-item {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+
+  .env-var-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 8px;
+    align-items: flex-end;
+  }
+
+
+  .remove-link {
+    background: none;
+    border: none;
+    padding: 0;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--error);
+    cursor: pointer;
+    text-align: left;
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+
+  .hidden-file-input {
+    display: none;
   }
 </style>

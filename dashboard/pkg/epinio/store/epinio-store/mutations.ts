@@ -1,4 +1,5 @@
-import { EpinioInfo, EpinioVersion } from '../../types';
+import type { EpinioInfo, EpinioVersion, EpinioMe } from '../../types';
+import type { EpinioPermissions } from '../../utils/permissions';
 import { SetPaginationPagePayload, SetPaginationMetaPayload } from './types';
 
 export default {
@@ -13,6 +14,19 @@ export default {
 
   version(state: any, version: EpinioVersion) {
     state.version = version;
+  },
+
+  me(state: any, me: EpinioMe) {
+    state.me = me;
+  },
+
+  permissions(state: any, permissions: EpinioPermissions) {
+    state.permissions = permissions;
+  },
+
+  reset(state: any) {
+    state.me = undefined;
+    state.permissions = undefined;
   },
 
   setPaginationPage(state: any, { type, page }: SetPaginationPagePayload) {
