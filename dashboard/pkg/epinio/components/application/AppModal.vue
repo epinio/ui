@@ -434,7 +434,7 @@ defineExpose({ openCreate, openEdit });
         </trailhand-button>
       </template>
       <template v-else>
-        <trailhand-button v-if="nextTab"
+        <trailhand-button v-if="activeTab !== 'progress'"
           variant="secondary"
           class="mr-10"
           @button-click="handleModalClose"
@@ -442,14 +442,14 @@ defineExpose({ openCreate, openEdit });
           Cancel
         </trailhand-button>
         <trailhand-button
-          v-if="!!prevTab && nextTab"
+          v-if="!!prevTab && activeTab !== 'progress'"
           variant="secondary"
           class="mr-10"
           @button-click="activeTab = prevTab"
         >
           Previous
         </trailhand-button>
-        <trailhand-button v-if="nextTab"
+        <trailhand-button v-if="nextTab && activeTab !== 'progress'"
           :variant="!isEdit ? 'primary' : 'secondary'"
           class="mr-10"
           :disabled="tabs.find(t => t.id === nextTab)?.disabled"
@@ -464,7 +464,7 @@ defineExpose({ openCreate, openEdit });
         >
           {{ saving ? 'Saving...' : t('generic.save') }}
         </trailhand-button>
-        <trailhand-button v-else-if="activeTab === 'progress' && isEdit"
+        <trailhand-button v-if="activeTab === 'progress'"
           variant="primary"
           :disabled="false"
           @button-click="closeModal"
