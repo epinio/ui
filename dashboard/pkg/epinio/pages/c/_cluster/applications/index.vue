@@ -191,32 +191,45 @@ const handleNavigate = (event: CustomEvent) => router.push(event.detail.url);
 
 // Lifecycle
 
+// Applications are never loaded via the unpaginated findAll. They come in
+// exclusively through findAppsInNamespace (per-namespace, paginated).
+let appsPollIntervalId: number | undefined;
+const APPS_POLL_RATE_MS = 30000;
+
+function visibleNamespaceNames(): string[] {
+  return (store.getters['epinio/all'](EPINIO_TYPES.NAMESPACE) as any[])
+    .map((ns: any) => ns.meta?.name)
+    .filter((n: string) => !!n);
+}
+
 onMounted(async () => {
   window.addEventListener('resize', onResize);
 
-  // ONE global fetch, no page params so backend returns all apps.
-  await store.dispatch('epinio/findAll', { type: EPINIO_TYPES.APP });
+  pending.value = false;
 
-  // Non-blocking: needed for bound-resource columns.
+  // Seed each namespace's first paginated page. loadCluster has already
+  // awaited findAll(NAMESPACE), so the list is available.
+  visibleNamespaceNames().forEach(ns => fetchNamespaceApps(ns, 1, false));
   store.dispatch('epinio/findAll', { type: EPINIO_TYPES.CONFIGURATION });
   store.dispatch('epinio/findAll', { type: EPINIO_TYPES.SERVICE_INSTANCE });
 
-  pending.value = false;
+  // Poll supporting resources
+  startPolling(['namespaces', 'configurations', 'services'], store);
 
-  // Background: silently fetch page 1 per namespace to populate pagination
-  // meta. No loading overlays, initial display from global data is already
-  // visible. Fires AFTER pending=false so the tables are already rendered.
-  const seenNamespaces = Object.keys(groupedByNamespace.value);
-
-  seenNamespaces.forEach(ns => fetchNamespaceApps(ns, 1, true));
-
-  // ONE global poll per cycle, not one per namespace.
-  startPolling(['namespaces', 'applications', 'configurations', 'services'], store);
+  // Poll apps per namespace at their current page.
+  appsPollIntervalId = window.setInterval(() => {
+    visibleNamespaceNames().forEach(ns => {
+      fetchNamespaceApps(ns, namespaceCurrentPages.value[ns] ?? 1, true);
+    });
+  }, APPS_POLL_RATE_MS);
 });
 
 onUnmounted(() => {
   window.removeEventListener('resize', onResize);
-  stopPolling(['namespaces', 'applications', 'configurations', 'services']);
+  stopPolling(['namespaces', 'configurations', 'services']);
+  if (appsPollIntervalId !== undefined) {
+    window.clearInterval(appsPollIntervalId);
+  }
 });
 </script>
 

@@ -71,6 +71,7 @@ epinio:
     getBinaries: Get binaries
   downloadReport:
     title: Cluster Metrics Report
+    description: View epinio systems and cluster usage data.
     action: Download
     success: Metrics report downloaded successfully
     errors:
