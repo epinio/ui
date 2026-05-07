@@ -100,7 +100,7 @@ const builderImage = reactive({
 
 const EDIT = _EDIT;
 
-const appChart = ref(props.source?.appChart);
+const appChart = ref(props.application.configuration?.appchart || props.source?.appChart || '');
 const type = ref(props.source?.type || APPLICATION_SOURCE_TYPE.FOLDER);
 
 // Derived and Computed
@@ -357,7 +357,7 @@ function onFolderSelected(files: FileWithRelativePath | FileWithRelativePath[]) 
 
 onMounted(() => {
   if (!appChart.value) {
-    appChart.value = appCharts.value[0]?.value || appCharts.value[0];
+    appChart.value = props.application.configuration?.appchart || props.source?.appChart || appCharts.value[0]?.value || appCharts.value[0];
   }
   update();
 });
