@@ -88,6 +88,8 @@ const showApplicationVariables = computed(() => {
 });
 
 const isEdit = computed(() => props.mode === _EDIT);
+const configSaveAllowed = computed(() => props.application?.canSaveConfiguration !== false);
+const configSaveDisabledReason = computed(() => props.application?.cannotSaveConfigurationReason || '');
 
 // Generate a default name for new applications
 const generateDefaultName = () => {
@@ -279,6 +281,11 @@ const moveBooleansToFront = (settingsObj: any) => {
       <Banner color="info">
         {{ t('epinio.applications.create.settingsVars.description') }}
       </Banner>
+      <Banner
+        v-if="!configSaveAllowed && configSaveDisabledReason"
+        color="warning"
+        :label="configSaveDisabledReason"
+      />
     </div>
     <div v-if="showApplicationVariables" class="col span-6">
       <ChartValues
