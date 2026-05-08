@@ -28,12 +28,11 @@ const onInputCheckbox = (key: string, value: boolean) => {
 
 <template>
   <div class="chart-values">
-    <h3>{{ props.title }}</h3>
     <div v-for="(setting, key) in props.chart" :key="key" class="chart-values-item">
       <trailhand-text-input
         v-if="setting.type === 'number' || setting.type === 'integer'"
-        style="flex: 1;"
         :id="key"
+        style="flex: 1;"
         :value="props.value[key]"
         :label="key"
         type="number"
@@ -52,8 +51,8 @@ const onInputCheckbox = (key: string, value: boolean) => {
        />
       <trailhand-dropdown
         v-else-if="setting.type === 'string' && setting.enum"
-        style="flex: 1;"
         :id="key"
+        style="flex: 1;"
         :value="props.value[key]"
         :label="key"
         :options="setting.enum"
@@ -62,8 +61,8 @@ const onInputCheckbox = (key: string, value: boolean) => {
        />
        <trailhand-text-input
         v-else-if="setting.type === 'string'"
-        style="flex: 1;"
         :id="key"
+        style="flex: 1;"
         :value="props.value[key]"
         :label="key"
         :disabled="props.disabled"
