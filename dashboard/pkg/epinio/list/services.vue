@@ -10,6 +10,7 @@ import BadgeStateFormatter from '@shell/components/formatter/BadgeStateFormatter
 import Masthead from '@shell/components/ResourceList/Masthead';
 import { useStore } from 'vuex';
 import { startPolling, stopPolling } from '../utils/polling';
+import BulkDeleteModal from '../components/BulkDeleteModal.vue';
 
 const pending = ref(true);
 const store = useStore();
@@ -38,6 +39,17 @@ const canCreateService = computed(() => {
   return can('service_write') || can('service');
 });
 
+const canDeleteService = computed(() => {
+  const can = store.getters['epinio/can'];
+  const perms = store.getters['epinio/permissions']?.();
+
+  if (!can || !perms || Object.keys(perms).length === 0) {
+    return false;
+  }
+
+  return can('service_write') || can('service');
+});
+
 onMounted(async () => {
   await store.dispatch('epinio/me');
   await Promise.all([
@@ -59,6 +71,59 @@ onUnmounted(() => {
 const rows = computed(() => {
   return store.getters['epinio/all'](EPINIO_TYPES.SERVICE_INSTANCE);
 });
+const selectedServiceIds = ref<string[]>([]);
+const showDeleteModal = ref(false);
+const deletingSelected = ref(false);
+const selectedCount = computed(() => selectedServiceIds.value.length);
+
+function serviceKey(service: any): string {
+  return String(service?.id || `${ service?.meta?.namespace || 'default' }/${ service?.meta?.name || '' }`);
+}
+
+const selectedServices = computed(() => {
+  const selectedSet = new Set(selectedServiceIds.value);
+  return rows.value.filter((service: any) => selectedSet.has(serviceKey(service)));
+});
+
+const selectedServiceLabels = computed(() => selectedServices.value.map((service: any) => `${ service.meta?.namespace }/${ service.meta?.name }`));
+
+function selectedKeysForRows(items: any[]) {
+  const selectedSet = new Set(selectedServiceIds.value);
+  return items.map((item) => serviceKey(item)).filter((id) => selectedSet.has(id));
+}
+
+function onSelectionChange(selectedRows: any[]) {
+  selectedServiceIds.value = selectedRows.map((row: any) => serviceKey(row));
+}
+
+function openDeleteModal() {
+  if (!canDeleteService.value || selectedCount.value === 0 || deletingSelected.value) {
+    return;
+  }
+  showDeleteModal.value = true;
+}
+
+function closeDeleteModal() {
+  showDeleteModal.value = false;
+}
+
+async function deleteSelectedServices() {
+  if (!selectedServices.value.length || deletingSelected.value) {
+    return;
+  }
+
+  deletingSelected.value = true;
+  try {
+    await selectedServices.value[0].bulkRemove(selectedServices.value, {});
+    selectedServiceIds.value = [];
+    closeDeleteModal();
+    await store.dispatch('epinio/findAll', { type: EPINIO_TYPES.SERVICE_INSTANCE, opt: { force: true } });
+  } catch (e: any) {
+    await store.dispatch('growl/fromError', { title: t('generic.notification.error'), err: e }, { root: true });
+  } finally {
+    deletingSelected.value = false;
+  }
+}
 
 const columns: DataTableColumn[] = [
   {
@@ -98,6 +163,14 @@ const columns: DataTableColumn[] = [
   >
     <template #createButton>
       <button
+        v-if="canDeleteService"
+        class="btn mr-10 bulk-delete-btn"
+        :disabled="selectedCount === 0 || deletingSelected"
+        @click="openDeleteModal"
+      >
+        {{ deletingSelected ? t('epinio.bulkDelete.deletingButton') : t('epinio.bulkDelete.button', { count: selectedCount }) }}
+      </button>
+      <button
         v-if="canCreateService"
         class="btn role-primary"
         @click="store.$router.push(createLocation)"
@@ -110,6 +183,9 @@ const columns: DataTableColumn[] = [
     :rows="rows"
     :columns="columns"
     :loading="pending"
+    :selectable="canDeleteService"
+    :selected-row-keys="selectedKeysForRows(rows)"
+    @selection-change="onSelectionChange"
   >
     <template #cell:stateDisplay="{ row }">
       <BadgeStateFormatter
@@ -150,5 +226,33 @@ const columns: DataTableColumn[] = [
       >&nbsp;</span>
     </template>
   </DataTable>
+  <BulkDeleteModal
+    :show="showDeleteModal && canDeleteService"
+    :title="t('epinio.bulkDelete.titles.services', { count: selectedServices.length })"
+    :item-labels="selectedServiceLabels"
+    :deleting="deletingSelected"
+    :description="t('epinio.bulkDelete.descriptions.services')"
+    @close="closeDeleteModal"
+    @confirm="deleteSelectedServices"
+  />
 </template>
+
+<style scoped lang="scss">
+.bulk-delete-btn:disabled {
+  background-color: var(--disabled-bg) !important;
+  border-color: var(--border) !important;
+  color: var(--disabled-text) !important;
+  opacity: 1;
+}
+
+.bulk-delete-btn:not(:disabled) {
+  background-color: var(--error) !important;
+  border-color: var(--error) !important;
+  color: var(--error-contrast, #fff) !important;
+}
+
+.bulk-delete-btn:not(:disabled):hover {
+  filter: brightness(0.92);
+}
+</style>
 

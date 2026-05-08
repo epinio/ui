@@ -16,6 +16,8 @@ interface Props {
   keyField?: string;
   rowActions?: boolean;
   rowActionsWidth?: number;
+  selectable?: boolean;
+  selectedRowKeys?: string[];
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -26,8 +28,15 @@ const props = withDefaults(defineProps<Props>(), {
   loading: false,
   keyField: 'id',
   rowActions: true,
-  rowActionsWidth: 40
+  rowActionsWidth: 40,
+  selectable: false,
+  selectedRowKeys: () => []
 });
+
+const emit = defineEmits<{
+  (event: 'selection-change', selectedRows: DataTableRow[]): void;
+  (event: 'update:selectedRowKeys', selectedRowKeys: string[]): void;
+}>();
 
 // Define slot types - using Record<string, any> for row to allow dynamic properties
 defineSlots<{
@@ -40,6 +49,8 @@ const searchQuery = ref('');
 const currentPage = ref(1);
 const sortColumn = ref<string | null>(null);
 const sortDirection = ref<SortDirection>('asc');
+const internalSelectedKeys = ref<Set<string>>(new Set());
+const selectAllCheckbox = ref<HTMLInputElement | null>(null);
 const store = useStore();
 
 // Apply namespace filter first
@@ -146,6 +157,24 @@ const paginationInfo = computed(() => {
   };
 });
 
+const allVisibleSelected = computed(() => {
+  if (!props.selectable || !paginatedRows.value.length) {
+    return false;
+  }
+
+  return paginatedRows.value.every((row) => internalSelectedKeys.value.has(getRowKey(row, 0)));
+});
+
+const someVisibleSelected = computed(() => {
+  if (!props.selectable || !paginatedRows.value.length) {
+    return false;
+  }
+
+  const selectedCount = paginatedRows.value.filter((row) => internalSelectedKeys.value.has(getRowKey(row, 0))).length;
+
+  return selectedCount > 0 && selectedCount < paginatedRows.value.length;
+});
+
 // Methods
 function getNestedValue(obj: any, path: string): any {
   return path.split('.').reduce((current, key) => current?.[key], obj);
@@ -201,12 +230,73 @@ function prevPage() {
 }
 
 function getRowKey(row: DataTableRow, index: number): string {
-  return row[props.keyField] || `row-${index}`;
+  return String(row[props.keyField] || `row-${index}`);
+}
+
+function syncSelectionToRows() {
+  const selected = props.rows.filter((row, index) => internalSelectedKeys.value.has(getRowKey(row, index)));
+  const keys = selected.map((row, index) => getRowKey(row, index));
+
+  emit('selection-change', selected);
+  emit('update:selectedRowKeys', keys);
+}
+
+function toggleRowSelection(row: DataTableRow, index: number, selected: boolean) {
+  const rowKey = getRowKey(row, index);
+
+  if (selected) {
+    internalSelectedKeys.value.add(rowKey);
+  } else {
+    internalSelectedKeys.value.delete(rowKey);
+  }
+
+  syncSelectionToRows();
+}
+
+function toggleSelectAllVisible(selected: boolean) {
+  paginatedRows.value.forEach((row, index) => {
+    const rowKey = getRowKey(row, index);
+
+    if (selected) {
+      internalSelectedKeys.value.add(rowKey);
+    } else {
+      internalSelectedKeys.value.delete(rowKey);
+    }
+  });
+
+  syncSelectionToRows();
 }
 
 // Watch: Reset to page 1 when search or sort changes
 watch([searchQuery, sortColumn, sortDirection], () => {
   currentPage.value = 1;
+});
+
+watch(
+  () => props.rows,
+  (newRows) => {
+    const validKeys = new Set(newRows.map((row, index) => getRowKey(row, index)));
+    internalSelectedKeys.value.forEach((key) => {
+      if (!validKeys.has(key)) {
+        internalSelectedKeys.value.delete(key);
+      }
+    });
+  },
+  { deep: true }
+);
+
+watch(
+  () => props.selectedRowKeys,
+  (newKeys) => {
+    internalSelectedKeys.value = new Set(newKeys || []);
+  },
+  { immediate: true }
+);
+
+watch([allVisibleSelected, someVisibleSelected], () => {
+  if (selectAllCheckbox.value) {
+    selectAllCheckbox.value.indeterminate = someVisibleSelected.value;
+  }
 });
 
 // Expose methods for parent components
@@ -247,6 +337,17 @@ defineExpose({
       <table class="data-table__table">
         <thead class="data-table__thead">
           <tr>
+            <th
+              v-if="selectable"
+              class="data-table__th data-table__th--select"
+            >
+              <input
+                ref="selectAllCheckbox"
+                type="checkbox"
+                :checked="allVisibleSelected"
+                @change="toggleSelectAllVisible(($event.target as HTMLInputElement).checked)"
+              >
+            </th>
             <th
               v-for="column in columns"
               :key="column.field"
@@ -290,6 +391,16 @@ defineExpose({
             class="data-table__tr"
           >
             <td
+              v-if="selectable"
+              class="data-table__td data-table__td--select"
+            >
+              <input
+                type="checkbox"
+                :checked="internalSelectedKeys.has(getRowKey(row, index))"
+                @change="toggleRowSelection(row, index, ($event.target as HTMLInputElement).checked)"
+              >
+            </td>
+            <td
               v-for="column in columns"
               :key="column.field"
               class="data-table__td"
@@ -318,7 +429,7 @@ defineExpose({
 
           <!-- Empty state -->
           <tr v-if="paginatedRows.length === 0" class="data-table__empty">
-            <td :colspan="rowActions ? columns.length + 1 : columns.length" class="data-table__td--empty">
+            <td :colspan="(rowActions ? columns.length + 1 : columns.length) + (selectable ? 1 : 0)" class="data-table__td--empty">
               <slot name="empty">
                 <span class="text-muted">
                   {{ searchQuery ? 'No results found' : 'No data available' }}
@@ -465,6 +576,12 @@ defineExpose({
       width: 40px;
       padding: 0.75rem 0.5rem;
     }
+
+    &--select {
+      width: 40px;
+      text-align: center;
+      padding: 0.75rem 0.5rem;
+    }
   }
 
   &__th-content {
@@ -509,6 +626,13 @@ defineExpose({
     }
 
     &--actions {
+      width: 40px;
+      padding: 0.5rem;
+      text-align: center;
+      vertical-align: middle;
+    }
+
+    &--select {
       width: 40px;
       padding: 0.5rem;
       text-align: center;

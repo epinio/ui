@@ -402,6 +402,21 @@ epinio:
       chartVersion: Chart Version
       appVersion: Version
       helmChart: Helm Chart
+  bulkDelete:
+    button: "Delete Selected ({count})"
+    deletingButton: "Deleting..."
+    deletingAction: "Deleting..."
+    confirmAction: "Delete {count} Item(s)"
+    descriptions:
+      applications: "The following applications will be deleted:"
+      services: "The following services will be deleted:"
+      namespaces: "The following namespaces will be deleted:"
+      configurations: "The following configurations will be deleted:"
+    titles:
+      applications: "Delete Selected Applications ({count})"
+      services: "Delete Selected Services ({count})"
+      namespaces: "Delete Selected Namespaces ({count})"
+      configurations: "Delete Selected Configurations ({count})"
   warnings:
     noNamespace: There are no namespaces. Please create one before proceeding
   login:

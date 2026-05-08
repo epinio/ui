@@ -8,6 +8,7 @@ import Loading from '@shell/components/Loading';
 import Masthead from '@shell/components/ResourceList/Masthead';
 import LinkDetail from '@shell/components/formatter/LinkDetail.vue';
 import BadgeStateFormatter from '@shell/components/formatter/BadgeStateFormatter.vue';
+import BulkDeleteModal from '../../../../components/BulkDeleteModal.vue';
 
 import { EPINIO_TYPES } from '../../../../types';
 import { createEpinioRoute } from '../../../../utils/custom-routing';
@@ -42,8 +43,24 @@ const canCreateApp = computed(() => {
   return can('app_create') || can('app_write') || can('app');
 });
 
+const canDeleteApp = computed(() => {
+  const can = store.getters['epinio/can'];
+  const perms = store.getters['epinio/permissions']?.();
+
+  if (!can || !perms || Object.keys(perms).length === 0) {
+    return false;
+  }
+
+  return can('app_delete') || can('app_write') || can('app');
+});
+
 const rows = computed(() => store.getters['epinio/all'](resource));
 const allNamespaces = computed(() => store.getters['epinio/all'](EPINIO_TYPES.NAMESPACE) || []);
+const selectedAppIds = ref<string[]>([]);
+const deletingSelected = ref(false);
+const showDeleteModal = ref(false);
+const deleteImage = ref(false);
+const selectedCount = computed(() => selectedAppIds.value.length);
 
 // Group applications by namespace. Include every namespace so the applications table
 // is shown even when a namespace has no applications.
@@ -160,6 +177,72 @@ onUnmounted(() => {
     'services'
   ]);
 });
+
+function appKey(app: any): string {
+  return String(app?.id || `${ app?.meta?.namespace || 'default' }/${ app?.meta?.name || '' }`);
+}
+
+function selectedKeysForRows(apps: any[]) {
+  const selectedSet = new Set(selectedAppIds.value);
+
+  return apps.map((app) => appKey(app)).filter((id) => selectedSet.has(id));
+}
+
+function onSelectionChangeForNamespace(namespaceApps: any[], selectedAppsInNamespace: any[]) {
+  const namespaceKeys = new Set(namespaceApps.map((app) => appKey(app)));
+  const selectedNamespaceKeys = new Set(selectedAppsInNamespace.map((app) => appKey(app)));
+  const remaining = selectedAppIds.value.filter((id) => !namespaceKeys.has(id));
+
+  selectedAppIds.value = [...remaining, ...Array.from(selectedNamespaceKeys)];
+}
+
+const selectedApps = computed(() => {
+  const selectedSet = new Set(selectedAppIds.value);
+  return rows.value.filter((app: any) => selectedSet.has(appKey(app)));
+});
+const selectedAppLabels = computed(() => selectedApps.value.map((app: any) => `${ app.meta?.namespace }/${ app.meta?.name }`));
+
+function openDeleteModal() {
+  if (!canDeleteApp.value || selectedCount.value === 0 || deletingSelected.value) {
+    return;
+  }
+  showDeleteModal.value = true;
+}
+
+function closeDeleteModal() {
+  showDeleteModal.value = false;
+}
+
+async function deleteSelectedApps(payload?: { deleteImage: boolean }) {
+  if (!selectedAppIds.value.length || deletingSelected.value) {
+    return;
+  }
+
+  if (!selectedApps.value.length) {
+    selectedAppIds.value = [];
+    closeDeleteModal();
+    return;
+  }
+
+  deletingSelected.value = true;
+  try {
+    deleteImage.value = !!payload?.deleteImage;
+    selectedApps.value.forEach((app: any) => {
+      app._deleteImage = deleteImage.value;
+    });
+    await selectedApps.value[0].bulkRemove(selectedApps.value, {});
+    selectedAppIds.value = [];
+    closeDeleteModal();
+    await store.dispatch('epinio/findAll', { type: EPINIO_TYPES.APP, opt: { force: true } });
+  } catch (e: any) {
+    await store.dispatch('growl/fromError', {
+      title: t('generic.notification.error'),
+      err: e
+    }, { root: true });
+  } finally {
+    deletingSelected.value = false;
+  }
+}
 </script>
 
 <template>
@@ -170,6 +253,14 @@ onUnmounted(() => {
       :resource="resource"
     >
       <template #createButton>
+        <button
+          v-if="canDeleteApp"
+          class="btn mr-10 bulk-delete-btn"
+          :disabled="selectedCount === 0 || deletingSelected"
+          @click="openDeleteModal"
+        >
+          {{ deletingSelected ? t('epinio.bulkDelete.deletingButton') : t('epinio.bulkDelete.button', { count: selectedCount }) }}
+        </button>
         <button
           v-if="canCreateApp"
           class="btn role-primary"
@@ -189,6 +280,9 @@ onUnmounted(() => {
       <DataTable
         :rows="apps"
         :columns="columns"
+        :selectable="canDeleteApp"
+        :selected-row-keys="selectedKeysForRows(apps)"
+        @selection-change="onSelectionChangeForNamespace(apps, $event)"
       >
         <template #title>
           <h3 class="namespace-header">
@@ -276,6 +370,17 @@ onUnmounted(() => {
         </template>
       </DataTable>
     </div>
+
+    <BulkDeleteModal
+      :show="showDeleteModal && canDeleteApp"
+      :title="t('epinio.bulkDelete.titles.applications', { count: selectedApps.length })"
+      :item-labels="selectedAppLabels"
+      :deleting="deletingSelected"
+      :show-delete-image="true"
+      :description="t('epinio.bulkDelete.descriptions.applications')"
+      @close="closeDeleteModal"
+      @confirm="deleteSelectedApps"
+    />
   </div>
 </template>
 
@@ -304,5 +409,22 @@ onUnmounted(() => {
 
 .route {
   word-break: break-word;
+}
+
+.bulk-delete-btn:disabled {
+  background-color: var(--disabled-bg) !important;
+  border-color: var(--border) !important;
+  color: var(--disabled-text) !important;
+  opacity: 1;
+}
+
+.bulk-delete-btn:not(:disabled) {
+  background-color: var(--error) !important;
+  border-color: var(--error) !important;
+  color: var(--error-contrast, #fff) !important;
+}
+
+.bulk-delete-btn:not(:disabled):hover {
+  filter: brightness(0.92);
 }
 </style>

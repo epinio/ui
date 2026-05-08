@@ -14,8 +14,9 @@ import { epinioExceptionToErrorsArray } from '../utils/errors';
 import LabeledInput from '@components/Form/LabeledInput/LabeledInput.vue';
 import { validateKubernetesName } from '@shell/utils/validators/kubernetes-name';
 import { startPolling, stopPolling } from '../utils/polling';
+import BulkDeleteModal from '../components/BulkDeleteModal.vue';
 
-defineProps<{
+const props = defineProps<{
   schema: object,
   rows: Array,
 }>();
@@ -47,6 +48,22 @@ const canCreateNamespace = computed(() => {
 
   return can('namespace_write') || can('namespace');
 });
+
+const canDeleteNamespace = computed(() => {
+  const can = store.getters['epinio/can'];
+  const perms = store.getters['epinio/permissions']?.();
+
+  if (!can || !perms || Object.keys(perms).length === 0) {
+    return false;
+  }
+
+  return can('namespace_write') || can('namespace');
+});
+
+const selectedNamespaceIds = ref<string[]>([]);
+const showDeleteModal = ref<boolean>(false);
+const deletingSelected = ref<boolean>(false);
+const selectedCount = computed(() => selectedNamespaceIds.value.length);
 
 const validationPassed = computed(() => {
   // Add here fields that need validation
@@ -156,6 +173,57 @@ function getNamespaceErrors(name) {
   return [];
 }
 
+function namespaceKey(ns: any): string {
+  return String(ns?._key || ns?.id || ns?.meta?.name || ns?.name || '');
+}
+
+const selectedNamespaces = computed(() => {
+  const selectedSet = new Set(selectedNamespaceIds.value);
+  return (props.rows || []).filter((ns: any) => selectedSet.has(namespaceKey(ns)));
+});
+
+const selectedNamespaceLabels = computed(() => {
+  return selectedNamespaces.value.map((ns: any) => ns.meta?.name || ns.name || ns.id);
+});
+
+function onNamespaceSelectionChange(selectedRows: any[]) {
+  selectedNamespaceIds.value = selectedRows.map((row: any) => namespaceKey(row));
+}
+
+function selectedKeysForRows(items: any[]) {
+  const selectedSet = new Set(selectedNamespaceIds.value);
+  return (items || []).map((item: any) => namespaceKey(item)).filter((id: string) => selectedSet.has(id));
+}
+
+function openDeleteModal() {
+  if (!canDeleteNamespace.value || selectedCount.value === 0 || deletingSelected.value) {
+    return;
+  }
+  showDeleteModal.value = true;
+}
+
+function closeDeleteModal() {
+  showDeleteModal.value = false;
+}
+
+async function deleteSelectedNamespaces() {
+  if (!selectedNamespaces.value.length || deletingSelected.value) {
+    return;
+  }
+
+  deletingSelected.value = true;
+  try {
+    await Promise.all(selectedNamespaces.value.map((ns: any) => ns.remove()));
+    selectedNamespaceIds.value = [];
+    closeDeleteModal();
+    await store.dispatch('epinio/findAll', { type: EPINIO_TYPES.NAMESPACE, opt: { force: true } });
+  } catch (e: any) {
+    await store.dispatch('growl/fromError', { title: t('generic.notification.error'), err: e }, { root: true });
+  } finally {
+    deletingSelected.value = false;
+  }
+}
+
 const columns: DataTableColumn[] = [
   {
     field: 'meta.name',
@@ -180,10 +248,18 @@ const columns: DataTableColumn[] = [
 <template>
   <div>
     <Masthead
-      :schema="schema"
+      :schema="props.schema"
       :resource="resource"
     >
       <template #createButton>
+        <button
+          v-if="canDeleteNamespace"
+          class="btn mr-10 bulk-delete-btn"
+          :disabled="selectedCount === 0 || deletingSelected"
+          @click="openDeleteModal"
+        >
+          {{ deletingSelected ? t('epinio.bulkDelete.deletingButton') : t('epinio.bulkDelete.button', { count: selectedCount }) }}
+        </button>
         <button
           v-if="canCreateNamespace"
           class="btn role-primary"
@@ -194,9 +270,12 @@ const columns: DataTableColumn[] = [
       </template>
     </Masthead>
     <DataTable
-      :rows="rows"
+      :rows="props.rows"
       :columns="columns"
       key-field="_key"
+      :selectable="canDeleteNamespace"
+      :selected-row-keys="selectedKeysForRows(props.rows)"
+      @selection-change="onNamespaceSelectionChange"
     >
       <template #cell:stateDisplay="{ row }">
         <BadgeStateFormatter
@@ -205,6 +284,15 @@ const columns: DataTableColumn[] = [
         />
       </template>
     </DataTable>
+    <BulkDeleteModal
+      :show="showDeleteModal && canDeleteNamespace"
+      :title="t('epinio.bulkDelete.titles.namespaces', { count: selectedNamespaces.length })"
+      :item-labels="selectedNamespaceLabels"
+      :deleting="deletingSelected"
+      :description="t('epinio.bulkDelete.descriptions.namespaces')"
+      @close="closeDeleteModal"
+      @confirm="deleteSelectedNamespaces"
+    />
     <div
       v-if="showCreateModal"
       class="modal"
@@ -288,6 +376,23 @@ const columns: DataTableColumn[] = [
     flex: 1;
   }
 
+}
+
+.bulk-delete-btn:disabled {
+  background-color: var(--disabled-bg) !important;
+  border-color: var(--border) !important;
+  color: var(--disabled-text) !important;
+  opacity: 1;
+}
+
+.bulk-delete-btn:not(:disabled) {
+  background-color: var(--error) !important;
+  border-color: var(--error) !important;
+  color: var(--error-contrast, #fff) !important;
+}
+
+.bulk-delete-btn:not(:disabled):hover {
+  filter: brightness(0.92);
 }
 </style>
 
