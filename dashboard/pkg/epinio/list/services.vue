@@ -54,7 +54,6 @@ watchEffect(() => {
   void store.state.activeNamespaceCacheKey;
   const activeNamespaces = store.state.activeNamespaceCache;
   const all = store.getters['epinio/all'](EPINIO_TYPES.SERVICE_INSTANCE) as any[];
-
   all.forEach((row: any) => { void row.status; void row.stateDisplay; void row.meta; });
 
   // Filter empty rows that are added during delete, and filter by active namespace
@@ -167,6 +166,10 @@ const columns = [
 
       return el;
     }
+  },
+  {
+    field: 'namespace',
+    label: 'Namespace'
   },
   {
     field: 'catalog_service',

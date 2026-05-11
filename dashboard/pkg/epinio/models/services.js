@@ -79,6 +79,10 @@ export default class EpinioServiceModel extends EpinioNamespacedResource {
     return this.status;
   }
 
+  get namespace() {
+    return this.meta?.namespace;
+  }
+
   get serviceLocation() {
     return createEpinioRoute(`c-cluster-resource-id`, {
       cluster:  this.$rootGetters['clusterId'],
