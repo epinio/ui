@@ -260,7 +260,7 @@ function onManifestFileSelected(file: string) {
       },
       configuration: {
         configurations: parsed.configuration?.configurations || [],
-        instances: parsed.configuration.instances || 1,
+        instances: parsed.configuration.instances ?? 1,
         environment: parsed.configuration.environment || {},
         settings: parsed.configuration?.settings || {},
         routes: parsed.configuration.routes || []

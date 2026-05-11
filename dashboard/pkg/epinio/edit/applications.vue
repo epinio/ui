@@ -6,7 +6,6 @@ import CruResource from '@shell/components/CruResource.vue';
 import ResourceTabs from '@shell/components/form/ResourceTabs/index.vue';
 import Tab from '@shell/components/Tabbed/Tab.vue';
 import Loading from '@shell/components/Loading.vue';
-import Banner from '@components/Banner/Banner.vue';
 import AppInfo from '../components/application/AppInfo.vue';
 import AppConfiguration from '../components/application/AppConfiguration.vue';
 import { epinioExceptionToErrorsArray } from '../utils/errors';
@@ -101,11 +100,17 @@ const canEditConfig = computed(() => {
 // If the user lacks config write perms, never show the primary "Edit Config" footer button,
 // regardless of how this dialog was opened (view or edit route).
 const hideEditConfigButton = computed(() => !canEditConfig.value);
-const configSaveAllowed = computed(() => props.value?.canSaveConfiguration !== false);
-const configSaveDisabledReason = computed(() => props.value?.cannotSaveConfigurationReason || '');
 const validationPassed = computed(() => {
   const tabsValid = !Object.values(tabErrors).find((error) => error);
-  return tabsValid && configSaveAllowed.value;
+  return tabsValid;
+});
+
+const shouldRestartOnSave = computed(() => {
+  const previousInstances = Number(props.initialValue?.configuration?.instances ?? props.initialValue?.desiredInstances ?? 0);
+  const nextInstances = Number(props.value?.configuration?.instances ?? props.value?.desiredInstances ?? 0);
+  const instancesChanged = previousInstances !== nextInstances;
+
+  return props.value?.canRestartAfterConfigSave || instancesChanged;
 });
 
 const done = () => {
@@ -123,7 +128,7 @@ const done = () => {
 async function save(saveCb: (success: boolean) => void) {
   errors.value = [];
   try {
-    await props.value.update();
+    await props.value.update({ restart: shouldRestartOnSave.value });
 
     await props.value.updateConfigurations(
       props.initialValue.baseConfigurationsNames || [],
@@ -214,11 +219,6 @@ function validate(value: boolean, tab: string) {
     @error="(e : Error) => errors = epinioExceptionToErrorsArray(e)"
     @finish="save"
   >
-    <Banner
-      v-if="!configSaveAllowed && configSaveDisabledReason"
-      color="info"
-      :label="configSaveDisabledReason"
-    />
     <ResourceTabs
       mode="mode"
     >

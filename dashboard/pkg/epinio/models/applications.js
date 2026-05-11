@@ -117,24 +117,8 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
     return !!(base && canEditConfig);
   }
 
-  // Editing config triggers an update+deploy on the backend, so the app must be deployable.
-  get canSaveConfiguration() {
-    const canMutateConfigState = [STATES.RUNNING, STATES.CREATING].includes(this.status);
-    const hasImage = !!this.image_url;
-
-    return canMutateConfigState && hasImage;
-  }
-
-  get cannotSaveConfigurationReason() {
-    if (!this.image_url) {
-      return 'Save is disabled because this app has not produced an image yet. Complete staging/build first.';
-    }
-
-    if (![STATES.RUNNING, STATES.CREATING].includes(this.status)) {
-      return `Save is disabled while app status is '${ this.status || 'unknown' }'. Wait until it is running or created.`;
-    }
-
-    return '';
+  get canRestartAfterConfigSave() {
+    return this.status === STATES.RUNNING && !!this.image_url;
   }
 
   get details() {
