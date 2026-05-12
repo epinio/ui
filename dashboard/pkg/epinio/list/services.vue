@@ -70,6 +70,13 @@ watchEffect(() => {
   const rowActions = (row: EpinioServiceModel) => {
     const out: any[] = [];
 
+    if (canEdit.value) {
+      out.push({
+        action: 'editServiceModal',
+        label: 'Edit',
+        enabled: true
+      });
+    }
     if (canDelete.value) {
       out.push({
         action: 'removeService',
@@ -82,13 +89,7 @@ watchEffect(() => {
         weight: -10
       });
     }
-    if (canEdit.value) {
-      out.push({
-        action: 'editServiceModal',
-        label: 'Edit',
-        enabled: true
-      });
-    }
+
 
     return out;
   };

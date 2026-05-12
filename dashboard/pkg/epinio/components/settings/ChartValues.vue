@@ -44,11 +44,10 @@ const onInputCheckbox = (key: string, value: boolean) => {
       <trailhand-checkbox
         v-else-if="setting.type === 'bool'"
         :id="key"
-        :value="props.value[key] === 'true'"
-        :label="key"
+        :checked="props.value[key] === 'true'"
         :disabled="props.disabled"
-        @checkbox-change="(e: CustomEvent) => onInputCheckbox(key, e.detail.value)"
-       />
+        @checkbox-change="(e: CustomEvent) => onInputCheckbox(key, e.detail.checked)"
+       >{{ key }}</trailhand-checkbox>
       <trailhand-dropdown
         v-else-if="setting.type === 'string' && setting.enum"
         :id="key"
