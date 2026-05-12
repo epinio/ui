@@ -18,6 +18,7 @@ interface Props {
   rowActionsWidth?: number;
   selectable?: boolean;
   selectedRowKeys?: string[];
+  rowSelectable?: (row: DataTableRow) => boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -30,7 +31,8 @@ const props = withDefaults(defineProps<Props>(), {
   rowActions: true,
   rowActionsWidth: 40,
   selectable: false,
-  selectedRowKeys: () => []
+  selectedRowKeys: () => [],
+  rowSelectable: () => true
 });
 
 const emit = defineEmits<{
@@ -157,22 +159,24 @@ const paginationInfo = computed(() => {
   };
 });
 
+const visibleSelectableRows = computed(() => paginatedRows.value.filter((row) => isRowSelectable(row)));
+
 const allVisibleSelected = computed(() => {
-  if (!props.selectable || !paginatedRows.value.length) {
+  if (!props.selectable || !visibleSelectableRows.value.length) {
     return false;
   }
 
-  return paginatedRows.value.every((row) => internalSelectedKeys.value.has(getRowKey(row, 0)));
+  return visibleSelectableRows.value.every((row) => internalSelectedKeys.value.has(getRowKey(row, 0)));
 });
 
 const someVisibleSelected = computed(() => {
-  if (!props.selectable || !paginatedRows.value.length) {
+  if (!props.selectable || !visibleSelectableRows.value.length) {
     return false;
   }
 
-  const selectedCount = paginatedRows.value.filter((row) => internalSelectedKeys.value.has(getRowKey(row, 0))).length;
+  const selectedCount = visibleSelectableRows.value.filter((row) => internalSelectedKeys.value.has(getRowKey(row, 0))).length;
 
-  return selectedCount > 0 && selectedCount < paginatedRows.value.length;
+  return selectedCount > 0 && selectedCount < visibleSelectableRows.value.length;
 });
 
 // Methods
@@ -233,8 +237,12 @@ function getRowKey(row: DataTableRow, index: number): string {
   return String(row[props.keyField] || `row-${index}`);
 }
 
+function isRowSelectable(row: DataTableRow): boolean {
+  return props.rowSelectable ? props.rowSelectable(row) : true;
+}
+
 function syncSelectionToRows() {
-  const selected = props.rows.filter((row, index) => internalSelectedKeys.value.has(getRowKey(row, index)));
+  const selected = props.rows.filter((row, index) => isRowSelectable(row) && internalSelectedKeys.value.has(getRowKey(row, index)));
   const keys = selected.map((row, index) => getRowKey(row, index));
 
   emit('selection-change', selected);
@@ -242,6 +250,10 @@ function syncSelectionToRows() {
 }
 
 function toggleRowSelection(row: DataTableRow, index: number, selected: boolean) {
+  if (!isRowSelectable(row)) {
+    return;
+  }
+
   const rowKey = getRowKey(row, index);
 
   if (selected) {
@@ -254,7 +266,7 @@ function toggleRowSelection(row: DataTableRow, index: number, selected: boolean)
 }
 
 function toggleSelectAllVisible(selected: boolean) {
-  paginatedRows.value.forEach((row, index) => {
+  visibleSelectableRows.value.forEach((row, index) => {
     const rowKey = getRowKey(row, index);
 
     if (selected) {
@@ -275,7 +287,7 @@ watch([searchQuery, sortColumn, sortDirection], () => {
 watch(
   () => props.rows,
   (newRows) => {
-    const validKeys = new Set(newRows.map((row, index) => getRowKey(row, index)));
+    const validKeys = new Set(newRows.filter((row) => isRowSelectable(row)).map((row, index) => getRowKey(row, index)));
     internalSelectedKeys.value.forEach((key) => {
       if (!validKeys.has(key)) {
         internalSelectedKeys.value.delete(key);
@@ -344,6 +356,7 @@ defineExpose({
               <input
                 ref="selectAllCheckbox"
                 type="checkbox"
+                :disabled="visibleSelectableRows.length === 0"
                 :checked="allVisibleSelected"
                 @change="toggleSelectAllVisible(($event.target as HTMLInputElement).checked)"
               >
@@ -396,6 +409,7 @@ defineExpose({
             >
               <input
                 type="checkbox"
+                :disabled="!isRowSelectable(row)"
                 :checked="internalSelectedKeys.has(getRowKey(row, index))"
                 @change="toggleRowSelection(row, index, ($event.target as HTMLInputElement).checked)"
               >

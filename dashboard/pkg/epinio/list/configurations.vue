@@ -83,7 +83,11 @@ const rows = computed(() => {
 const selectedConfigurationIds = ref<string[]>([]);
 const showDeleteModal = ref(false);
 const deletingSelected = ref(false);
-const selectedCount = computed(() => selectedConfigurationIds.value.length);
+const selectedCount = computed(() => selectedConfigurations.value.length);
+
+function canDeleteConfigurationRow(config: any): boolean {
+  return !!config?._canDelete;
+}
 
 function configKey(config: any): string {
   return String(config?.id || `${ config?.meta?.namespace || 'default' }/${ config?.meta?.name || '' }`);
@@ -91,7 +95,7 @@ function configKey(config: any): string {
 
 const selectedConfigurations = computed(() => {
   const selectedSet = new Set(selectedConfigurationIds.value);
-  return rows.value.filter((config: any) => selectedSet.has(configKey(config)));
+  return rows.value.filter((config: any) => canDeleteConfigurationRow(config) && selectedSet.has(configKey(config)));
 });
 
 const selectedConfigurationLabels = computed(() => {
@@ -100,7 +104,10 @@ const selectedConfigurationLabels = computed(() => {
 
 function selectedKeysForRows(items: any[]) {
   const selectedSet = new Set(selectedConfigurationIds.value);
-  return items.map((item) => configKey(item)).filter((id) => selectedSet.has(id));
+  return items
+    .filter((item) => canDeleteConfigurationRow(item))
+    .map((item) => configKey(item))
+    .filter((id) => selectedSet.has(id));
 }
 
 function onSelectionChange(selectedRows: any[]) {
@@ -195,6 +202,7 @@ const columns: DataTableColumn[] = [
     :columns="columns"
     :loading="pending"
     :selectable="canDeleteConfiguration"
+    :row-selectable="canDeleteConfigurationRow"
     :selected-row-keys="selectedKeysForRows(rows)"
     @selection-change="onSelectionChange"
   >

@@ -218,7 +218,9 @@ async function deleteSelectedApps(payload?: { deleteImage: boolean }) {
     return;
   }
 
-  if (!selectedApps.value.length) {
+  const appsToDelete = [...selectedApps.value];
+
+  if (!appsToDelete.length) {
     selectedAppIds.value = [];
     closeDeleteModal();
     return;
@@ -227,10 +229,10 @@ async function deleteSelectedApps(payload?: { deleteImage: boolean }) {
   deletingSelected.value = true;
   try {
     deleteImage.value = !!payload?.deleteImage;
-    selectedApps.value.forEach((app: any) => {
+    appsToDelete.forEach((app: any) => {
       app._deleteImage = deleteImage.value;
     });
-    await selectedApps.value[0].bulkRemove(selectedApps.value, {});
+    await appsToDelete[0].bulkRemove(appsToDelete, {});
     selectedAppIds.value = [];
     closeDeleteModal();
     await store.dispatch('epinio/findAll', { type: EPINIO_TYPES.APP, opt: { force: true } });
@@ -240,6 +242,9 @@ async function deleteSelectedApps(payload?: { deleteImage: boolean }) {
       err: e
     }, { root: true });
   } finally {
+    appsToDelete.forEach((app: any) => {
+      delete app._deleteImage;
+    });
     deletingSelected.value = false;
   }
 }
