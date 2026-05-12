@@ -7,6 +7,7 @@ import Loading from '@shell/components/Loading';
 import Masthead from '@shell/components/ResourceList/Masthead';
 
 import AppModal from '../../../../components/application/AppModal.vue';
+import ExportAppModal from '../../../../dialog/ExportAppModal.vue';
 import { EPINIO_TYPES } from '../../../../types';
 import { startPolling, stopPolling } from '../../../../utils/polling';
 import {
@@ -26,6 +27,7 @@ const t = store.getters['i18n/t'];
 const resource = EPINIO_TYPES.APP;
 const schema = ref(store.getters['epinio/schemaFor'](resource));
 const appModal = ref<InstanceType<typeof AppModal> | null>(null);
+const exportAppModal = ref<InstanceType<typeof ExportAppModal> | null>(null);
 const canCreate = computed(() => {
   const canGetter = store.getters['epinio/can'];
   return canGetter && (
@@ -196,18 +198,28 @@ function getFilteredApps(apps: any[], namespace: string): any[] {
       value: (row: EpinioApplicationModel) => {
         const actions = [...row.availableActions];
         const goToEditIndex = actions.findIndex((a: any) => a.action === 'goToEdit');
-        const newAction = {
-            action: 'goToEdit',
-            label: 'Edit',
-            enabled: true
-          };
+        const exportAppIndex = actions.findIndex((a: any) => a.action === 'exportApp');
+        const newEditAction = {
+          action: 'goToEdit',
+          label: 'Edit',
+          enabled: true
+        };
+        const newExportAction = {
+          action: 'exportApp',
+          label: 'Export',
+          enabled: true
+        };
         if (goToEditIndex !== -1 && canEdit.value) {
-          actions.splice(goToEditIndex, 1, newAction);
+          actions.splice(goToEditIndex, 1, newEditAction);
         } else if (canEdit.value) {
-          actions.push(newAction);
+          actions.push(newEditAction);
         } else if (goToEditIndex !== -1 && !canEdit.value) {
           actions.splice(goToEditIndex, 1);
         }
+
+        if (exportAppIndex !== -1) {
+          actions.splice(exportAppIndex, 1, newExportAction);
+        } 
         return actions;
       },
       conditionFn: () => {
@@ -222,9 +234,18 @@ function getFilteredApps(apps: any[], namespace: string): any[] {
       conditionFn: () => {
         return true;
       },
+    },
+    {
+      prop: 'exportApp',
+      value: (row: EpinioApplicationModel) => () => {
+        exportAppModal.value?.openExport([row]);
+      },
+      conditionFn: () => {
+        return true;
+      },
     }
-  ];
 
+  ];
   if (!query) {
     return overrideTableRows(apps, overrideProps);
   }
@@ -349,6 +370,7 @@ onUnmounted(() => {
       />
     </div>
     <AppModal ref="appModal" />
+    <ExportAppModal ref="exportAppModal" />
   </div>
 </template>
 
