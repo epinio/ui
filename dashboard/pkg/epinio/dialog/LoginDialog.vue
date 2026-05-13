@@ -76,7 +76,7 @@ const login = async (provider: string) => {
     }
     cluster.value!.loggedIn = true;
 
-    //Ensure the store knows the dialog has been closed. 
+    //Ensure the store knows the dialog has been closed.
     emit('close');
 
     store.$router.push({
@@ -127,7 +127,7 @@ defineExpose({
       <trailhand-button
         v-if="selectedAuthType == PROVIDER_TYPES.DEX"
         :disabled="busy"
-        size="large"
+        size="medium"
         @button-click="!busy && login(PROVIDER_TYPES.DEX)"
         @keydown.enter.prevent="!busy && login(PROVIDER_TYPES.DEX)"
       >
@@ -161,7 +161,7 @@ defineExpose({
             type="password"
           />
           <trailhand-button
-            size="large"
+            size="medium"
             :disabled="busy"
             type="submit"
             @keydown.enter.prevent="!busy && login(PROVIDER_TYPES.LOCAL)"
@@ -177,7 +177,7 @@ defineExpose({
       >
         <trailhand-button
           variant="secondary"
-          size="small"
+          size="medium"
           :disabled="busy"
           @button-click="!busy && selectType(PROVIDER_TYPES.LOCAL)"
           type="button"
@@ -219,7 +219,7 @@ $min-width: 400px;
     flex-direction: column;
     align-items: center;
     gap: 20px;
-    width: 75%;
+    width: 100%;
   }
 
   .banner {
