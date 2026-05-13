@@ -7,6 +7,8 @@ import Loading from '@shell/components/Loading';
 import Masthead from '@shell/components/ResourceList/Masthead';
 
 import AppModal from '../../../../components/application/AppModal.vue';
+import AppDeleteModal from '../../../../components/application/AppDeleteModal.vue';
+import ExportAppModal from '../../../../dialog/ExportAppModal.vue';
 import { EPINIO_TYPES } from '../../../../types';
 import { startPolling, stopPolling } from '../../../../utils/polling';
 import {
@@ -26,6 +28,8 @@ const t = store.getters['i18n/t'];
 const resource = EPINIO_TYPES.APP;
 const schema = ref(store.getters['epinio/schemaFor'](resource));
 const appModal = ref<InstanceType<typeof AppModal> | null>(null);
+const exportAppModal = ref<InstanceType<typeof ExportAppModal> | null>(null);
+const deleteAppModal = ref<InstanceType<typeof AppDeleteModal> | null>(null);
 const canCreate = computed(() => {
   const canGetter = store.getters['epinio/can'];
   return canGetter && (
@@ -196,17 +200,39 @@ function getFilteredApps(apps: any[], namespace: string): any[] {
       value: (row: EpinioApplicationModel) => {
         const actions = [...row.availableActions];
         const goToEditIndex = actions.findIndex((a: any) => a.action === 'goToEdit');
-        const newAction = {
-            action: 'goToEdit',
-            label: 'Edit',
-            enabled: true
-          };
+        const exportAppIndex = actions.findIndex((a: any) => a.action === 'exportApp');
+        const deleteAppIndex = actions.findIndex((a: any) => a.action === 'promptRemove');
+        const newEditAction = {
+          action: 'goToEdit',
+          label: 'Edit',
+          enabled: true
+        };
+        const newExportAction = {
+          action: 'exportApp',
+          label: 'Export',
+          enabled: true
+        };
+        const newDeleteAction = {
+          action: 'deleteApp',
+          label: 'Delete',
+          enabled: true
+        };
         if (goToEditIndex !== -1 && canEdit.value) {
-          actions.splice(goToEditIndex, 1, newAction);
+          actions.splice(goToEditIndex, 1, newEditAction);
         } else if (canEdit.value) {
-          actions.push(newAction);
+          actions.push(newEditAction);
         } else if (goToEditIndex !== -1 && !canEdit.value) {
           actions.splice(goToEditIndex, 1);
+        }
+
+        if (exportAppIndex !== -1) {
+          actions.splice(exportAppIndex, 1, newExportAction);
+        }
+
+        if (deleteAppIndex !== -1 && canEdit.value) {
+          actions.splice(deleteAppIndex, 1, newDeleteAction);
+        } else if (deleteAppIndex !== -1 && !canEdit.value) {
+          actions.splice(deleteAppIndex, 1);
         }
         return actions;
       },
@@ -222,9 +248,27 @@ function getFilteredApps(apps: any[], namespace: string): any[] {
       conditionFn: () => {
         return true;
       },
+    },
+    {
+      prop: 'exportApp',
+      value: (row: EpinioApplicationModel) => () => {
+        exportAppModal.value?.openExport([row]);
+      },
+      conditionFn: () => {
+        return true;
+      },
+    },
+    {
+      prop: 'deleteApp',
+      value: (row: EpinioApplicationModel) => () => {
+        deleteAppModal.value?.openDelete(row);
+      },
+      conditionFn: () => {
+        return true;
+      },
     }
-  ];
 
+  ];
   if (!query) {
     return overrideTableRows(apps, overrideProps);
   }
@@ -258,24 +302,23 @@ function visibleNamespaceNames(): string[] {
 onMounted(async () => {
   window.addEventListener('resize', onResize);
 
+  const namespaces = visibleNamespaceNames();
+
+  await Promise.all([
+    store.dispatch('epinio/me'),
+    store.dispatch('epinio/findAll', { type: EPINIO_TYPES.CONFIGURATION }),
+    store.dispatch('epinio/findAll', { type: EPINIO_TYPES.SERVICE_INSTANCE }),
+    ...namespaces.map(ns => fetchNamespaceApps(ns, 1, false)),
+  ]);
+
   pending.value = false;
 
-  store.dispatch('epinio/me');
-
-  // Seed each namespace's first paginated page. loadCluster has already
-  // awaited findAll(NAMESPACE), so the list is available.
-  visibleNamespaceNames().forEach(ns => fetchNamespaceApps(ns, 1, false));
-  store.dispatch('epinio/findAll', { type: EPINIO_TYPES.CONFIGURATION });
-  store.dispatch('epinio/findAll', { type: EPINIO_TYPES.SERVICE_INSTANCE });
-
-  // Poll supporting resources
   startPolling(['namespaces', 'configurations', 'services'], store);
 
   if (store.$router.currentRoute._value.query.mode === 'openModal') {
     appModal.value?.openCreate();
   }
 
-  // Poll apps per namespace at their current page.
   appsPollIntervalId = window.setInterval(() => {
     visibleNamespaceNames().forEach(ns => {
       fetchNamespaceApps(ns, namespaceCurrentPages.value[ns] ?? 1, true);
@@ -293,8 +336,8 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <Loading v-if="pending" />
-  <div v-else class="outlet">
+  <!-- <Loading v-if="pending" /> -->
+  <div class="outlet">
     <Masthead
       :schema="schema"
       :resource="resource"
@@ -312,7 +355,30 @@ onUnmounted(() => {
       </template>
     </Masthead>
 
+    <div v-if="pending">
+      <div class="namespace-group-header">
+        <h3 class="namespace-header">
+          Loading applications...
+        </h3>
+        <input
+          disabled
+          type="text"
+          class="namespace-search-input"
+          placeholder="Search..."
+        >
+      </div>
+      <trailhand-table
+        :rows="[]"
+        :columns="columns"
+        :searchable="false"
+        :server-side="false"
+        :total-items="0"
+        :current-page="1"
+        :loading="true"
+      />
+    </div>
     <div
+      v-else
       v-for="ns in namespacesWithApps"
       :key="ns"
       class="namespace-group"
@@ -349,6 +415,8 @@ onUnmounted(() => {
       />
     </div>
     <AppModal ref="appModal" />
+    <ExportAppModal ref="exportAppModal" />
+    <AppDeleteModal ref="deleteAppModal" />
   </div>
 </template>
 
