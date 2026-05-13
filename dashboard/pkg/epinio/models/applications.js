@@ -898,12 +898,12 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
     }
   }
 
-  async remove(opt = {}) {
+  async remove(opt = { data: {unmounted: true} } ) {
     this.closeWindows();
 
     // Check if deleteImage flag is set on the resource
     if (this._deleteImage) {
-      opt.data = { deleteImage: true };
+      opt.data.deleteImage = true;
     }
 
     await super.remove(opt);

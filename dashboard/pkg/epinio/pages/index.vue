@@ -11,6 +11,7 @@ import { _MERGE } from '@shell/plugins/dashboard-store/actions';
 import EpinioCluster, { EpinioInfoPath } from '../models/epiniomgmt/epinio.io.management.cluster';
 import epinioAuth, { EpinioAuthTypes } from '../utils/auth';
 import { makeEmptyCell, makeStateTag } from '../utils/table-formatters';
+import LoginDialog from '../dialog/LoginDialog.vue';
 
 const store = useStore();
 const t = store.getters['i18n/t'];
@@ -20,7 +21,8 @@ const currentCluster = ref<EpinioCluster | null>(null);
 const allClusters = ref<any>(null);
 
 const loading = ref(true);
-const error = ref<Error | null>(null)
+const error = ref<Error | null>(null);
+const loginDialog = ref<InstanceType<typeof LoginDialog> | null>(null);
 
 const displayClusters = computed(() => {
   const formattedRancherClusters = allClusters.value.filter((cluster: any) => {
@@ -82,6 +84,24 @@ const rediscover = async (buttonCb: (success: boolean) => void)  => {
   buttonCb(true);
 }
 
+const openInstall = (c: EpinioCluster) => {
+  store.dispatch('cluster/promptModal', {
+    component:      'InstallDialog',
+    componentProps: {
+      cluster:   c,
+      onSuccess: () => {
+        store.dispatch(
+          `${ EPINIO_MGMT_STORE }/findAll`,
+          { type: EPINIO_TYPES.CLUSTER, opt: { force: true, load: _MERGE } },
+        ).then(() => {
+          clusters.value = store.getters[`${ EPINIO_MGMT_STORE }/all`](EPINIO_TYPES.CLUSTER);
+          clusters.value.forEach((cluster: EpinioCluster) => testCluster(cluster));
+        });
+      },
+    },
+  });
+};
+
 const login = async (c: EpinioCluster) =>{
   const isLoggedIn = await epinioAuth.isLoggedIn(c.createAuthConfig(EpinioAuthTypes.AGNOSTIC));
 
@@ -92,12 +112,7 @@ const login = async (c: EpinioCluster) =>{
     });
   } else {
     currentCluster.value = c;
-    store.dispatch('cluster/promptModal', {
-      component: 'LoginDialog',
-      componentProps: {
-        cluster: currentCluster.value,
-      },
-    });
+    loginDialog.value?.openLogin(currentCluster.value);
   }
 }
 
@@ -214,6 +229,25 @@ const columns = [
   {
     field: 'version',
     label: 'Version'
+  },
+  {
+    field: 'installEpinio',
+    label: null,
+    width: '150px',
+    sortable: false,
+    formatter: (_v: any, row: any) => {
+      if (row.state === 'uninstalled') {
+        const button = document.createElement('trailhand-button');
+
+        button.textContent = 'Install Epinio';
+        button.size = 'small';
+        button.addEventListener('button-click', () => openInstall(row));
+
+        return button;
+      }
+
+      return makeEmptyCell();
+    }
   }
 ];
 </script>
@@ -252,6 +286,7 @@ const columns = [
         key-field="id"
       />
     </div>
+    <LoginDialog ref="loginDialog" />
   </div>
 </template>
 
