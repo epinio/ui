@@ -279,24 +279,23 @@ function visibleNamespaceNames(): string[] {
 onMounted(async () => {
   window.addEventListener('resize', onResize);
 
+  const namespaces = visibleNamespaceNames();
+
+  await Promise.all([
+    store.dispatch('epinio/me'),
+    store.dispatch('epinio/findAll', { type: EPINIO_TYPES.CONFIGURATION }),
+    store.dispatch('epinio/findAll', { type: EPINIO_TYPES.SERVICE_INSTANCE }),
+    ...namespaces.map(ns => fetchNamespaceApps(ns, 1, false)),
+  ]);
+
   pending.value = false;
 
-  store.dispatch('epinio/me');
-
-  // Seed each namespace's first paginated page. loadCluster has already
-  // awaited findAll(NAMESPACE), so the list is available.
-  visibleNamespaceNames().forEach(ns => fetchNamespaceApps(ns, 1, false));
-  store.dispatch('epinio/findAll', { type: EPINIO_TYPES.CONFIGURATION });
-  store.dispatch('epinio/findAll', { type: EPINIO_TYPES.SERVICE_INSTANCE });
-
-  // Poll supporting resources
   startPolling(['namespaces', 'configurations', 'services'], store);
 
   if (store.$router.currentRoute._value.query.mode === 'openModal') {
     appModal.value?.openCreate();
   }
 
-  // Poll apps per namespace at their current page.
   appsPollIntervalId = window.setInterval(() => {
     visibleNamespaceNames().forEach(ns => {
       fetchNamespaceApps(ns, namespaceCurrentPages.value[ns] ?? 1, true);
@@ -314,8 +313,8 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <Loading v-if="pending" />
-  <div v-else class="outlet">
+  <!-- <Loading v-if="pending" /> -->
+  <div class="outlet">
     <Masthead
       :schema="schema"
       :resource="resource"
@@ -333,7 +332,30 @@ onUnmounted(() => {
       </template>
     </Masthead>
 
+    <div v-if="pending">
+      <div class="namespace-group-header">
+        <h3 class="namespace-header">
+          Loading applications...
+        </h3>
+        <input
+          disabled
+          type="text"
+          class="namespace-search-input"
+          placeholder="Search..."
+        >
+      </div>
+      <trailhand-table
+        :rows="[]"
+        :columns="columns"
+        :searchable="false"
+        :server-side="false"
+        :total-items="0"
+        :current-page="1"
+        :loading="true"
+      />
+    </div>
     <div
+      v-else
       v-for="ns in namespacesWithApps"
       :key="ns"
       class="namespace-group"

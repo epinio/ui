@@ -232,9 +232,10 @@ const columns = [
   },
   {
     field: 'installEpinio',
-    label: '',
+    label: null,
+    width: '150px',
+    sortable: false,
     formatter: (_v: any, row: any) => {
-      console.log('Row state for install button:', row);
       if (row.state === 'uninstalled') {
         const button = document.createElement('trailhand-button');
 
