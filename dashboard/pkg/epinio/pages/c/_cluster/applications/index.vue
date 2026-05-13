@@ -7,6 +7,7 @@ import Loading from '@shell/components/Loading';
 import Masthead from '@shell/components/ResourceList/Masthead';
 
 import AppModal from '../../../../components/application/AppModal.vue';
+import AppDeleteModal from '../../../../components/application/AppDeleteModal.vue';
 import ExportAppModal from '../../../../dialog/ExportAppModal.vue';
 import { EPINIO_TYPES } from '../../../../types';
 import { startPolling, stopPolling } from '../../../../utils/polling';
@@ -28,6 +29,7 @@ const resource = EPINIO_TYPES.APP;
 const schema = ref(store.getters['epinio/schemaFor'](resource));
 const appModal = ref<InstanceType<typeof AppModal> | null>(null);
 const exportAppModal = ref<InstanceType<typeof ExportAppModal> | null>(null);
+const deleteAppModal = ref<InstanceType<typeof AppDeleteModal> | null>(null);
 const canCreate = computed(() => {
   const canGetter = store.getters['epinio/can'];
   return canGetter && (
@@ -199,6 +201,7 @@ function getFilteredApps(apps: any[], namespace: string): any[] {
         const actions = [...row.availableActions];
         const goToEditIndex = actions.findIndex((a: any) => a.action === 'goToEdit');
         const exportAppIndex = actions.findIndex((a: any) => a.action === 'exportApp');
+        const deleteAppIndex = actions.findIndex((a: any) => a.action === 'promptRemove');
         const newEditAction = {
           action: 'goToEdit',
           label: 'Edit',
@@ -207,6 +210,11 @@ function getFilteredApps(apps: any[], namespace: string): any[] {
         const newExportAction = {
           action: 'exportApp',
           label: 'Export',
+          enabled: true
+        };
+        const newDeleteAction = {
+          action: 'deleteApp',
+          label: 'Delete',
           enabled: true
         };
         if (goToEditIndex !== -1 && canEdit.value) {
@@ -219,7 +227,13 @@ function getFilteredApps(apps: any[], namespace: string): any[] {
 
         if (exportAppIndex !== -1) {
           actions.splice(exportAppIndex, 1, newExportAction);
-        } 
+        }
+
+        if (deleteAppIndex !== -1 && canEdit.value) {
+          actions.splice(deleteAppIndex, 1, newDeleteAction);
+        } else if (deleteAppIndex !== -1 && !canEdit.value) {
+          actions.splice(deleteAppIndex, 1);
+        }
         return actions;
       },
       conditionFn: () => {
@@ -239,6 +253,15 @@ function getFilteredApps(apps: any[], namespace: string): any[] {
       prop: 'exportApp',
       value: (row: EpinioApplicationModel) => () => {
         exportAppModal.value?.openExport([row]);
+      },
+      conditionFn: () => {
+        return true;
+      },
+    },
+    {
+      prop: 'deleteApp',
+      value: (row: EpinioApplicationModel) => () => {
+        deleteAppModal.value?.openDelete(row);
       },
       conditionFn: () => {
         return true;
@@ -393,6 +416,7 @@ onUnmounted(() => {
     </div>
     <AppModal ref="appModal" />
     <ExportAppModal ref="exportAppModal" />
+    <AppDeleteModal ref="deleteAppModal" />
   </div>
 </template>
 
