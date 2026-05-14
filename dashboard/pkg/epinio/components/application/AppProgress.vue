@@ -103,11 +103,23 @@ const create = async () => {
     } catch (err) {
       running.value = false;
       console.error(err);
+      store.dispatch('growl/error', {
+        title: props.mode === 'edit' ? 'Application Update Failed' : 'Application Deployment Failed',
+        message: props.mode === 'edit'
+          ? `Your application ${props.application.meta.name} failed to update. Please try again. Error details: ${err instanceof Error ? err.message : String(err)}`
+          : `Your application ${props.application.meta.name} failed to deploy. Please try again. Error details: ${err instanceof Error ? err.message : String(err)}`,
+      });
       await fetchApp();
       return;
     }
   }
-
+  
+  store.dispatch('growl/success', {
+    title: props.mode === 'edit' ? 'Application Updated' : 'Application Deployed',
+    message: props.mode === 'edit'
+      ? `Your application ${props.application.meta.name} has been successfully updated.`
+      : `Your application ${props.application.meta.name} has been successfully deployed.`,
+  });
   await fetchApp();
   running.value = false;
   emit('finished', true);

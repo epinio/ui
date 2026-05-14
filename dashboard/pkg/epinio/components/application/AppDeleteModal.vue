@@ -32,6 +32,7 @@ async function onSubmitDelete() {
 
   deleting.value = true;
   errors.value = [];
+  const appName = appToDelete.value.meta.name;
 
   try {
     if (deleteFromRegistry.value) {
@@ -40,9 +41,17 @@ async function onSubmitDelete() {
 
     await appToDelete.value.remove();
     closeDelete();
+    store.dispatch('growl/success', {
+      title: 'Application Deleted',
+      message: `Your application ${appName} has been successfully deleted.`,
+    });
     store.dispatch('epinio/findAll', { type: EPINIO_TYPES.APP, opt: { force: true } });
   } catch (e: any) {
     errors.value = epinioExceptionToErrorsArray(e);
+    store.dispatch('growl/error', {
+      title: 'Application Deletion Failed',
+      message: `Failed to delete application ${appName}. Please try again. Error details: ${e instanceof Error ? e.message : String(e)}`,
+    });
   } finally {
     deleting.value = false;
   }
