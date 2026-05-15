@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watchEffect } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watchEffect, watch } from 'vue';
 import { useStore } from 'vuex';
+import { debounce } from 'lodash';
 import { useRouter } from 'vue-router';
 
 import { EPINIO_TYPES, EPINIO_SERVICE_PARAM } from '../types';
@@ -24,6 +25,8 @@ const resource: string = EPINIO_TYPES.SERVICE_INSTANCE;
 const paginationMeta = computed(() => store.getters['epinio/paginationMeta'](resource));
 const currentPage = computed(() => store.getters['epinio/currentPaginationPage'](resource));
 
+const searchQuery = ref<string>('');
+
 const paginating = ref(false);
 
 async function goToPage(page: number) {
@@ -37,6 +40,19 @@ async function goToPage(page: number) {
     paginating.value = false;
   }
 }
+
+const onSearch = debounce(async (query: string) => {
+  paginating.value = true;
+  try {
+    await store.dispatch('epinio/search', { type: resource, query });
+  } finally {
+    paginating.value = false;
+  }
+}, 500);
+
+watch(searchQuery, (newQuery) => {
+  onSearch(newQuery);
+});
 
 const serviceModal = ref<InstanceType<typeof ServiceInstanceModal> | null>(null);
 const deleteModal = ref<InstanceType<typeof ServiceDeleteModal> | null>(null);
@@ -214,11 +230,18 @@ const columns = [
         <div v-else />
       </template>
     </Masthead>
+    <div class="search-container">
+      <trailhand-text-input
+        :value="searchQuery"
+        placeholder="Search..."
+        @text-input-change="(e: CustomEvent) => searchQuery = e.detail.value"
+      ></trailhand-text-input>
+    </div>
     <trailhand-table
       :ref="(el: any) => { if (el) el.renderActions = makeActionMenu; }"
       :rows="displayRows"
       :columns="columns"
-      :searchable="true"
+      :searchable="false"
       :server-side="!!paginationMeta"
       :total-items="paginationMeta?.totalItems ?? displayRows.length"
       :current-page="currentPage"
@@ -233,6 +256,14 @@ const columns = [
 </template>
 
 <style lang="scss" scoped>
+
+.search-container {
+  width: 100%;
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 1rem;
+}
+
 trailhand-table {
   --sortable-table-row-hover-bg: var(--sortable-table-hover-bg);
   --sortable-table-header-hover-bg: var(--sortable-table-hover-bg);

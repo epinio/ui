@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useStore } from 'vuex';
-import { ref, onMounted, onUnmounted, computed, watchEffect } from 'vue';
+import { ref, onMounted, onUnmounted, computed, watchEffect, watch } from 'vue';
 import { EPINIO_TYPES } from '../types';
 import Banner from '@components/Banner/Banner.vue';
 import Masthead from '@shell/components/ResourceList/Masthead';
@@ -10,6 +10,7 @@ import { startPolling, stopPolling } from '../utils/polling';
 import { makeActionMenu } from '../utils/table-formatters';
 import EpinioNamespace from 'models/namespaces';
 import { overrideTableRows } from '../utils/table-formatters';
+import { debounce } from 'lodash';
 
 defineProps<{
   schema: object,
@@ -26,6 +27,8 @@ const displayRows = ref<EpinioNamespace[]>([]);
 const paginationMeta = computed(() => store.getters['epinio/paginationMeta'](resource));
 const currentPage = computed(() => store.getters['epinio/currentPaginationPage'](resource));
 
+const searchQuery = ref<string>('');
+
 const paginating = ref(false);
 
 async function goToPage(page: number) {
@@ -39,6 +42,19 @@ async function goToPage(page: number) {
     paginating.value = false;
   }
 }
+
+const onSearch = debounce(async (query: string) => {
+  paginating.value = true;
+  try {
+    await store.dispatch('epinio/search', { type: resource, query });
+  } finally {
+    paginating.value = false;
+  }
+}, 500);
+
+watch(searchQuery, (newQuery) => {
+  onSearch(newQuery);
+});
 
 const value = ref<EpinioNamespace>({ meta: { name: '' } } as EpinioNamespace);
 const showCreateModal = ref<boolean>(false);
@@ -131,6 +147,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   stopPolling(['namespaces', 'applications', 'configurations']);
+  store.dispatch('epinio/search', { type: resource, query: '' });
 });
 
 async function openCreateModal() {
@@ -257,6 +274,13 @@ const columns = [
         <div v-else></div>
       </template>
     </Masthead>
+    <div class="search-container">
+      <trailhand-text-input
+        :value="searchQuery"
+        placeholder="Search..."
+        @text-input-change="(e: CustomEvent) => searchQuery = e.detail.value"
+      ></trailhand-text-input>
+    </div>
     <trailhand-table
       :ref="(el: any) => { if (el) el.renderActions = makeActionMenu; }"
       :rows="displayRows"
@@ -265,6 +289,7 @@ const columns = [
       :total-items="paginationMeta?.totalItems ?? displayRows.length"
       :current-page="currentPage"
       :loading="paginating"
+      :searchable="false"
       key-field="_key"
       @page-change="(e: CustomEvent) => goToPage(e.detail.page)"
     />
@@ -359,6 +384,13 @@ const columns = [
   flex-direction: column;
   gap: 1rem;
   width: 500px;
+}
+
+.search-container {
+  width: 100%;
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 1rem;
 }
 
 trailhand-table {

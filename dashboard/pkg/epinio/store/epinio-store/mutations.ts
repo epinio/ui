@@ -42,4 +42,17 @@ export default {
     }
     state.paginationMeta[type] = meta;
   },
+
+  setSearchQuery(state: any, { type, query }: { type: string; query: string }) {
+    if (!state.searchQuery) {
+      state.searchQuery = {};
+    }
+    state.searchQuery[type] = query;
+  },
+
+  clearAll(state: any, type: string) {
+    if (state.types?.[type]) {
+      state.types[type].list = [];
+    }
+  },
 };

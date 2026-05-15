@@ -391,11 +391,16 @@ export default {
    * Does NOT touch global paginationMeta so per-namespace tables stay independent.
    * Returns { items: any[], meta: { page, pageSize, totalItems, totalPages } | null }
    */
-  findAppsInNamespace: async(ctx: any, { namespace, page = 1 }: { namespace: string; page?: number }) => {
+  findAppsInNamespace: async(ctx: any, { namespace, page = 1, search = '' }: { namespace: string; page?: number; search?: string }) => {
     const { dispatch } = ctx;
+    let url = `/api/v1/namespaces/${ namespace }/applications?page=${ page }&pageSize=10`;
+    if (search) {
+      url += `&search=${ search }`;
+    }
+
     const result = await dispatch('request', {
       opt: {
-        url:                 `/api/v1/namespaces/${ namespace }/applications?page=${ page }&pageSize=10`,
+        url:                 url,
         _skipPaginationMeta: true,
       },
       type: EPINIO_TYPES.APP,
@@ -416,6 +421,13 @@ export default {
 
   goToPage: async({ commit, dispatch }: any, { type, page }: SetPaginationPagePayload) => {
     commit('setPaginationPage', { type, page });
+    await dispatch('findAll', { type, opt: { force: true } });
+  },
+
+  search: async({ commit, dispatch }: any, { type, query }: { type: string; query: string }) => {
+    commit('setSearchQuery', { type, query });
+    commit('setPaginationPage', { type, page: 1 });
+    commit('clearAll', type);  // clear before fetch so merge starts from empty
     await dispatch('findAll', { type, opt: { force: true } });
   },
 

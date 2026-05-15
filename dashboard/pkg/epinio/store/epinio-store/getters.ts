@@ -64,6 +64,13 @@ export default {
         params.set('pageSize', '10');
       }
 
+      const search = state.searchQuery?.[type];
+      if (search) {
+        params.set('search', search);
+      } else {
+        params.delete('search');
+      }
+
       const qs = params.toString();
 
       return qs ? `${ path }?${ qs }` : path;
@@ -71,6 +78,8 @@ export default {
 
     return url;
   },
+
+  searchQuery: (state: any) => (type: string) => state.searchQuery?.[type] ?? '',
 
   // Return pagination meta for the given type, or null if not set. 
   // This is used by components to read pagination state for their API calls, which is managed globally in the store.
