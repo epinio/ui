@@ -115,7 +115,7 @@ const create = async () => {
   }
   
   store.dispatch('growl/success', {
-    title: props.mode === 'edit' ? 'Application Updated' : 'Application Deployed',
+    title: props.mode === 'edit' ? 'Application Updates Deployed' : 'Application Deployed',
     message: props.mode === 'edit'
       ? `Your application ${props.application.meta.name} has been successfully updated.`
       : `Your application ${props.application.meta.name} has been successfully deployed.`,
