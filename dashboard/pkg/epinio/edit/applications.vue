@@ -103,6 +103,11 @@ const hideEditConfigButton = computed(() => !canEditConfig.value);
 const validationPassed = computed(() => !Object.values(tabErrors).find((error) => error));
 
 const shouldRestartOnSave = computed(() => {
+  if (!props.value?.image_url) {
+    // No built image yet — persist config only; deploy/restart would fail on the API.
+    return false;
+  }
+
   const previousInstances = Number(props.initialValue?.configuration?.instances ?? props.initialValue?.desiredInstances ?? 0);
   const nextInstances = Number(props.value?.configuration?.instances ?? props.value?.desiredInstances ?? 0);
   const instancesChanged = previousInstances !== nextInstances;
