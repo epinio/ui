@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watchEffect } from 'vue';
 import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
 import { debounce } from 'lodash';
@@ -31,6 +31,7 @@ const schema = ref(store.getters['epinio/schemaFor'](resource));
 const appModal = ref<InstanceType<typeof AppModal> | null>(null);
 const exportAppModal = ref<InstanceType<typeof ExportAppModal> | null>(null);
 const deleteAppModal = ref<InstanceType<typeof AppDeleteModal> | null>(null);
+const currentNamespace = computed(() => store.getters['epinio/activeNamespace']);
 const canCreate = computed(() => {
   const canGetter = store.getters['epinio/can'];
   return canGetter && (
@@ -46,35 +47,6 @@ const canEdit = computed(() => {
 
 const pending = ref(true);
 
-// ── Global store rows ────────────────────────────────────────────────────────
-// ONE global findAll seeds the initial display instantly (no page params →
-// backend returns all apps). Touch reactive properties so _MERGE polling
-// updates that mutate items in-place are tracked by Vue.
-const rows = computed(() => {
-  const all = store.getters['epinio/all'](EPINIO_TYPES.APP) as any[];
-
-  all.forEach((row: any) => { void row.stateDisplay; void row.meta; });
-
-  return [...all];
-});
-
-// Groups all apps by namespace respecting the active namespace filter.
-const groupedByNamespace = computed(() => {
-  void store.state.activeNamespaceCacheKey;
-  const activeNamespaces = store.state.activeNamespaceCache;
-  const groups: Record<string, any[]> = {};
-
-  rows.value.forEach((app: any) => {
-    const namespace = app.meta?.namespace || 'default';
-    if (!activeNamespaces || Object.keys(activeNamespaces).length === 0 || activeNamespaces[namespace]) {
-      if (!groups[namespace]) groups[namespace] = [];
-      groups[namespace].push(app);
-    }
-  });
-
-  return groups;
-});
-
 // Per-namespace pagination state
 
 type PaginationMeta = { page: number; pageSize: number; totalItems: number; totalPages: number };
@@ -87,7 +59,7 @@ const namespaceCurrentPages = ref<Record<string, number>>({});
 // Returns the best available rows for a namespace: namespace-specific once
 // fetched, global store rows before that (instant initial display).
 function getDisplayRows(ns: string): any[] {
-  return namespaceRows.value[ns] ?? groupedByNamespace.value[ns] ?? [];
+  return namespaceRows.value[ns] ?? [];
 }
 
 // silent=true → skip loading overlay (polling and background meta seeding)
@@ -116,11 +88,15 @@ async function handlePageChange(event: CustomEvent, namespace: string) {
 }
 
 // Only render namespace groups that have apps in either source.
-const namespacesWithApps = computed(() => {
-  const fromGlobal   = Object.keys(groupedByNamespace.value);
-  const fromSpecific = Object.keys(namespaceRows.value);
-
-  return [...new Set([...fromGlobal, ...fromSpecific])].sort();
+const activeNamespaces = computed(() => {
+  void store.state.activeNamespaceCacheKey;
+  const active = store.state.activeNamespaceCache;
+  const namespaces = [...new Set([...Object.keys(namespaceRows.value)])].filter(ns => {
+    if (!active || Object.keys(active).length === 0) return true;
+    const isActive = active[ns];
+    return isActive;
+  });
+  return namespaces.sort();
 });
 
 // Responsive columns
@@ -373,7 +349,7 @@ onUnmounted(() => {
     </div>
     <div
       v-else
-      v-for="ns in namespacesWithApps"
+      v-for="ns in activeNamespaces"
       :key="ns"
       class="namespace-group"
     >
