@@ -271,6 +271,15 @@ function visibleNamespaceNames(): string[] {
     .filter((n: string) => !!n);
 }
 
+function handleDeleted(app: any) {
+  const ns = app.meta.namespace;
+
+  namespaceRows.value[ns] =
+    (namespaceRows.value[ns] || []).filter(
+      (a) => a.id !== app.id
+    );
+}
+
 onMounted(async () => {
   window.addEventListener('resize', onResize);
 
@@ -385,7 +394,7 @@ onUnmounted(() => {
     </div>
     <AppModal ref="appModal" />
     <ExportAppModal ref="exportAppModal" />
-    <AppDeleteModal ref="deleteAppModal" />
+    <AppDeleteModal ref="deleteAppModal" @deleted="handleDeleted" />
   </div>
 </template>
 
