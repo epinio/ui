@@ -152,7 +152,7 @@ const allColumns = [
   {
     field: 'nameDisplay',
     label: 'Name',
-    width: '200px',
+    width: '300px',
     formatter: (_v: any, row: any) => {
       const el = document.createElement('a');
 
@@ -166,6 +166,11 @@ const allColumns = [
 
       return el;
     }
+  },
+  {
+    field: 'namespace',
+    label: 'Namespace',
+    width: '100px',
   },
   {
     field: 'boundApps',
