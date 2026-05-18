@@ -728,6 +728,8 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
         configurations: this.configuration.configurations,
         settings:       pickBy(this.configuration?.settings, identity) || null,
         environment:    this.configuration.environment,
+        // Replace the full env map so removals and renames match the form (API merges by default).
+        replace_env:    true,
         routes:         this.configuration.routes,
       }
     });

@@ -281,7 +281,7 @@ async function onSubmit() {
   try {
     if (isEdit.value) {
       // Always save metadata/config changes
-      await value.value.update();
+      await value.value.update({ restart: !!value.value.canRestartAfterConfigSave });
       await value.value.updateConfigurations(
         originalModel.value.baseConfigurationsNames || [],
         bindings.value?.configurations || [],
