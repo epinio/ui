@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watchEffect } from 'vue';
 import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
+import { debounce } from 'lodash';
 
 import Loading from '@shell/components/Loading';
 import Masthead from '@shell/components/ResourceList/Masthead';
@@ -30,6 +31,7 @@ const schema = ref(store.getters['epinio/schemaFor'](resource));
 const appModal = ref<InstanceType<typeof AppModal> | null>(null);
 const exportAppModal = ref<InstanceType<typeof ExportAppModal> | null>(null);
 const deleteAppModal = ref<InstanceType<typeof AppDeleteModal> | null>(null);
+const currentNamespace = computed(() => store.getters['epinio/activeNamespace']);
 const canCreate = computed(() => {
   const canGetter = store.getters['epinio/can'];
   return canGetter && (
@@ -45,35 +47,6 @@ const canEdit = computed(() => {
 
 const pending = ref(true);
 
-// ── Global store rows ────────────────────────────────────────────────────────
-// ONE global findAll seeds the initial display instantly (no page params →
-// backend returns all apps). Touch reactive properties so _MERGE polling
-// updates that mutate items in-place are tracked by Vue.
-const rows = computed(() => {
-  const all = store.getters['epinio/all'](EPINIO_TYPES.APP) as any[];
-
-  all.forEach((row: any) => { void row.stateDisplay; void row.meta; });
-
-  return [...all];
-});
-
-// Groups all apps by namespace respecting the active namespace filter.
-const groupedByNamespace = computed(() => {
-  void store.state.activeNamespaceCacheKey;
-  const activeNamespaces = store.state.activeNamespaceCache;
-  const groups: Record<string, any[]> = {};
-
-  rows.value.forEach((app: any) => {
-    const namespace = app.meta?.namespace || 'default';
-    if (!activeNamespaces || Object.keys(activeNamespaces).length === 0 || activeNamespaces[namespace]) {
-      if (!groups[namespace]) groups[namespace] = [];
-      groups[namespace].push(app);
-    }
-  });
-
-  return groups;
-});
-
 // Per-namespace pagination state
 
 type PaginationMeta = { page: number; pageSize: number; totalItems: number; totalPages: number };
@@ -86,18 +59,20 @@ const namespaceCurrentPages = ref<Record<string, number>>({});
 // Returns the best available rows for a namespace: namespace-specific once
 // fetched, global store rows before that (instant initial display).
 function getDisplayRows(ns: string): any[] {
-  return namespaceRows.value[ns] ?? groupedByNamespace.value[ns] ?? [];
+  return namespaceRows.value[ns] ?? [];
 }
 
 // silent=true → skip loading overlay (polling and background meta seeding)
-async function fetchNamespaceApps(namespace: string, page = 1, silent = false) {
+async function fetchNamespaceApps(namespace: string, page = 1, search='', silent = false) {
   if (!silent) {
     namespaceLoading.value = { ...namespaceLoading.value, [namespace]: true };
+    // Clear rows so stale data doesn't show if search returns empty
+    namespaceRows.value = { ...namespaceRows.value, [namespace]: [] };
   }
   namespaceCurrentPages.value = { ...namespaceCurrentPages.value, [namespace]: page };
 
   try {
-    const { items, meta } = await store.dispatch('epinio/findAppsInNamespace', { namespace, page });
+    const { items, meta } = await store.dispatch('epinio/findAppsInNamespace', { namespace, page, search });
 
     namespaceRows.value = { ...namespaceRows.value, [namespace]: items };
     namespaceMeta.value = { ...namespaceMeta.value, [namespace]: meta };
@@ -113,11 +88,15 @@ async function handlePageChange(event: CustomEvent, namespace: string) {
 }
 
 // Only render namespace groups that have apps in either source.
-const namespacesWithApps = computed(() => {
-  const fromGlobal   = Object.keys(groupedByNamespace.value).filter(ns => groupedByNamespace.value[ns].length > 0);
-  const fromSpecific = Object.keys(namespaceRows.value).filter(ns => (namespaceRows.value[ns]?.length ?? 0) > 0);
-
-  return [...new Set([...fromGlobal, ...fromSpecific])].sort();
+const activeNamespaces = computed(() => {
+  void store.state.activeNamespaceCacheKey;
+  const active = store.state.activeNamespaceCache;
+  const namespaces = [...new Set([...Object.keys(namespaceRows.value)])].filter(ns => {
+    if (!active || Object.keys(active).length === 0) return true;
+    const isActive = active[ns];
+    return isActive;
+  });
+  return namespaces.sort();
 });
 
 // Responsive columns
@@ -183,13 +162,17 @@ const columns = computed(() => {
 
 const searchQueries = ref<Record<string, string>>({});
 
-function getNestedValue(obj: any, path: string): any {
-  return path.split('.').reduce((current, key) => current?.[key], obj);
+const onNamespaceSearch = debounce(async (namespace: string, query: string) => {
+  // Reset to page 1 on new search
+  await fetchNamespaceApps(namespace, 1, query, false);
+}, 300);
+
+function handleSearchInput(namespace: string, query: string) {
+  searchQueries.value[namespace] = query;
+  onNamespaceSearch(namespace, query);
 }
 
-function getFilteredApps(apps: any[], namespace: string): any[] {
-  const query = (searchQueries.value[namespace] || '').toLowerCase().trim();
-
+function getApps(apps: any[], namespace: string): any[] {
   // Only inject the modal-driven Edit action when the current user actually
   // has app write permissions; otherwise the model's filter has already
   // removed goToEdit and we shouldn't add it back.
@@ -269,19 +252,8 @@ function getFilteredApps(apps: any[], namespace: string): any[] {
     }
 
   ];
-  if (!query) {
-    return overrideTableRows(apps, overrideProps);
-  }
 
-  const filteredApps = apps.filter(app =>
-    columns.value.some((col: { field: string }) => {
-      const value = String(getNestedValue(app, col.field) ?? '');
-
-      return value.toLowerCase().includes(query);
-    })
-  );
-
-  return overrideTableRows(filteredApps, overrideProps);
+  return overrideTableRows(apps, overrideProps);
 }
 
 const handleNavigate = (event: CustomEvent) => router.push(event.detail.url);
@@ -299,6 +271,15 @@ function visibleNamespaceNames(): string[] {
     .filter((n: string) => !!n);
 }
 
+function handleDeleted(app: any) {
+  const ns = app.meta.namespace;
+
+  namespaceRows.value[ns] =
+    (namespaceRows.value[ns] || []).filter(
+      (a) => a.id !== app.id
+    );
+}
+
 onMounted(async () => {
   window.addEventListener('resize', onResize);
 
@@ -308,7 +289,7 @@ onMounted(async () => {
     store.dispatch('epinio/me'),
     store.dispatch('epinio/findAll', { type: EPINIO_TYPES.CONFIGURATION }),
     store.dispatch('epinio/findAll', { type: EPINIO_TYPES.SERVICE_INSTANCE }),
-    ...namespaces.map(ns => fetchNamespaceApps(ns, 1, false)),
+    ...namespaces.map(ns => fetchNamespaceApps(ns, 1, '', false)),
   ]);
 
   pending.value = false;
@@ -321,7 +302,7 @@ onMounted(async () => {
 
   appsPollIntervalId = window.setInterval(() => {
     visibleNamespaceNames().forEach(ns => {
-      fetchNamespaceApps(ns, namespaceCurrentPages.value[ns] ?? 1, true);
+      fetchNamespaceApps(ns, namespaceCurrentPages.value[ns] ?? 1, searchQueries.value[ns] ?? '', true);
     });
   }, APPS_POLL_RATE_MS);
 });
@@ -360,12 +341,10 @@ onUnmounted(() => {
         <h3 class="namespace-header">
           Loading applications...
         </h3>
-        <input
+        <trailhand-text-input
           disabled
-          type="text"
-          class="namespace-search-input"
           placeholder="Search..."
-        >
+        ></trailhand-text-input>
       </div>
       <trailhand-table
         :rows="[]"
@@ -379,7 +358,7 @@ onUnmounted(() => {
     </div>
     <div
       v-else
-      v-for="ns in namespacesWithApps"
+      v-for="ns in activeNamespaces"
       :key="ns"
       class="namespace-group"
     >
@@ -387,12 +366,11 @@ onUnmounted(() => {
         <h3 class="namespace-header">
           Namespace: <span class="namespace-name">{{ ns }}</span>
         </h3>
-        <input
-          v-model="searchQueries[ns]"
-          type="text"
-          class="namespace-search-input"
+        <trailhand-text-input
+          :value="searchQueries[ns] ?? ''"
           placeholder="Search..."
-        >
+          @text-input-change="(e: CustomEvent) => handleSearchInput(ns, (e.target as HTMLInputElement).value)"
+        ></trailhand-text-input>
       </div>
 
       <!--
@@ -403,7 +381,7 @@ onUnmounted(() => {
       -->
       <trailhand-table
         :ref="(el: any) => { if (el) el.renderActions = makeActionMenu; }"
-        :rows="getFilteredApps(getDisplayRows(ns), ns)"
+        :rows="getApps(getDisplayRows(ns), ns)"
         :columns="columns"
         :searchable="false"
         :server-side="!!namespaceMeta[ns]"
@@ -416,7 +394,7 @@ onUnmounted(() => {
     </div>
     <AppModal ref="appModal" />
     <ExportAppModal ref="exportAppModal" />
-    <AppDeleteModal ref="deleteAppModal" />
+    <AppDeleteModal ref="deleteAppModal" @deleted="handleDeleted" />
   </div>
 </template>
 

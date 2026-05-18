@@ -39,6 +39,7 @@ async function onSubmitDelete() {
     }
 
     await appToDelete.value.remove();
+    emit('deleted', appToDelete.value);
     closeDelete();
     store.dispatch('epinio/findAll', { type: EPINIO_TYPES.APP, opt: { force: true } });
   } catch (e: any) {
@@ -49,6 +50,7 @@ async function onSubmitDelete() {
 }
 
 defineExpose({ openDelete });
+const emit = defineEmits(['deleted']);
 </script>
 
 <template>

@@ -41,7 +41,17 @@ const fileDialogActive = ref(false);
 
 // Computed properties
 const namespaces = computed(() => {
-  return sortBy(store.getters['epinio/all'](EPINIO_TYPES.NAMESPACE), 'name', false);
+  void store.state.activeNamespaceCacheKey;
+  const active = store.state.activeNamespaceCache;
+  const activeNamespaces = store.getters['epinio/all'](EPINIO_TYPES.NAMESPACE).filter((ns: EpinioNamespace) => {
+    if (!active || Object.keys(active).length === 0) return true;
+    const isActive = active[ns.metadata.name];
+    return isActive;
+  });
+  if (activeNamespaces.length === 1) {
+    handleNameNsUpdate({ metadata: { namespace: activeNamespaces[0].metadata.name } });
+  }
+  return sortBy(activeNamespaces, 'name', false);
 });
 
 const namespaceNames = computed(() => namespaces.value.map((n: EpinioNamespace) => ({

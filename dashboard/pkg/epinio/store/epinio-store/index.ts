@@ -14,6 +14,8 @@ const epinioFactory = (): CoreStoreSpecifics => {
         paginationPage: {} as Record<string, number>,
         // Last pagination meta from API (totalPages, totalItems, etc.) per resource type
         paginationMeta: {} as Record<string, { page: number; pageSize: number; totalItems: number; totalPages: number }>,
+        // Search query per resource type for list requests
+        searchQuery: {} as Record<string, string>
       };
     },
 
