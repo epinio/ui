@@ -133,7 +133,7 @@ watch(() => props.active, (isActive) => {
       chart: moveBooleansToFront(props.application.chart?.settings) || {},
       configuration: {
         configurations: props.application.configuration?.configurations || [],
-        instances: props.application.configuration?.instances || 1,
+        instances: props.application.configuration?.instances ?? 1,
         environment: props.application.configuration?.environment || {},
         settings: props.application.configuration?.settings || {},
         routes: props.application.configuration?.routes || [],

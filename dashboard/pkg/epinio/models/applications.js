@@ -127,6 +127,10 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
     return !!(base && canEditConfig);
   }
 
+  get canRestartAfterConfigSave() {
+    return this.status === STATES.RUNNING && !!this.image_url;
+  }
+
   get details() {
     const res = [];
 

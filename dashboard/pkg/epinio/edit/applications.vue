@@ -102,6 +102,14 @@ const canEditConfig = computed(() => {
 const hideEditConfigButton = computed(() => !canEditConfig.value);
 const validationPassed = computed(() => !Object.values(tabErrors).find((error) => error));
 
+const shouldRestartOnSave = computed(() => {
+  const previousInstances = Number(props.initialValue?.configuration?.instances ?? props.initialValue?.desiredInstances ?? 0);
+  const nextInstances = Number(props.value?.configuration?.instances ?? props.value?.desiredInstances ?? 0);
+  const instancesChanged = previousInstances !== nextInstances;
+
+  return props.value?.canRestartAfterConfigSave || instancesChanged;
+});
+
 const done = () => {
   if (!doneRoute) {
     return;
@@ -117,7 +125,7 @@ const done = () => {
 async function save(saveCb: (success: boolean) => void) {
   errors.value = [];
   try {
-    await props.value.update();
+    await props.value.update({ restart: shouldRestartOnSave.value });
 
     await props.value.updateConfigurations(
       props.initialValue.baseConfigurationsNames || [],
