@@ -336,7 +336,7 @@ onUnmounted(() => {
       </template>
     </Masthead>
 
-    <div v-if="pending">
+    <div v-if="pending" class="namespace-group">
       <div class="namespace-group-header">
         <h3 class="namespace-header">
           Loading applications...
@@ -402,15 +402,15 @@ onUnmounted(() => {
 .namespace-group {
   margin-bottom: 2rem;
 
-  &:last-child {
-    margin-bottom: 0;
-  }
-
   trailhand-table {
     --sortable-table-row-hover-bg: var(--sortable-table-hover-bg);
     --sortable-table-header-hover-bg: var(--sortable-table-hover-bg);
     --sortable-table-header-sorted-bg: var(--sortable-table-hover-bg);
     overflow-wrap: anywhere;
+  }
+
+  &:last-child {
+    margin-bottom: 0;
   }
 }
 
