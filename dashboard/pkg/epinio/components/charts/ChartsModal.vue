@@ -8,6 +8,7 @@ import { validateKubernetesName } from '@shell/utils/validators/kubernetes-name'
 import { objValuesToString } from '../../utils/settings';
 import Banner from '@components/Banner/Banner.vue';
 import ChartValues from '../settings/ChartValues.vue';
+import YamlEditor from './YamlEditor.vue';
 
 import isEqual from 'lodash/isEqual';
 import sortBy from 'lodash/sortBy';
@@ -32,6 +33,20 @@ const chartValues = reactive<Record<string, any>>({});
 const validChartValues = ref<Record<string, boolean>>({});
 const saving = ref(false);
 const errors = ref<string[]>([]);
+
+const manifestYaml = ref('');
+const yamlError = ref('');
+
+function onYamlChange(value: string) {
+  manifestYaml.value = value;
+  yamlError.value = '';
+  try {
+    const parsed = jsyaml.load(value);
+    onManifestFileSelected(parsed);
+  } catch (e) {
+    yamlError.value = 'Invalid YAML';
+  }
+}
 
 // Captured separately so background list polls (which omit internal_routes) can't wipe it
 const internalRoutes = ref<string[]>([]);
@@ -336,6 +351,12 @@ defineExpose({ openCreate, openEdit, openView });
     @modal-close="handleModalClose"
   >
     <div class="modal-content">
+
+        <YamlEditor
+            :value="manifestYaml"
+            placeholder="Paste or type your manifest YAML here..."
+            @update:value="onYamlChange"
+        />
       
 
       <Banner

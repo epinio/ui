@@ -2,7 +2,6 @@ const config = require("@rancher/shell/vue.config"); // eslint-disable-line @typ
 
 const baseConfig = config(__dirname, {
   excludes: [],
-  // excludes: ['fleet', 'example']
 });
 
 module.exports = {
@@ -18,5 +17,10 @@ module.exports = {
           isCustomElement: (tag) => tag.startsWith("trailhand-"),
         },
       }));
+
+    config.resolve.alias.set(
+      '@codemirror/state',
+      require.resolve('@codemirror/state')
+    );
   },
 };
