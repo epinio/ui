@@ -154,6 +154,7 @@ export function init($plugin: any, store: any) {
     showState:   false,
     canYaml:     false,
     customRoute: createEpinioRoute('c-cluster-resource', { resource: EPINIO_TYPES.APP_CHARTS }),
+    showListMasthead: false // Disable default masthead because we provide a custom one.
   });
 
   // Configuration resource
