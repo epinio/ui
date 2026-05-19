@@ -20,7 +20,7 @@ import { EpinioAppSource, EPINIO_TYPES, EpinioAppInfo, EpinioAppBindings } from 
 import { allHash } from '@shell/utils/promise';
 import { _EDIT } from '@shell/config/query-params';
 
-const props = defineProps<{ 
+const props = defineProps<{
   value: Application;
   initialValue: Application;
   mode: string;
@@ -105,13 +105,13 @@ const validationPassed = computed(() => {
   return tabsValid;
 });
 
-// const shouldRestartOnSave = computed(() => {
-//   const previousInstances = Number(props.initialValue?.configuration?.instances ?? props.initialValue?.desiredInstances ?? 0);
-//   const nextInstances = Number(props.value?.configuration?.instances ?? props.value?.desiredInstances ?? 0);
-//   const instancesChanged = previousInstances !== nextInstances;
+/*const shouldRestartOnSave = computed(() => {
+  const previousInstances = Number(props.initialValue?.configuration?.instances ?? props.initialValue?.desiredInstances ?? 0);
+  const nextInstances = Number(props.value?.configuration?.instances ?? props.value?.desiredInstances ?? 0);
+  const instancesChanged = previousInstances !== nextInstances;
 
-//   return props.value?.canRestartAfterConfigSave || instancesChanged;
-// });
+  return props.value?.canRestartAfterConfigSave || instancesChanged;
+});*/
 
 // Only restart/redeploy when the app is running and has a built image.
 // Created, staging, error, etc. should persist config with restart: false (env, routes, instances).
@@ -270,7 +270,7 @@ function validate(value: boolean, tab: string) {
           </Wizard>
         </div>
       </Tab>
-      
+
       <Tab
         label-key="epinio.applications.steps.basics.label"
         name="info"
