@@ -1,26 +1,47 @@
 import { isArray } from '@shell/utils/array';
 
 export function epinioExceptionToErrorsArray(err: any): any {
-  if (err?.errors?.length === 1) {
-    return epinioExceptionToErrorsArray(err?.errors[0]);
-  }
-
-  if ( err?.response?.data ) {
-    const body = err.response.data;
-
-    if ( body && body.message ) {
-      return [body.message];
-    } else {
-      return [err];
+  const formatError = (item: any) => {
+    if (!item) {
+      return '';
     }
-  } else if (err.status && err.title) {
-    const title = err.title;
-    const detail = err.detail ? ` - ${ err.detail }` : '';
 
-    return [`${ title }${ detail }`];
-  } else if ( isArray(err) ) {
-    return err;
-  } else {
-    return [err];
+    if (typeof item === 'string') {
+      return item;
+    }
+
+    const status = item.status ? `[${ item.status }] ` : '';
+    const title = item.title || item.message || '';
+    const details = item.details || item.detail || '';
+
+    return `${ status }${ title }${ details ? ` - ${ details }` : '' }`.trim();
+  };
+
+  const normalize = (input: any): string[] => {
+    if (!input) {
+      return ['Unknown error'];
+    }
+
+    if (isArray(input)) {
+      return input.map(formatError).filter(Boolean);
+    }
+
+    if (input?.errors && isArray(input.errors)) {
+      return input.errors.map(formatError).filter(Boolean);
+    }
+
+    if (input?.message) {
+      return [input.message];
+    }
+
+    const formatted = formatError(input);
+
+    return formatted ? [formatted] : ['Unknown error'];
+  };
+
+  if (err?.response?.data) {
+    return normalize(err.response.data);
   }
+
+  return normalize(err);
 }
