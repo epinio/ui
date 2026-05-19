@@ -12,13 +12,13 @@ export const BLANK_CLUSTER = '_';
 // function to watch epinio route so css overrides only apply on epinio pages
 const watchEpinioRoute = () => {
   const observer = new MutationObserver(() => {
-    const isEpinio = window.location.pathname.includes('epinio');
+    const isEpinio = window.location.pathname.startsWith('/epinio');
     document.body.classList.toggle('epinio-active', isEpinio);
   });
 
   observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
   
-  document.body.classList.toggle('epinio-active', window.location.pathname.includes('epinio'));
+  document.body.classList.toggle('epinio-active', window.location.pathname.startsWith('/epinio'));
 }
 
 export function init($plugin: any, store: any) {
