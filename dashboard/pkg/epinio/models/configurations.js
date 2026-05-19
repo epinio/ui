@@ -55,7 +55,9 @@ export default class EpinioConfigurationModel extends EpinioNamespacedResource {
     return !this.isServiceRelated && canDelete && super._canDelete;
   }
 
-  // ------------------------------------------------------------------
+  get namespace() {
+    return this.meta?.namespace;
+  }
 
   get links() {
     return {

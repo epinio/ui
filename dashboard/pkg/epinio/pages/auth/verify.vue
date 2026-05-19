@@ -20,7 +20,7 @@ onMounted(async () => {
     console.error('Dex indicates failure', error);
   } else {
     await epinioAuth.dexRedirect(store.$router.currentRoute, {
-      dexUrl:       document.referrer,
+      dexUrl:       sessionStorage.getItem('epinio-dex-url') || document.referrer,
       dashboardUrl: dashboardUrl()
     });
   }

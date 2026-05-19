@@ -5,7 +5,6 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { EPINIO_TYPES } from '../types'
 
 import Loading from '@shell/components/Loading.vue'
-import SelectIconGrid from '@shell/components/SelectIconGrid.vue'
 import { startPolling, stopPolling } from '../utils/polling';
 
 const store = useStore()
@@ -43,32 +42,33 @@ const showDetails = (chart: any) => {
   store.$router.push(chart.detailLocation)
 }
 
-const colorFor = () => {
-  return `color-1`
-}
 </script>
 
 <template>
   <Loading v-if="pending" />
   <div v-else>
-    <div class="filter-block">
-      <input
+    <div class="filter-block" id="modal-container-element">
+      <trailhand-text-input
         v-model="searchQuery"
         type="search"
         class="input-sm"
         :placeholder="t('catalog.charts.search')"
-      >
+      />
     </div>
 
-    <SelectIconGrid
-      :rows="list"
-      :color-for="colorFor"
-      name-field="name"
-      icon-field="serviceIcon"
-      key-field="name"
-      description-field="short_description"
-      @clicked="(row) => showDetails(row)"
-    />
+    <div class="cards-container">
+      <trailhand-card
+        v-for="service in list"
+        :key="service.id"
+        :card-title="service.meta.name"
+        :description="service.short_description"
+        :icon-src="service.serviceIcon ? service.serviceIcon : null"
+        :icon-name="service.serviceIcon ? null : 'database'"
+        clickable
+        @click="showDetails(service)"
+      >
+    </trailhand-card>
+    </div>
   </div>
 </template>
 
@@ -78,6 +78,25 @@ const colorFor = () => {
   justify-content: flex-end;
   input {
     width: 315px;
+  }
+}
+
+.cards-container {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-top: 16px;
+}
+
+@media (max-width: 992px) {
+  .cards-container {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .cards-container {
+    grid-template-columns: repeat(1, 1fr);
   }
 }
 </style>

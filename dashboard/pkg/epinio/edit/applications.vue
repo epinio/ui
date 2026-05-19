@@ -113,6 +113,10 @@ const shouldRestartOnSave = computed(() => {
   return props.value?.canRestartAfterConfigSave || instancesChanged;
 });
 
+// Only restart/redeploy when the app is running and has a built image.
+// Created, staging, error, etc. should persist config with restart: false (env, routes, instances).
+const shouldRestartOnSave = computed(() => !!props.value?.canRestartAfterConfigSave);
+
 const done = () => {
   if (!doneRoute) {
     return;
@@ -161,6 +165,7 @@ function updateInfo(changes: EpinioAppInfo) {
   props.value.configuration = props.value.configuration || {};
   set(props.value.meta, changes.meta);
   set(props.value.configuration, changes.configuration);
+  setUnsavedChanges(true);
 }
 
 function updateConfigurations(changes: EpinioAppBindings) {
