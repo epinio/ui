@@ -283,14 +283,20 @@ function handleDeleted(app: any) {
 onMounted(async () => {
   window.addEventListener('resize', onResize);
 
-  const namespaces = visibleNamespaceNames();
-
-  await Promise.all([
+  const [,,, grouped] = await Promise.all([
     store.dispatch('epinio/me'),
     store.dispatch('epinio/findAll', { type: EPINIO_TYPES.CONFIGURATION }),
     store.dispatch('epinio/findAll', { type: EPINIO_TYPES.SERVICE_INSTANCE }),
-    ...namespaces.map(ns => fetchNamespaceApps(ns, 1, '', false)),
+    store.dispatch('epinio/findGroupedApps'),
   ]);
+
+  // ?? {} so a failed grouped fetch degrades to an empty loop rather than throwing
+  for (const [ns, nsData] of Object.entries(grouped ?? {})) {
+    const { items, meta } = nsData as { items: any[]; meta: any };
+    // spread-replace instead of direct mutation so Vue tracks the change
+    namespaceRows.value  = { ...namespaceRows.value,  [ns]: items };
+    namespaceMeta.value  = { ...namespaceMeta.value,  [ns]: meta };
+  }
 
   pending.value = false;
 
