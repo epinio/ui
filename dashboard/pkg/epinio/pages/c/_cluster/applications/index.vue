@@ -306,10 +306,17 @@ onMounted(async () => {
     appModal.value?.openCreate();
   }
 
-  appsPollIntervalId = window.setInterval(() => {
-    visibleNamespaceNames().forEach(ns => {
-      fetchNamespaceApps(ns, namespaceCurrentPages.value[ns] ?? 1, searchQueries.value[ns] ?? '', true);
-    });
+  appsPollIntervalId = window.setInterval(async() => {
+    // Sequential await respects per-namespace page/search state and avoids
+    // firing all calls simultaneously through the k8s client rate limiter.
+    for (const ns of visibleNamespaceNames()) {
+      await fetchNamespaceApps(
+        ns,
+        namespaceCurrentPages.value[ns] ?? 1,
+        searchQueries.value[ns] ?? '',
+        true,
+      );
+    }
   }, APPS_POLL_RATE_MS);
 });
 
