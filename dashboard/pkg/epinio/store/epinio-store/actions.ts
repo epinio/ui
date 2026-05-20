@@ -386,6 +386,54 @@ export default {
     return info;
   },
 
+
+  /**
+   * Fetch page 1 of apps for every namespace in a single server call.
+   * Returns a map of namespace → { items, meta } matching findAppsInNamespace's shape.
+   * Falls back to an empty map on error so the UI can degrade gracefully.
+   */
+  findGroupedApps: async(
+    ctx: any,
+    { page = 1, pageSize = 10, search = '' }: {
+      page?: number;
+      pageSize?: number;
+      search?: string
+    } = {}
+  ) => {
+    const { dispatch } = ctx;
+    let url = `/api/v1/applications/grouped?page=${ page }&pageSize=${ pageSize }`;
+    if (search) {
+      url += `&search=${ encodeURIComponent(search) }`;
+    }
+
+    // The request action runs epiniofy on the response, which spreads the namespace
+    // map and injects id/type keys. The guard below skips those non-namespace entries.
+    const grouped: Record<string, any> =
+      await dispatch('request', { opt: { url, _skipPaginationMeta: true } }) ?? {};
+
+    const appSchema = ctx.getters.schemaFor(EPINIO_TYPES.APP);
+    const result: Record<string, { items: any[]; meta: any }> = {};
+    for (const [ns, nsData] of Object.entries(grouped)) {
+      if (!nsData || typeof nsData !== 'object' || !Array.isArray((nsData as any).items)) {
+        continue;
+      }
+      const items = (nsData.items ?? []).map((item: any) =>
+        classify(ctx, epiniofy(item, appSchema, EPINIO_TYPES.APP))
+      );
+      result[ns] = {
+        items,
+        meta: {
+          page:       nsData.page,
+          pageSize:   nsData.pageSize,
+          totalItems: nsData.totalItems,
+          totalPages: nsData.totalPages,
+        },
+      };
+    }
+
+    return result;
+  },
+
   /**
    * Fetch a single page of applications scoped to a specific namespace.
    * Does NOT touch global paginationMeta so per-namespace tables stay independent.
