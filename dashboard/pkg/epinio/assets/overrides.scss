@@ -81,6 +81,7 @@ body.epinio-active {
                     color: var(--th-color-text-secondary);
                     justify-content: start;
                     margin: 0;
+                    font-family: 'Poppins', sans-serif;
                 }
 
                 // Reset rancher's router-link-active styles when it's not exact active
@@ -125,6 +126,7 @@ body.epinio-active {
                             display: flex;
                             justify-content: start;
                             gap: 5px;
+                            font-family: 'Poppins', sans-serif;
                         }
                     }
 
