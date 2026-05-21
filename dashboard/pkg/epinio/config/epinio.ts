@@ -10,15 +10,15 @@ import { initNavIcons } from '../utils/nav-icons';
 export const BLANK_CLUSTER = '_';
 
 // function to watch epinio route so css overrides only apply on epinio pages
-const watchEpinioRoute = () => {
+const watchEpinioRoute = (isSingleProduct: boolean) => {
   const observer = new MutationObserver(() => {
-    const isEpinio = window.location.pathname.includes('epinio');
+    const isEpinio = isSingleProduct ? true : window.location.pathname.startsWith('/dashboard/epinio/');
     document.body.classList.toggle('epinio-active', isEpinio);
   });
 
   observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
   
-  document.body.classList.toggle('epinio-active', window.location.pathname.includes('epinio'));
+  document.body.classList.toggle('epinio-active', isSingleProduct ? true : window.location.pathname.startsWith('/dashboard/epinio/'));
 }
 
 export function init($plugin: any, store: any) {
@@ -70,7 +70,7 @@ export function init($plugin: any, store: any) {
   // inject nav icons
   initNavIcons();
 
-  watchEpinioRoute();
+  watchEpinioRoute(isEpinioSingleProduct);
 
   // Internal Types
 
@@ -138,7 +138,7 @@ export function init($plugin: any, store: any) {
   });
 
   virtualType({
-    label:      store.getters['i18n/t']('epinio.intro.dashboard'),
+    label:      'Dashboard', // store.getters['i18n/t']('epinio.intro.dashboard'), *Using a hardcoded string here to avoid having the "Dashboard" nav item render incorrectly when the i18n strings are not yet loaded (which causes a warning in the console and can be confusing). The labelKey is still needed for the dashboard route, so we keep it in the headers configuration.
     icon:       'dashboard',
     group:      'Root',
     namespaced: false,
@@ -206,7 +206,7 @@ export function init($plugin: any, store: any) {
   });
 
   virtualType({
-    label:      store.getters['i18n/t']('epinio.intro.about'),
+    label:      'About', // store.getters['i18n/t']('epinio.intro.about'), *Using a hardcoded string here to avoid having the "About" nav item render incorrectly when the i18n strings are not yet loaded (which causes a warning in the console and can be confusing). The labelKey is still needed for the about route, so we keep it in the headers configuration.
     icon:       'dashboard',
     group:      SYSTEM_GROUP,
     namespaced: false,
