@@ -167,7 +167,7 @@ const canEditService = computed(() => {
 const canEditConfig = computed(() => {
   const canGetter = store.getters['epinio/can'];
   return canGetter && (canGetter('configuration_write') || canGetter('configuration'));
-}); 
+});
 
 
 watchEffect(() => {
@@ -287,6 +287,7 @@ const UPDATE_INSTANCES_DEBOUNCE_MS = 2000; // 2s; adjust as needed
 let updateInstancesTimeout: number | null = null;
 
 onMounted(async () => {
+  await store.dispatch('epinio/me');
   await store.dispatch('epinio/findAll', { type: EPINIO_TYPES.SERVICE_INSTANCE });
   await store.dispatch('epinio/findAll', { type: EPINIO_TYPES.CONFIGURATION });
 
@@ -478,13 +479,13 @@ function formatDate(date, from) {
     </div>
 
     <h3
-      v-if="value.deployment"
+      v-if="value.deployment || value.image_url"
       class="mt-20"
     >
       {{ t('epinio.applications.detail.deployment.label') }}
     </h3>
     <div
-      v-if="value.deployment"
+      v-if="value.deployment || value.image_url"
       class="deployment"
     >
       <!-- Source information -->
@@ -593,7 +594,7 @@ function formatDate(date, from) {
                         {{ t('epinio.applications.tableHeaders.deployedBy') }}
                       </td>
                       <td class="origin-value">
-                        {{ value.deployment.username }}
+                        {{ value.deployment?.username }}
                       </td>
                     </tr>
                   </tbody>

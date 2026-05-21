@@ -145,6 +145,7 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
   }
 
   get state() {
+    console.log(`Application ${ this.meta.namespace }/${ this.meta.name } status: ${ this.status }`);
     return STATES_MAPPED[this.status] || STATES_MAPPED.unknown;
   }
 
@@ -392,7 +393,12 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
   }
 
   set desiredInstances(neu) {
-    this.deployment.desiredreplicas = neu;
+    if (this.deployment) {
+      this.deployment.desiredreplicas = neu;
+    }
+    if (this.configuration) {
+      this.configuration.instances = neu;
+    }
   }
 
   get readyInstances() {
@@ -783,10 +789,19 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
   }
 
   async restage() {
-    const { stage } = await this.stage();
 
-    await this.forceFetch();
-    this.showStagingLog(stage.id);
+    try {
+      const { stage } = await this.stage();
+      await this.forceFetch();
+      this.showStagingLog(stage.id);
+    } catch (e) {
+      console.log(e);
+      this.$dispatch('growl/error', {
+        title: 'Something went wrong rebuilding...',
+        message: `This error occurs when there are missing resources in the 
+        cluster, contact your system admin to investigate the issue.`,
+      }, { root: true });
+    }
   }
 
   async exportApp(resources = this) {
@@ -1324,9 +1339,18 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
   }
 
   async restart() {
-    await this.followLink('restart', { method: 'post' });
-    await this.forceFetch();
-    this.showAppLog();
+    try {
+      await this.followLink('restart', { method: 'post' });
+      await this.forceFetch();
+      this.showAppLog();
+    } catch (e) {
+      console.log(e);
+      this.$dispatch('growl/error', {
+        title: 'Something went wrong restarting...',
+        message: `Can't restart the application, the image may be missing,
+        reach out to your system admin to investigate the issue.`,
+      }, { root: true });
+    }
   }
 
   async createManifest() {

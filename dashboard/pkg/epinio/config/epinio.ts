@@ -17,7 +17,7 @@ const watchEpinioRoute = () => {
   });
 
   observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
-  
+
   document.body.classList.toggle('epinio-active', window.location.pathname.startsWith('/epinio'));
 }
 
