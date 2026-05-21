@@ -65,6 +65,7 @@ watchEffect(() => {
   // Touch meta so _MERGE polling (which deletes/re-adds all properties) re-runs this effect
   all.forEach((row: any) => { void row.meta; });
   rows.value = [...all];
+  console.log('Updated rows:', rows.value);
 });
 
 onMounted(async () => {

@@ -5,6 +5,8 @@ import { yaml } from '@codemirror/lang-yaml';
 import { EditorView } from '@codemirror/view';
 import { lintGutter } from '@codemirror/lint';
 import { oneDark } from '@codemirror/theme-one-dark';
+import { HighlightStyle, syntaxHighlighting } from '@codemirror/language';
+import { tags } from '@lezer/highlight';
 
 const props = defineProps<{
   value: string;
@@ -18,7 +20,6 @@ const emit = defineEmits<{
 
 const extensions = computed(() => [
   yaml(),
-  oneDark,
   lintGutter(),
   EditorView.lineWrapping,
   EditorView.editable.of(!props.disabled),
@@ -26,7 +27,8 @@ const extensions = computed(() => [
 
 function handleChange(value: string) {
   emit('update:value', value);
-}
+};
+
 </script>
 
 <template>
@@ -53,14 +55,33 @@ function handleChange(value: string) {
     pointer-events: none;
   }
 
-  :deep(.cm-editor) {
-    height: 100%;
-    font-family: var(--font-monospace, monospace);
-    font-size: 0.875rem;
-  }
+  // :deep(.cm-editor) {
+  //   height: 100%;
+  //   font-family: var(--font-monospace, monospace);
+  //   font-size: 0.875rem;
+  // }
 
-  :deep(.cm-scroller) {
-    overflow: auto;
-  }
+  // :deep(.cm-scroller) {
+  //   overflow: auto;
+  // }
+
+  // :deep(.cm-editor) {
+  //   background-color: #282c34 !important;
+  // }
+
+  // :deep(.cm-scroller) {
+  //   background-color: #282c34 !important;
+  //   overflow: auto;
+  // }
+
+  // :deep(.cm-gutters) {
+  //   background-color: #21252b !important;
+  //   border-right: 1px solid #181a1f !important;
+  //   color: #636d83 !important;
+  // }
+
+  // :deep(.cm-line) {
+  //   color: #abb2bf !important;
+  // }
 }
 </style>
