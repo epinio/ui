@@ -287,7 +287,7 @@ const UPDATE_INSTANCES_DEBOUNCE_MS = 2000; // 2s; adjust as needed
 let updateInstancesTimeout: number | null = null;
 
 onMounted(async () => {
-  await store.dispatch('epinio/me');
+  await store.dispatch('epinio/me'); //Need to fetch fresh rights for scaling
   await store.dispatch('epinio/findAll', { type: EPINIO_TYPES.SERVICE_INSTANCE });
   await store.dispatch('epinio/findAll', { type: EPINIO_TYPES.CONFIGURATION });
 

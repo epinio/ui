@@ -145,7 +145,6 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
   }
 
   get state() {
-    console.log(`Application ${ this.meta.namespace }/${ this.meta.name } status: ${ this.status }`);
     return STATES_MAPPED[this.status] || STATES_MAPPED.unknown;
   }
 
@@ -392,6 +391,8 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
     return this.deployment?.desiredreplicas ?? this.configuration?.instances ?? 0;
   }
 
+  //Fallback to configuration.instances if deployment.desiredreplicas is not
+  //available.
   set desiredInstances(neu) {
     if (this.deployment) {
       this.deployment.desiredreplicas = neu;
@@ -798,7 +799,7 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
       console.log(e);
       this.$dispatch('growl/error', {
         title: 'Something went wrong rebuilding...',
-        message: `This error occurs when there are missing resources in the 
+        message: `This error occurs when there are missing resources in the
         cluster, contact your system admin to investigate the issue.`,
       }, { root: true });
     }
