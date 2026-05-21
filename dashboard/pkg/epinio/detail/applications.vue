@@ -481,13 +481,6 @@ function handleDeleted() {
           <h1>Application: {{ value.meta.name }}</h1>
           <p>{{ value.stateDisplay }}</p>
         </div>
-        <!-- <trailhand-button
-          v-if="canEdit"
-          size="small"
-          @button-click="appModal?.openEdit(value)"
-        >
-          <trailhand-icon name="gear" />
-        </trailhand-button> -->
         <trailhand-action-menu 
           v-if="availableActions.length > 0"
           :actions="availableActions"
@@ -751,6 +744,10 @@ function handleDeleted() {
         font-weight: 500;
         color: var(--th-color-primary);
       }
+    }
+
+    trailhand-action-menu {
+      --sortable-table-row-hover-bg: var(--sortable-table-hover-bg)
     }
   }
 
