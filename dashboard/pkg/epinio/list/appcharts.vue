@@ -6,6 +6,9 @@ import Masthead from '@shell/components/ResourceList/Masthead';
 import { startPolling, stopPolling } from '../utils/polling';
 import { debounce } from 'lodash';
 import ChartsModal from '../components/charts/ChartsModal.vue';
+import { makeActionMenu } from '../utils/table-formatters';
+import { overrideTableRows } from '../utils/table-formatters';
+import EpinioAppChartModel from '../models/appcharts';
 
 defineProps<{ schema: object }>(); // Keep for compatibility
 
@@ -28,9 +31,9 @@ const paginating = ref(false);
 // const canEdit = computed(() => {
 //   const can = store.getters['epinio/can'];
 
-//   return can && (can('service_write') || can('service'));
+//   return can && (can('chart_write'));
 // });
-const canEdit = true; // For now, until we have permissions in place
+const canEdit = {value: true}; // For now, until we have permissions in place
 const canDelete = canEdit;
 const canCreate = canEdit;
 
@@ -61,11 +64,66 @@ watch(searchQuery, (newQuery) => {
 
 watchEffect(() => {
   const all = store.getters['epinio/all'](EPINIO_TYPES.APP_CHARTS) as any[];
+  console.log('AppCharts watchEffect - all:', all);
 
   // Touch meta so _MERGE polling (which deletes/re-adds all properties) re-runs this effect
   all.forEach((row: any) => { void row.meta; });
-  rows.value = [...all];
-  console.log('Updated rows:', rows.value);
+
+  // Build the row action menu with RBAC gating. The model already gates the
+  // base actions; here we inject the modal-driven Edit/Delete entries only
+  // when the user has chart write permissions.
+  const rowActions = (row: EpinioAppChartModel) => {
+    const out: any[] = [];
+
+    if (canEdit.value && row.canEdit) {
+      out.push({
+        action: 'editAppChart',
+        label: 'Edit',
+        enabled: true
+      });
+    }
+    if (canDelete.value && row.canDelete) {
+      out.push({
+        action: 'removeAppChart',
+        altAction: 'remove',
+        bulkAction: 'removeAppChart',
+        bulkable: true,
+        enabled: row.canDelete,
+        icon: 'icon icon-trash',
+        label: 'Delete',
+        weight: -10
+      });
+    }
+
+
+    return out;
+  };
+
+  const overrideProps = [
+    {
+      prop: 'availableActions',
+      value: rowActions,
+      conditionFn: () => true,
+    },
+    {
+      prop: 'removeAppChart',
+      value: (row: EpinioAppChartModel) => () => {
+        // deleteModal.value?.openDelete(row);
+      },
+      conditionFn: (row: EpinioAppChartModel) => canDelete.value && row.canDelete,
+    },
+    {
+      prop: 'editAppChart',
+      value: (row: EpinioAppChartModel) => () => {
+        chartsModal.value?.openEdit(row);
+      },
+      conditionFn: (row: EpinioAppChartModel) => canEdit.value && row.canEdit,
+    }
+  ];
+
+  const processedRows = overrideTableRows(all, overrideProps);
+
+  rows.value = [...processedRows];
 });
 
 onMounted(async () => {
@@ -125,6 +183,7 @@ const columns = [
       ></trailhand-text-input>
     </div>
     <trailhand-table
+      :ref="(el: any) => { if (el) el.renderActions = makeActionMenu; }"
       :rows="rows"
       :columns="columns"
       :searchable="false"

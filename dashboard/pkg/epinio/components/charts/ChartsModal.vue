@@ -8,6 +8,7 @@ import { validateKubernetesName } from '@shell/utils/validators/kubernetes-name'
 import { objValuesToString } from '../../utils/settings';
 import Banner from '@components/Banner/Banner.vue';
 import ChartValues from '../settings/ChartValues.vue';
+import EpinioAppChartModel from '../../models/appcharts';
 
 import isEqual from 'lodash/isEqual';
 import sortBy from 'lodash/sortBy';
@@ -19,13 +20,15 @@ const t = store.getters['i18n/t'];
 const showModal = ref(false);
 const modalMode = ref<'create' | 'edit' | 'view'>('create');
 
+const initialValues = ref<EpinioAppChartModel | null>(null);
+
 // Form fields (separate from the model to avoid proxy mutation issues)
 const chartName = ref('');
 const chartShortDescription = ref('');
 const chartDescription = ref('');
 const helmChartUrl = ref('');
 const helmRepoUrl = ref('');
-const chartSettings = ref<{ name: string, type: string, default: any }[]>([]);
+const chartSettings = ref<{ name: string, type: string, enum?: string[], minimum?: number, maximum?: number }[]>([]);
 
 const saving = ref(false);
 const errors = ref<string[]>([]);
@@ -34,47 +37,61 @@ const isEdit = computed(() => modalMode.value === 'edit');
 const isView = computed(() => modalMode.value === 'view');
 
 const isDirty = computed(() => {
-  if (isView.value) return false;
-
-  if (isEdit.value) {
-    // 
+  if (!initialValues.value) {
+    return chartName.value !== '' ||
+      chartShortDescription.value !== '' ||
+      chartDescription.value !== '' ||
+      helmChartUrl.value !== '' ||
+      helmRepoUrl.value !== '' ||
+      chartSettings.value.length > 0;
   }
 
-  return !!(chartName.value || helmChartUrl.value || helmRepoUrl.value);
+  const initialSettings = Object.keys(initialValues.value.settings || {}).map((key) => ({
+    name: key,
+    type: initialValues.value.settings[key].type || 'string',
+    enum: initialValues.value.settings[key].enum || [],
+    minimum: initialValues.value.settings[key].minimum || 0,
+    maximum: initialValues.value.settings[key].maximum || 0
+  }));
+
+  return chartName.value !== (initialValues.value.name || '') ||
+    chartShortDescription.value !== (initialValues.value.short_description || '') ||
+    chartDescription.value !== (initialValues.value.description || '') ||
+    helmChartUrl.value !== (initialValues.value.helm_chart_url || '') ||
+    helmRepoUrl.value !== (initialValues.value.helm_repo_url || '') ||
+    !isEqual(sortBy(chartSettings.value, 'name'), sortBy(initialSettings, 'name'));
 });
 
 const showDiscardConfirm = ref(false);
 
 const validationPassed = computed(() => {
-  if (isEdit.value) {
-    if (!serviceModel.value) return false;
-
-    const newSettings = !isEqual(
-      objValuesToString(chartValues),
-      objValuesToString(serviceModel.value.settings || {})
-    );
-    const appBindingChanged = !isEqual(
-      [...selectedApps.value].sort(),
-      [...initialBoundApps.value].sort()
-    );
-
-    return newSettings || appBindingChanged;
-  }
-
-  if (!formCatalogService.value) return false;
   if (!chartName.value) return false;
   if (!chartShortDescription.value) return false;
   if (!chartDescription.value) return false;
   if (!helmChartUrl.value) return false;
   if (!helmRepoUrl.value) return false;
-  if (showChartValues.value && !Object.values(validChartValues.value).every((v) => !!v)) return false;
+
+  for (const setting of chartSettings.value) {
+    if (!setting.name) {
+      return false;
+    }
+
+    if (setting.type === 'number' || setting.type === 'integer') {
+      if (setting.minimum !== undefined && isNaN(setting.minimum)) {
+        return false;
+      }
+
+      if (setting.maximum !== undefined && isNaN(setting.maximum)) {
+        return false;
+      }
+    }
+  }
 
   const nameErrors = validateKubernetesName(chartName.value, '', store.getters, undefined, []);
-
-  return nameErrors.length === 0 && nsErrors.length === 0;
+  return nameErrors.length === 0;
 });
 
-function openCreate(prefilledCatalogService?: string) {
+function openCreate() {
   errors.value = [];
   modalMode.value = 'create';
   chartName.value = '';
@@ -82,10 +99,11 @@ function openCreate(prefilledCatalogService?: string) {
   chartDescription.value = '';
   helmChartUrl.value = '';
   helmRepoUrl.value = '';
+  chartSettings.value = [];
   showModal.value = true;
 }
 
-function openView(row: any) {
+function openView(row: EpinioAppChartModel) {
   errors.value = [];
   modalMode.value = 'view';
   chartName.value = row.name || row.meta?.name || '';
@@ -93,16 +111,31 @@ function openView(row: any) {
   chartDescription.value = row.description || '';
   helmChartUrl.value = row.helm_chart_url || '';
   helmRepoUrl.value = row.helm_repo_url || '';
+  chartSettings.value = Object.keys(row.settings || {}).map((key) => ({
+    name: key,
+    type: row.settings[key].type || 'string',
+    enum: row.settings[key].enum || [],
+    minimum: row.settings[key].minimum || 0,
+    maximum: row.settings[key].maximum || 0
+  }));
 }
 
-function openEdit(row: any) {
+function openEdit(row: EpinioAppChartModel) {
   errors.value = [];
   modalMode.value = 'edit';
+  initialValues.value = row;
   chartName.value = row.name || row.meta?.name || '';
   chartShortDescription.value = row.short_description || '';
   chartDescription.value = row.description || '';
-  helmChartUrl.value = row.helm_chart_url || '';
-  helmRepoUrl.value = row.helm_repo_url || '';
+  helmChartUrl.value = row.helm_chart || '';
+  helmRepoUrl.value = row.helm_repo || '';
+  chartSettings.value = Object.keys(row.settings || {}).map((key) => ({
+    name: key,
+    type: row.settings[key].type || 'string',
+    enum: row.settings[key].enum || [],
+    minimum: row.settings[key].minimum || 0,
+    maximum: row.settings[key].maximum || 0
+  }));
 }
 
 function handleModalClose() {
@@ -130,83 +163,64 @@ function closeModal() {
   chartDescription.value = '';
   helmChartUrl.value = '';
   helmRepoUrl.value = '';
+  chartSettings.value = [];
   errors.value = [];
   showDiscardConfirm.value = false;
   showModal.value = false;
 }
 
 async function onSubmit() {
-  if (!validationPassed.value || saving.value) return;
+  if (!validationPassed.value || !isDirty.value || saving.value) return;
 
   saving.value = true;
   errors.value = [];
 
-  // try {
-  //   if (!isEdit.value) {
-  //     const svc = await store.dispatch('epinio/create', { type: EPINIO_TYPES.SERVICE_INSTANCE });
+  const settings = chartSettings.value.reduce((acc, setting) => {
+    acc[setting.name] = { type: setting.type };
+    if (setting.type === 'string' && setting.enum) {
+      acc[setting.name].enum = setting.enum.filter((v) => v);
+    }
+    if ((setting.type === 'number' || setting.type === 'integer') && setting.minimum !== undefined) {
+      acc[setting.name].minimum = String(setting.minimum); // string not number
+    }
+    if ((setting.type === 'number' || setting.type === 'integer') && setting.maximum !== undefined) {
+      acc[setting.name].maximum = String(setting.maximum); // string not number
+    }
+    return acc;
+  }, {} as Record<string, any>);
 
-  //     // Capture values before closeModal() wipes form state
-  //     const capturedNamespace = chartNamespace.value;
-  //     const capturedName = chartName.value;
-  //     const capturedSelectedApps = [...selectedApps.value];
+  try {
+    if (isEdit.value && initialValues.value) {
+      const chart = initialValues.value;
 
-  //     // Create the service instance, then bind apps and refresh in the background
-  //     svc.metadata = { namespace: capturedNamespace, name: capturedName };
-  //     svc.catalog_service = formCatalogService.value;
+      chart.description       = chartDescription.value;
+      chart.short_description = chartShortDescription.value;
+      chart.helm_chart        = helmChartUrl.value;
+      chart.helm_repo         = helmRepoUrl.value;
+      chart.settings          = settings;
 
-  //     const cleanSettings = { ...chartValues };
+      await chart.update();
+      closeModal();
+      store.dispatch('epinio/findAll', { type: EPINIO_TYPES.APP_CHARTS, opt: { force: true } }).catch(() => {});
+    } else {
+      const chart = await store.dispatch('epinio/create', { type: EPINIO_TYPES.APP_CHARTS });
 
-  //     delete cleanSettings.value;
-  //     svc.settings = Object.keys(cleanSettings).length ? objValuesToString(cleanSettings) : undefined;
+      chart.metadata          = { name: chartName.value };
+      chart.description       = chartDescription.value;
+      chart.short_description = chartShortDescription.value;
+      chart.helm_chart        = helmChartUrl.value;
+      chart.helm_repo         = helmRepoUrl.value;
+      chart.settings          = settings;
 
-  //     await svc.create();
-
-  //     // Re-assert metadata: followLink merges the sparse create response back
-  //     // into the model, which can wipe metadata and break subsequent bind calls
-  //     svc.metadata = { namespace: capturedNamespace, name: capturedName };
-
-  //     closeModal();
-
-  //     // Show the new item quickly, then bind apps and refresh again once done
-  //     svc.forceFetch().catch(() => {});
-  //     if (capturedSelectedApps.length) {
-  //       Promise.all(capturedSelectedApps.map((app: string) => svc.bindApp(app)))
-  //         .then(() => svc.forceFetch())
-  //         .catch(() => {});
-  //     }
-  //   } else {
-  //     const svc = serviceModel.value;
-  //     const newSettings = !isEqual(
-  //       objValuesToString(chartValues),
-  //       objValuesToString(svc.settings || {})
-  //     );
-
-  //     if (newSettings) {
-  //       const cleanSettings = { ...chartValues };
-
-  //       delete cleanSettings.value;
-  //       svc.settings = objValuesToString(cleanSettings);
-  //       await svc.update();
-  //     }
-
-  //     const bindApps = selectedApps.value;
-  //     const unbindApps = initialBoundApps.value.filter(a => !bindApps.includes(a));
-  //     const newBindApps = bindApps.filter(a => !initialBoundApps.value.includes(a));
-
-  //     closeModal();
-
-  //     // Bind/unbind and refresh in the background
-  //     Promise.all([
-  //       ...newBindApps.map((a: string) => svc.bindApp(a)),
-  //       ...unbindApps.map((a: string) => svc.unbindApp(a)),
-  //     ]).catch(() => {});
-  //     svc.forceFetch().catch(() => {});
-  //   }
-  // } catch (err: any) {
-  //   errors.value = epinioExceptionToErrorsArray(err);
-  // } finally {
-  //   saving.value = false;
-  // }
+      await chart.create();
+      closeModal();
+      store.dispatch('epinio/findAll', { type: EPINIO_TYPES.APP_CHARTS, opt: { force: true } }).catch(() => {});
+    }
+  } catch (err: any) {
+    errors.value = epinioExceptionToErrorsArray(err, t);
+  } finally {
+    saving.value = false;
+  }
 }
 
 defineExpose({ openCreate, openEdit, openView });
@@ -268,37 +282,100 @@ defineExpose({ openCreate, openEdit, openView });
             @text-input-change="(e: CustomEvent) => { helmRepoUrl = e.detail.value; }"
           ></trailhand-text-input>
         </trailhand-form-row>
-        <trailhand-form-row columns="3" v-for="(setting, index) in chartSettings" :key="index">
-          <trailhand-text-input
-            :value="setting.name"
-            label="Setting Name"
-            :disabled="isEdit || isView"
-            @text-input-change="(e: CustomEvent) => { chartSettings[index].name = e.detail.value; }"
-          ></trailhand-text-input>
-          <trailhand-dropdown
-            :value="setting.type"
-            label="Setting Type"
-            :options="[{label: 'String', value: 'string'}, {label: 'Number', value: 'number'}, {label: 'Integer', value: 'integer'}, {label: 'Boolean', value: 'bool'}]"
-            :disabled="isEdit || isView"
-            @dropdown-change="(e: CustomEvent) => { chartSettings[index].type = e.detail.value; }"
-          ></trailhand-dropdown>
-          <trailhand-text-input
-            v-if="setting.type === 'string' || setting.type === 'number' || setting.type === 'integer'"
-            :value="setting.default"
-            label="Default Value"
-            :disabled="isEdit || isView"
-            :type="setting.type === 'string' ? 'text' : 'number'"
-            @text-input-change="(e: CustomEvent) => { chartSettings[index].default = e.detail.value; }"
-          ></trailhand-text-input>
-          <trailhand-dropdown
-            v-else-if="setting.type === 'bool'"
-            :value="setting.default"
-            label="Default Value"
-            :options="[{label: 'True', value: 'true'}, {label: 'False', value: 'false'}]"
-            :disabled="isEdit || isView"
-            @dropdown-change="(e: CustomEvent) => { chartSettings[index].default = e.detail.value; }"
-          ></trailhand-dropdown>
+        <trailhand-form-row>
+          <h3>Settings</h3>
         </trailhand-form-row>
+        <template columns="3" v-for="(setting, index) in chartSettings" :key="index">
+          <trailhand-form-row columns="3">
+            <trailhand-text-input
+              :value="setting.name"
+              label="Setting Name"
+              :disabled="isEdit || isView"
+              @text-input-change="(e: CustomEvent) => { chartSettings[index].name = e.detail.value; }"
+            ></trailhand-text-input>
+            <trailhand-dropdown
+              :value="setting.type"
+              label="Setting Type"
+              :options="[{label: 'String', value: 'string'}, {label: 'Number', value: 'number'}, {label: 'Integer', value: 'integer'}, {label: 'Boolean', value: 'bool'}]"
+              :disabled="isEdit || isView"
+              @dropdown-change="(e: CustomEvent) => { 
+                chartSettings[index].type = e.detail.value; 
+                if (e.detail.value !== 'string') {
+                  delete chartSettings[index].enum;
+                }
+                if (e.detail.value !== 'number' && e.detail.value !== 'integer') {
+                  delete chartSettings[index].minimum;
+                  delete chartSettings[index].maximum;
+                }
+              }"
+            ></trailhand-dropdown>
+            <div style="display: flex; align-items: flex-end; gap: 8px;">
+              <trailhand-text-input
+                v-if="setting.type === 'number' || setting.type === 'integer'"
+                :value="setting.minimum"
+                label="Minimum"
+                :disabled="isEdit || isView"
+                type="number"
+                style="flex: 1"
+                @text-input-change="(e: CustomEvent) => { chartSettings[index].minimum = e.detail.value; }"
+              ></trailhand-text-input>
+              <trailhand-text-input
+                v-if="setting.type === 'number' || setting.type === 'integer'"
+                :value="setting.maximum"
+                label="Maximum"
+                :disabled="isEdit || isView"
+                type="number"
+                style="flex: 1"
+                @text-input-change="(e: CustomEvent) => { chartSettings[index].maximum = e.detail.value; }"
+              ></trailhand-text-input>
+              <trailhand-button
+                variant="destructive"
+                @button-click="chartSettings.splice(index, 1)"
+                :disabled="isEdit || isView"
+                style="margin-left: auto;"
+              >
+                Remove
+              </trailhand-button>
+            </div>
+          </trailhand-form-row>
+          <trailhand-form-row v-if="setting.type === 'string'">
+            <div v-for="(value, enumIndex) in setting.enum || []" :key="enumIndex" style="display: flex; align-items: flex-end; gap: 8px;">
+              <trailhand-text-input
+                :value="value"
+                label="Allowed Value"
+                :disabled="isEdit || isView"
+                @text-input-change="(e: CustomEvent) => { chartSettings[index].enum[enumIndex] = e.detail.value; }"
+              ></trailhand-text-input>
+              <trailhand-button
+                variant="destructive"
+                @button-click="chartSettings[index].enum.splice(enumIndex, 1)"
+                :disabled="isEdit || isView"
+                style="margin-top: 4px;"
+              >
+                Remove Value
+              </trailhand-button>
+            </div>
+            <div>
+              <trailhand-button
+                variant="alternate"
+                @button-click="chartSettings[index].enum = [...(setting.enum || []), '']"
+                :disabled="isEdit || isView"
+                style="margin-top: 4px;"
+              >
+                Add Value
+              </trailhand-button>
+            </div>
+          </trailhand-form-row>
+        </template>
+        <div>
+          <trailhand-button
+            variant="alternate"
+            @button-click="chartSettings.push({ name: '', type: 'string', enum: [] })"
+            :disabled="isEdit || isView"
+          >
+            Add Setting
+          </trailhand-button>
+        </div>
       </trailhand-form-card>
       
       <Banner
@@ -308,13 +385,7 @@ defineExpose({ openCreate, openEdit, openView });
         :label="err"
       />
     </div>
-    <trailhand-button
-      variant="secondary"
-      @button-click="chartSettings.push({ name: '', type: 'string', default: '' })"
-      :disabled="isEdit || isView"
-    >
-      Add Setting
-    </trailhand-button>
+
     <div slot="footer">
       <template v-if="isView">
         <trailhand-button
@@ -357,7 +428,7 @@ defineExpose({ openCreate, openEdit, openView });
         </trailhand-button>
         <trailhand-button
           variant="primary"
-          :disabled="!validationPassed || saving"
+          :disabled="!validationPassed || !isDirty || saving"
           @button-click="onSubmit"
         >
           {{ saving ? (isEdit ? 'Saving...' : 'Creating...') : (isEdit ? t('generic.save') : t('generic.create')) }}
