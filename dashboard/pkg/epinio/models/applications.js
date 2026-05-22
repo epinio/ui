@@ -790,7 +790,11 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
   }
 
   async restage() {
-
+    this.$dispatch('growl/info', {
+      title: 'Attempting to Rebuild Application!',
+      message: `This may take a few moments, a window will open with live logs
+      soon.`,
+    }, { root: true });
     try {
       const { stage } = await this.stage();
       await this.forceFetch();
@@ -798,7 +802,7 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
     } catch (e) {
       console.log(e);
       this.$dispatch('growl/error', {
-        title: 'Something went wrong rebuilding...',
+        title: 'Something Went Wrong Rebuilding!',
         message: `This error occurs when there are missing resources in the
         cluster, contact your system admin to investigate the issue.`,
       }, { root: true });
@@ -1340,14 +1344,23 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
   }
 
   async restart() {
+    this.$dispatch('growl/info', {
+      title: 'Attempting to Restart Application!',
+      message: `This can take a few moments, we'll let you know once it's ready.`,
+    }, { root: true });
+
     try {
       await this.followLink('restart', { method: 'post' });
       await this.forceFetch();
       this.showAppLog();
+      this.$dispatch('growl/success', {
+        title: 'Application Restarted!',
+        message: `The application has been restarted successfully.`,
+      }, { root: true });
     } catch (e) {
       console.log(e);
       this.$dispatch('growl/error', {
-        title: 'Something went wrong restarting...',
+        title: 'Something Went Wrong Restarting!',
         message: `Can't restart the application, the image may be missing,
         reach out to your system admin to investigate the issue.`,
       }, { root: true });
