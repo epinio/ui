@@ -799,6 +799,11 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
       const { stage } = await this.stage();
       await this.forceFetch();
       this.showStagingLog(stage.id);
+      await this.waitForStaging(stage.id);
+      this.$dispatch('growl/success', {
+        title:   'Application Rebuilt Successfully!',
+        message: `${ this.meta.name } has been rebuilt successfully.`,
+      }, { root: true });
     } catch (e) {
       console.log(e);
       this.$dispatch('growl/error', {
@@ -1355,7 +1360,7 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
       this.showAppLog();
       this.$dispatch('growl/success', {
         title: 'Application Restarted!',
-        message: `The application has been restarted successfully.`,
+        message: `${ this.meta.name } has been restarted successfully.`,
       }, { root: true });
     } catch (e) {
       console.log(e);
