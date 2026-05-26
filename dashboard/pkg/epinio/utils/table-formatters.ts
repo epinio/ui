@@ -244,11 +244,11 @@ export function stateToTagVariant(state: string): string {
  */
 export function stateToIcon(state: string): string {
   switch (state) {
-    case 'running': 
+    case 'running':
     case 'deployed': return 'rocket';
     case 'notready':
     case 'not-ready': return 'warning';
-    case 'error': 
+    case 'error':
     case 'fail': return 'error';
     case 'building': return 'tools';
     case 'created': return 'gear';

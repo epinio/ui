@@ -18,6 +18,8 @@ import EpinioServiceModel from 'models/services';
 import ConfigurationModal from '../components/configuration/ConfigurationModal.vue';
 import ConfigurationDeleteModal from '../components/configuration/ConfigurationDeleteModal.vue';
 import AppModal from '../components/application/AppModal.vue';
+import ExportAppModal from '../dialog/ExportAppModal.vue';
+import AppDeleteModal from '../components/application/AppDeleteModal.vue';
 
 day.extend(relativeTime);
 
@@ -58,6 +60,45 @@ const configDeleteModal = ref<InstanceType<typeof ConfigurationDeleteModal> | nu
 const configRows = ref<any[]>([]);
 
 const appModal = ref<InstanceType<typeof AppModal> | null>(null);
+const exportAppModal = ref<InstanceType<typeof ExportAppModal> | null>(null);
+const appDeleteModal = ref<InstanceType<typeof AppDeleteModal> | null>(null);
+
+const availableActions = computed(() => {
+  const actions = props.value.availableActions.filter((action) => action.action !== 'showConfiguration') || [];
+
+  return actions.map((action) => {
+    if (action.action === 'goToEdit') {
+      return {
+        ...action,
+        label: 'Edit',
+        action: () => appModal.value?.openEdit(props.value),
+        disabled: !canEdit.value,
+        visible: canEdit.value
+      };
+    }
+
+    if (action.action === 'exportApp') {
+      return {
+        ...action,
+        action: () => exportAppModal.value?.openExport([props.value])
+      };
+    }
+
+    if (action.action === 'promptRemove') {
+      return {
+        ...action,
+        action: () => appDeleteModal.value?.openDelete(props.value),
+        disabled: !canEdit.value,
+        visible: canEdit.value
+      };
+    }
+
+    return {
+      ...action,
+      action: () => props.value[action.action]?.(),
+    };
+  });
+});
 
 const instanceColumns = [
   {
@@ -416,6 +457,15 @@ const gitCommitsColumns = computed(() => [
 function formatDate(date, from) {
   return from ? day(date).fromNow() : day(date).format('DD MMM YYYY');
 }
+
+function handleDeleted() {
+  // navigate back to the applications list after deletion
+  store.$router.push({
+    name: 'epinio-c-cluster-applications',
+    params: store.$router.currentRoute.params,
+  });
+}
+
 </script>
 
 <!-- eslint-disable vue/no-deprecated-slot-attribute -->
@@ -432,13 +482,10 @@ function formatDate(date, from) {
           <h1>Application: {{ value.meta.name }}</h1>
           <p>{{ value.stateDisplay }}</p>
         </div>
-        <trailhand-button
-          v-if="canEdit"
-          size="small"
-          @button-click="appModal?.openEdit(value)"
-        >
-          <trailhand-icon name="gear" />
-        </trailhand-button>
+        <trailhand-action-menu 
+          v-if="availableActions.length > 0"
+          :actions="availableActions"
+        />
       </div>
       <h3>Namespace: {{ value.meta.namespace }}</h3>
       <ul>
@@ -665,6 +712,8 @@ function formatDate(date, from) {
   <ConfigurationModal ref="configModal" />
   <ConfigurationDeleteModal ref="configDeleteModal" />
   <AppModal ref="appModal" />
+  <ExportAppModal ref="exportAppModal" />
+  <AppDeleteModal ref="appDeleteModal" @deleted="handleDeleted" />
 </template>
 
 <style lang="scss" scoped>
@@ -696,6 +745,10 @@ function formatDate(date, from) {
         font-weight: 500;
         color: var(--th-color-primary);
       }
+    }
+
+    trailhand-action-menu {
+      --sortable-table-row-hover-bg: var(--sortable-table-hover-bg)
     }
   }
 
