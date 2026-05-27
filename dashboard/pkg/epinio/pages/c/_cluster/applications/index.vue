@@ -265,11 +265,24 @@ const handleNavigate = (event: CustomEvent) => router.push(event.detail.url);
 let appsPollIntervalId: number | undefined;
 const APPS_POLL_RATE_MS = 30000;
 
-function visibleNamespaceNames(): string[] {
-  return (store.getters['epinio/all'](EPINIO_TYPES.NAMESPACE) as any[])
+// Keep namespaceRows in sync with the namespace store. Runs immediately on
+// mount (seeding all known namespaces) and re-runs whenever startPolling
+// updates the store with new namespaces, so new groups appear without a jump.
+watchEffect(() => {
+  const storeNs = (store.getters['epinio/all'](EPINIO_TYPES.NAMESPACE) as any[])
     .map((ns: any) => ns.meta?.name)
-    .filter((n: string) => !!n);
-}
+    .filter(Boolean) as string[];
+  const existing = namespaceRows.value;
+  const additions: Record<string, any[]> = {};
+  for (const ns of storeNs) {
+    if (!(ns in existing)) {
+      additions[ns] = [];
+    }
+  }
+  if (Object.keys(additions).length) {
+    namespaceRows.value = { ...existing, ...additions };
+  }
+});
 
 function handleDeleted(app: any) {
   const ns = app.meta.namespace;
@@ -307,9 +320,9 @@ onMounted(async () => {
   }
 
   appsPollIntervalId = window.setInterval(async() => {
-    // Sequential await respects per-namespace page/search state and avoids
-    // firing all calls simultaneously through the k8s client rate limiter.
-    for (const ns of visibleNamespaceNames()) {
+    // Poll all known namespaces. Because we seed every namespace at mount,
+    // the first poll refreshes existing groups rather than adding new ones.
+    for (const ns of Object.keys(namespaceRows.value)) {
       await fetchNamespaceApps(
         ns,
         namespaceCurrentPages.value[ns] ?? 1,

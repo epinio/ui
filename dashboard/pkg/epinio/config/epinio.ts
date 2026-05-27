@@ -17,7 +17,7 @@ const watchEpinioRoute = (isSingleProduct: boolean) => {
   });
 
   observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
-  
+
   document.body.classList.toggle('epinio-active', isSingleProduct ? true : window.location.pathname.startsWith('/dashboard/epinio/'));
 }
 
