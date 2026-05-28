@@ -417,7 +417,7 @@ function handleCardDismiss(e: Event, cardType: string) {
               >
                 <RouterLink
                   v-if="service.isEnabled"
-                  :to="service.link"
+                  :to="card.cta"
                   class="link"
                 >
                   {{ service.name }}
