@@ -9,6 +9,8 @@ import ChartsModal from '../components/charts/ChartsModal.vue';
 import { makeActionMenu } from '../utils/table-formatters';
 import { overrideTableRows } from '../utils/table-formatters';
 import EpinioAppChartModel from '../models/appcharts';
+import ChartsDeleteModal from '../components/charts/ChartsDeleteModal.vue';
+
 
 defineProps<{ schema: object }>(); // Keep for compatibility
 
@@ -18,7 +20,7 @@ const pending = ref(true);
 const rows = ref<any[]>([]);
 
 const chartsModal = ref<InstanceType<typeof ChartsModal> | null>(null);
-// const deleteModal = ref<InstanceType<typeof ServiceDeleteModal> | null>(null);
+const deleteModal = ref<InstanceType<typeof ChartsDeleteModal> | null>(null);   
 
 const resource: string = EPINIO_TYPES.APP_CHARTS;
 const paginationMeta = computed(() => store.getters['epinio/paginationMeta'](resource));
@@ -28,12 +30,11 @@ const searchQuery = ref<string>('');
 
 const paginating = ref(false);
 
-// const canEdit = computed(() => {
-//   const can = store.getters['epinio/can'];
+const canEdit = computed(() => {
+  const can = store.getters['epinio/can'];
 
-//   return can && (can('chart_write'));
-// });
-const canEdit = {value: true}; // For now, until we have permissions in place
+  return can && (can('chart_write'));
+});
 const canDelete = canEdit;
 const canCreate = canEdit;
 
@@ -64,7 +65,6 @@ watch(searchQuery, (newQuery) => {
 
 watchEffect(() => {
   const all = store.getters['epinio/all'](EPINIO_TYPES.APP_CHARTS) as any[];
-  console.log('AppCharts watchEffect - all:', all);
 
   // Touch meta so _MERGE polling (which deletes/re-adds all properties) re-runs this effect
   all.forEach((row: any) => { void row.meta; });
@@ -75,23 +75,18 @@ watchEffect(() => {
   const rowActions = (row: EpinioAppChartModel) => {
     const out: any[] = [];
 
-    if (canEdit.value && row.canEdit) {
+    if (canEdit.value) {
       out.push({
         action: 'editAppChart',
         label: 'Edit',
         enabled: true
       });
     }
-    if (canDelete.value && row.canDelete) {
+    if (canDelete.value) {
       out.push({
         action: 'removeAppChart',
-        altAction: 'remove',
-        bulkAction: 'removeAppChart',
-        bulkable: true,
-        enabled: row.canDelete,
-        icon: 'icon icon-trash',
+        enabled: true,
         label: 'Delete',
-        weight: -10
       });
     }
 
@@ -108,16 +103,16 @@ watchEffect(() => {
     {
       prop: 'removeAppChart',
       value: (row: EpinioAppChartModel) => () => {
-        // deleteModal.value?.openDelete(row);
+        deleteModal.value?.openDelete(row);
       },
-      conditionFn: (row: EpinioAppChartModel) => canDelete.value && row.canDelete,
+      conditionFn: (row: EpinioAppChartModel) => canDelete.value,
     },
     {
       prop: 'editAppChart',
       value: (row: EpinioAppChartModel) => () => {
         chartsModal.value?.openEdit(row);
       },
-      conditionFn: (row: EpinioAppChartModel) => canEdit.value && row.canEdit,
+      conditionFn: (row: EpinioAppChartModel) => canEdit.value,
     }
   ];
 
@@ -196,6 +191,7 @@ const columns = [
     />
   </div>
   <ChartsModal ref="chartsModal" />
+  <ChartsDeleteModal ref="deleteModal" />
 </template>
 
 <style lang="scss" scoped>

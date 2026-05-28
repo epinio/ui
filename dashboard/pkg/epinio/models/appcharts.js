@@ -1,6 +1,6 @@
-import EpinioMetaResource from './epinio-namespaced-resource';
+import EpinioNamespacedResource from './epinio-namespaced-resource';
 
-export default class EpinioAppChartModel extends EpinioMetaResource {
+export default class EpinioAppChartModel extends EpinioNamespacedResource {
   get links() {
     return {
       self:   this.getUrl(),
@@ -13,32 +13,6 @@ export default class EpinioAppChartModel extends EpinioMetaResource {
   getUrl(name = this.metadata?.name) {
     return this.$getters['urlFor'](this.type, this.id, { url: `/api/v1/appcharts/${ name || '' }` });
   }
-
-  canEdit = true;
-  canDelete = true;
-
-  // get _availableActions() {
-  //   const base = super._availableActions || [];
-  //   const can = this.$rootGetters?.['epinio/can'];
-  //   const perms = this.$rootGetters?.['epinio/permissions']?.();
-
-  //   if (!can || !perms || Object.keys(perms).length === 0) {
-  //     return base;
-  //   }
-
-  //   const canEdit = can('chart_write');
-  //   const canDelete = can('chart_write');
-
-  //   return base.filter((action) => {
-  //     if (action.action === '') {
-  //       return canEdit;
-  //     }
-  //     if (action.action === 'promptRemove') {
-  //       return canDelete;
-  //     }
-  //     return true;
-  //   });
-  // }
 
   async create() {
     await this.followLink('create', {
@@ -54,13 +28,14 @@ export default class EpinioAppChartModel extends EpinioMetaResource {
         helmChart:        this.helm_chart,
         helmRepo:         this.helm_repo,
         settings:         this.settings,
+        values:           this.values,
       }
     });
   }
 
   async update() {
     await this.followLink('update', {
-      method:  'put',
+      method:  'patch',
       headers: {
         'content-type': 'application/json',
         accept:         'application/json',
@@ -71,7 +46,12 @@ export default class EpinioAppChartModel extends EpinioMetaResource {
         helmChart:        this.helm_chart,
         helmRepo:         this.helm_repo,
         settings:         this.settings,
+        values:           this.values,
       }
     });
+  }
+
+  async remove(unmounted = true) {
+    await this._remove({ data: { unmounted } });
   }
 }

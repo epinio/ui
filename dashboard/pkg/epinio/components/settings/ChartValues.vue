@@ -3,7 +3,7 @@ import { ref, watch } from 'vue';
 
 // Props
 const props = defineProps<{
-  chart: { [key: string]: object };
+  chart: { [key: string]: any };
   value: { [key: string]: any };
   title: string;
   mode: string;
@@ -54,7 +54,7 @@ const onInputCheckbox = (key: string, value: boolean) => {
         style="flex: 1;"
         :value="props.value[key]"
         :label="key"
-        :options="setting.enum"
+        :options="setting.enum.map((option: string) => ({ label: option, value: option }))"
         :disabled="props.disabled"
         @dropdown-change="(e: CustomEvent) => props.value[key] = e.detail.value"
        />

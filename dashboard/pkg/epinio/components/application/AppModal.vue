@@ -251,7 +251,7 @@ function updateSource(changes: EpinioAppSource) {
 
     if (chart?.settings) {
       const customSettings = Object.keys(chart.settings).reduce((acc, key) => {
-        acc[key] = '';
+        acc[key] = chart?.values?.[key] || null;
         return acc;
       }, {} as Record<string, any>);
 
