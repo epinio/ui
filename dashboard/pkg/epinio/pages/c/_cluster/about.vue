@@ -1,12 +1,10 @@
 <script setup lang="ts">
 import { onMounted, ref, computed } from 'vue';
 import { useStore } from 'vuex';
-import Banner from '@components/Banner/Banner.vue';
-import Checkbox from '@components/Form/Checkbox/Checkbox.vue';
-import LabeledInput from '@components/Form/LabeledInput/LabeledInput.vue';
 import { MANAGEMENT } from '@shell/config/types';
 import { getVendor } from '@shell/config/private-label';
 import { downloadFile } from '@shell/utils/download';
+import { makeEmptyCell } from '../../../utils/table-formatters';
 
 const store = useStore();
 
@@ -25,12 +23,9 @@ const reportSuccess = ref('');
 
 const t = store.getters['i18n/t'];
 
-const aboutVersionsComponentString = computed(() => t('about.versions.component'));
 const aboutTitleString = computed(() => t('about.title'));
-const aboutVersionsVersionString = computed(() => t('about.versions.version'));
 const aboutDownloadCLIString = computed(() => t('about.downloadCLI.title'));
 const allPackagesString = computed(() => t('epinio.about.allPackages'));
-
 
 const fetchData = async() => {
   fetchError.value = '';
@@ -67,6 +62,8 @@ function createOSOption(label: string, icon: string, cliLink: string, imageList:
   };
 }
 
+const downloadLinuxImages = null;
+
 const downloads = computed(() => {
   if (!version.value) {
     return [];
@@ -82,8 +79,6 @@ const downloads = computed(() => {
     createOSOption('about.os.windows', 'icon-windows', `${gitUrl}/${versionStr}/${app}-windows-x86_64.zip`)
   ];
 });
-
-const downloadLinuxImages = null;
 
 const versionString = computed(() => {
   if (!version.value) return '';
@@ -186,65 +181,115 @@ const downloadSupportBundle = async() => {
   }
 };
 
+// Versions table
+const versionRows = computed(() => {
+  if (!version.value) return [];
+  return [{ name: appName.value, version: versionString.value }];
+});
+
+const versionColumns = [
+  {
+    field:     'name',
+    label:     t('about.versions.component'),
+    formatter: (_v: any, row: any) => {
+      const a = document.createElement('a');
+
+      a.href = 'https://github.com/epinio/epinio';
+      a.target = '_blank';
+      a.rel = 'nofollow noopener noreferrer';
+      a.textContent = row.name;
+
+      return a;
+    }
+  },
+  {
+    field: 'version',
+    label: t('about.versions.version')
+  }
+];
+
+// Downloads table
+const downloadColumns = [
+  {
+    field:     'label',
+    label:     t('about.versions.component'),
+    formatter: (_v: any, row: any) => {
+      const div = document.createElement('div');
+
+      div.style.cssText = 'display:flex; align-items:center;';
+
+      const icon = document.createElement('i');
+
+      icon.className = `icon ${ row.icon } mr-5`;
+      div.appendChild(icon);
+      div.appendChild(document.createTextNode(t(row.label)));
+
+      return div;
+    }
+  },
+  {
+    field:     'cliFile',
+    label:     t('about.downloadCLI.title'),
+    formatter: (_v: any, row: any) => {
+      if (!row.cliLink) return makeEmptyCell();
+
+      const a = document.createElement('a');
+
+      a.href = row.cliLink;
+      a.textContent = row.cliFile;
+
+      return a;
+    }
+  }
+];
+
+const reportStatus = computed(() => {
+  if (reportSuccess.value) return { message: reportSuccess.value, variant: 'success' };
+  if (reportError.value) return { message: reportError.value, variant: 'error' };
+  return null;
+});
+
+const bundleStatus = computed(() => {
+  if (supportBundleSuccess.value) return { message: supportBundleSuccess.value, variant: 'success' };
+  if (supportBundleError.value) return { message: supportBundleError.value, variant: 'error' };
+  return null;
+});
 </script>
 
 <template>
   <div class="about">
-    <Banner
+    <trailhand-tag
       v-if="fetchError"
-      color="error"
       :label="fetchError"
+      variant="error"
+      size="md"
       class="mb-20"
     />
+
     <template v-if="version">
       <h1>
         {{ aboutTitleString }}
       </h1>
-      <table>
-        <thead>
-          <tr>
-            <th>{{ aboutVersionsComponentString }}</th>
-            <th>{{ aboutVersionsVersionString }}</th>
-          </tr>
-        </thead>
-        <tr v-if="version">
-          <td>
-            <a
-              href="https://github.com/epinio/epinio"
-              target="_blank"
-              rel="nofollow noopener noreferrer"
-            >
-              {{ appName }}
-            </a>
-          </td>
-          <td>{{ versionString }}</td>
-        </tr>
-      </table>
+      <trailhand-table
+        :rows="versionRows"
+        :columns="versionColumns"
+        :searchable="false"
+        key-field="name"
+        class="version-table"
+      />
     </template>
 
     <template v-if="version && downloads.length">
       <h3 class="pt-40">
         {{ aboutDownloadCLIString }}
       </h3>
-      <table>
-        <tr
-          v-for="d in downloads"
-          :key="d.icon"
-          class="link"
-        >
-          <td>
-            <div class="os">
-              <i :class="`icon ${d.icon} mr-5`" /> {{ t(d.label) }}
-            </div>
-          </td>
-          <td>
-            <a
-              v-if="d.cliLink"
-              :href="d.cliLink"
-            >{{ d.cliFile }}</a>
-          </td>
-        </tr>
-      </table>
+      <trailhand-table
+        :rows="downloads"
+        :columns="downloadColumns"
+        :searchable="false"
+        key-field="icon"
+        class="downloads-table"
+      />
     </template>
 
     <template v-if="version">
@@ -257,178 +302,167 @@ const downloadSupportBundle = async() => {
       </a>
     </template>
 
-    <section
+    <div
       v-if="version"
-      class="download-report"
+      class="about-cards"
     >
-      <h3>{{ t('epinio.downloadReport.title') }}</h3>
-
-      <div class="download-report__actions">
-        <button
-          class="btn role-primary"
+      <trailhand-card
+        icon-name="info"
+        class="about-card"
+      >
+        <span slot="title">{{ t('epinio.downloadReport.title') }}</span>
+        <div
+          slot="description"
+          class="download__body"
+        >
+          <p class="download__description">
+            {{ t('epinio.downloadReport.description') }}
+          </p>
+        </div>
+        <trailhand-button
+          slot="action"
+          variant="secondary"
+          size="large"
           :disabled="reportLoading"
           @click="downloadReport"
+          class="download__button"
         >
-          <i
-            v-if="reportLoading"
-            class="icon-spinner animate-spin mr-5"
-          />
-          {{ t('epinio.downloadReport.action') }}
-        </button>
-      </div>
-
-      <Banner
-        v-if="reportSuccess"
-        color="success"
-        :label="reportSuccess"
-      />
-      <Banner
-        v-if="reportError"
-        color="error"
-        :label="reportError"
-      />
-    </section>
-
-    <section
-      v-if="version"
-      class="support-bundle"
-    >
-      <h3>{{ t('epinio.supportBundle.title') }}</h3>
-      <p class="text-muted">
-        {{ t('epinio.supportBundle.description') }}
-      </p>
-
-      <div class="support-bundle__controls">
-        <LabeledInput
-          v-model:value="tailLines"
-          type="number"
-          :label="t('epinio.supportBundle.tail.label')"
-          :tooltip="t('epinio.supportBundle.tail.help')"
-          :min="1"
-          :max="10000"
-          :disabled="supportBundleLoading"
-        />
-        <Checkbox
-          v-model:value="includeApps"
-          :label="t('epinio.supportBundle.includeApps')"
-          :disabled="supportBundleLoading"
-        />
-      </div>
-
-      <div class="support-bundle__actions">
-        <button
-          class="btn role-primary"
-          :disabled="supportBundleLoading"
-          @click="downloadSupportBundle"
-        >
-          <i
-            v-if="supportBundleLoading"
-            class="icon-spinner animate-spin mr-5"
-          />
-          {{ t('epinio.supportBundle.action') }}
-        </button>
+          {{ reportLoading ? 'Downloading...' : t('epinio.downloadReport.action') }}
+        </trailhand-button>
         <span
-          v-if="supportBundleLoading"
-          class="support-bundle__progress"
+          v-if="reportStatus"
+          slot="footer"
         >
-          {{ t('epinio.supportBundle.collecting') }}
+          <trailhand-tag
+            :label="reportStatus.message"
+            :variant="reportStatus.variant"
+            size="md"
+          />
         </span>
-      </div>
+      </trailhand-card>
 
-      <Banner
-        v-if="supportBundleSuccess"
-        color="success"
-        :label="supportBundleSuccess"
-      />
-      <Banner
-        v-if="supportBundleError"
-        color="error"
-        :label="supportBundleError"
-      />
-    </section>
+      <trailhand-card
+        icon-name="tools"
+        class="about-card bundle-card"
+      >
+        <span slot="title">{{ t('epinio.supportBundle.title') }}</span>
+        <div
+          slot="description"
+          class="support-bundle__body"
+        >
+          <p class="support-bundle__description">
+            {{ t('epinio.supportBundle.description') }}
+          </p>
+            <label class="checkbox-label">
+              <trailhand-checkbox
+                :checked="includeApps"
+                :disabled="supportBundleLoading"
+                @checkbox-change="includeApps = $event.detail.checked"
+              />
+              {{ t('epinio.supportBundle.includeApps') }}
+            </label>
+          <div class="support-bundle__controls">
+            <div class="input-button-row">
+              <trailhand-text-input
+                :label="t('epinio.supportBundle.tail.label')"
+                :value="String(tailLines)"
+                size="large"
+                :disabled="supportBundleLoading"
+                @text-input-change="tailLines = sanitizeTail($event.detail.value)"
+              />
+              <trailhand-button
+                variant="secondary"
+                size="large"
+                :disabled="supportBundleLoading"
+                @click="downloadSupportBundle"
+              >
+                {{ supportBundleLoading ? t('epinio.supportBundle.collecting') : t('epinio.supportBundle.action') }}
+              </trailhand-button>
+            </div>
+          </div>
+        </div>
+        <span
+          v-if="bundleStatus"
+          slot="footer"
+        >
+          <trailhand-tag
+            :label="bundleStatus.message"
+            :variant="bundleStatus.variant"
+            size="md"
+          />
+        </span>
+      </trailhand-card>
+    </div>
   </div>
 </template>
 
 <style lang="scss" scoped>
 .about {
-  table {
-    border-collapse: collapse;
-    overflow: hidden;
-    border-radius: var(--border-radius);
-
-    tr > td:first-of-type {
-      width: 20%;
-    }
-
-    th, td {
-      border: 1px solid var(--border);
-      padding: 8px 5px;
-      min-width: 150px;
-      text-align: left;
-    }
-
-    th {
-      background-color: var(--sortable-table-top-divider);
-      border-bottom: 1px solid var(--sortable-table-top-divider);
-    }
-
-    a {
-      cursor: pointer;
-    }
-
-    .os {
-      display: flex;
-      align-items: center;
-    }
+  .version-table,
+  .downloads-table {
+    --sortable-table-row-hover-bg: var(--sortable-table-hover-bg);
+    --sortable-table-header-hover-bg: var(--sortable-table-hover-bg);
+    --sortable-table-header-sorted-bg: var(--sortable-table-hover-bg);
   }
 }
 
-.download-report {
+.about-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
   margin-top: 40px;
-  padding: 16px;
-  border: 1px solid var(--border);
-  border-radius: var(--border-radius);
-  background: var(--default);
-
-  &__actions {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-top: 16px;
-  }
-
-  .banner {
-    margin-top: 10px;
-  }
+  align-items: stretch;
 }
 
-.support-bundle {
-  margin-top: 40px;
-  padding: 16px;
-  border: 1px solid var(--border);
-  border-radius: var(--border-radius);
-  background: var(--default);
+.about-card {
+  height: 100%;
+}
 
-  &__controls {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 16px;
-    align-items: center;
-  }
+.about-card::part(card) {
+  height: 100%;
+  box-sizing: border-box;
+}
 
-  &__actions {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-top: 16px;
-  }
+.bundle-card::part(action) {
+  margin-bottom: 0;
+}
 
-  &__progress {
-    color: var(--muted);
-  }
+.support-bundle__body,
+.download__body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
 
-  .banner {
-    margin-top: 10px;
-  }
+trailhand-button.download__button {
+  width: 100%;
+}
+
+.support-bundle__description,
+.download__description {
+  margin: 0;
+  font-size: 14px;
+  color: var(--th-color-text-secondary);
+}
+
+.support-bundle__controls {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.input-button-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  align-items: end;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 14px;
 }
 </style>

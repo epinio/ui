@@ -207,6 +207,7 @@ export interface EpinioConfigurationResource {
     user: string,
     details: Map<string, object>,
     boundapps: string[],
+    origin?: string,
   }
 }
 
@@ -217,6 +218,7 @@ export interface EpinioServiceResource {
   boundapps: string[],
   catalog_service: string,
   catalog_service_version: string,
+  internal_routes?: string[],
   status: string,
 }
 
@@ -240,6 +242,7 @@ export interface EpinioRole {
   name: string,
   namespace?: string,
   default?: boolean,
+  actions?: string[],
 }
 
 export interface EpinioMe {

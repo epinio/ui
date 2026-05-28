@@ -1,61 +1,87 @@
 <script lang="ts" setup>
-import { ref, computed, watch, onMounted } from 'vue';
+import { ref, computed, watch, onMounted, reactive } from 'vue';
 import { useStore } from 'vuex';
 
-import SortableTable from '@shell/components/SortableTable/index.vue';
-import Checkbox from '@components/Form/Checkbox/Checkbox.vue';
-import BadgeState from '@components/BadgeState/BadgeState.vue';
-
 import ApplicationAction, { APPLICATION_ACTION_TYPE } from '../../models/application-action';
-import { STATE, DESCRIPTION } from '@shell/config/table-headers';
 import {
-  EPINIO_TYPES, 
-  APPLICATION_ACTION_STATE,
+  EPINIO_TYPES,
   APPLICATION_SOURCE_TYPE,
   EpinioApplication,
   EpinioAppSource,
   EpinioAppBindings
 } from '../../types';
 import type EpinioNamespace from '../../models/namespaces';
+import { makeProgressStateCell } from '../../utils/table-formatters';
 
 const props = defineProps<{
   application: EpinioApplication,
   source: EpinioAppSource,
   bindings?: EpinioAppBindings | null,
   mode: string,
-  step: any
+  tab: any,
+  active: boolean,
 }>();
 
 const emit = defineEmits(['finished']);
 
 const store = useStore();
+const t = store.getters['i18n/t'];
 
 const running = ref(false);
 const actions = ref<ApplicationAction[]>([]);
 
-const actionHeaders = [
+const columns = [
   {
-    name:     'epinio-name',
-    labelKey: 'epinio.applications.steps.progress.table.stage.label',
-    value:    'name',
-    sort:     ['index'],
-    width:    150,
+    field: 'name',
+    label: t('epinio.applications.steps.progress.table.stage.label'),
+    width: '150px',
+    sortable: false,
   },
   {
-    ...DESCRIPTION,
-    sort:  undefined,
-    value: 'description',
-    width: 450,
+    field: 'description',
+    label: t('tableHeaders.description'),
+    width: '450px',
+    sortable: false,
+    formatter: (_v: any, row: any) => {
+      const wrapper = document.createElement('span');
+
+      wrapper.style.cssText = 'display:flex; flex-direction:column;';
+
+      const main = document.createElement('span');
+
+      main.textContent = row.description || '';
+      wrapper.appendChild(main);
+
+      // stateMessage is set on failure — show it as secondary error text
+      if (row.stateMessage) {
+        const sub = document.createElement('span');
+
+        sub.style.cssText = 'font-size:0.85em; color:var(--error); margin-top:2px;';
+        sub.textContent = row.stateMessage;
+        wrapper.appendChild(sub);
+      }
+
+      return wrapper;
+    },
   },
   {
-    ...STATE,
-    sort:     undefined,
-    labelKey: 'epinio.applications.steps.progress.table.status',
-    width:    150,
+    field: 'stateDisplay',
+    label: t('epinio.applications.steps.progress.table.status'),
+    width: '150px',
+    sortable: false,
+    formatter: (_v: any, row: any) => makeProgressStateCell(row),
   },
 ];
 
 const actionsToRun = computed(() => actions.value.filter(action => action.run));
+
+// tableRows is a copy of actions that tracks state and stateMessage so any change to those properties triggers a Lit re-render
+const tableRows = computed(() => {
+  // Track state and stateMessage so any change triggers a Lit re-render
+  actions.value.forEach((a: ApplicationAction) => { a.state; (a as any).stateMessage; });
+
+  return [...actions.value];
+});
 const namespaces = computed(() => store.getters['epinio/all'](EPINIO_TYPES.NAMESPACE));
 const fetchApp = async () => {
   try {
@@ -66,6 +92,8 @@ const fetchApp = async () => {
 };
 
 const create = async () => {
+  // Make each action reactive so changes to their state trigger updates in the UI
+  actions.value = actions.value.map((a: ApplicationAction) => reactive(a) as ApplicationAction);
   running.value = true;
   const enabledActions = [...actionsToRun.value];
 
@@ -75,11 +103,23 @@ const create = async () => {
     } catch (err) {
       running.value = false;
       console.error(err);
+      store.dispatch('growl/error', {
+        title: props.mode === 'edit' ? 'Application Update Failed' : 'Application Deployment Failed',
+        message: props.mode === 'edit'
+          ? `Your application ${props.application.meta.name} failed to update. Please try again. Error details: ${err instanceof Error ? err.message : String(err)}`
+          : `Your application ${props.application.meta.name} failed to deploy. Please try again. Error details: ${err instanceof Error ? err.message : String(err)}`,
+      });
       await fetchApp();
       return;
     }
   }
-
+  
+  store.dispatch('growl/success', {
+    title: props.mode === 'edit' ? 'Application Updates Deployed' : 'Application Deployed',
+    message: props.mode === 'edit'
+      ? `Your application ${props.application.meta.name} has been successfully updated.`
+      : `Your application ${props.application.meta.name} has been successfully deployed.`,
+  });
   await fetchApp();
   running.value = false;
   emit('finished', true);
@@ -87,12 +127,12 @@ const create = async () => {
 
 watch(running, (neu, prev) => {
   if (prev && !neu) {
-    props.step.ready = true;
+    props.tab.completed = true;
   }
 });
 
 const createActions = async () => {
-  const REDEPLOY_SOURCE = store.$router.currentRoute._value.hash === '#source';
+  const REDEPLOY_SOURCE = props.mode === 'edit';
 
   const coreArgs = {
     application: props.application,
@@ -175,7 +215,11 @@ const createActions = async () => {
   create();
 };
 
-onMounted(createActions);
+watch(() => props.active, (isActive) => {
+  if (isActive && !actions.value.length) {
+    createActions();
+  }
+});
 </script>
 
 <template>
@@ -184,36 +228,14 @@ onMounted(createActions);
     class="progress-container"
   >
     <div class="progress">
-      <SortableTable
-        :rows="actions"
-        :headers="actionHeaders"
-        :table-actions="false"
-        :row-actions="false"
-        default-sort-by="epinio-name"
-        :search="false"
+      <trailhand-table
+        :rows="tableRows"
+        :columns="columns"
+        :searchable="false"
         key-field="key"
-      >
-        <template #cell:index="{ row }">
-          <Checkbox v-model="row.run" :disabled="true" />
-        </template>
-
-        <template #cell:state="{ row }">
-          <div class="status">
-            <i
-              v-if="row.state === APPLICATION_ACTION_STATE.RUNNING"
-              v-clean-tooltip="row.stateDisplay"
-              class="icon icon-lg icon-spinner icon-spin"
-            />
-            <BadgeState
-              v-else
-              :color="row.stateBackground"
-              :label="row.stateDisplay"
-              class="badge"
-            />
-          </div>
-        </template>
-      </SortableTable>
+      />
     </div>
+    <h3>The application will continue {{ props.mode === 'edit' ? 'updating' : 'deploying' }} in the background. Feel free to close this modal.</h3>
   </div>
 </template>
 
@@ -221,20 +243,18 @@ onMounted(createActions);
 .progress-container {
   display: flex;
   justify-content: center;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
 
   .progress {
     padding: 10px 0;
-
-    $statusHeight: 20px;
-
-    .status {
-      min-height: $statusHeight;
-      display: flex;
-      align-items: center;
-
-      .badge {
-        min-height: $statusHeight;
-      }
+    display: flex;
+    
+    trailhand-table {
+      --sortable-table-row-hover-bg: var(--sortable-table-hover-bg);
+      --sortable-table-header-hover-bg: var(--sortable-table-hover-bg);
+      --sortable-table-header-sorted-bg: var(--sortable-table-hover-bg);
     }
   }
 }

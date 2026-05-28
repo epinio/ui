@@ -32,7 +32,7 @@ export default class EpinioServiceModel extends EpinioNamespacedResource {
       self:   this.getUrl(),
       remove: this.getUrl(),
       bind:   `${ this.getUrl() }/bind`,
-      unmounted: `${ this.getUrl() }/unmounted`,
+      unbind: `${ this.getUrl() }/unbind`,
       create: this.getUrl(this.metadata?.namespace, null) // ensure name is null
     };
   }
@@ -79,6 +79,10 @@ export default class EpinioServiceModel extends EpinioNamespacedResource {
     return this.status;
   }
 
+  get namespace() {
+    return this.meta?.namespace;
+  }
+
   get serviceLocation() {
     return createEpinioRoute(`c-cluster-resource-id`, {
       cluster:  this.$rootGetters['clusterId'],
@@ -114,25 +118,43 @@ export default class EpinioServiceModel extends EpinioNamespacedResource {
   }
 
   async bindApp(appName) {
-    await this.followLink('bind', {
-      method:  'post',
-      headers: {
-        'content-type': 'application/json',
-        accept:         'application/json'
-      },
-      data: { app_name: appName }
-    });
+    try {
+      await this.followLink('bind', {
+        method:  'post',
+        headers: {
+          'content-type': 'application/json',
+          accept:         'application/json'
+        },
+        data: { app_name: appName }
+      });
+    } catch (e) {
+      console.log(e)
+      this.$dispatch('growl/error', {
+        title: 'Something Went Wrong Binding the Service',
+        message: `The service most likely wasn't ready yet. Please wait a
+        moment and try again. If the problem persists, please contact support.`,
+      }, { root: true });
+    }
   }
 
   async unbindApp(appName) {
-    await this.followLink('unmounted', {
-      method:  'post',
-      headers: {
-        'content-type': 'application/json',
-        accept:         'application/json'
-      },
-      data: { app_name: appName }
-    });
+    try {
+      await this.followLink('unbind', {
+        method:  'post',
+        headers: {
+          'content-type': 'application/json',
+          accept:         'application/json'
+        },
+        data: { app_name: appName }
+      });
+    } catch (e) {
+      console.log(e)
+      this.$dispatch('growl/error', {
+        title: 'Something Went Wrong Unbinding the Service',
+        message: `Please wait a moment and try again. If the problem persists,
+        please contact support.`,
+      }, { root: true });
+    }
   }
 
   async delete(unmounted = true) {
@@ -140,6 +162,9 @@ export default class EpinioServiceModel extends EpinioNamespacedResource {
   }
 
   async remove() {
+    if (this.boundapps?.length) {
+      await Promise.all(this.boundapps.map((appName) => this.unbindApp(appName)));
+    }
     await this.delete(true);
   }
 

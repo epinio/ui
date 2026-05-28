@@ -20,7 +20,7 @@ import { EpinioAppSource, EPINIO_TYPES, EpinioAppInfo, EpinioAppBindings } from 
 import { allHash } from '@shell/utils/promise';
 import { _EDIT } from '@shell/config/query-params';
 
-const props = defineProps<{ 
+const props = defineProps<{
   value: Application;
   initialValue: Application;
   mode: string;
@@ -100,7 +100,22 @@ const canEditConfig = computed(() => {
 // If the user lacks config write perms, never show the primary "Edit Config" footer button,
 // regardless of how this dialog was opened (view or edit route).
 const hideEditConfigButton = computed(() => !canEditConfig.value);
-const validationPassed = computed(() => !Object.values(tabErrors).find((error) => error));
+const validationPassed = computed(() => {
+  const tabsValid = !Object.values(tabErrors).find((error) => error);
+  return tabsValid;
+});
+
+/*const shouldRestartOnSave = computed(() => {
+  const previousInstances = Number(props.initialValue?.configuration?.instances ?? props.initialValue?.desiredInstances ?? 0);
+  const nextInstances = Number(props.value?.configuration?.instances ?? props.value?.desiredInstances ?? 0);
+  const instancesChanged = previousInstances !== nextInstances;
+
+  return props.value?.canRestartAfterConfigSave || instancesChanged;
+});*/
+
+// Only restart/redeploy when the app is running and has a built image.
+// Created, staging, error, etc. should persist config with restart: false (env, routes, instances).
+const shouldRestartOnSave = computed(() => !!props.value?.canRestartAfterConfigSave);
 
 const done = () => {
   if (!doneRoute) {
@@ -117,7 +132,7 @@ const done = () => {
 async function save(saveCb: (success: boolean) => void) {
   errors.value = [];
   try {
-    await props.value.update();
+    await props.value.update({ restart: shouldRestartOnSave.value });
 
     await props.value.updateConfigurations(
       props.initialValue.baseConfigurationsNames || [],
@@ -150,6 +165,7 @@ function updateInfo(changes: EpinioAppInfo) {
   props.value.configuration = props.value.configuration || {};
   set(props.value.meta, changes.meta);
   set(props.value.configuration, changes.configuration);
+  setUnsavedChanges(true);
 }
 
 function updateConfigurations(changes: EpinioAppBindings) {
@@ -254,7 +270,7 @@ function validate(value: boolean, tab: string) {
           </Wizard>
         </div>
       </Tab>
-      
+
       <Tab
         label-key="epinio.applications.steps.basics.label"
         name="info"

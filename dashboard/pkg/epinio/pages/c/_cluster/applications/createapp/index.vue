@@ -85,6 +85,12 @@ watch([source, bindings, value], () => {
   setUnsavedChanges(true);
 }, { deep: true });
 
+// when namepace changes, remove bindings
+watch(() => value.value?.meta.namespace, () => {
+  bindings.value = { configurations: [], services: [] };
+  set(value.value.configuration, { configurations: [] });
+});
+
 // Methods
 function set(obj: Record<string, any>, changes: Record<string, any>) {
   Object.entries(changes).forEach(([key, val]) => {
@@ -133,7 +139,7 @@ function updateManifestConfigurations(configs: string[]) {
 function updateConfigurations(changes: EpinioAppBindings) {
   bindings.value = {};
   set(bindings.value, changes);
-  set(value.value.configuration, [...changes.configurations]);
+  set(value.value.configuration, { configurations: changes.configurations });
 }
 
 function cancel() {
@@ -193,6 +199,7 @@ function finish() {
         <AppConfiguration
           :application="value"
           :mode="mode"
+          :bindings="bindings"
           @change="updateConfigurations"
         />
       </template>

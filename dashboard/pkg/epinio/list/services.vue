@@ -1,79 +1,198 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed } from 'vue';
-
-import { EPINIO_TYPES } from '../types';
-import { createEpinioRoute } from '../utils/custom-routing';
-import DataTable from '../components/tables/DataTable.vue';
-import type { DataTableColumn } from '../components/tables/types';
-import LinkDetail from '@shell/components/formatter/LinkDetail.vue';
-import BadgeStateFormatter from '@shell/components/formatter/BadgeStateFormatter.vue';
-import Masthead from '@shell/components/ResourceList/Masthead';
+import { computed, onMounted, onUnmounted, ref, watchEffect, watch } from 'vue';
 import { useStore } from 'vuex';
+import { debounce } from 'lodash';
+import { useRouter } from 'vue-router';
+
+import { EPINIO_TYPES, EPINIO_SERVICE_PARAM } from '../types';
 import { startPolling, stopPolling } from '../utils/polling';
+import Masthead from '@shell/components/ResourceList/Masthead';
+import { makeStateTag, makeRouterLink, makeRouterLinksOrEmpty, makeActionMenu } from '../utils/table-formatters';
+import EpinioServiceModel from 'models/services';
+import { overrideTableRows } from '../utils/table-formatters';
+import ServiceDeleteModal from '../components/service/ServiceDeleteModal.vue';
+import ServiceInstanceModal from '../components/service/ServiceInstanceModal.vue';
 
-const pending = ref(true);
-const store = useStore();
+defineProps<{
+  schema: object,
+}>();
+
+const store = useStore() as any;
 const t = store.getters['i18n/t'];
+const router = useRouter();
 
-const schema = ref(store.getters['epinio/schemaFor'](EPINIO_TYPES.SERVICE_INSTANCE));
-const resource = EPINIO_TYPES.SERVICE_INSTANCE;
+const resource: string = EPINIO_TYPES.SERVICE_INSTANCE;
+const paginationMeta = computed(() => store.getters['epinio/paginationMeta'](resource));
+const currentPage = computed(() => store.getters['epinio/currentPaginationPage'](resource));
 
-const createLocation = computed(() =>
-  createEpinioRoute('c-cluster-resource-create', {
-    cluster: store.getters['clusterId'],
-    resource: EPINIO_TYPES.SERVICE_INSTANCE,
-  })
-);
+const searchQuery = ref<string>('');
 
-// Strict RBAC: only show Create when we know the user has service write perms (hides for view_only)
-const canCreateService = computed(() => {
-  const can = store.getters['epinio/can'];
-  const perms = store.getters['epinio/permissions']?.();
+const paginating = ref(false);
 
-  // If we don't have a permission helper or a populated perms map yet, hide Create
-  if (!can || !perms || Object.keys(perms).length === 0) {
-    return false;
+async function goToPage(page: number) {
+  const meta = paginationMeta.value;
+
+  if (meta && (page < 1 || page > meta.totalPages)) return;
+  paginating.value = true;
+  try {
+    await store.dispatch('epinio/goToPage', { type: resource, page });
+  } finally {
+    paginating.value = false;
   }
+}
 
-  return can('service_write') || can('service');
+const onSearch = debounce(async (query: string) => {
+  paginating.value = true;
+  try {
+    await store.dispatch('epinio/search', { type: resource, query });
+  } finally {
+    paginating.value = false;
+  }
+}, 500);
+
+watch(searchQuery, (newQuery) => {
+  onSearch(newQuery);
 });
 
-onMounted(async () => {
-  await store.dispatch('epinio/me');
-  await Promise.all([
-    store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.APP }),
-    store.dispatch(
-      `epinio/findAll`,
-      { type: EPINIO_TYPES.SERVICE_INSTANCE }
-    ),
-  ]);
-  pending.value = false;
+const serviceModal = ref<InstanceType<typeof ServiceInstanceModal> | null>(null);
+const deleteModal = ref<InstanceType<typeof ServiceDeleteModal> | null>(null);
+const displayRows = ref<any[]>([]);
 
-  startPolling(["namespaces", "applications", "services"], store);
+const canEdit = computed(() => {
+  const can = store.getters['epinio/can'];
+
+  return can && (can('service_write') || can('service'));
+});
+const canDelete = canEdit;
+const canCreate = canEdit;
+
+watchEffect(() => {
+  void store.state.activeNamespaceCacheKey;
+  const activeNamespaces = store.state.activeNamespaceCache;
+  const all = store.getters['epinio/all'](EPINIO_TYPES.SERVICE_INSTANCE) as any[];
+  all.forEach((row: any) => { void row.status; void row.stateDisplay; void row.meta; });
+
+  // Filter empty rows that are added during delete, and filter by active namespace
+  const filtered = all.filter((row) => {
+    if (!row.id) return false;
+    const ns = row.meta?.namespace;
+
+    return !activeNamespaces || Object.keys(activeNamespaces).length === 0 || activeNamespaces[ns];
+  });
+
+  // Build the row action menu with RBAC gating. The model already gates the
+  // base actions; here we inject the modal-driven Edit/Delete entries only
+  // when the user has service write permissions.
+  const rowActions = (row: EpinioServiceModel) => {
+    const out: any[] = [];
+
+    if (canEdit.value) {
+      out.push({
+        action: 'editServiceModal',
+        label: 'Edit',
+        enabled: true
+      });
+    }
+    if (canDelete.value) {
+      out.push({
+        action: 'removeService',
+        altAction: 'remove',
+        bulkAction: 'removeService',
+        bulkable: true,
+        enabled: row.canDelete,
+        icon: 'icon icon-trash',
+        label: 'Delete',
+        weight: -10
+      });
+    }
+
+
+    return out;
+  };
+
+  const overrideProps = [
+    {
+      prop: 'availableActions',
+      value: rowActions,
+      conditionFn: () => true,
+    },
+    {
+      prop: 'removeService',
+      value: (row: EpinioServiceModel) => () => {
+        deleteModal.value?.openDelete(row);
+      },
+      conditionFn: (row: EpinioServiceModel) => canDelete.value && row.canDelete,
+    },
+    {
+      prop: 'editServiceModal',
+      value: (row: EpinioServiceModel) => () => {
+        serviceModal.value?.openEdit(row);
+      },
+      conditionFn: () => canEdit.value,
+    }
+  ];
+
+  const processedRows = overrideTableRows(filtered, overrideProps);
+
+  displayRows.value = [...processedRows];
+});
+
+onMounted(() => {
+  store.dispatch('epinio/me');
+  store.dispatch('epinio/findAll', { type: EPINIO_TYPES.SERVICE_INSTANCE });
+  store.dispatch('epinio/findAll', { type: EPINIO_TYPES.NAMESPACE });
+  store.dispatch('epinio/findAll', { type: EPINIO_TYPES.CATALOG_SERVICE });
+  store.dispatch('epinio/findAll', { type: EPINIO_TYPES.APP });
+  startPolling(['services'], store);
+
+  const query = store.$router.currentRoute._value.query;
+
+  if (query.mode === 'openModal') {
+    serviceModal.value?.openCreate(query[EPINIO_SERVICE_PARAM] as string | undefined);
+  }
 });
 
 onUnmounted(() => {
-  stopPolling(["namespaces", "applications", "services"]);
+  stopPolling(['services']);
 });
 
-const rows = computed(() => {
-  return store.getters['epinio/all'](EPINIO_TYPES.SERVICE_INSTANCE);
-});
+const handleNavigate = (event: CustomEvent) => {
+  router.push(event.detail.url);
+};
 
-const columns: DataTableColumn[] = [
+const columns = [
   {
     field: 'stateDisplay',
     label: 'State',
-    width: '100px'
+    width: '100px',
+    formatter: (_v: any, row: any) => makeStateTag(row)
   },
   {
     field: 'nameDisplay',
-    label: 'Name'
+    label: 'Name',
+    formatter: (_v: any, row: any) => {
+      const el = document.createElement('a');
+
+      el.textContent = row.nameDisplay || row.meta?.name || '';
+      el.style.cursor = 'pointer';
+      el.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        serviceModal.value?.openView(row);
+      });
+
+      return el;
+    }
+  },
+  {
+    field: 'namespace',
+    label: 'Namespace'
   },
   {
     field: 'catalog_service',
     label: 'Catalog Service',
-    sortable: false
+    sortable: false,
+    formatter: (_v: any, row: any) => makeRouterLink(row.catalog_service, row.serviceLocation, router)
   },
   {
     field: 'catalog_service_version',
@@ -82,7 +201,8 @@ const columns: DataTableColumn[] = [
   {
     field: 'boundApps',
     label: 'Bound Applications',
-    sortable: false
+    sortable: false,
+    formatter: (_v: any, row: any) => makeRouterLinksOrEmpty(row.applications, router)
   },
   {
     field: 'meta.createdAt',
@@ -91,64 +211,70 @@ const columns: DataTableColumn[] = [
   }
 ];
 </script>
+
 <template>
-  <Masthead
-    :schema="schema"
-    :resource="resource"
-  >
-    <template #createButton>
-      <button
-        v-if="canCreateService"
-        class="btn role-primary"
-        @click="store.$router.push(createLocation)"
-      >
-        {{ t('generic.create') }}
-      </button>
-    </template>
-  </Masthead>
-  <DataTable
-    :rows="rows"
-    :columns="columns"
-    :loading="pending"
-  >
-    <template #cell:stateDisplay="{ row }">
-      <BadgeStateFormatter
-        :row="row"
-        :value="row.stateDisplay"
-      />
-    </template>
-    <template #cell:nameDisplay="{ row }">
-      <LinkDetail
-        :row="row"
-        :value="row.nameDisplay"
-      />
-    </template>
-    <template #cell:catalog_service="{ row }">
-      <LinkDetail
-        v-if="row.serviceLocation"
-        :row="{ detailLocation: row.serviceLocation }"
-        :value="row.catalog_service"
-      />
-      <span v-else>{{ row.catalog_service }}</span>
-    </template>
-    <template #cell:boundApps="{ row }">
-      <span v-if="row.applications && row.applications.length">
-        <template v-for="(app, index) in row.applications" :key="app.id">
-          <LinkDetail
-            :row="app"
-            :value="app.meta.name"
-          />
-          <span
-            v-if="index < row.applications.length - 1"
-            :key="app.id + 'i'"
-          >, </span>
-        </template>
-      </span>
-      <span
-        v-else
-        class="text-muted"
-      >&nbsp;</span>
-    </template>
-  </DataTable>
+  <div id="modal-container-element">
+    <Masthead
+      :schema="schema"
+      :resource="resource"
+    >
+      <template #createButton>
+        <trailhand-button
+          v-if="canCreate"
+          variant="primary"
+          size="large"
+          @click="serviceModal.openCreate()"
+        >
+          {{ t('generic.create') }}
+        </trailhand-button>
+        <div v-else />
+      </template>
+    </Masthead>
+    <div class="search-container">
+      <trailhand-text-input
+        :value="searchQuery"
+        placeholder="Search..."
+        @text-input-change="(e: CustomEvent) => searchQuery = e.detail.value"
+      ></trailhand-text-input>
+    </div>
+    <trailhand-table
+      :ref="(el: any) => { if (el) el.renderActions = makeActionMenu; }"
+      :rows="displayRows"
+      :columns="columns"
+      :searchable="false"
+      :server-side="!!paginationMeta"
+      :total-items="paginationMeta?.totalItems ?? displayRows.length"
+      :current-page="currentPage"
+      :loading="paginating"
+      key-field="id"
+      @navigate="handleNavigate"
+      @page-change="(e: CustomEvent) => goToPage(e.detail.page)"
+    />
+    <ServiceInstanceModal ref="serviceModal" />
+    <ServiceDeleteModal ref="deleteModal" />
+  </div>
 </template>
 
+<style lang="scss" scoped>
+
+.search-container {
+  width: 100%;
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 1rem;
+}
+
+trailhand-table {
+  --sortable-table-row-hover-bg: var(--sortable-table-hover-bg);
+  --sortable-table-header-hover-bg: var(--sortable-table-hover-bg);
+  --sortable-table-header-sorted-bg: var(--sortable-table-hover-bg);
+}
+
+.modal-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  max-width: 500px;
+}
+
+</style>

@@ -1,42 +1,142 @@
 <script setup lang="ts">
 import { useStore } from 'vuex';
-import { ref, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
+import { computed, ref, onMounted, watchEffect, onUnmounted } from 'vue';
 
+import { startPolling, stopPolling } from '../utils/polling';
 import EpinioCatalogServiceModel from '../models/catalogservices';
 import { EPINIO_TYPES } from '../types';
-
-import DataTable from '../components/tables/DataTable.vue';
-import type { DataTableColumn } from '../components/tables/types';
-import BadgeStateFormatter from '@shell/components/formatter/BadgeStateFormatter.vue';
-import LinkDetail from '@shell/components/formatter/LinkDetail.vue';
+import { makeStateTag, makeRouterLink, makeRouterLinksOrEmpty, overrideTableRows } from '../utils/table-formatters';
+import ServiceDeleteModal from '../components/service/ServiceDeleteModal.vue';
+import ServiceInstanceModal from '../components/service/ServiceInstanceModal.vue';
+import EpinioServiceModel from 'models/services';
+import { makeActionMenu } from '../utils/table-formatters';
+import Masthead from '@shell/components/ResourceList/Masthead';
 
 const store = useStore();
-
+const router = useRouter();
 const t = store.getters['i18n/t'];
 
 const props = defineProps<{ value: EpinioCatalogServiceModel }>();
 
-const pending = ref<boolean>(true);
+const deleteModal = ref<InstanceType<typeof ServiceDeleteModal> | null>(null);
+const serviceModal = ref<InstanceType<typeof ServiceInstanceModal> | null>(null);
+const displayRows = ref<any[]>([]);
 
-onMounted(async () => {
-  await store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.SERVICE_INSTANCE });
-  pending.value = false;
+const canEdit = computed(() => {
+  const can = store.getters['epinio/can'];
+
+  return can && (can('service_write') || can('service'));
+});
+const canDelete = canEdit;
+const canCreate = canEdit;
+
+watchEffect(() => {
+  const all = store.getters['epinio/all'](EPINIO_TYPES.SERVICE_INSTANCE) as any[];
+
+  // Filter empty rows that are added during delete and only show services related to this catalog service
+  const filtered = all.filter((row: any) => row.id && row.catalog_service === props.value.id);
+
+  // Build the row action menu with RBAC gating. Inject the modal-driven
+  // Edit/Delete entries only when the user has service write permissions.
+  const rowActions = (row: EpinioServiceModel) => {
+    const out: any[] = [];
+
+    if (canDelete.value) {
+      out.push({
+        action: 'removeService',
+        altAction: 'remove',
+        bulkAction: 'removeService',
+        bulkable: true,
+        enabled: row.canDelete,
+        icon: 'icon icon-trash',
+        label: 'Delete',
+        weight: -10
+      });
+    }
+    if (canEdit.value) {
+      out.push({
+        action: 'editServiceModal',
+        label: 'Edit',
+        enabled: true
+      });
+    }
+
+    return out;
+  };
+
+  const overrideProps = [
+      {
+        prop: 'availableActions',
+        value: rowActions,
+        conditionFn: () => true,
+      },
+      {
+        prop: 'removeService',
+        value: (row: EpinioServiceModel) => () => {
+          deleteModal.value?.openDelete(row);
+        },
+        conditionFn: (row: EpinioServiceModel) => canDelete.value && row.canDelete,
+      },
+      {
+        prop: 'editServiceModal',
+        value: (row: EpinioServiceModel) => () => {
+          serviceModal.value?.openEdit(row);
+        },
+        conditionFn: () => canEdit.value,
+      }
+    ];
+
+  const processedRows = overrideTableRows(filtered, overrideProps);
+  displayRows.value = processedRows;
+})
+
+onMounted(() => {
+  store.dispatch('epinio/me');
+  store.dispatch('epinio/findAll', { type: EPINIO_TYPES.SERVICE_INSTANCE });
+  store.dispatch('epinio/findAll', { type: EPINIO_TYPES.NAMESPACE });
+  store.dispatch('epinio/findAll', { type: EPINIO_TYPES.CATALOG_SERVICE });
+  store.dispatch('epinio/findAll', { type: EPINIO_TYPES.APP });
+  startPolling(['services'], store);
 });
 
-const columns: DataTableColumn[] = [
+onUnmounted(() => {
+  stopPolling(['services']);
+})
+
+const handleNavigate = (event: CustomEvent) => {
+  router.push(event.detail.url);
+};
+
+const columns = [
   {
     field: 'stateDisplay',
     label: 'State',
-    width: '100px'
+    width: '100px',
+    formatter: (_v: any, row: any) => makeStateTag(row)
   },
   {
     field: 'nameDisplay',
-    label: 'Name'
+    label: 'Name',
+    formatter: (_v: any, row: any) => {
+      const el = document.createElement('a');
+
+      el.textContent = row.nameDisplay || row.meta?.name || '';
+      el.style.cursor = 'pointer';
+      el.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        serviceModal.value?.openView(row);
+      });
+
+      return el;
+    }
   },
   {
     field: 'catalog_service',
     label: 'Catalog Service',
-    sortable: false
+    sortable:  false,
+    formatter: (_v: any, row: any) => makeRouterLink(row.catalog_service, row.serviceLocation, router)
   },
   {
     field: 'catalog_service_version',
@@ -45,7 +145,8 @@ const columns: DataTableColumn[] = [
   {
     field: 'boundApps',
     label: 'Bound Applications',
-    sortable: false
+    sortable:  false,
+    formatter: (_v: any, row: any) => makeRouterLinksOrEmpty(row.applications, router)
   },
   {
     field: 'meta.createdAt',
@@ -56,54 +157,48 @@ const columns: DataTableColumn[] = [
 </script>
 
 <template>
-  <div>
-    <h2 class="mt-20">
-      {{ t('epinio.catalogService.detail.servicesTitle', { catalogService: props.value.name }) }}
-    </h2>
-    <DataTable
-      :rows="props.value.services"
-      :columns="columns"
-      :loading="pending"
+  <div id="modal-container-element">
+    <Masthead
+      :schema="value"
+      :resource="value.id"
+      :type-display="t('epinio.catalogService.detail.servicesTitle', { catalogService: props.value.name })"
     >
-      <template #cell:stateDisplay="{ row }">
-        <BadgeStateFormatter
-          :row="row"
-          :value="row.stateDisplay"
-        />
+      <template #subHeader>
+        <p class="description">{{ value.description ?? '' }}</p>
       </template>
-      <template #cell:nameDisplay="{ row }">
-        <LinkDetail
-          :row="row"
-          :value="row.nameDisplay"
-        />
+      <template #createButton>
+        <trailhand-button
+          v-if="canCreate"
+          variant="primary"
+          size="large"
+          @click="serviceModal?.openCreate(value.id)"
+        >
+          {{ t('generic.create') }}
+        </trailhand-button>
+        <div v-else></div>
       </template>
-      <template #cell:catalog_service="{ row }">
-        <LinkDetail
-          v-if="row.serviceLocation"
-          :row="row.serviceLocation"
-          :value="row.catalog_service"
-        />
-        <span v-else>{{ row.catalog_service }}</span>
-      </template>
-      <template #cell:boundApps="{ row }">
-        <span v-if="row.applications && row.applications.length">
-          <template v-for="(app, index) in row.applications" :key="app.id">
-            <LinkDetail
-              :row="app"
-              :value="app.meta.name"
-            />
-            <span
-              v-if="index < row.applications.length - 1"
-              :key="app.id + 'i'"
-            >, </span>
-          </template>
-        </span>
-        <span
-          v-else
-          class="text-muted"
-        >&nbsp;</span>
-      </template>
-
-    </DataTable>
+    </Masthead>
+    <trailhand-table
+      :ref="(el: any) => { if (el) el.renderActions = makeActionMenu; }"
+      :rows="displayRows"
+      :columns="columns"
+      :searchable="true"
+      key-field="id"
+      @navigate="handleNavigate"
+    />
+    <ServiceDeleteModal ref="deleteModal" />
+    <ServiceInstanceModal ref="serviceModal" />
   </div>
 </template>
+
+<style lang="scss" scoped>
+.description {
+  max-width: 60%;
+  color: var(--deemphasized);
+}
+trailhand-table {
+  --sortable-table-row-hover-bg: var(--sortable-table-hover-bg);
+  --sortable-table-header-hover-bg: var(--sortable-table-hover-bg);
+  --sortable-table-header-sorted-bg: var(--sortable-table-hover-bg);
+}
+</style>
