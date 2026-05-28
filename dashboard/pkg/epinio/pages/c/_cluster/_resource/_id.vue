@@ -10,7 +10,7 @@ const isCatalogServices = route.params.resource === 'catalogservices';
 
 
 <template>
-  <div class="catalogservices-container" v-if="isCatalogServices">
+  <div v-if="isCatalogServices" class="catalogservices-container">
     <ResourceDetail />
   </div>
   <ResourceDetail v-else />

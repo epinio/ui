@@ -63,7 +63,6 @@ const defaultBuilderImage = ref(props.info?.default_builder_image || DEFAULT_BUI
 const builderImageValue = ref(props.source?.builderImage?.value || defaultBuilderImage.value);
 
 // Reactive State
-const open = ref(false);
 const gitSkipTypeReset = ref(false);
 const archive = reactive({
   tarball: props.source?.archive?.tarball || '',
@@ -97,8 +96,6 @@ const builderImage = reactive({
   value: builderImageValue.value,
   default: builderImageValue.value === defaultBuilderImage.value
 });
-
-const EDIT = _EDIT;
 
 const appChart = ref(props.application.configuration?.appchart || props.source?.appChart || '');
 const type = ref(props.source?.type || APPLICATION_SOURCE_TYPE.FOLDER);
@@ -374,13 +371,13 @@ onMounted(() => {
         label="Source Type"
         :required="true"
         placeholder="Select a source type"
-        @dropdown-change="(e: CustomEvent) => type = e.detail.value"
         data-testid="epinio_app-source_type"
+        @dropdown-change="(e: CustomEvent) => type = e.detail.value"
       ></trailhand-dropdown>
       <trailhand-button
         variant="alternate"
-        @button-click="handleFromManifestClick"
         data-testid="epinio_app-source_manifest"
+        @button-click="handleFromManifestClick"
       >
         From Manifest
       </trailhand-button>
@@ -407,8 +404,8 @@ onMounted(() => {
           />
           <trailhand-button
             variant="alternate"
-            @button-click="handleArchiveFileClick"
             data-testid="epinio_app-source_archive_file"
+            @button-click="handleArchiveFileClick"
           >
             Select File
           </trailhand-button>
@@ -416,9 +413,9 @@ onMounted(() => {
             ref="archiveFileInput"
             type="file"
             class="hidden-file-input"
+            accept=".zip, .tar, .gz, .bz2, .xz"
             @change="handleArchiveFileChange"
             @cancel="fileDialogActive = false"
-            accept=".zip, .tar, .gz, .bz2, .xz"
           >
         </div>
       </div>
@@ -438,8 +435,8 @@ onMounted(() => {
           />
           <trailhand-button
             variant="alternate"
-            @button-click="handleFolderFileClick"
             data-testid="epinio_app-source_folder_file"
+            @button-click="handleFolderFileClick"
           >
             Select Folder
           </trailhand-button>
@@ -525,8 +522,8 @@ onMounted(() => {
           <h4>Paketo Builder Image</h4>
           <trailhand-checkbox
             :checked="!builderImage.default"
-            @checkbox-change="onImageType(!builderImage.default)"
             data-testid="epinio_app-source_builder-default"
+            @checkbox-change="onImageType(!builderImage.default)"
           >
             Use Custom Builder Image
           </trailhand-checkbox>

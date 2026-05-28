@@ -9,7 +9,6 @@ import AppInfo from './AppInfo.vue';
 import AppConfiguration from './AppConfiguration.vue';
 import AppProgress from './AppProgress.vue';
 import { EpinioAppInfo, EpinioAppBindings, EpinioAppSource, EPINIO_TYPES } from '../../types';
-import { _CREATE } from '@shell/config/query-params';
 import Tabs from './Tabs.vue';
 import { allHash } from '@shell/utils/promise';
 import EpinioApplicationModel from 'models/applications';
@@ -134,7 +133,7 @@ async function openEdit(row: EpinioApplicationModel, commit?: string) {
   source.value = row.appSource;
 
   tabs.value.forEach(tab => {
-    tab.id !== 'progress' ? tab.disabled = false : null
+    if (tab.id !== 'progress') tab.disabled = false;
     tab.valid = true;
   });
 
@@ -341,13 +340,13 @@ defineExpose({ openCreate, openEdit });
     :dismissible="false"
     :title="(isEdit || isView) ? value?.meta?.name : 'Application'"
     :subtitle="(isEdit || isView) ? (value?.stateDisplay || '') : 'Create New'"
-    @modal-close="handleModalClose"
     position="top"
+    @modal-close="handleModalClose"
   >
-    <div class="modal-content" id="modal-container-element">
+    <div id="modal-container-element" class="modal-content">
       <Loading v-if="loading" />
-      <Tabs v-else :tabs="tabs" v-model="activeTab">
-        <template #source="{ tab }">
+      <Tabs v-else v-model="activeTab" :tabs="tabs">
+        <template #source>
           <AppSource
             :application="value"
             :source="source"
@@ -381,7 +380,7 @@ defineExpose({ openCreate, openEdit });
           />
         </template>
 
-        <template #bindings="{ tab }">
+        <template #bindings>
           <AppConfiguration
             :application="value"
             :initial-application="originalModel"
@@ -443,7 +442,8 @@ defineExpose({ openCreate, openEdit });
         </trailhand-button>
       </template>
       <template v-else>
-        <trailhand-button v-if="activeTab !== 'progress'"
+        <trailhand-button
+          v-if="activeTab !== 'progress'"
           variant="secondary"
           class="mr-10"
           @button-click="handleModalClose"
@@ -458,7 +458,8 @@ defineExpose({ openCreate, openEdit });
         >
           Previous
         </trailhand-button>
-        <trailhand-button v-if="nextTab && activeTab !== 'progress'"
+        <trailhand-button
+          v-if="nextTab && activeTab !== 'progress'"
           :variant="!isEdit ? 'primary' : 'secondary'"
           class="mr-10"
           :disabled="tabs.find(t => t.id === nextTab)?.disabled"
@@ -466,14 +467,16 @@ defineExpose({ openCreate, openEdit });
         >
           Next
         </trailhand-button>
-        <trailhand-button v-if="isEdit && activeTab !== 'progress'"
+        <trailhand-button
+          v-if="isEdit && activeTab !== 'progress'"
           variant="primary"
           :disabled="!isDirty || saving || tabs.some(t => !t.valid)"
           @button-click="onSubmit"
         >
           {{ saving ? 'Saving...' : t('generic.save') }}
         </trailhand-button>
-        <trailhand-button v-if="activeTab === 'progress'"
+        <trailhand-button
+          v-if="activeTab === 'progress'"
           variant="primary"
           :disabled="false"
           @button-click="closeModal"

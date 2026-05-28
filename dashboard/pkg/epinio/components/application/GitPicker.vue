@@ -343,11 +343,11 @@ watch(() => props.value, async(neu, old) => {
           :label="t(`gitPicker.${ type }.repo.inputLabel`)"
           :required="true"
           :options="preparedRepos"
+          filterable
           @dropdown-change="(e: CustomEvent) => { 
             const selected = repos.find((r: any) => r.name === e.detail.value);
             selectedRepo = selected; 
           }"
-          filterable
           @dropdown-filter="(e: CustomEvent<{ filter: string }>) => { debouncedSearchRepo(e.detail.filter); }"
         />
       </div>
@@ -363,11 +363,11 @@ watch(() => props.value, async(neu, old) => {
           :label="t(`gitPicker.${ type }.branch.inputLabel`)"
           :required="true"
           :options="preparedBranches"
+          filterable
           @dropdown-change="(e: CustomEvent) => { 
             const selected = branches.find((b: any) => b.name === e.detail.value);
             selectedBranch = selected; 
           }"
-          filterable
           @dropdown-filter="(e: CustomEvent<{ filter: string }>) => { debouncedSearchBranch(e.detail.filter); }"
         />
       </div>

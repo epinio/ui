@@ -312,7 +312,7 @@ const bundleStatus = computed(() => {
       >
         <span slot="title">{{ t('epinio.downloadReport.title') }}</span>
         <div
-          slot="description"
+slot="description"
           class="download__body"
         >
           <p class="download__description">
@@ -320,17 +320,17 @@ const bundleStatus = computed(() => {
           </p>
         </div>
         <trailhand-button
-          slot="action"
+slot="action"
           variant="secondary"
           size="large"
           :disabled="reportLoading"
-          @click="downloadReport"
           class="download__button"
+          @click="downloadReport"
         >
           {{ reportLoading ? 'Downloading...' : t('epinio.downloadReport.action') }}
         </trailhand-button>
         <span
-          v-if="reportStatus"
+v-if="reportStatus"
           slot="footer"
         >
           <trailhand-tag
@@ -347,7 +347,7 @@ const bundleStatus = computed(() => {
       >
         <span slot="title">{{ t('epinio.supportBundle.title') }}</span>
         <div
-          slot="description"
+slot="description"
           class="support-bundle__body"
         >
           <p class="support-bundle__description">
@@ -382,7 +382,7 @@ const bundleStatus = computed(() => {
           </div>
         </div>
         <span
-          v-if="bundleStatus"
+v-if="bundleStatus"
           slot="footer"
         >
           <trailhand-tag

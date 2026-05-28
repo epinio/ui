@@ -8,7 +8,7 @@ const isApplication = route.params.resource === 'applications';
 </script>
 
 <template>
-  <div class="view-application-container" v-if="isApplication">
+  <div v-if="isApplication" class="view-application-container">
     <ResourceDetail />
   </div>
   <ResourceDetail v-else />

@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { ref, computed, watch, onMounted, reactive } from 'vue';
+import { ref, computed, watch, reactive } from 'vue';
 import { useStore } from 'vuex';
 
 import ApplicationAction, { APPLICATION_ACTION_TYPE } from '../../models/application-action';
@@ -78,7 +78,8 @@ const actionsToRun = computed(() => actions.value.filter(action => action.run));
 // tableRows is a copy of actions that tracks state and stateMessage so any change to those properties triggers a Lit re-render
 const tableRows = computed(() => {
   // Track state and stateMessage so any change triggers a Lit re-render
-  actions.value.forEach((a: ApplicationAction) => { a.state; (a as any).stateMessage; });
+  // eslint-disable-next-line @typescript-eslint/no-unused-expressions
+  actions.value.forEach((a: ApplicationAction) => { a.state; (a as any).stateMessage; }); // touch props to trigger Lit re-render
 
   return [...actions.value];
 });

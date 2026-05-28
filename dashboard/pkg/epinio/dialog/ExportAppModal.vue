@@ -213,18 +213,18 @@ defineExpose({
   <trailhand-modal
     :title="t('epinio.applications.export.label')"
     :open.prop="showModal"
-    @modal-close="closeExport"
     :dismissible="false"
+    @modal-close="closeExport"
   >
-    <div class="modal-content" id="modal-container-element">
-      <Tabs :tabs="tabs" v-model="activeTab" variant="underline">
-        <template #manifest="{ tab }">
+    <div id="modal-container-element" class="modal-content">
+      <Tabs v-model="activeTab" :tabs="tabs" variant="underline">
+        <template #manifest>
           <p>
             {{ t('epinio.applications.export.manifest.description') }}
           </p>
         </template>
 
-        <template #chartAndImages="{ tab }">
+        <template #chartAndImages>
           <p>
             {{ t('epinio.applications.export.chartValuesImages.description') }}
           </p>

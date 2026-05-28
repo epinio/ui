@@ -368,7 +368,7 @@ defineExpose({ openCreate, openView, openEdit });
     :subtitle="modalSubtitle"
     @modal-close="handleModalClose"
   >
-    <div class="modal-content" id="modal-container-element">
+    <div id="modal-container-element" class="modal-content">
       <!-- Service-managed notice: shown when a config was created by a service (not directly by a user) -->
       <Banner
         v-if="!isCreate && configModel?.configuration?.origin"

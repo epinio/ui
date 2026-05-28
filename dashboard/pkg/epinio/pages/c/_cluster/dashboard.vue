@@ -20,8 +20,6 @@ import EpinioServiceModel from '../../../models/services';
 import { parseSi, createMemoryValues } from '@shell/utils/units';
 import { createEpinioRoute } from '../../../utils/custom-routing';
 import { startPolling, stopPolling } from '../../../utils/polling';
-import DashboardCard from '../../../components/dashboard/Cards.vue';
-import ConsumptionGauge from '@shell/components/ConsumptionGauge.vue';
 
 type ComponentService = {
   name: string,
@@ -31,12 +29,6 @@ type ComponentService = {
 
 const store = useStore();
 const t = store.getters['i18n/t'];
-const colorStops = {
-  0: '--info',
-  30: '--info',
-  70: '--info',
-};
-
 //Variables that can recieve updates
 const version = ref<string>('');
 const showMetricsInfo = ref<boolean>(false);
@@ -333,9 +325,9 @@ function handleCardDismiss(e: Event, cardType: string) {
           icon-name="rocket"
           clickable
           dismissible
+          class="info-card"
           @click="handleGetStartedClick"
           @card-dismiss="(e) => handleCardDismiss(e, 'getStarted')"
-          class="info-card"
         >
         </trailhand-card>
         <trailhand-card
@@ -346,9 +338,9 @@ function handleCardDismiss(e: Event, cardType: string) {
           icon-name="bug"
           clickable
           dismissible
+          class="info-card"
           @click="handleIssuesClick"
           @card-dismiss="(e) => handleCardDismiss(e, 'issues')"
-          class="info-card"
         >
         </trailhand-card>
       </div>
@@ -380,15 +372,15 @@ function handleCardDismiss(e: Event, cardType: string) {
           class="dashboard-card"
         >
           <RouterLink
+slot="title"
               :to="card.link"
               class="head-link"
-              slot="title"
           >
             {{ card.title }}
           </RouterLink>
           <trailhand-button
+slot="action"
             variant="secondary"
-            slot="action"
             size="large"
             @click="$router.push(card.cta)"
           >

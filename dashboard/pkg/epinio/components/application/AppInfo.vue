@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { ref, watch, computed, onMounted, isReactive } from 'vue';
+import { ref, watch, computed } from 'vue';
 import { useStore } from 'vuex';
 import Loading from '@shell/components/Loading.vue';
 import Banner from '@components/Banner/Banner.vue';
@@ -34,7 +34,6 @@ const emit = defineEmits<{
 const errors = ref<string[]>([]); // eslint-disable-line @typescript-eslint/no-unused-vars
 const values = ref<EpinioAppInfo | undefined>(undefined);
 const validSettings = ref<{ [key: string]: boolean }>({});
-const showEnvValues = ref(false);
 const envVariables = ref<{ key: string; value: string }[]>([]);
 const bulkFileInput = ref<HTMLInputElement | null>(null);
 const fileDialogActive = ref(false);
@@ -336,10 +335,10 @@ function onBulkFileChange(event: Event) {
         data-testid="epinio_app-info_instances"
         label="Instances"
         :placeholder="t('epinio.applications.create.instancesPlaceholder')"
-        @text-input-change="(e: CustomEvent) => {values.configuration.instances = e.detail.value; update()}"
         required
         type="number"
         min="0"
+        @text-input-change="(e: CustomEvent) => {values.configuration.instances = e.detail.value; update()}"
        />
     </trailhand-form-row>
     <div>
