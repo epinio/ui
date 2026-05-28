@@ -127,6 +127,7 @@ async function openEdit(row: EpinioApplicationModel, commit?: string) {
 
   epinioInfo.value = hash.info;
   appChart.chartsList = hash.charts;
+  appChart.selectedChart = row.configuration?.appchart;
   originalModel.value = row;
   value.value = await store.dispatch('epinio/clone', { resource: originalModel.value });
 
@@ -241,22 +242,30 @@ function updateSource(changes: EpinioAppSource) {
   source.value = {};
   const { appChart: chartId, ...cleanChanges } = changes;
 
+  const prevChartId = appChart.selectedChart;
   appChart.selectedChart = chartId;
   value.value.configuration ||= {};
-  value.value.configuration.settings = undefined;
 
   if (chartId) {
     set(value.value.configuration, { appchart: chartId });
-    const chart = appChart.chartsList?.find((c: any) => c.id === chartId);
+  }
 
-    if (chart?.settings) {
-      const customSettings = Object.keys(chart.settings).reduce((acc, key) => {
-        acc[key] = '';
-        return acc;
-      }, {} as Record<string, any>);
+  const chartChanged = chartId !== prevChartId;
+  if (!isEdit.value || chartChanged) {
+    value.value.configuration.settings = undefined;
 
-      set(value.value.configuration, { settings: customSettings });
-      set(value.value, { chart });
+    if (chartId) {
+      const chart = appChart.chartsList?.find((c: any) => c.id === chartId);
+
+      if (chart?.settings) {
+        const customSettings = Object.keys(chart.settings).reduce((acc, key) => {
+          acc[key] = '';
+          return acc;
+        }, {} as Record<string, any>);
+
+        set(value.value.configuration, { settings: customSettings });
+        set(value.value, { chart });
+      }
     }
   }
 
