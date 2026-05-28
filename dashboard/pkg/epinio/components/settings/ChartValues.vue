@@ -54,7 +54,7 @@ const onInputCheckbox = (key: string, value: boolean) => {
         style="flex: 1;"
         :value="props.value[key]"
         :label="key"
-        :options="setting.enum"
+        :options="setting.enum.map((v: string) => ({ label: v, value: v }))"
         :disabled="props.disabled"
         @dropdown-change="(e: CustomEvent) => props.value[key] = e.detail.value"
        />
