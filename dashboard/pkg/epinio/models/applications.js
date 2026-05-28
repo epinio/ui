@@ -391,8 +391,15 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
     return this.deployment?.desiredreplicas ?? this.configuration?.instances ?? 0;
   }
 
+  //Fallback to configuration.instances if deployment.desiredreplicas is not
+  //available.
   set desiredInstances(neu) {
-    this.deployment.desiredreplicas = neu;
+    if (this.deployment) {
+      this.deployment.desiredreplicas = neu;
+    }
+    if (this.configuration) {
+      this.configuration.instances = neu;
+    }
   }
 
   get readyInstances() {
@@ -783,10 +790,28 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
   }
 
   async restage() {
-    const { stage } = await this.stage();
-
-    await this.forceFetch();
-    this.showStagingLog(stage.id);
+    this.$dispatch('growl/info', {
+      title: 'Attempting to Rebuild Application!',
+      message: `This may take a few moments, a window will open with live logs
+      soon.`,
+    }, { root: true });
+    try {
+      const { stage } = await this.stage();
+      await this.forceFetch();
+      this.showStagingLog(stage.id);
+      await this.waitForStaging(stage.id);
+      this.$dispatch('growl/success', {
+        title:   'Application Rebuilt Successfully!',
+        message: `${ this.meta.name } has been rebuilt successfully.`,
+      }, { root: true });
+    } catch (e) {
+      console.log(e);
+      this.$dispatch('growl/error', {
+        title: 'Something Went Wrong Rebuilding!',
+        message: `This error occurs when there are missing resources in the
+        cluster, contact your system admin to investigate the issue.`,
+      }, { root: true });
+    }
   }
 
   async exportApp(resources = this) {
@@ -1324,9 +1349,27 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
   }
 
   async restart() {
-    await this.followLink('restart', { method: 'post' });
-    await this.forceFetch();
-    this.showAppLog();
+    this.$dispatch('growl/info', {
+      title: 'Attempting to Restart Application!',
+      message: `This can take a few moments, we'll let you know once it's ready.`,
+    }, { root: true });
+
+    try {
+      await this.followLink('restart', { method: 'post' });
+      await this.forceFetch();
+      this.showAppLog();
+      this.$dispatch('growl/success', {
+        title: 'Application Restarted!',
+        message: `${ this.meta.name } has been restarted successfully.`,
+      }, { root: true });
+    } catch (e) {
+      console.log(e);
+      this.$dispatch('growl/error', {
+        title: 'Something Went Wrong Restarting!',
+        message: `Can't restart the application, the image may be missing,
+        reach out to your system admin to investigate the issue.`,
+      }, { root: true });
+    }
   }
 
   async createManifest() {

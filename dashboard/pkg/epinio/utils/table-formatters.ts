@@ -97,6 +97,11 @@ function ensureActionMenuCaptureListener() {
   }, true /* capture */);
 }
 
+// Cache action-menu elements by row ID so the same DOM node is returned on
+// every render. This preserves _isOpen state across poll-driven re-renders:
+// Lit sees the same element reference → no DOM replacement → menu stays open.
+const _actionMenuCache = new Map<string, any>();
+
 /**
  * Returns an action-menu element for a table row.
  * Transforms epinio string action names into callable functions
@@ -105,7 +110,13 @@ function ensureActionMenuCaptureListener() {
 export function makeActionMenu(row: any): HTMLElement {
   ensureActionMenuCaptureListener();
 
-  const el = document.createElement('trailhand-action-menu') as any;
+  const id = row.id ?? row.meta?.name;
+  let el = id ? _actionMenuCache.get(id) : null;
+
+  if (!el) {
+    el = document.createElement('trailhand-action-menu') as any;
+    if (id) _actionMenuCache.set(id, el);
+  }
 
   el.resource = row;
   const actions = [] as any[];
@@ -233,11 +244,11 @@ export function stateToTagVariant(state: string): string {
  */
 export function stateToIcon(state: string): string {
   switch (state) {
-    case 'running': 
+    case 'running':
     case 'deployed': return 'rocket';
     case 'notready':
     case 'not-ready': return 'warning';
-    case 'error': 
+    case 'error':
     case 'fail': return 'error';
     case 'building': return 'tools';
     case 'created': return 'gear';
