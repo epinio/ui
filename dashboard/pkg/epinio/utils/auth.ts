@@ -70,8 +70,8 @@ class EpinioAuth {
       if (!config.dexConfig) {
         throw new Error('dexConfig required');
       }
-      if (!this.dexUserManager) {
-        this.initialiseDex(config.dexConfig);
+      if (!this.dexUserManager || this.dexUserManager.settings.authority !== config.dexConfig.dexUrl) {
+        await this.initialiseDex(config.dexConfig);
       }
 
       await this.dexUserManager?.signinPopup();
@@ -202,6 +202,8 @@ class EpinioAuth {
     }
 
     // Note - if you be thinking extraTokenParams, extraQueryParams, scope are used here, you be wrong
+
+    sessionStorage.setItem('epinio-dex-url', dexUrl);
 
     this.dexUserManager = new UserManager({
       authority: dexUrl,

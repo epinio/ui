@@ -1,29 +1,75 @@
 <script setup lang="ts">
-import DataTable from '../components/tables/DataTable.vue';
-import type { DataTableColumn } from '../components/tables/types';
 import { EPINIO_TYPES } from '../types';
-import { createEpinioRoute } from '../utils/custom-routing';
-import LinkDetail from '@shell/components/formatter/LinkDetail.vue';
-import BadgeStateFormatter from '@shell/components/formatter/BadgeStateFormatter.vue';
-import Masthead from '@shell/components/ResourceList/Masthead';
-
 import { useStore } from 'vuex';
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { useRouter } from 'vue-router';
+import { computed, onMounted, onUnmounted, ref, watchEffect, watch } from 'vue';
 import { startPolling, stopPolling } from '../utils/polling';
+import Masthead from '@shell/components/ResourceList/Masthead';
+import { makeEmptyCell, makeRouterLinks, makeRouterLinksOrEmpty, makeActionMenu, overrideTableRows } from '../utils/table-formatters';
+import ConfigurationModal from '../components/configuration/ConfigurationModal.vue';
+import ConfigurationDeleteModal from '../components/configuration/ConfigurationDeleteModal.vue';
+import { debounce } from 'lodash';
 
 const store = useStore();
-const t = store.getters['i18n/t'];
+const router = useRouter();
 
 defineProps<{ schema: object }>(); // Keep for compatibility
 
-const resource = EPINIO_TYPES.CONFIGURATION;
+const resource: string = EPINIO_TYPES.CONFIGURATION;
 
-const createLocation = computed(() =>
-  createEpinioRoute('c-cluster-resource-create', {
-    cluster: store.getters['clusterId'],
-    resource: EPINIO_TYPES.CONFIGURATION,
-  })
-);
+const configModal = ref<InstanceType<typeof ConfigurationModal> | null>(null);
+const deleteModal = ref<InstanceType<typeof ConfigurationDeleteModal> | null>(null);
+const windowWidth = ref(window.innerWidth);
+const onResize = () => { windowWidth.value = window.innerWidth; };
+const displayRows = ref<any[]>([]);
+
+const paginationMeta = computed(() => store.getters['epinio/paginationMeta'](resource));
+const currentPage = computed(() => store.getters['epinio/currentPaginationPage'](resource));
+
+const paginating = ref(false);
+
+const searchQuery = ref<string>('');
+
+async function goToPage(page: number) {
+  const meta = paginationMeta.value;
+
+  if (meta && (page < 1 || page > meta.totalPages)) return;
+  paginating.value = true;
+  try {
+    await store.dispatch('epinio/goToPage', { type: resource, page });
+  } finally {
+    paginating.value = false;
+  }
+}
+
+const onSearch = debounce(async (query: string) => {
+  paginating.value = true;
+  try {
+    await store.dispatch('epinio/search', { type: resource, query });
+  } finally {
+    paginating.value = false;
+  }
+}, 500);
+
+watch(searchQuery, (newQuery) => {
+  onSearch(newQuery);
+});
+
+onMounted(() => {
+  window.addEventListener('resize', onResize);
+  store.dispatch('epinio/me');
+  store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.CONFIGURATION });
+  startPolling(['configurations'], store);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('resize', onResize);
+  stopPolling(['configurations']);
+});
+
+const handleCreateClick = () => {
+  configModal.value?.openCreate();
+};
 
 // Strict RBAC: only show Create when user has configuration write (hides for view_only)
 const canCreateConfiguration = computed(() => {
@@ -37,130 +83,205 @@ const canCreateConfiguration = computed(() => {
   return can('configuration_write') || can('configuration');
 });
 
-const pending = ref<boolean>(true);
+// Edit/Delete share the same permission as Create — anything that mutates
+// a configuration requires configuration_write.
+const canEdit = canCreateConfiguration;
+const canDelete = canCreateConfiguration;
 
-onMounted(async () => {
-  await store.dispatch('epinio/me');
-  store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.APP });
-  store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.SERVICE_INSTANCE });
-  await store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.CONFIGURATION });
+watchEffect(() => {
+  void store.state.activeNamespaceCacheKey;
+  const activeNamespaces = store.state.activeNamespaceCache;
+  const all = store.getters['epinio/all'](EPINIO_TYPES.CONFIGURATION) as any[];
 
-  pending.value = false;
-  startPolling([
-    "applications",
-    "namespaces",
-    "appcharts",
-    "configurations",
-    "services"
-  ], store);
+  all.forEach((row: any) => { void row.status; void row.stateDisplay; void row.meta; });
+
+  const filtered = all.filter((row: any) => {
+    const ns = row.meta?.namespace;
+
+    return !activeNamespaces || Object.keys(activeNamespaces).length === 0 || activeNamespaces[ns];
+  });
+
+  const overrides = [
+    {
+      prop: 'availableActions',
+      value: (row: any) => {
+        const out: any[] = [];
+
+        if (canEdit.value) {
+          out.push({
+            action:  'editConfigModal',
+            label:   'Edit',
+            enabled: row.configuration?.type === 'custom',
+            icon:    'icon icon-edit',
+          });
+        }
+        if (canDelete.value) {
+          out.push({
+            action:  'deleteConfigModal',
+            label:   'Delete',
+            enabled: row.configuration?.type === 'custom',
+            icon:    'icon icon-trash',
+            weight:  -10,
+          });
+        }
+
+        return out;
+      },
+      conditionFn: () => true,
+    },
+    {
+      prop:        'editConfigModal',
+      value:       (row: any) => () => { configModal.value?.openEdit(row); },
+      conditionFn: (row: any) => canEdit.value && row.configuration?.type === 'custom',
+    },
+    {
+      prop:        'deleteConfigModal',
+      value:       (row: any) => () => { deleteModal.value?.openDelete(row); },
+      conditionFn: (row: any) => canDelete.value && row.configuration?.type === 'custom',
+    },
+  ];
+
+  displayRows.value = [...overrideTableRows(filtered, overrides)];
 });
 
-onUnmounted(() => {
-  stopPolling([
-    "applications",
-    "namespaces",
-    "appcharts",
-    "configurations",
-    "services"
-  ]);
-});
+const handleNavigate = (event: CustomEvent) => {
+  router.push(event.detail.url);
+};
 
-const rows = computed(() => {
-  return store.getters['epinio/all'](EPINIO_TYPES.CONFIGURATION);
-});
-
-const columns: DataTableColumn[] = [
+const allColumns = [
   {
     field: 'nameDisplay',
-    label: 'Name'
+    label: 'Name',
+    width: '300px',
+    formatter: (_v: any, row: any) => {
+      const el = document.createElement('a');
+
+      el.textContent = row.nameDisplay || row.meta?.name || '';
+      el.style.cursor = 'pointer';
+      el.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        configModal.value?.openView(row);
+      });
+
+      return el;
+    }
+  },
+  {
+    field: 'namespace',
+    label: 'Namespace',
+    width: '100px',
   },
   {
     field: 'boundApps',
     label: 'Bound Applications',
-    sortable: false
+    width: '250px',
+    sortable: false,
+    formatter: (_v: any, row: any) => makeRouterLinksOrEmpty(row.applications, router)
   },
   {
     field: 'service',
     label: 'Service',
-    sortable: false
+    width: '150px',
+    sortable: false,
+    formatter: (_v: any, row: any) => row.service
+      ? makeRouterLinks([row.service], router)
+      : makeEmptyCell()
   },
   {
     field: 'variableCount',
-    label: 'No. of Variables'
+    label: 'No. of Variables',
+    width: '150px'
   },
   {
     field: 'configuration.user',
-    label: 'Created By'
+    label: 'Created By',
+    width: '150px',
+    formatter: (_v: any, row: any) => row.configuration?.user || makeEmptyCell()
   },
   {
     field: 'meta.createdAt',
     label: 'Age',
+    width: '50px',
     formatter: 'age'
   }
 ];
+
+// Drop lower-priority columns at smaller window widths
+//   <1300px: hide Service and Created By
+//   <1100px: also hide Age
+const columns = computed(() => {
+  const w = windowWidth.value;
+  const hide = new Set<string>();
+
+  if (w < 1300) {
+    hide.add('service');
+    hide.add('configuration.user');
+  }
+  if (w < 1100) {
+    hide.add('meta.createdAt');
+  }
+
+  return allColumns.filter(col => !hide.has(col.field));
+});
 </script>
 
 <template>
-  <Masthead
-    :schema="schema"
-    :resource="resource"
-  >
-    <template #createButton>
-      <button
-        v-if="canCreateConfiguration"
-        class="btn role-primary"
-        @click="store.$router.push(createLocation)"
-      >
-        {{ t('generic.create') }}
-      </button>
-    </template>
-  </Masthead>
-  <DataTable
-    :rows="rows"
-    :columns="columns"
-    :loading="pending"
-  >
-    <template #cell:stateDisplay="{ row }">
-      <BadgeStateFormatter
-        :row="row"
-        :value="row.stateDisplay"
-      />
-    </template>
-    <template #cell:nameDisplay="{ row }">
-      <LinkDetail
-        :row="row"
-        :value="row.nameDisplay"
-      />
-    </template>
-    <template #cell:service="{ row }">
-      <LinkDetail
-        v-if="row.service"
-        :key="row.service.id"
-        :row="row.service"
-        :value="row.service.meta.name"
-      />
-      <span
-        v-else
-        class="text-muted"
-      >&nbsp;</span>
-    </template>
-    <template #cell:boundApps="{ row }">
-      <span v-if="row.applications && row.applications.length">
-        <template v-for="(app, index) in row.applications" :key="app.id">
-          <LinkDetail
-            :row="app"
-            :value="app.meta.name"
-          />
-          <span
-            v-if="index < row.applications.length - 1"
-            :key="app.id + 'i'"
-          >, </span>
-        </template>
-      </span>
-      <span
-        v-else
-        class="text-muted"
-      >&nbsp;</span>
-    </template>
-  </DataTable>
+  <div id="modal-container-element">
+    <Masthead
+      :schema="schema"
+      :resource="resource"
+    >
+      <template #createButton>
+        <trailhand-button
+          v-if="canCreateConfiguration"
+          variant="primary"
+          size="large"
+          @click="handleCreateClick"
+        >
+          {{ t('generic.create') }}
+        </trailhand-button>
+        <div v-else></div>
+      </template>
+    </Masthead>
+    <div class="search-container">
+      <trailhand-text-input
+        :value="searchQuery"
+        placeholder="Search..."
+        @text-input-change="(e: CustomEvent) => searchQuery = e.detail.value"
+      ></trailhand-text-input>
+    </div>
+    <trailhand-table
+      :ref="(el: any) => { if (el) el.renderActions = makeActionMenu; }"
+      :rows="displayRows"
+      :columns="columns"
+      :searchable="false"
+      :server-side="!!paginationMeta"
+      :total-items="paginationMeta?.totalItems ?? displayRows.length"
+      :current-page="currentPage"
+      :loading="paginating"
+      key-field="id"
+      @navigate="handleNavigate"
+      @page-change="(e: CustomEvent) => goToPage(e.detail.page)"
+    />
+    <ConfigurationModal ref="configModal" />
+    <ConfigurationDeleteModal ref="deleteModal" />
+  </div>
 </template>
+
+<style lang="scss" scoped>
+.search-container {
+  width: 100%;
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 1rem;
+}
+
+trailhand-table {
+  --sortable-table-row-hover-bg: var(--sortable-table-hover-bg);
+  --sortable-table-header-hover-bg: var(--sortable-table-hover-bg);
+  --sortable-table-header-sorted-bg: var(--sortable-table-hover-bg);
+  overflow-wrap: anywhere;
+}
+
+</style>

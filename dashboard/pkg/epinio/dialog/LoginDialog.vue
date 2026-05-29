@@ -1,25 +1,19 @@
 <script setup lang="ts">
 import axios from 'axios';
 import { useStore } from 'vuex';
-import { ref, onMounted } from 'vue';
+import { ref, watchEffect } from 'vue';
 
 import epinioAuth, { EpinioAuthTypes } from '../utils/auth';
 import { stringify, exceptionToErrorsArray } from '@shell/utils/error';
 import { EpinioCluster } from '../models/cluster';
 
 import { Banner } from '@components/Banner';
-import Password from '@shell/components/form/Password';
-import { LabeledInput } from '@components/Form/LabeledInput';
 
 const store = useStore();
 
 const emit = defineEmits<{
   (e: 'close'): void
 }>();
-
-const props = defineProps<{
-  cluster: EpinioCluster,
-}>()
 
 const PROVIDER_TYPES = {
   LOCAL: 'local',
@@ -30,17 +24,19 @@ const username = ref<string>('');
 const password = ref<string>('');
 const selectedAuthType = ref<string>('');
 const busy = ref<boolean>(false);
+const showModal = ref<boolean>(false);
+const cluster = ref<EpinioCluster | null>(null);
 
 let errors: Error[] = [];
 let selectedTab: string;
 
-onMounted(() => {
-  if (!props.cluster.oidcEnabled) {
+watchEffect(() => {
+  if (!cluster.value?.oidcEnabled) {
     selectedAuthType.value = PROVIDER_TYPES.LOCAL;
   } else {
     selectedAuthType.value = PROVIDER_TYPES.DEX;
   }
-})
+});
 
 const selectType = (type: string) => {
   errors = [];
@@ -64,7 +60,7 @@ const login = async (provider: string) => {
           throw new Error(`${ errors.join('/') } Required`);
         }
 
-        await epinioAuth.login(props.cluster.createAuthConfig(
+        await epinioAuth.login(cluster.value!.createAuthConfig(
           EpinioAuthTypes.LOCAL, {
             username: username.value,
             password: password.value,
@@ -73,19 +69,19 @@ const login = async (provider: string) => {
         ));
         break;
       case PROVIDER_TYPES.DEX:
-        await epinioAuth.login(props.cluster.createAuthConfig(EpinioAuthTypes.DEX));
+        await epinioAuth.login(cluster.value!.createAuthConfig(EpinioAuthTypes.DEX));
         break;
       default:
         throw new Error(`Unknown log in type: ${ selectedTab }`);
     }
-    props.cluster.loggedIn = true;
+    cluster.value!.loggedIn = true;
 
-    //Ensure the store knows the dialog has been closed. 
+    //Ensure the store knows the dialog has been closed.
     emit('close');
 
     store.$router.push({
       name:   'epinio-c-cluster-dashboard',
-      params: { cluster: props.cluster.id }
+      params: { cluster: cluster.value!.id }
     });
   } catch (err) {
     errors.push(...exceptionToErrorsArray(err));
@@ -93,98 +89,124 @@ const login = async (provider: string) => {
 
   busy.value = false;
 }
+
+const openLogin = (selectedCluster: EpinioCluster) => {
+  showModal.value = true;
+  cluster.value = selectedCluster;
+}
+
+const closeLogin = () => {
+  showModal.value = false;
+  cluster.value = null;
+  username.value = '';
+  password.value = '';
+  busy.value = false;
+  errors = [];
+};
+
+defineExpose({
+  openLogin,
+  closeLogin,
+});
 </script>
 
 <template>
-  <div class="login-dialog">
-    <div v-if="errors.length">
-      <div
-        v-for="(err, idx) in errors"
-        :key="idx"
-      >
-        <Banner
-          color="error"
-          :label="stringify(err.Message || err)"
-        />
+  <trailhand-modal v-if="!!cluster" :title="`Login ${ cluster.name ? `to ${ cluster.name }` : '' }`" :open.prop="showModal" @modal-close="closeLogin">
+    <div id="modal-container-element" class="modal-content">
+      <div v-if="errors.length">
+        <div
+          v-for="(err, idx) in errors"
+          :key="idx"
+        >
+          <Banner
+            color="error"
+            :label="stringify(err.Message || err)"
+          />
+        </div>
       </div>
-    </div>
-    <div v-if="selectedAuthType == PROVIDER_TYPES.DEX">
-      <button
-        ref="btn"
-        :class="{'disabled': busy}"
-        class="btn bg-primary"
-        style="font-size: 18px;"
-        @click="!busy && login(PROVIDER_TYPES.DEX)"
+      <trailhand-button
+        v-if="selectedAuthType == PROVIDER_TYPES.DEX"
+        :disabled="busy"
+        size="medium"
+        @button-click="!busy && login(PROVIDER_TYPES.DEX)"
+        @keydown.enter.prevent="!busy && login(PROVIDER_TYPES.DEX)"
       >
         {{ t('epinio.login.genericProvider') }}
-      </button>
-    </div>
-    <div
-      v-if="selectedAuthType === PROVIDER_TYPES.LOCAL"
-      class="local"
-    >
-      <form
-        class="login-form"
-        @submit.prevent="!busy && login(PROVIDER_TYPES.LOCAL)"
+      </trailhand-button>
+      <div
+        v-if="selectedAuthType === PROVIDER_TYPES.LOCAL"
+        class="local"
       >
-        <div class="mb-20">
-          <LabeledInput
+        <form
+          class="login-form"
+          @submit.prevent="!busy && login(PROVIDER_TYPES.LOCAL)"
+        >
+          <trailhand-text-input
             id="username"
-            v-model:value="username"
+            :value="username"
             :label="t('login.username')"
             :required="true"
+            size="large"
+            style="width: 100%;"
+            @text-input-change="(e: CustomEvent) => username = e.detail.value"
           />
-        </div>
-        <div class="mb-20">
-          <Password
+          <trailhand-text-input
             id="password"
-            v-model:value="password"
+            :value="password"
             :label="t('login.password')"
             :required="true"
+            size="large"
+            style="width: 100%;"
+            type="password"
+            @text-input-change="(e: CustomEvent) => password = e.detail.value"
           />
-        </div>
-        <button
-          ref="btn"
-          type="submit"
-          class="btn bg-primary"
-          :class="{'disabled': busy}"
-          style="font-size: 18px;"
+          <trailhand-button
+            size="medium"
+            :disabled="busy"
+            type="submit"
+            @keydown.enter.prevent="!busy && login(PROVIDER_TYPES.LOCAL)"
           >
-          {{ t(cluster.oidcEnabled ? 'login.loginWithLocal' : 'epinio.login.login') }}
-        </button>
-      </form>
-    </div>
+            {{ t(cluster.oidcEnabled ? 'login.loginWithLocal' : 'epinio.login.login') }}
+          </trailhand-button>
+        </form>
+      </div>
 
-    <div
-      v-if="selectedAuthType === PROVIDER_TYPES.DEX"
-      class="mt-20 text-center"
-    >
-      <a
-        :class="{'disabled': busy}"
-        role="button"
-        @click="!busy && selectType(PROVIDER_TYPES.LOCAL)"
+      <div
+        v-if="selectedAuthType === PROVIDER_TYPES.DEX"
+        class="mt-20 text-center"
       >
-        {{ t('login.useLocal') }}
-      </a>
-    </div>
-    <div
-      v-if="cluster.oidcEnabled && selectedAuthType === PROVIDER_TYPES.LOCAL"
-      class="mt-20 text-center"
-    >
-      <a
-        :class="{'disabled': busy}"
-        role="button"
-        @click="!busy && selectType(PROVIDER_TYPES.DEX)"
+        <trailhand-button
+          variant="secondary"
+          size="medium"
+          :disabled="busy"
+          type="button"
+          @button-click="!busy && selectType(PROVIDER_TYPES.LOCAL)"
+          @keydown.enter.prevent="!busy && selectType(PROVIDER_TYPES.LOCAL)"
+        >
+          {{ t('login.useLocal') }}
+        </trailhand-button>
+      </div>
+      <div
+        v-if="cluster.oidcEnabled && selectedAuthType === PROVIDER_TYPES.LOCAL"
+        class="mt-20 text-center"
       >
-        {{ t('epinio.login.useGenericProvider', {}) }}
-      </a>
+        <trailhand-button
+          variant="secondary"
+          size="small"
+          :disabled="busy"
+          type="button"
+          @button-click="!busy && selectType(PROVIDER_TYPES.DEX)"
+          @keydown.enter.prevent="!busy && selectType(PROVIDER_TYPES.DEX)"
+        >
+          {{ t('epinio.login.useGenericProvider', {}) }}
+        </trailhand-button>
+      </div>
     </div>
-  </div>
+  </trailhand-modal>
 </template>
 <style lang='scss' scoped>
 $min-width: 400px;
-
-.login-dialog {
+.modal-content {
   padding: 20px;
   display: flex;
   flex-direction: column;
@@ -196,6 +218,8 @@ $min-width: 400px;
     display: flex;
     flex-direction: column;
     align-items: center;
+    gap: 20px;
+    width: 100%;
   }
 
   .banner {
@@ -206,6 +230,7 @@ $min-width: 400px;
     display: flex;
     flex-direction: column;
     align-items: center;
+    width: 100%;
 
     .labeled-input, .password {
       min-width: $min-width;

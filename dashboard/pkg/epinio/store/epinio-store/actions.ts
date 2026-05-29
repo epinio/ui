@@ -14,11 +14,12 @@ import {
   EPINIO_PRODUCT_NAME,
   EPINIO_STANDALONE_CLUSTER_NAME,
   EPINIO_TYPES,
-  type EpinioMe
+  EpinioMe
 } from '../../types';
 import EpinioCluster from '../../models/epiniomgmt/epinio.io.management.cluster';
 import { RedirectToError } from '@shell/utils/error';
 import { allHashSettled } from '@shell/utils/promise';
+import { SetPaginationPagePayload } from './types';
 import { buildPermissionsFromRoles } from '../../utils/permissions';
 
 const createId = (schema: any, resource: any) => {
@@ -54,7 +55,7 @@ export default {
   async request(context: any, {
     opt, type, clusterId, growlOnError = false
   }: any) {
-    const { rootGetters, dispatch, getters } = context;
+    const { rootGetters, dispatch, getters, commit } = context;
 
     const spoofedRes = await handleSpoofedRequest(rootGetters, EPINIO_PRODUCT_NAME, opt, EPINIO_PRODUCT_NAME);
 
@@ -119,9 +120,30 @@ export default {
           const schema = getters.schemaFor(type);
 
           if (Array.isArray(out)) {
+            // Non-paginated collection
             res.data = { data: out.map((o) => epiniofy(o, schema, type)) };
+          } else if (Array.isArray((out as any).items)) {
+            // Paginated collection: unwrap items but preserve pagination metadata
+            const items = (out as any).items;
+            const pagination = {
+              page:       (out as any).page,
+              pageSize:   (out as any).pageSize,
+              totalItems: (out as any).totalItems,
+              totalPages: (out as any).totalPages
+            };
+
+            // Allow callers to opt out of updating global pagination state
+            // (e.g. per-namespace fetches that maintain their own meta)
+            if (!opt._skipPaginationMeta) {
+              commit('setPaginationMeta', { type, meta: pagination });
+            }
+
+            res.data = {
+              data:        items.map((o: any) => epiniofy(o, schema, type)),
+              _pagination: pagination
+            };
           } else {
-            // `find` action turns this into `{data: out}`
+            // Single resource: `find` action turns this into `{data: out}`
             res.data = epiniofy(out, schema, type);
           }
 
@@ -293,7 +315,6 @@ export default {
   loadCluster: async( { dispatch, commit, rootGetters }: any, { id }: any ) => {
     await dispatch(`loadSchemas`);
     await dispatch(`findAll`, { type: EPINIO_TYPES.NAMESPACE });
-    dispatch(`findAll`, { type: EPINIO_TYPES.APP }); // This is used often, get a kick start
     await dispatch('cleanNamespaces', null, { root: true });
 
     const key = createNamespaceFilterKeyWithId(id, EPINIO_PRODUCT_NAME);
@@ -365,7 +386,100 @@ export default {
     return info;
   },
 
-  me: async( { dispatch, commit }: any ): Promise<EpinioMe> => {
+
+  /**
+   * Fetch page 1 of apps for every namespace in a single server call.
+   * Returns a map of namespace → { items, meta } matching findAppsInNamespace's shape.
+   * Falls back to an empty map on error so the UI can degrade gracefully.
+   */
+  findGroupedApps: async(
+    ctx: any,
+    { page = 1, pageSize = 10, search = '' }: {
+      page?: number;
+      pageSize?: number;
+      search?: string
+    } = {}
+  ) => {
+    const { dispatch } = ctx;
+    let url = `/api/v1/applications/grouped?page=${ page }&pageSize=${ pageSize }`;
+    if (search) {
+      url += `&search=${ encodeURIComponent(search) }`;
+    }
+
+    // The request action runs epiniofy on the response, which spreads the namespace
+    // map and injects id/type keys. The guard below skips those non-namespace entries.
+    const grouped: Record<string, any> =
+      await dispatch('request', { opt: { url, _skipPaginationMeta: true } }) ?? {};
+
+    const appSchema = ctx.getters.schemaFor(EPINIO_TYPES.APP);
+    const result: Record<string, { items: any[]; meta: any }> = {};
+    for (const [ns, nsData] of Object.entries(grouped)) {
+      if (!nsData || typeof nsData !== 'object' || !Array.isArray((nsData as any).items)) {
+        continue;
+      }
+      const items = (nsData.items ?? []).map((item: any) =>
+        classify(ctx, epiniofy(item, appSchema, EPINIO_TYPES.APP))
+      );
+      result[ns] = {
+        items,
+        meta: {
+          page:       nsData.page,
+          pageSize:   nsData.pageSize,
+          totalItems: nsData.totalItems,
+          totalPages: nsData.totalPages,
+        },
+      };
+    }
+
+    return result;
+  },
+
+  /**
+   * Fetch a single page of applications scoped to a specific namespace.
+   * Does NOT touch global paginationMeta so per-namespace tables stay independent.
+   * Returns { items: any[], meta: { page, pageSize, totalItems, totalPages } | null }
+   */
+  findAppsInNamespace: async(ctx: any, { namespace, page = 1, search = '' }: { namespace: string; page?: number; search?: string }) => {
+    const { dispatch } = ctx;
+    let url = `/api/v1/namespaces/${ namespace }/applications?page=${ page }&pageSize=10`;
+    if (search) {
+      url += `&search=${ search }`;
+    }
+
+    const result = await dispatch('request', {
+      opt: {
+        url:                 url,
+        _skipPaginationMeta: true,
+      },
+      type: EPINIO_TYPES.APP,
+    });
+
+    const rawItems: any[] = result?.data ?? [];
+
+    // classify() instantiates the proper model class so computed properties
+    // (stateDisplay, nameDisplay, detailLocation, allConfigurations, etc.)
+    // are available for the column formatters, same as what findAll does.
+    const items = rawItems.map((item: any) => classify(ctx, item));
+
+    return {
+      items,
+      meta: result?._pagination ?? null,
+    };
+  },
+
+  goToPage: async({ commit, dispatch }: any, { type, page }: SetPaginationPagePayload) => {
+    commit('setPaginationPage', { type, page });
+    await dispatch('findAll', { type, opt: { force: true } });
+  },
+
+  search: async({ commit, dispatch }: any, { type, query }: { type: string; query: string }) => {
+    commit('setSearchQuery', { type, query });
+    commit('setPaginationPage', { type, page: 1 });
+    commit('clearAll', type);  // clear before fetch so merge starts from empty
+    await dispatch('findAll', { type, opt: { force: true } });
+  },
+
+  me: async({ dispatch, commit }: any): Promise<EpinioMe> => {
     // Always fetch fresh so permissions reflect the current user (no stale cache after login switch)
     const me = await dispatch('request', { opt: { url: `/api/v1/me` } });
     const permissions = buildPermissionsFromRoles(me.roles || []);

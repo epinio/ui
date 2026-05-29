@@ -22,9 +22,6 @@ import { downloadFile } from '@shell/utils/download';
 import { escapeHtml, escapeRegex } from '@shell/utils/string';
 import { LOGS_TIME, LOGS_WRAP, DATE_FORMAT, TIME_FORMAT } from '@shell/store/prefs';
 
-import Select from '@shell/components/form/Select';
-import { Checkbox } from '@components/Form/Checkbox';
-import AsyncButton from '@shell/components/AsyncButton';
 import Window from '@shell/components/nav/WindowManager/Window';
 
 import { useApplicationSocketMixin } from './ApplicationSocketMixin';
@@ -111,7 +108,10 @@ onBeforeUnmount(() => {
 
 const instanceChoicesWithNone = computed(() => {
   return [
-    ...instanceChoices.value,
+    ...instanceChoices.value.map((choice) => ({
+      label: choice,
+      value: choice,
+    })),
     {
       label: 'No Instance Filter',
       value: null
@@ -361,13 +361,11 @@ const clear = () => {
   lines.value = [];
 };
 
-const download = (btnCb) => {
+const download = () => {
   const date = new Date().toISOString().split('.')[0];
   const fileName = `${ props.application.nameDisplay }-${ date }`;
 
-  downloadFile(fileName, lines.value.map((l) => `${ l.rawMsg }`).join('\n'))
-    .then(() => btnCb(true))
-    .catch(() => btnCb(false));
+  downloadFile(fileName, lines.value.map((l) => `${ l.rawMsg }`).join('\n'));
 };
 
 const follow = () => {
@@ -572,33 +570,35 @@ const clearContainerFilters = () => {
     <template #title>
       <div class="title-inner log-action ">
         <div class="title-inner-left">
-          <Select
+          <trailhand-dropdown
             v-if="instanceChoices.length > 1"
-            v-model:value="instance"
-            :disabled="instanceChoices.length === 1"
-            class="containerPicker auto-width"
+            :value="instance"
             :options="instanceChoicesWithNone"
-            :clearable="true"
-            placement="top"
+            size="small"
             placeholder="Filter by Instance"
+            position="top"
+            @dropdown-change="(e: CustomEvent) => instance = e.detail.value "
           />
 
           <!-- Container Filter Button -->
           <VDropdown placement="bottom-start" :distance="6">
-            <button
-              class="btn bg-primary ml-5 container-filter-btn"
+            <trailhand-button
+              class="ml-5 container-filter-btn"
+              size="small"
             >
               Container Filter
-            </button>
+            </trailhand-button>
             <template #popper>
               <div class="container-filter-panel">
                 <div class="filter-search">
-                  <input
-                    v-model="containerSearch"
+                  <trailhand-text-input
+                    :value="containerSearch"
+                    style="width: 100%;"
+                    size="small"
                     type="text"
-                    class="input-sm"
                     placeholder="Search containers..."
-                  >
+                    @text-input-change="containerSearch = $event.detail.value"
+                  />
                 </div>
 
                 <div v-if="loadingContainers" class="text-center p-10">
@@ -618,10 +618,11 @@ const clearContainerFilters = () => {
                     }"
                     @click="toggleContainer(container.name)"
                   >
-                    <Checkbox
-                      :value="isContainerSelected(container.name)"
-                      :label="container.name"
-                    />
+                    <trailhand-checkbox
+                      :value="container.name"
+                      :checked="isContainerSelected(container.name)"
+                      @checkbox-change="toggleContainer(container.name)"
+                    >{{ container.name }}</trailhand-checkbox>
                     <span v-if="isSidecar(container.name)" class="badge badge-sm bg-warning">
                       Sidecar
                     </span>
@@ -633,36 +634,42 @@ const clearContainerFilters = () => {
 
                 <!-- Time-based filters -->
                 <div class="filter-section">
-                  <label class="text-label">Tail (number of lines)</label>
-                  <input
-                    v-model.number="tail"
+                  <trailhand-text-input
+                    :value="tail"
+                    label="Tail (number of lines)"
+                    style="width: 100%;"
+                    size="small"
                     type="number"
-                    class="form-control"
                     placeholder="e.g., 100"
                     min="1"
-                  >
+                    @text-input-change="(e: CustomEvent) => tail = e.detail.value ? parseInt(e.detail.value) : null"
+                  />
                 </div>
 
                 <div class="filter-section">
-                  <label class="text-label">Since (duration)</label>
-                  <input
-                    v-model="since"
+                  <trailhand-text-input
+                    :value="since"
+                    label="Since (duration)"
+                    style="width: 100%;"
+                    size="small"
                     type="text"
-                    class="form-control"
                     placeholder="e.g., 1h, 30m, 24h"
                     :disabled="!!sinceTime"
-                  >
+                    @text-input-change="(e: CustomEvent) => since = e.detail.value"
+                  />
                   <small class="text-muted">Use this OR Since Time below</small>
                 </div>
 
                 <div class="filter-section">
-                  <label class="text-label">Since Time (absolute date)</label>
-                  <input
-                    v-model="sinceTime"
+                  <trailhand-text-input
+                    :value="sinceTime"
+                    label="Since Time (absolute date)"
+                    style="width: 100%;"
+                    size="small"
                     type="datetime-local"
-                    class="form-control"
                     :disabled="!!since"
-                  >
+                    @text-input-change="(e: CustomEvent) => sinceTime = e.detail.value"
+                  />
                   <small class="text-muted">Use this OR Since above</small>
                 </div>
 
@@ -673,44 +680,49 @@ const clearContainerFilters = () => {
                       : 'Selected containers will be excluded from logs' }}
                   </p>
                   <div class="mt-10">
-                    <button
-                      class="btn btn-sm bg-primary"
+                    <trailhand-button
+                      size="small"
                       :disabled="isApplyingFilters"
                       @click="applyFilters"
                     >
                       {{ isApplyingFilters ? 'Applying...' : 'Apply Filters' }}
-                    </button>
-                    <button
-                      class="btn btn-sm bg-warning ml-5"
+                    </trailhand-button>
+                    <trailhand-button
+                      size="small"
+                      class="ml-5"
                       :disabled="activeFilterCount === 0 && !tail && !since && !sinceTime"
                       @click="clearContainerFilters(); clearFilters();"
                     >
                       Clear
-                    </button>
+                    </trailhand-button>
                   </div>
                 </div>
               </div>
             </template>
           </VDropdown>
 
-          <button
-            class="btn bg-primary ml-5"
+          <trailhand-button
+            class="ml-5"
+            size="small"
             :disabled="isFollowing"
             @click="follow"
           >
             {{t('wm.containerLogs.follow')}}
-          </button>
-           <button
-            class=" btn bg-primary ml-5"
+          </trailhand-button>
+           <trailhand-button
+            class="ml-5"
+            size="small"
             @click="clear"
           >
             {{t('wm.containerLogs.clear')}}
-          </button>
-          <AsyncButton
+          </trailhand-button>
+          <trailhand-button
             class="ml-5"
-            mode="download"
+            size="small"
             @click="download"
-          />
+          >
+            {{t('wm.containerLogs.download')}}
+          </trailhand-button>
         </div>
         <div style="flex: 1;" />
         <div class="title-inner-right">
@@ -724,27 +736,28 @@ const clearContainerFilters = () => {
           </div>
           <div class="log-action ml-5">
             <VDropdown placement="top-end">
-              <button class="btn bg-primary">
+              <trailhand-button size="small">
                 <i class="icon icon-gear" />
-              </button>
+              </trailhand-button>
               <template #popper>
                 <div class="filter-popup">
-                  <Checkbox
-                    v-model:value="wrap"
-                    :label="t('wm.containerLogs.wrap')"
-                    @update:value="toggleWrap"
-                  />
+                  <trailhand-checkbox
+                    :value="wrap"
+                    :checked="wrap"
+                    @checkbox-change="(e: CustomEvent<{ checked: boolean }>) => { wrap = e.detail.checked; toggleWrap() }"
+                  >{{ t('wm.containerLogs.wrap') }}</trailhand-checkbox>
                 </div>
               </template>
             </VDropdown>
           </div>
-          <div class="log-action  ml-5">
-            <input
-              v-model="search"
-              class="input-sm"
+          <div class="log-action ml-5">
+            <trailhand-text-input
+              :value="search"
+              size="small"
               type="search"
               :placeholder="t('wm.containerLogs.search')"
-            >
+              @text-input-change="(e: CustomEvent) => search = e.detail.value"
+            />
           </div>
         </div>
       </div>
@@ -799,6 +812,10 @@ const clearContainerFilters = () => {
 .epinio-app-log {
   .v-select.inline.vs--single.vs--open .vs__selected {
     position: inherit;
+  }
+
+  .title {
+    overflow: visible !important;
   }
 }
 </style>
@@ -873,9 +890,8 @@ const clearContainerFilters = () => {
       line-height: 30px;
     }
 
-    > input {
-      height: 30px;
-    }
+    display: flex;
+    align-items: center;
   }
 
   .status {
@@ -953,10 +969,6 @@ const clearContainerFilters = () => {
 
     .filter-search {
       margin-bottom: 10px;
-
-      input {
-        width: 100%;
-      }
     }
 
     .filter-app-checkbox {

@@ -26,7 +26,8 @@ eslint.configs.recommended,
     'vue/no-useless-template-attributes': 'off',
     'vue/no-mutating-props': 'off',
     'vue/v-on-event-hyphenation': 'off',
-    'vue/attribute-hyphenation': 'off'
+    'vue/attribute-hyphenation': 'off',
+    'vue/no-deprecated-slot-attribute': 'off'
   },
   plugins: {
     'typescript-eslint': tseslint.plugin,

@@ -1,26 +1,25 @@
 <script setup lang="ts">
-import { ref, computed, defineProps, onMounted } from 'vue';
+import { ref, computed, onMounted, watchEffect } from 'vue';
 import { useStore } from 'vuex';
 import day from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 
 import Application from '../models/applications';
-import SimpleBox from '@shell/components/SimpleBox.vue';
 import { GitUtils } from '@shell/utils/git';
 import { isArray } from '@shell/utils/array';
-import ConsumptionGauge from '@shell/components/ConsumptionGauge.vue';
-import { APPLICATION_MANIFEST_SOURCE_TYPE, EPINIO_TYPES } from '../types';
-import DataTable from '../components/tables/DataTable.vue';
-import type { DataTableColumn } from '../components/tables/types';
-import BadgeStateFormatter from '@shell/components/formatter/BadgeStateFormatter.vue';
-import PlusMinus from '@shell/components/form/PlusMinus.vue';
+import { EPINIO_TYPES } from '../types';
 import { epinioExceptionToErrorsArray } from '../utils/errors';
-import ApplicationCard from '../components/application/AppCardDetail.vue';
-import Tabbed from '@shell/components/Tabbed/index.vue';
-import Tab from '@shell/components/Tabbed/Tab.vue';
-import AppGitDeployment from '../components/application/AppGitDeployment.vue';
-import Link from '@shell/components/formatter/Link.vue';
+import Tabs from '../components/application/Tabs.vue';
 import Banner from '@components/Banner/Banner.vue';
+import { makeStateTag, makeActionMenu, makeCommitShaCell, makeCommitAuthorCell, overrideTableRows } from '../utils/table-formatters';
+import ServiceInstanceModal from '../components/service/ServiceInstanceModal.vue';
+import ServiceDeleteModal from '../components/service/ServiceDeleteModal.vue';
+import EpinioServiceModel from 'models/services';
+import ConfigurationModal from '../components/configuration/ConfigurationModal.vue';
+import ConfigurationDeleteModal from '../components/configuration/ConfigurationDeleteModal.vue';
+import AppModal from '../components/application/AppModal.vue';
+import ExportAppModal from '../dialog/ExportAppModal.vue';
+import AppDeleteModal from '../components/application/AppDeleteModal.vue';
 
 day.extend(relativeTime);
 
@@ -41,16 +40,83 @@ const gitDeployment = ref({
   deployedCommit: { short: '', long: '' },
   commits: null as any
 });
+const activeDeploymentTab = ref<string | number>('overview');
+const deploymentTabs = ref([
+  { id: 'overview', label: t('epinio.applications.detail.tables.overview'), completed: false, valid: true, disabled: false },
+])
+const activeResourceTab = ref<string | number>('instances');
+const resourceTabs = ref([
+  { id: 'instances', label: t('epinio.applications.detail.tables.instances'), completed: false, valid: true, disabled: false },
+  { id: 'services', label: t('epinio.applications.detail.tables.services'), completed: false, valid: true, disabled: false },
+  { id: 'configs', label: t('epinio.applications.detail.tables.configs'), completed: false, valid: true, disabled: false }
+]);
 
-const instanceColumns: DataTableColumn[] = [
+const serviceModal = ref<InstanceType<typeof ServiceInstanceModal> | null>(null);
+const serviceDeleteModal = ref<InstanceType<typeof ServiceDeleteModal> | null>(null);
+const serviceRows = ref<any[]>([]);
+
+const configModal = ref<InstanceType<typeof ConfigurationModal> | null>(null);
+const configDeleteModal = ref<InstanceType<typeof ConfigurationDeleteModal> | null>(null);
+const configRows = ref<any[]>([]);
+
+const appModal = ref<InstanceType<typeof AppModal> | null>(null);
+const exportAppModal = ref<InstanceType<typeof ExportAppModal> | null>(null);
+const appDeleteModal = ref<InstanceType<typeof AppDeleteModal> | null>(null);
+
+const availableActions = computed(() => {
+  const actions = props.value.availableActions.filter((action) => action.action !== 'showConfiguration') || [];
+
+  return actions.map((action) => {
+    if (action.action === 'goToEdit') {
+      return {
+        ...action,
+        label: 'Edit',
+        action: () => appModal.value?.openEdit(props.value),
+        disabled: !canEdit.value,
+        visible: canEdit.value
+      };
+    }
+
+    if (action.action === 'exportApp') {
+      return {
+        ...action,
+        action: () => exportAppModal.value?.openExport([props.value])
+      };
+    }
+
+    if (action.action === 'promptRemove') {
+      return {
+        ...action,
+        action: () => appDeleteModal.value?.openDelete(props.value),
+        disabled: !canEdit.value,
+        visible: canEdit.value
+      };
+    }
+
+    return {
+      ...action,
+      action: () => props.value[action.action]?.(),
+    };
+  });
+});
+
+const instanceColumns = [
   {
     field: 'stateDisplay',
     label: 'State',
-    width: '100px'
+    width: '100px',
+    formatter: (_v: any, row: any) => makeStateTag(row)
   },
   {
     field: 'name',
-    label: 'Name'
+    label: 'Name',
+    formatter: (_v: any, row: any) => {
+      const nameText = document.createElement('p');
+      nameText.textContent = row.nameDisplay || row.meta?.name || '';
+      nameText.style.whiteSpace = 'normal';
+      nameText.style.wordBreak = 'break-word';
+      return nameText;
+    }
   },
   {
     field: 'millicpus',
@@ -73,11 +139,12 @@ const instanceColumns: DataTableColumn[] = [
   }
 ];
 
-const serviceColumns: DataTableColumn[] = [
+const serviceColumns = [
   {
     field: 'stateDisplay',
     label: 'State',
-    width: '100px'
+    width: '100px',
+    formatter: (_v: any, row: any) => makeStateTag(row)
   },
   {
     field: 'nameDisplay',
@@ -98,7 +165,7 @@ const serviceColumns: DataTableColumn[] = [
   }
 ];
 
-const configColumns: DataTableColumn[] = [
+const configColumns = [
   {
     field: 'nameDisplay',
     label: 'Name'
@@ -118,24 +185,159 @@ const configColumns: DataTableColumn[] = [
   }
 ];
 
-const commitActions = [{
+const canEdit = computed(() => {
+  const canGetter = store.getters['epinio/can'];
+  return canGetter && (
+    canGetter('app_update') || canGetter('app_write') || canGetter('app')
+  );
+});
+const canScale = computed(() => {
+  const canGetter = store.getters['epinio/can'];
+  return canGetter && (
+    canGetter('app_scale') || canGetter('app_write') || canGetter('app')
+  );
+});
+
+// Bound resources on this page have their own scope: the services table
+// requires service write perms, the configurations table requires config
+// write perms — independent of app perms.
+const canEditService = computed(() => {
+  const canGetter = store.getters['epinio/can'];
+  return canGetter && (canGetter('service_write') || canGetter('service'));
+});
+const canEditConfig = computed(() => {
+  const canGetter = store.getters['epinio/can'];
+  return canGetter && (canGetter('configuration_write') || canGetter('configuration'));
+});
+
+
+watchEffect(() => {
+  const all = [...props.value.services];
+
+  all.forEach((row: any) => { void row.status; void row.stateDisplay; void row.meta; });
+
+  // Filter empty rows that are added during delete
+  const filtered = all.filter((row) => {
+    if (!row.id) return false;
+    else return true;
+  });
+
+  // Bound-services row actions are gated by service write perms.
+  const overrideProps = [
+    {
+      prop: 'availableActions',
+      value: (row: EpinioServiceModel) => {
+        const out: any[] = [];
+
+        if (canEditService.value) {
+          out.push(
+            {
+              action: 'removeService',
+              altAction: 'remove',
+              bulkAction: 'removeService',
+              bulkable: true,
+              enabled: row.canDelete,
+              icon: 'icon icon-trash',
+              label: 'Delete',
+              weight: -10
+            },
+            {
+              action: 'editServiceModal',
+              label: 'Edit',
+              enabled: true
+            }
+          );
+        }
+
+        return out;
+      },
+      conditionFn: () => true,
+    },
+    {
+      prop: 'removeService',
+      value: (row: EpinioServiceModel) => () => {
+        serviceDeleteModal.value?.openDelete(row);
+      },
+      conditionFn: (row: EpinioServiceModel) => canEditService.value && row.canDelete,
+    },
+    {
+      prop: 'editServiceModal',
+      value: (row: EpinioServiceModel) => () => {
+        serviceModal.value?.openEdit(row);
+      },
+      conditionFn: () => canEditService.value,
+    }
+  ];
+
+  serviceRows.value = [...overrideTableRows(filtered, overrideProps)];
+});
+
+watchEffect(() => {
+  const all = [...props.value.baseConfigurations];
+
+  all.forEach((row: any) => { void row.status; void row.stateDisplay; void row.meta; });
+
+  const overrides = [
+    {
+      prop: 'availableActions',
+      value: (row: any) => {
+        if (!canEditConfig.value) return [];
+
+        return [
+          {
+            action:  'editConfigModal',
+            label:   'Edit',
+            enabled: row.configuration?.type === 'custom',
+            icon:    'icon icon-edit',
+          },
+          {
+            action:  'deleteConfigModal',
+            label:   'Delete',
+            enabled: row.configuration?.type === 'custom',
+            icon:    'icon icon-trash',
+            weight:  -10,
+          },
+        ];
+      },
+      conditionFn: () => true,
+    },
+    {
+      prop:        'editConfigModal',
+      value:       (row: any) => () => { configModal.value?.openEdit(row); },
+      conditionFn: (row: any) => canEditConfig.value && row.configuration?.type === 'custom',
+    },
+    {
+      prop:        'deleteConfigModal',
+      value:       (row: any) => () => { configDeleteModal.value?.openDelete(row); },
+      conditionFn: (row: any) => canEditConfig.value && row.configuration?.type === 'custom',
+    },
+  ];
+
+  configRows.value = [...overrideTableRows(all, overrides)];
+});
+
+const commitActions = computed(() => canEdit.value ? [{
   action: 'editFromCommit',
   label: t('epinio.applications.actions.editFromCommit.label'),
   icon: 'icon icon-edit',
   enabled: true
-}];
+}] : []);
 
 // Debounce settings for scaling instances
 const UPDATE_INSTANCES_DEBOUNCE_MS = 2000; // 2s; adjust as needed
 let updateInstancesTimeout: number | null = null;
 
 onMounted(async () => {
+  await store.dispatch('epinio/me'); //Need to fetch fresh rights for scaling
   await store.dispatch('epinio/findAll', { type: EPINIO_TYPES.SERVICE_INSTANCE });
   await store.dispatch('epinio/findAll', { type: EPINIO_TYPES.CONFIGURATION });
 
   if (props.value.appSource.git) {
     await fetchRepoDetails();
     setCommitDetails();
+    deploymentTabs.value.push(
+      { id: 'gitCommits', label: t('epinio.applications.detail.tables.gitCommits'), completed: false, valid: true, disabled: false }
+    );
   }
 });
 
@@ -215,21 +417,30 @@ const preparedCommits = computed(() => {
 
   return arr.map((c: { sha: any; id: any; }) => ({
     ...GitUtils[gitType.value].normalize.commit(c),
-    availableActions: commitActions,
-    editFromCommit: () => props.value.goToEdit({ commit: c.sha || c.id })
+    availableActions: commitActions.value,
+    editFromCommit: () => appModal.value?.openEdit(props.value, c.sha)
   }));
 });
 
-const gitCommitsColumns = computed<DataTableColumn[]>(() => [
+const gitCommitsColumns = computed(() => [
   {
     field: 'sha',
     label: t(`gitPicker.${gitType.value}.tableHeaders.sha.label`),
-    width: '100px'
+    width: '100px',
+    formatter: (_v: any, row: any) => makeCommitShaCell(
+      row,
+      gitDeployment.value.deployedCommit.long,
+      t('epinio.applications.detail.deployment.details.git.deployed')
+    )
   },
   {
     field: 'author_login',
     label: t(`gitPicker.${gitType.value}.tableHeaders.author.label`),
-    width: '190px'
+    width: '190px',
+    formatter: (_v: any, row: any) => makeCommitAuthorCell(
+      row,
+      t(`gitPicker.${gitType.value}.tableHeaders.author.unknown`)
+    )
   },
   {
     field: 'message',
@@ -243,304 +454,221 @@ const gitCommitsColumns = computed<DataTableColumn[]>(() => [
   }
 ]);
 
-const sourceIcon = computed(() => props.value.appSourceInfo?.icon || 'icon-epinio');
+function formatDate(date, from) {
+  return from ? day(date).fromNow() : day(date).format('DD MMM YYYY');
+}
 
-const commitPosition = computed(() => {
-  if (!preparedCommits.value.length && !gitDeployment.value.deployedCommit) {
-    return null;
-  }
-
-  let idx: number | null = null;
-
-  preparedCommits.value.forEach((ele: { commitId: string; }, i: number) => {
-    if (ele.commitId === gitDeployment.value?.deployedCommit?.long) {
-      idx = i - 1;
-    }
+function handleDeleted() {
+  // navigate back to the applications list after deletion
+  store.$router.push({
+    name: 'epinio-c-cluster-applications',
+    params: store.$router.currentRoute.params,
   });
+}
 
-  if (idx === null || idx < 0) {
-    return {
-      text: t('epinio.applications.gitSource.latestCommit'),
-      position: 0
-    };
-  }
-
-  return {
-    text: `${idx} ${t('epinio.applications.gitSource.behindCommits')}`,
-    position: idx
-  };
-});
 </script>
 
+<!-- eslint-disable vue/no-deprecated-slot-attribute -->
+<!--
+  trailhand-* are Web Components, not Vue components. The HTML standard
+  slot="x" attribute is correct here; eslint-plugin-vue's deprecation rule
+  only applies to Vue component slots.
+-->
 <template>
   <div class="content">
-    <div class="application-details">
-      <ApplicationCard>
-        <!-- Icon slot -->
-        <template #cardIcon>
-          <i
-            class="icon icon-fw"
-            :class="sourceIcon"
-          />
-        </template>
-
-        <!-- Routes links slot -->
-        <template #top-left>
-          <h1>Routes</h1>
-          <ul>
-            <li
-              v-for="route in value.configuration.routes"
-              :key="route.id"
-            >
-              <a
-                v-if="value.state === 'running'"
-                :key="route.id + 'a'"
-                :href="`https://${route}`"
-                target="_blank"
-                rel="noopener noreferrer nofollow"
-              >{{ `https://${route}` }}</a>
-              <span
-                v-else
-                :key="route.id + 'b'"
-              >{{ `https://${route}` }}</span>
-            </li>
-          </ul>
-        </template>
-
-        <!-- <template v-slot:top-right>
-        </template> -->
-
-        <!-- Resources count slot -->
-        <template #resourcesCount>
-          <div>
-            {{ value.envCount }} {{ t('epinio.applications.detail.counts.envVars') }}
-          </div>
-          <div>
-            {{ value.serviceConfigurations.length }} {{ t('epinio.applications.detail.counts.services') }}
-          </div>
-          <div>
-            {{ value.baseConfigurations.length }} {{ t('epinio.applications.detail.counts.config') }}
-          </div>
-        </template>
-      </ApplicationCard>
+    <div class="heading">
+      <div class="heading-row">
+        <div class="title-content">
+          <h1>Application: {{ value.meta.name }}</h1>
+          <p>{{ value.stateDisplay }}</p>
+        </div>
+        <trailhand-action-menu 
+          v-if="availableActions.length > 0"
+          :actions="availableActions"
+        />
+      </div>
+      <h3>Namespace: {{ value.meta.namespace }}</h3>
+      <ul>
+        <li
+          v-for="route in value.configuration.routes"
+          :key="route.id"
+        >
+          <a
+            v-if="value.state === 'running'"
+            :key="route.id + 'a'"
+            :href="`https://${route}`"
+            target="_blank"
+            rel="noopener noreferrer nofollow"
+          >{{ `https://${route}` }}</a>
+          <span
+            v-else
+            :key="route.id + 'b'"
+          >{{ `https://${route}` }}</span>
+        </li>
+      </ul>
+    </div>
+    <div class="number-cards">
+      <trailhand-card class="dashboard-card" variant="info">
+        <div slot="title">
+          <p class="number-text"><span class="number">{{ value.envCount }}</span> {{ t('epinio.applications.detail.counts.envVars') }}</p>
+        </div>
+      </trailhand-card>
+      <trailhand-card class="dashboard-card" variant="info">
+        <div slot="title">
+          <p class="number-text"><span class="number">{{ value.serviceConfigurations.length }}</span> {{ t('epinio.applications.detail.counts.services') }}</p>
+        </div>
+      </trailhand-card>
+      <trailhand-card class="dashboard-card" variant="info">
+        <div slot="title">
+          <p class="number-text"><span class="number">{{ value.baseConfigurations.length }}</span> {{ t('epinio.applications.detail.counts.config') }}</p>
+        </div>
+      </trailhand-card>
     </div>
 
     <h3
-      v-if="value.deployment"
+      v-if="value.deployment || value.image_url"
       class="mt-20"
     >
       {{ t('epinio.applications.detail.deployment.label') }}
     </h3>
-
     <div
-      v-if="value.deployment"
+      v-if="value.deployment || value.image_url"
       class="deployment"
     >
       <!-- Source information -->
-      <Tabbed>
-        <Tab
-          label-key="epinio.applications.detail.tables.overview"
-          name="overview"
-          :weight="3"
-        >
+      <Tabs  v-model="activeDeploymentTab" :tabs="deploymentTabs" variant="underline">
+        <template #overview>
           <div class="simple-box-row app-instances">
-            <SimpleBox>
-              <ConsumptionGauge
-                :resource-name="t('epinio.applications.detail.deployment.instances')"
-                :capacity="value.desiredInstances"
-                :used="value.readyInstances"
-                :used-as-resource-name="true"
-                :color-stops="{ 70: '--success', 30: '--warning', 0: '--error' }"
-              />
-              <div class="scale-instances">
-                <PlusMinus
-                  v-model:value="value.desiredInstances"
-                  class="mt-15 mb-10"
-                  :disabled="scalingInFlight"
-                  @minus="updateInstances(value.desiredInstances - 1)"
-                  @plus="updateInstances(value.desiredInstances + 1)"
-                />
-                <div
-                  v-if="showScaleSpinner"
-                  class="scale-instances__spinner mt-5"
-                >
-                  <i class="icon-spinner animate-spin" />
-                </div>
-              </div>
-
-              <div class="deployment__origin__row">
-                <hr class="mt-10 mb-10">
-                <h4 class="mt-10 mb-10">
-                  {{ t('epinio.applications.detail.deployment.metrics') }}
-                </h4>
-                <div
-                  v-if="gitSource"
-                  class="stats"
-                >
-                  <div>
-                    <h3>{{ t('tableHeaders.memory') }}</h3>
-                    <ul>
-                      <li> <span>Min: </span> {{ value.instanceMemory.min }}</li>
-                      <li> <span>Max: </span>{{ value.instanceMemory.max }}</li>
-                      <li><span>Avg: </span>{{ value.instanceMemory.avg }}</li>
-                    </ul>
-                  </div>
-                  <div>
-                    <h3>{{ t('tableHeaders.cpu') }}</h3>
-                    <ul>
-                      <li> <span>Min: </span> {{ value.instanceCpu.min }}</li>
-                      <li> <span>Max: </span>{{ value.instanceCpu.max }}</li>
-                      <li><span>Avg: </span>{{ value.instanceCpu.avg }}</li>
-                    </ul>
+            <trailhand-card variant="info" class="dashboard-card simple-box">
+              <div slot="title" class="consumption-card">
+                <div class="instances">
+                  <trailhand-progress-bar label="Instances" :value="value.readyInstances" :total="value.desiredInstances"></trailhand-progress-bar>
+                  <div class="instances-controls">
+                    <trailhand-button v-if="canScale" variant="secondary" size="small" :disabled="scalingInFlight || value.desiredInstances <= 0" @button-click="updateInstances(value.desiredInstances - 1)">
+                      <trailhand-icon name="minus" />
+                    </trailhand-button>
+                    <div
+                      v-if="showScaleSpinner"
+                      class="scale-instances__spinner mt-5"
+                    >
+                      <i class="icon-spinner animate-spin" />
+                    </div>
+                    <trailhand-button v-if="canScale" variant="secondary" size="small" :disabled="scalingInFlight" @button-click="updateInstances(value.desiredInstances + 1)">
+                      <trailhand-icon name="plus" />
+                    </trailhand-button>
                   </div>
                 </div>
-
-                <div
-                  v-else
-                  class="stats-table"
-                >
-                  <table class="mt-15">
-                    <thead>
-                      <tr>
-                        <th />
-                        <th>Min</th>
-                        <th>Max</th>
-                        <th>Avg</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td>{{ t('tableHeaders.memory') }}</td>
-                            <td>{{ value.instanceMemory.min }}</td>
-                            <td>{{ value.instanceMemory.max }}</td>
-                            <td>{{ value.instanceMemory.avg }}</td>
-                        </tr>
-                        <tr>
-                            <td>{{ t('tableHeaders.cpu') }}</td>
-                            <td>{{ value.instanceCpu.min }}</td>
-                            <td>{{ value.instanceCpu.max }}</td>
-                            <td>{{ value.instanceCpu.avg }}</td>
-                        </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </SimpleBox>
-            <SimpleBox v-if="value.appSourceInfo">
-              <div class="mb-10 deployment__details__header">
-                <i
-                  v-if="value.appSourceInfo.kind === APPLICATION_MANIFEST_SOURCE_TYPE.GIT"
-                  class="icon git-icon"
-                  :class="{[`icon-${gitType}`]: true}"
-                />
-                <h4>{{ t('epinio.applications.detail.deployment.details.label') }}</h4>
-              </div>
-              <div
-                v-if="gitSource"
-                class="repo-info"
-              >
-                <AppGitDeployment
-                  :git-deployment="gitDeployment"
-                  :git-source="gitSource"
-                  :commit-position="commitPosition"
-                />
-              </div>
-              <hr class="mt-10 mb-10">
-              <div class="deployment__origin__list">
-                <ul>
-                  <li>
-                    <h4>{{ t('epinio.applications.detail.deployment.details.origin') }}</h4>
-                    <span>{{ value.appSourceInfo.label }}</span>
-                  </li>
-
-                  <li
-                    v-for="d of value.appSourceInfo.details"
-                    :key="d.label"
+                <div class="deployment__origin__row">
+                  <div
+                    class="stats-table"
                   >
-                    <h4>{{ d.label }}</h4>
-                    <span v-if="d.value && d.value.startsWith('http')">
-                      <a
-                        :href="d.value"
-                        target="_blank"
-                      >{{ formatURL(d.value) }}</a>
-                    </span>
-                    <span v-else-if="gitSource && d.value && d.value.match(/^[a-f0-9]{40}$/)">
-                      <a
-                        :href="`${gitSource.htmlUrl}/commit/${d.value}`"
-                        target="_blank"
-                      >{{ d.value }}</a>
-                    </span>
-                    <span v-else>{{ d.value }}</span>
-                  </li>
-
-                  <li>
-                    <h4>{{ t('epinio.applications.tableHeaders.deployedBy') }}</h4>
-                    <span> {{ value.deployment.username }}</span>
-                  </li>
-                </ul>
+                    <table class="mt-15">
+                      <thead>
+                        <tr>
+                          <th />
+                          <th>Min</th>
+                          <th>Max</th>
+                          <th>Avg</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                          <tr>
+                              <td>{{ t('tableHeaders.memory') }}</td>
+                              <td>{{ value.instanceMemory.min }}</td>
+                              <td>{{ value.instanceMemory.max }}</td>
+                              <td>{{ value.instanceMemory.avg }}</td>
+                          </tr>
+                          <tr>
+                              <td>{{ t('tableHeaders.cpu') }}</td>
+                              <td>{{ value.instanceCpu.min }}</td>
+                              <td>{{ value.instanceCpu.max }}</td>
+                              <td>{{ value.instanceCpu.avg }}</td>
+                          </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
               </div>
-            </SimpleBox>
+            </trailhand-card>
+            <trailhand-card v-if="value.appSourceInfo" variant="info" class="dashboard-card simple-box">
+              <div slot="title" class="deployment__origin__list" >
+                <table>
+                  <tbody>
+                    <tr>
+                      <td class="origin-prop">
+                        {{ t('epinio.applications.detail.deployment.details.origin') }}
+                      </td>
+                      <td class="origin-value">
+                        {{ value.appSourceInfo.label }}
+                      </td>
+                    </tr>
+                    <tr v-for="d of value.appSourceInfo.details" :key="d.label">
+                      <td class="origin-prop">{{ d.label }}</td>
+                      <td v-if="d.value && d.value.startsWith('http')" class="origin-value">
+                        <a
+                          :href="d.value"
+                          target="_blank"
+                          class="origin-link"
+                        >{{ formatURL(d.value) }}</a>
+                      </td>
+                      <td v-else-if="gitSource && d.value && d.value.match(/^[a-f0-9]{40}$/)" class="origin-value">
+                        <a
+                          :href="`${gitSource.htmlUrl}/commit/${d.value}`"
+                          target="_blank"
+                          class="origin-link"
+                        >{{ d.value }}</a>
+                      </td>
+                      <td v-else class="origin-value">{{ d.value }}</td>
+                    </tr>
+                    <tr v-if="gitSource">
+                      <td class="origin-prop">
+                        {{ t('epinio.applications.detail.deployment.details.git.created') }}
+                      </td>
+                      <td class="origin-value">
+                        {{ formatDate(gitSource.created_at, false) }}
+                      </td>
+                    </tr>
+                    <tr v-if="gitSource">
+                      <td class="origin-prop">
+                        {{ t('epinio.applications.detail.deployment.details.git.updated') }}
+                      </td>
+                      <td class="origin-value">
+                        {{ formatDate(gitSource.updated_at, true) }}
+                      </td>
+                    </tr>
+                    <tr>
+                      <td class="origin-prop">
+                        {{ t('epinio.applications.tableHeaders.deployedBy') }}
+                      </td>
+                      <td class="origin-value">
+                        {{ value.deployment?.username }}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </trailhand-card>
           </div>
-        </Tab>
-        <Tab
-          v-if="gitSource && preparedCommits.length"
-          label-key="epinio.applications.detail.tables.gitCommits"
-          name="gitCommits"
-          :weight="2"
-        >
+        </template>
+        <template #gitCommits>
           <Banner
             color="info"
             class="redeploy-info"
           >
             {{ t('epinio.applications.detail.deployment.commits.redeploy') }}
           </Banner>
-          <DataTable
+          <trailhand-table
             v-if="preparedCommits"
+            :ref="(el: any) => { if (el) el.renderActions = makeActionMenu; }"
             :rows="preparedCommits"
             :columns="gitCommitsColumns"
             key-field="sha"
             :searchable="true"
             :paginated="true"
             :rows-per-page="10"
-          >
-            <template #cell:author_login="{row}">
-              <div class="sortable-table-avatar">
-                <template v-if="row.author">
-                  <img
-                    :src="row.author.avatarUrl"
-                    alt=""
-                  >
-                  <a
-                    :href="row.author.htmlUrl"
-                    target="_blank"
-                    rel="nofollow noopener noreferrer"
-                  >
-                    {{ row.author.name }}
-                  </a>
-                </template>
-                <template v-else>
-                  {{ t(`gitPicker.${ gitType }.tableHeaders.author.unknown`) }}
-                </template>
-              </div>
-            </template>
-
-            <template #cell:sha="{row}">
-              <div class="sortable-table-commit">
-                <Link
-                  v-model:value="row.sha"
-                  :row="row"
-                  url-key="htmlUrl"
-                />
-                <i
-                  v-if="row.commitId === gitDeployment.deployedCommit.long"
-                  v-tooltip="t('epinio.applications.detail.deployment.details.git.deployed')"
-                  class="icon icon-fw icon-commit"
-                />
-              </div>
-            </template>
-          </DataTable>
-        </Tab>
-      </Tabbed>
+          />
+        </template>
+      </Tabs>
     </div>
 
     <h3 class="mt-20">
@@ -548,74 +676,160 @@ const commitPosition = computed(() => {
     </h3>
 
     <div>
-      <Tabbed>
-        <Tab
-          label-key="epinio.applications.detail.tables.instances"
-          name="instances"
-          :weight="3"
-        >
-          <DataTable
+      <Tabs v-model="activeResourceTab" :tabs="resourceTabs" variant="underline">
+        <template #instances>
+          <trailhand-table
+            :ref="(el: any) => { if (el) el.renderActions = makeActionMenu; }"
             :columns="instanceColumns"
             :rows="value.instances"
             :searchable="false"
             :paginated="false"
-          >
-            <template #cell:stateDisplay="{ row }">
-              <BadgeStateFormatter
-                :row="row"
-                :value="row.stateDisplay"
-              />
-            </template>
-          </DataTable>
-        </Tab>
-        <Tab
-          label-key="epinio.applications.detail.tables.services"
-          name="services"
-          :weight="2"
-        >
-          <DataTable
+          />
+        </template>
+        <template #services>
+          <trailhand-table
+            :ref="(el: any) => { if (el) el.renderActions = makeActionMenu; }"
             :columns="serviceColumns"
-            :rows="value.services"
+            :rows="serviceRows"
             :searchable="false"
             :paginated="false"
-          >
-            <template #cell:stateDisplay="{ row }">
-              <BadgeStateFormatter
-                :row="row"
-                :value="row.stateDisplay"
-              />
-            </template>
-          </DataTable>
-        </Tab>
-        <Tab
-          label-key="epinio.applications.detail.tables.configs"
-          name="configs"
-          :weight="1"
-        >
-          <DataTable
+          />
+        </template>
+        <template #configs>
+          <trailhand-table
+            :ref="(el: any) => { if (el) el.renderActions = makeActionMenu; }"
             :columns="configColumns"
-            :rows="value.baseConfigurations"
+            :rows="configRows"
             :searchable="false"
             :paginated="false"
-          >
-            <template #cell:stateDisplay="{ row }">
-              <BadgeStateFormatter
-                :row="row"
-                :value="row.stateDisplay"
-              />
-            </template>
-          </DataTable>
-        </Tab>
-      </Tabbed>
+          />
+        </template>
+      </Tabs>
     </div>
-
   </div>
+  <ServiceInstanceModal ref="serviceModal" />
+  <ServiceDeleteModal ref="serviceDeleteModal" />
+  <ConfigurationModal ref="configModal" />
+  <ConfigurationDeleteModal ref="configDeleteModal" />
+  <AppModal ref="appModal" />
+  <ExportAppModal ref="exportAppModal" />
+  <AppDeleteModal ref="appDeleteModal" @deleted="handleDeleted" />
 </template>
 
 <style lang="scss" scoped>
+.heading {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+
+  .heading-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    .title-content {
+      display: flex;
+      align-items: flex-end;
+      gap: 10px;
+
+      h1 {
+        margin: 0;
+        font-size: 24px;
+        font-weight: 500;
+        color: var(--th-color-text-primary);
+      }
+
+      p {
+        margin: 0;
+        font-size: 14px;
+        font-weight: 500;
+        color: var(--th-color-primary);
+      }
+    }
+
+    trailhand-action-menu {
+      --sortable-table-row-hover-bg: var(--sortable-table-hover-bg)
+    }
+  }
+
+  h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 400;
+    color: var(--th-color-text-secondary);
+  }
+
+  ul {
+    margin: 0;
+    padding: 0;
+    display: flex;
+    gap: 10px;
+
+    li {
+      list-style: none;
+      font-size: 14px;
+
+      a {
+        color: var(--th-color-link);
+        text-decoration: none;
+
+        &:hover {
+          text-decoration: underline;
+        }
+      }
+    }
+  }
+}
+
+.number-cards {
+  display: flex;
+  gap: 8px;
+  margin-top: 20px;
+
+  trailhand-card::part(body) {
+    display: none;
+  }
+
+  trailhand-card::part(action) {
+    display: none;
+  }
+
+  .dashboard-card {
+    .number-text {
+      font-size: 14px;
+      color: var(--th-color-text-secondary);
+      font-weight: 400;
+    }
+
+    .number {
+      font-size: 24px;
+      font-weight: 600;
+      color: var(--th-color-text-primary);
+    }
+  }
+}
+
+.instances {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+
+  .instances-controls {
+    display: flex;
+    justify-content: space-between;
+  }
+}
+
 .content {
   max-width: 1600px;
 }
+
+trailhand-table {
+  --sortable-table-row-hover-bg: var(--sortable-table-hover-bg);
+  --sortable-table-header-hover-bg: var(--sortable-table-hover-bg);
+  --sortable-table-header-sorted-bg: var(--sortable-table-hover-bg);
+}
+
 .simple-box-row {
   display: grid;
   grid-auto-columns: minmax(0, 1fr);
@@ -723,24 +937,15 @@ const commitPosition = computed(() => {
   margin: 12px 0;
   position: relative;
 
-  &::before {
-    content: "";
-    border-right: 1px solid var(--default);
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    left: 50%;
-    width: 1px;
-  }
-
   & > div:nth-child(2) {
     display: flex;
     flex-direction: column;
-    align-items: flex-end;
+    // align-items: flex-end;
   }
 
   h3 {
-    font-size: 16px;
+    font-size: 18px;
+    font-weight: 500;
   }
 
   ul {
@@ -752,13 +957,20 @@ const commitPosition = computed(() => {
 
     li {
       list-style: none;
-      font-size: 14px;
+      font-size: 16px;
+      font-weight: 500;
+
+      span {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--th-color-text-secondary);
+      }
     }
   }
 
   // For the second div in stats, style the ul differently
   & > div:nth-child(2) ul {
-    align-items: flex-end;
+    // align-items: flex-end;
   }
 
 }
@@ -783,22 +995,33 @@ const commitPosition = computed(() => {
 }
 
 .deployment__origin__list {
-  ul {
-    margin: 0;
-    padding: 0;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
+  table {
+    width: 100%;
+    border-collapse: collapse;
 
-    li {
-      margin: 5px;
-      list-style: none;
+    td {
+      padding: 8px 4px;
 
-      h4 {
-        color: var(--default-text);
-        font-weight: 300;
-        font-size: 14px;
-        margin: 0;
+      &.origin-prop {
+        font-size: 12px;
+        color: var(--th-color-text-secondary);
+        font-weight: 600;
       }
+
+      &.origin-value {
+        font-size: 16px;
+        color: var(--th-color-text-primary);
+        font-weight: 500;
+      }
+    }
+  }
+
+  .origin-link {
+    color: var(--th-color-link);
+    text-decoration: none;
+
+    &:hover {
+      text-decoration: underline;
     }
   }
 }

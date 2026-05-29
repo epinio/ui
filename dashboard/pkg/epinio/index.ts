@@ -11,10 +11,22 @@ import epinioStore from './store/epinio-store';
 import { createEpinioRoute } from './utils/custom-routing';
 import './assets/overrides.scss';
 
+// import trailhand styles and components
+import '@krumio/trailhand-ui';
+
 const epinioObjAnnotations = [
   'epinio.io/app-container',
   'epinio.io/created-by'
 ];
+
+// hide warnings related to trailhand components, they are working fine, however we are unable to register them gloabally due to the rancher shell
+const _warn = console.warn;  
+console.warn = (...args: any[]) => {  
+  if (typeof args[0] === 'string' && args[0].includes('Failed to resolve component: trailhand-')) {
+    return;
+  }
+  _warn(...args);
+};
 
 const isPodFromEpinio = (a: string) => epinioObjAnnotations.includes(a);
 
@@ -93,9 +105,7 @@ export default function(plugin: IPlugin) {
       labelKey: 'epinio.applications.actions.goToEpinio.label',
       icon:     'icon-epinio',
       enabled(ctx: any) {
-        const isUserNamespace = ctx.metadata.namespace !== 'epinio';
-
-        return isUserNamespace && !!Object.keys(ctx.metadata.annotations || []).find((annotation) => isPodFromEpinio(annotation));
+        return !!Object.keys(ctx.metadata.annotations || []).find((annotation) => isPodFromEpinio(annotation));
       },
       invoke(_: ActionOpts, values: any[]) {
         const obj = values[0];
