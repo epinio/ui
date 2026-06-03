@@ -20,8 +20,8 @@ const epinioObjAnnotations = [
 ];
 
 // hide warnings related to trailhand components, they are working fine, however we are unable to register them gloabally due to the rancher shell
-const _warn = console.warn; // eslint-disable-line no-console
-console.warn = (...args: any[]) => { // eslint-disable-line no-console
+const _warn = console.warn;  
+console.warn = (...args: any[]) => {  
   if (typeof args[0] === 'string' && args[0].includes('Failed to resolve component: trailhand-')) {
     return;
   }

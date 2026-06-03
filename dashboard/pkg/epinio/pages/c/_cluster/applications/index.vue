@@ -4,7 +4,6 @@ import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
 import { debounce } from 'lodash';
 
-import Loading from '@shell/components/Loading';
 import Masthead from '@shell/components/ResourceList/Masthead';
 
 import AppModal from '../../../../components/application/AppModal.vue';
@@ -31,7 +30,6 @@ const schema = ref(store.getters['epinio/schemaFor'](resource));
 const appModal = ref<InstanceType<typeof AppModal> | null>(null);
 const exportAppModal = ref<InstanceType<typeof ExportAppModal> | null>(null);
 const deleteAppModal = ref<InstanceType<typeof AppDeleteModal> | null>(null);
-const currentNamespace = computed(() => store.getters['epinio/activeNamespace']);
 const canCreate = computed(() => {
   const canGetter = store.getters['epinio/can'];
   return canGetter && (
@@ -172,7 +170,8 @@ function handleSearchInput(namespace: string, query: string) {
   onNamespaceSearch(namespace, query);
 }
 
-function getApps(apps: any[], namespace: string): any[] {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function getApps(apps: any[], _namespace: string): any[] {
   // Only inject the modal-driven Edit action when the current user actually
   // has app write permissions; otherwise the model's filter has already
   // removed goToEdit and we shouldn't add it back.
@@ -383,8 +382,8 @@ onUnmounted(() => {
       />
     </div>
     <div
-      v-else
       v-for="ns in activeNamespaces"
+      v-else
       :key="ns"
       class="namespace-group"
     >

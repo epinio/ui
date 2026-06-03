@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import axios from 'axios';
 import { useStore } from 'vuex';
-import { ref, onMounted, watchEffect } from 'vue';
+import { ref, watchEffect } from 'vue';
 
 import epinioAuth, { EpinioAuthTypes } from '../utils/auth';
 import { stringify, exceptionToErrorsArray } from '@shell/utils/error';
@@ -112,7 +112,7 @@ defineExpose({
 
 <template>
   <trailhand-modal v-if="!!cluster" :title="`Login ${ cluster.name ? `to ${ cluster.name }` : '' }`" :open.prop="showModal" @modal-close="closeLogin">
-    <div class="modal-content" id="modal-container-element">
+    <div id="modal-container-element" class="modal-content">
       <div v-if="errors.length">
         <div
           v-for="(err, idx) in errors"
@@ -147,8 +147,8 @@ defineExpose({
             :label="t('login.username')"
             :required="true"
             size="large"
-            @text-input-change="(e: CustomEvent) => username = e.detail.value"
             style="width: 100%;"
+            @text-input-change="(e: CustomEvent) => username = e.detail.value"
           />
           <trailhand-text-input
             id="password"
@@ -156,9 +156,9 @@ defineExpose({
             :label="t('login.password')"
             :required="true"
             size="large"
-            @text-input-change="(e: CustomEvent) => password = e.detail.value"
             style="width: 100%;"
             type="password"
+            @text-input-change="(e: CustomEvent) => password = e.detail.value"
           />
           <trailhand-button
             size="medium"
@@ -179,8 +179,8 @@ defineExpose({
           variant="secondary"
           size="medium"
           :disabled="busy"
-          @button-click="!busy && selectType(PROVIDER_TYPES.LOCAL)"
           type="button"
+          @button-click="!busy && selectType(PROVIDER_TYPES.LOCAL)"
           @keydown.enter.prevent="!busy && selectType(PROVIDER_TYPES.LOCAL)"
         >
           {{ t('login.useLocal') }}
@@ -194,8 +194,8 @@ defineExpose({
           variant="secondary"
           size="small"
           :disabled="busy"
-          @button-click="!busy && selectType(PROVIDER_TYPES.DEX)"
           type="button"
+          @button-click="!busy && selectType(PROVIDER_TYPES.DEX)"
           @keydown.enter.prevent="!busy && selectType(PROVIDER_TYPES.DEX)"
         >
           {{ t('epinio.login.useGenericProvider', {}) }}

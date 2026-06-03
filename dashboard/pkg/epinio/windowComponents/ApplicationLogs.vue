@@ -22,9 +22,6 @@ import { downloadFile } from '@shell/utils/download';
 import { escapeHtml, escapeRegex } from '@shell/utils/string';
 import { LOGS_TIME, LOGS_WRAP, DATE_FORMAT, TIME_FORMAT } from '@shell/store/prefs';
 
-import Select from '@shell/components/form/Select';
-import { Checkbox } from '@components/Form/Checkbox';
-import AsyncButton from '@shell/components/AsyncButton';
 import Window from '@shell/components/nav/WindowManager/Window';
 
 import { useApplicationSocketMixin } from './ApplicationSocketMixin';
@@ -721,8 +718,8 @@ const clearContainerFilters = () => {
           </trailhand-button>
           <trailhand-button
             class="ml-5"
-            @click="download"
             size="small"
+            @click="download"
           >
             {{t('wm.containerLogs.download')}}
           </trailhand-button>

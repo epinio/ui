@@ -47,7 +47,7 @@ const showDetails = (chart: any) => {
 <template>
   <Loading v-if="pending" />
   <div v-else>
-    <div class="filter-block" id="modal-container-element">
+    <div id="modal-container-element" class="filter-block">
       <trailhand-text-input
         v-model="searchQuery"
         type="search"

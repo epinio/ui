@@ -118,25 +118,43 @@ export default class EpinioServiceModel extends EpinioNamespacedResource {
   }
 
   async bindApp(appName) {
-    await this.followLink('bind', {
-      method:  'post',
-      headers: {
-        'content-type': 'application/json',
-        accept:         'application/json'
-      },
-      data: { app_name: appName }
-    });
+    try {
+      await this.followLink('bind', {
+        method:  'post',
+        headers: {
+          'content-type': 'application/json',
+          accept:         'application/json'
+        },
+        data: { app_name: appName }
+      });
+    } catch (e) {
+      console.log(e)
+      this.$dispatch('growl/error', {
+        title: 'Something Went Wrong Binding the Service',
+        message: `The service most likely wasn't ready yet. Please wait a
+        moment and try again. If the problem persists, please contact support.`,
+      }, { root: true });
+    }
   }
 
   async unbindApp(appName) {
-    await this.followLink('unbind', {
-      method:  'post',
-      headers: {
-        'content-type': 'application/json',
-        accept:         'application/json'
-      },
-      data: { app_name: appName }
-    });
+    try {
+      await this.followLink('unbind', {
+        method:  'post',
+        headers: {
+          'content-type': 'application/json',
+          accept:         'application/json'
+        },
+        data: { app_name: appName }
+      });
+    } catch (e) {
+      console.log(e)
+      this.$dispatch('growl/error', {
+        title: 'Something Went Wrong Unbinding the Service',
+        message: `Please wait a moment and try again. If the problem persists,
+        please contact support.`,
+      }, { root: true });
+    }
   }
 
   async delete(unmounted = true) {
