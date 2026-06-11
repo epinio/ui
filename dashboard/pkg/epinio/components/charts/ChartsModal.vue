@@ -27,7 +27,7 @@ const chartShortDescription = ref('');
 const chartDescription = ref('');
 const helmChartUrl = ref('');
 const helmRepoUrl = ref('');
-const chartSettings = ref<{ name: string, type: string, enum?: string[], minimum?: number, maximum?: number, value?: any }[]>([]);
+const chartSettings = ref<{ name: string, type: string, enum?: string[], minimum?: string, maximum?: string, value?: any }[]>([]);
 
 const saving = ref(false);
 const errors = ref<string[]>([]);
@@ -48,18 +48,18 @@ const isDirty = computed(() => {
 
   const initialSettings = Object.keys(initialValues.value.settings || {}).map((key) => ({
     name: key,
-    type: initialValues.value.settings[key].type || 'string',
-    enum: initialValues.value.settings[key].enum || [],
-    minimum: initialValues.value.settings[key].minimum || '',
-    maximum: initialValues.value.settings[key].maximum || '',
-    value: initialValues.value.values?.[key] || null,
+    type: initialValues.value!.settings[key].type || 'string',
+    enum: initialValues.value!.settings[key].enum || [],
+    minimum: initialValues.value!.settings[key].minimum || '',
+    maximum: initialValues.value!.settings[key].maximum || '',
+    value: initialValues.value!.values?.[key] || null,
   }));
 
-  const isDirty = chartName.value !== (initialValues.value.meta.name || '') ||
-    chartShortDescription.value !== (initialValues.value.short_description || '') ||
-    chartDescription.value !== (initialValues.value.description || '') ||
-    helmChartUrl.value !== (initialValues.value.helm_chart || '') ||
-    helmRepoUrl.value !== (initialValues.value.helm_repo || '') ||
+  const isDirty = chartName.value !== (initialValues.value!.meta.name || '') ||
+    chartShortDescription.value !== (initialValues.value!.short_description || '') ||
+    chartDescription.value !== (initialValues.value!.description || '') ||
+    helmChartUrl.value !== (initialValues.value!.helm_chart || '') ||
+    helmRepoUrl.value !== (initialValues.value!.helm_repo || '') ||
     !isEqual(sortBy(chartSettings.value, 'name'), sortBy(initialSettings, 'name'));
 
   return isDirty;
@@ -71,27 +71,34 @@ const validationPassed = computed(() => {
   if (!chartName.value) return false;
   if (!chartShortDescription.value) return false;
   if (!chartDescription.value) return false;
-  if (!helmChartUrl.value) return false;
-  if (!helmRepoUrl.value) return false;
+  if (!helmRepoUrl.value && !helmChartUrl.value) return false;
 
   for (const setting of chartSettings.value) {
     if (!setting.name) {
       return false;
     }
+    const minimum = setting.minimum ? Number(setting.minimum) : NaN;
+    const maximum = setting.maximum ? Number(setting.maximum) : NaN;
 
     if (setting.type === 'number' || setting.type === 'integer') {
-      if (setting.minimum !== undefined  && setting.maximum !== undefined && setting.minimum >= setting.maximum) {
+      if (!isNaN(minimum) && !isNaN(maximum) && minimum >= maximum) {
         return false;
       }
 
-      if (setting.value !== undefined && setting.value !== null && setting.value !== '' ) {
-        const value = Number(setting.value);
-        if (setting.minimum !== undefined && value < setting.minimum) {
+      const value = setting.value ? Number(setting.value) : NaN;
+      if (!isNaN(value)) {
+        if (!isNaN(minimum) && value < minimum) {
           return false;
         }
-        if (setting.maximum !== undefined && value > setting.maximum) {
+        if (!isNaN(maximum) && value > maximum) {
           return false;
         }
+      }
+    }
+
+    if (setting.type === 'string') {
+      if (!setting.enum || setting.enum.length === 0 || setting.enum.some((v) => !v)) {
+        return false;
       }
     }
   }
@@ -297,24 +304,25 @@ defineExpose({ openCreate, openEdit, openView });
             @code-input-change="(e: CustomEvent) => { chartDescription = e.detail.value; }"
           />
         </trailhand-form-row>
-        <trailhand-form-row columns="2">
-          <trailhand-text-input
-            :value="helmChartUrl"
-            label="Helm Chart URL"
-            placeholder="e.g. https://example.com/charts/mychart-0.1.0.tgz"
-            :required="true"
-            :disabled="isView"
-            @text-input-change="(e: CustomEvent) => { helmChartUrl = e.detail.value; }"
-          ></trailhand-text-input>
-          <trailhand-text-input
-            :value="helmRepoUrl"
-            label="Helm Repo URL"
-            placeholder="e.g. https://example.com/charts/index.yaml"
-            :required="true"
-            :disabled="isView"
-            @text-input-change="(e: CustomEvent) => { helmRepoUrl = e.detail.value; }"
-          ></trailhand-text-input>
-        </trailhand-form-row>
+        <div>
+          <label style="font-size: 11px; color: var(--th-input-label);">Helm URLs <span style="color: var(--th-color-red);">*</span></label>
+          <trailhand-form-row columns="2">
+            <trailhand-text-input
+              :value="helmChartUrl"
+              label="Helm Chart URL"
+              placeholder="e.g. https://example.com/charts/mychart-0.1.0.tgz"
+              :disabled="isView"
+              @text-input-change="(e: CustomEvent) => { helmChartUrl = e.detail.value; }"
+            ></trailhand-text-input>
+            <trailhand-text-input
+              :value="helmRepoUrl"
+              label="Helm Repo URL"
+              placeholder="e.g. https://example.com/charts/index.yaml"
+              :disabled="isView"
+              @text-input-change="(e: CustomEvent) => { helmRepoUrl = e.detail.value; }"
+            ></trailhand-text-input>
+          </trailhand-form-row>
+        </div>
         <trailhand-form-row>
           <h3>Settings</h3>
         </trailhand-form-row>

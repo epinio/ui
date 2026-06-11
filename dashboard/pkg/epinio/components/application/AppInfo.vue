@@ -33,7 +33,7 @@ const emit = defineEmits<{
 // Reactive state
 const errors = ref<string[]>([]); // eslint-disable-line @typescript-eslint/no-unused-vars
 const values = ref<EpinioAppInfo | undefined>(undefined);
-const validSettings = ref<{ [key: string]: boolean }>({});
+const validSettings = ref<boolean>(true);
 const envVariables = ref<{ key: string; value: string }[]>([]);
 const bulkFileInput = ref<HTMLInputElement | null>(null);
 const fileDialogActive = ref(false);
@@ -79,7 +79,7 @@ const valid = computed(() => {
     values.value.configuration?.instances >= 0;
 
   return validName && validNamespace && validInstances &&
-    Object.values(validSettings.value).every((v) => !!v);
+    validSettings.value;
 });
 
 const showApplicationVariables = computed(() => {

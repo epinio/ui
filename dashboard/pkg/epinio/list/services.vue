@@ -71,7 +71,6 @@ watchEffect(() => {
   const activeNamespaces = store.state.activeNamespaceCache;
   const all = store.getters['epinio/all'](EPINIO_TYPES.SERVICE_INSTANCE) as any[];
   all.forEach((row: any) => { void row.status; void row.stateDisplay; void row.meta; });
-  console.log('Services watchEffect - all:', all, 'activeNamespaces:', activeNamespaces);
 
   // Filter empty rows that are added during delete, and filter by active namespace
   const filtered = all.filter((row) => {

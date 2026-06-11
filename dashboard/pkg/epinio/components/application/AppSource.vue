@@ -354,7 +354,8 @@ function onFolderSelected(files: FileWithRelativePath | FileWithRelativePath[]) 
 
 onMounted(() => {
   if (!appChart.value) {
-    appChart.value = props.application.configuration?.appchart || props.source?.appChart || appCharts.value[0]?.value || appCharts.value[0];
+    const standardAppChart = appCharts.value.find((ac) => ac.value === 'standard');
+    appChart.value = props.application.configuration?.appchart || props.source?.appChart || standardAppChart?.value || appCharts.value[0]?.value || appCharts.value[0];
   }
   update();
 });

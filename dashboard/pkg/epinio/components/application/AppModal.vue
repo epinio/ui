@@ -258,7 +258,8 @@ function updateSource(changes: EpinioAppSource) {
 
     if (chart?.settings) {
       const customSettings = Object.keys(chart.settings).reduce((acc, key) => {
-        acc[key] = chart?.values?.[key] || null;
+        const fallbackValue = chart?.settings[key].type === 'bool' ? false : '';
+        acc[key] = chart?.values?.[key] || fallbackValue;
         return acc;
       }, {} as Record<string, any>);
 

@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { ref, watch } from 'vue';
+import { ref, watch, computed } from 'vue';
 
 // Props
 const props = defineProps<{
@@ -10,16 +10,44 @@ const props = defineProps<{
   disabled: boolean;
 }>();
 
+console.log('ChartValues props:', props); // Debug log to check props
+
 // Emit function
 const emit = defineEmits(['valid']);
 
-// Reactive data
-const valid = ref<{ [key: string]: boolean }>({});
+const valid = computed(() => {
+  return Object.entries(props.chart).every(([key, setting]: [string, any]) => {
+    if (setting.type !== 'number' && setting.type !== 'integer') {
+      return true;
+    }
 
-// Watch for changes in `valid`
-watch(valid, (newValid) => {
-  emit('valid', newValid);
-});
+    const rawValue = props.value[key];
+
+    if (rawValue === undefined || rawValue === null || rawValue === '') {
+      return true;
+    }
+
+    const value = Number(rawValue);
+
+    if (Number.isNaN(value)) {
+      return false;
+    }
+
+    if ((setting.minimum != null && setting.minimum !== '' && setting.minimum !== undefined) && value < Number(setting.minimum)) {
+      return false;
+    }
+
+    if ((setting.maximum != null && setting.maximum !== '' && setting.maximum !== undefined) && value > Number(setting.maximum)) {
+      return false;
+    }
+
+    return true;
+  });
+})
+
+watch(valid, (isValid) => {
+  emit("valid", isValid);
+}, { immediate: true });
 
 const onInputCheckbox = (key: string, value: boolean) => {
   props.value[key] = value ? 'true' : 'false';
