@@ -52,7 +52,7 @@ const isDirty = computed(() => {
     enum: initialValues.value!.settings[key].enum || [],
     minimum: initialValues.value!.settings[key].minimum || '',
     maximum: initialValues.value!.settings[key].maximum || '',
-    value: initialValues.value!.values?.[key] || null,
+    value: initialValues.value!.values?.[key] ?? (initialValues.value!.settings[key].type === 'bool' ? false : ''),
   }));
 
   const isDirty = chartName.value !== (initialValues.value!.meta.name || '') ||
@@ -140,7 +140,7 @@ function openView(row: EpinioAppChartModel) {
     enum: row.settings[key].enum || [],
     minimum: row.settings[key].minimum || '',
     maximum: row.settings[key].maximum || '',
-    value: row.values?.[key] || null,
+    value: row.values?.[key] ?? (row.settings[key].type === 'bool' ? false : ''),
   }));
   showModal.value = true;
 }
@@ -161,7 +161,7 @@ function openEdit(row: EpinioAppChartModel) {
     enum: row.settings[key].enum || [],
     minimum: row.settings[key].minimum || '',
     maximum: row.settings[key].maximum || '',
-    value: row.values?.[key] || null,
+    value: row.values?.[key] ?? (row.settings[key].type === 'bool' ? false : ''),
   }));
   showModal.value = true;
 }
