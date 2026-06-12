@@ -295,17 +295,17 @@ defineExpose({ openCreate, openEdit, openView });
           ></trailhand-text-input>
         </trailhand-form-row>
         <trailhand-form-row>
-          <trailhand-code-editor
+          <trailhand-text-area
             :value="chartDescription"
             label="Description"
             placeholder="A detailed description"
             :disabled="isView"
             required
-            @code-input-change="(e: CustomEvent) => { chartDescription = e.detail.value; }"
-          />
+            @text-area-change="(e: CustomEvent) => { chartDescription = e.detail.value; }"
+          ></trailhand-text-area>
         </trailhand-form-row>
         <div>
-          <label style="font-size: 11px; color: var(--th-input-label);">Helm URLs <span style="color: var(--th-color-red);">*</span></label>
+          <label style="font-size: 11px; color: var(--th-input-label);">Helm URLs - Provide at least one of the following: <span style="color: var(--th-color-red);">*</span></label>
           <trailhand-form-row columns="2">
             <trailhand-text-input
               :value="helmChartUrl"
