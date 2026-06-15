@@ -58,9 +58,7 @@ const archiveFileInput = ref<HTMLInputElement | null>(null);
 const folderFileInput = ref<HTMLInputElement | null>(null);
 const fileDialogActive = ref(false);
 
-// Defaults
-const defaultBuilderImage = ref(props.info?.default_builder_image || DEFAULT_BUILD_PACK); 
-const builderImageValue = ref(props.source?.builderImage?.value || defaultBuilderImage.value);
+const builderImage = ref(props.source?.builderImage || '');
 
 // Reactive State
 const gitSkipTypeReset = ref(false);
@@ -92,11 +90,6 @@ const git = reactive({
   }
 });
 
-const builderImage = reactive({
-  value: builderImageValue.value,
-  default: builderImageValue.value === defaultBuilderImage.value
-});
-
 const appChart = ref(props.application.configuration?.appchart || props.source?.appChart || '');
 const type = ref(props.source?.type || APPLICATION_SOURCE_TYPE.FOLDER);
 
@@ -112,6 +105,38 @@ const appCharts = computed(() =>
     value: ap.meta.name,
     label: `${ap.meta.name} (${ap.short_description})`
   }))
+);
+
+// Get the builder images from the store, add custom option and format for dropdown
+const builderImages = computed(() => {
+  // const defaultOption = {
+  //   value: DEFAULT_BUILD_PACK,
+  //   label: `default-image (Default)`,
+  //   default: true
+  // };
+  const catalogImages = sortBy(store.getters['epinio/all']('builderimages'), 'meta.name', false).map((bi: any) => ({
+    value: bi.image,
+    label: `${bi.meta.name} (${bi.short_description})`,
+    default: bi.default
+  }))
+  const customOption = {
+    value: 'custom',
+    label: 'Custom',
+    default: false
+  }
+  return [...catalogImages, customOption];
+});
+
+const selectedBuilderImage = computed(() => {
+  return builderImages.value.some(
+    (bi) => bi.value === builderImage.value
+  )
+    ? builderImage.value
+    : 'custom';
+});
+
+const isCustomBuilderImage = computed(
+  () => selectedBuilderImage.value === 'custom'
 );
 
 const showBuilderImage = computed(() =>
@@ -152,7 +177,7 @@ function validate() {
       return !!gitUrl.url && !!gitUrl.branch && !!builderImage.value && !!gitUrl.validGitUrl;
     case APPLICATION_SOURCE_TYPE.GIT_HUB:
     case APPLICATION_SOURCE_TYPE.GIT_LAB:
-      return !!git.usernameOrOrg && !!git.url && !!git.repo && !!git.branch && !!git.commit;
+      return !!git.usernameOrOrg && !!git.url && !!git.repo && !!git.branch && !!git.commit && !!builderImage.value;
   }
 }
 
@@ -162,10 +187,7 @@ function update() {
     archive,
     container,
     gitUrl,
-    builderImage: {
-      value: builderImageValue.value,
-      default:  builderImageValue.value === defaultBuilderImage.value
-    },
+    builderImage: builderImage.value,
     appChart: appChart.value,
     git
   });
@@ -180,15 +202,14 @@ function updateConfigurations(configs: string[]) {
   emit('changeAppConfig', configs);
 }
 
-function onImageType(defaultImage: boolean) {
-  if (defaultImage) {
-    builderImage.value = defaultBuilderImage.value;
+function handleBuilderImageDropdownChange(value: string) {
+  if (value === 'custom') {
+    builderImage.value = '';
   } else {
-    builderImage.value = builderImageValue.value;
+    builderImage.value = value;
   }
-  builderImage.default = defaultImage;
   update();
-} 
+}
 
 function gitUpdate({ repo, selectedAccOrOrg, branch, commit, sourceData }: any) {
   if (!!selectedAccOrOrg && !!repo && !!commit && !!branch) {
@@ -353,9 +374,15 @@ function onFolderSelected(files: FileWithRelativePath | FileWithRelativePath[]) 
 }
 
 onMounted(() => {
+  // If no app chart is set from the source or application configuration, default to the standard app chart
   if (!appChart.value) {
     const standardAppChart = appCharts.value.find((ac) => ac.value === 'standard');
     appChart.value = props.application.configuration?.appchart || props.source?.appChart || standardAppChart?.value || appCharts.value[0]?.value || appCharts.value[0];
+  }
+  // If no builder image is set from the source, default to the info default or the first in the catalog
+  if (!builderImage.value) {
+    const defaultImage = builderImages.value.find((bi: any) => bi.default);
+    builderImage.value = defaultImage ? defaultImage.value : builderImages.value[0]?.value || '';
   }
   update();
 });
@@ -521,19 +548,21 @@ onMounted(() => {
       <template v-if="showBuilderImage">
         <div class="spacer source builder-image">
           <h4>Paketo Builder Image</h4>
-          <trailhand-checkbox
-            :checked="!builderImage.default"
-            data-testid="epinio_app-source_builder-default"
-            @checkbox-change="onImageType(!builderImage.default)"
-          >
-            Use Custom Builder Image
-          </trailhand-checkbox>
+          <trailhand-dropdown
+            :value="selectedBuilderImage"
+            data-testid="epinio_app-source_builder-catalog"
+            label="Builder Image"
+            :options="builderImages"
+            @dropdown-change="(e: CustomEvent) => { 
+              handleBuilderImageDropdownChange(e.detail.value);
+            }"
+          />
           <trailhand-text-input
             style="width: 100%;"
-            :value="builderImageValue"
+            :value="builderImage"
             data-testid="epinio_app-source_builder-value"
-            :disabled="builderImage.default"
-            @text-input-change="(e: CustomEvent) => { builderImageValue = e.detail.value; update(); }"
+            :disabled="!isCustomBuilderImage"
+            @text-input-change="(e: CustomEvent) => { builderImage = e.detail.value; update(); }"
           />
         </div>
       </template>

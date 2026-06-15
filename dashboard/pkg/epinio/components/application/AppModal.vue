@@ -98,6 +98,7 @@ async function openCreate() {
   const hash = await allHash({
     ns: store.dispatch('epinio/findAll', { type: EPINIO_TYPES.NAMESPACE }),
     charts: store.dispatch('epinio/findAll', { type: EPINIO_TYPES.APP_CHARTS }),
+    images: store.dispatch('epinio/findAll', { type: EPINIO_TYPES.BUILDER_IMAGE }),
     info: store.dispatch('epinio/info'),
   });
 

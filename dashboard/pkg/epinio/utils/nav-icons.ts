@@ -11,6 +11,7 @@ const NAV_ICONS: Record<string, string> = {
   'Configurations': 'sliders',
   'Application Charts': 'chartLine',
   'About': 'info',
+  'Builder Images': 'image'
 };
 
 let navObserver: MutationObserver | null = null;

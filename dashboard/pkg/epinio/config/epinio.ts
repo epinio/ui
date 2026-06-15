@@ -157,6 +157,17 @@ export function init($plugin: any, store: any) {
     showListMasthead: false // Disable default masthead because we provide a custom one.
   });
 
+  // Builder Image resource
+  configureType(EPINIO_TYPES.BUILDER_IMAGE, {
+    isCreatable: false,
+    isEditable:  false,
+    isRemovable: false,
+    showState:   false,
+    canYaml:     false,
+    customRoute: createEpinioRoute('c-cluster-resource', { resource: EPINIO_TYPES.BUILDER_IMAGE }),
+    showListMasthead: false // Disable default masthead because we provide a custom one.
+  });
+
   // Configuration resource
   configureType(EPINIO_TYPES.CONFIGURATION, {
     isCreatable: true,
@@ -225,9 +236,11 @@ export function init($plugin: any, store: any) {
 
   weightType(EPINIO_TYPES.CONFIGURATION, 200, true);
   weightType(EPINIO_TYPES.APP_CHARTS, 150, true);
+  weightType(EPINIO_TYPES.BUILDER_IMAGE, 140, true);
   basicType([
     EPINIO_TYPES.CONFIGURATION,
-    EPINIO_TYPES.APP_CHARTS
+    EPINIO_TYPES.APP_CHARTS,
+    EPINIO_TYPES.BUILDER_IMAGE
   ], ADVANCED_GROUP);
 
   basicType([

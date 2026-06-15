@@ -282,7 +282,7 @@ defineExpose({ openCreate, openEdit, openView });
             label="Name"
             placeholder="A Unique Name"
             :required="true"
-            :disabled="isView"
+            :disabled="isView || isEdit"
             @text-input-change="(e: CustomEvent) => { chartName = e.detail.value; }"
           ></trailhand-text-input>
           <trailhand-text-input

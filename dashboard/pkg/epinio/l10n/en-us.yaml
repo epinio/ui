@@ -22,6 +22,11 @@ typeLabel:
       one { Application Charts }
       other { Application Charts }
     }
+  builderimages: |-
+    {count, plural,
+      one { Builder Images }
+      other { Builder Images }
+    }
   "services": |-
     {count, plural,
       one { Instances }
@@ -43,6 +48,7 @@ typeDescription:
   services: Epinio can create instances of your services. Instances can be bound to your applications to provide data, for example a database service bound to an application might provide connection credentials.
   configurations: Configurations are a way to provide data to applications. The data becomes available once the configuration is bound to them.
   appcharts: Application Charts define kube resources created by your application. Templates for active applications cannot be changed
+  builderimages: Builder Images are used to build your application from source. They contain the necessary tools and settings to perform the build.
   catalogservices: Catalog Services provide additional, common functionality to applications. For example an instance of a database Catalog Service can be bound to an application.
 asyncButton:
   discard:

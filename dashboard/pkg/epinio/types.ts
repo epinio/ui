@@ -3,6 +3,7 @@ import EpinioApplicationModel from './models/applications';
 import EpinioCatalogServiceModel from './models/catalogservices';
 import EpinioConfigurationModel from './models/configurations';
 import EpinioServiceModel from './models/services';
+import EpinioBuilderImageModel from './models/builderimages';
 
 export const TAPP = {
   DASHBOARD:           'tapp.io.dashboard'
@@ -21,6 +22,7 @@ export const EPINIO_TYPES = {
   // From API
   APP:              'applications',
   APP_CHARTS:       'appcharts',
+  BUILDER_IMAGE:    'builderimages',
   NAMESPACE:        'namespaces',
   CONFIGURATION:    'configurations',
   CATALOG_SERVICE:  'catalogservices',
@@ -103,7 +105,7 @@ export interface EpinioAppSource {
   container: AppSourceContainer,
   git: AppSourceGit,
   gitUrl: AppSourceGitUrl,
-  builderImage?: AppSourceBuilderImage,
+  builderImage?: string,
   appChart: string,
 }
 
@@ -181,6 +183,15 @@ export interface EpinioApplicationChartResource {
 }
 
 export type EpinioAppChart = EpinioApplicationChartResource & EpinioAppChartModel & EpinioMetaProperty;
+
+export interface EpinioBuilderImageResource {
+  meta: EpinioMeta,
+  description: string,
+  image: string,
+  short_description: string,
+}
+
+export type EpinioBuilderImage = EpinioBuilderImageResource & EpinioBuilderImageModel & EpinioMetaProperty;
 
 export interface EpinioHelmRepoResource {
   name: string,

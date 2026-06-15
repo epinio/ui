@@ -230,6 +230,15 @@ export default {
         collectionMethods: ['get', 'post'],
         resourceFields:    { },
         attributes:        { namespaced: true }
+      },
+      {
+        product:           EPINIO_PRODUCT_NAME,
+        id:                EPINIO_TYPES.BUILDER_IMAGE,
+        type:              'schema',
+        links:             { collection: '/api/v1/builderimages' },
+        collectionMethods: ['get', 'post'],
+        resourceFields:    { },
+        attributes:        { namespaced: true }
       }, {
         product:           EPINIO_PRODUCT_NAME,
         id:                EPINIO_TYPES.NAMESPACE,

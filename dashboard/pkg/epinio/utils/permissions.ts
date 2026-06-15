@@ -14,6 +14,7 @@ const ROLE_ACTIONS: Record<string, string[]> = {
     'gitconfig_read',
     'export_registries_read',
     'chart_read',
+    'image_read',
   ],
 
   // Read-only role
@@ -26,6 +27,7 @@ const ROLE_ACTIONS: Record<string, string[]> = {
     'gitconfig_read',
     'export_registries_read',
     'chart_read',
+    'image_read',
   ],
 
   // Application Developer: create/update applications but no delete or non-app writes
@@ -50,6 +52,8 @@ const ROLE_ACTIONS: Record<string, string[]> = {
     'service_write',
     'chart_read',
     'chart_write',
+    'image_read',
+    'image_write',
   ],
 
   // Application Manager: full app CRUD and runtime operations, no non-app writes
@@ -78,6 +82,8 @@ const ROLE_ACTIONS: Record<string, string[]> = {
     'service_write',
     'chart_read',
     'chart_write',
+    'image_read',
+    'image_write',
   ],
 
   // System Manager: no-delete role, app create/update/runtime plus read-only on other resources
@@ -108,6 +114,8 @@ const ROLE_ACTIONS: Record<string, string[]> = {
     'export_registries_read',
     'chart_read',
     'chart_write',
+    'image_read',
+    'image_write',
   ],
 };
 
