@@ -656,7 +656,12 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
         } else {
           this.currentRouter().push(deploymentList);
         }
-      }).catch(() => {
+      }).catch((e) => {
+        console.log(e);
+        this.$dispatch('growl/error', {
+          title: 'Something Went Wrong Opening Deployment!',
+          message: `Can't view the deployment in the cluster. Please try again or contact your system admin to investigate the issue.`,
+        }, { root: true });
         this.currentRouter().push(deploymentList);
       });
   }
@@ -859,57 +864,92 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
   }
 
   showAppShell() {
-    this.$dispatch('wm/open', {
-      id:        this.appShellId,
-      label:     `${ this.meta.name } - App Shell`,
-      product:   EPINIO_PRODUCT_NAME,
-      icon:      'chevron-right',
-      component: 'ApplicationShell',
-      attrs:     {
-        application:     this,
-        endpoint:        this.linkFor('shell'),
-        initialInstance: this.instances[0].id
+    try {
+      const initialInstance = this.instances?.[0]?.id;
+
+      if (!initialInstance) {
+        throw new Error('No running instances available');
       }
-    }, { root: true });
+
+      this.$dispatch('wm/open', {
+        id:        this.appShellId,
+        label:     `${ this.meta.name } - App Shell`,
+        product:   EPINIO_PRODUCT_NAME,
+        icon:      'chevron-right',
+        component: 'ApplicationShell',
+        attrs:     {
+          application:     this,
+          endpoint:        this.linkFor('shell'),
+          initialInstance,
+        }
+      }, { root: true });
+    } catch (e) {
+      console.log(e);
+      this.$dispatch('growl/error', {
+        title: 'Something Went Wrong Opening App Shell!',
+        message: `Can't open the application shell. The application may not have running instances yet.`,
+      }, { root: true });
+    }
   }
 
   showAppLog() {
-    this.$dispatch('wm/open', {
-      id:        this.appLogId,
-      label:     `${ this.meta.name } - App Logs`,
-      product:   EPINIO_PRODUCT_NAME,
-      icon:      'file',
-      component: 'ApplicationLogs',
-      attrs:     {
-        application: this,
-        endpoint:    this.linkFor('logs')
-      }
-    }, { root: true });
+    try {
+      this.$dispatch('wm/open', {
+        id:        this.appLogId,
+        label:     `${ this.meta.name } - App Logs`,
+        product:   EPINIO_PRODUCT_NAME,
+        icon:      'file',
+        component: 'ApplicationLogs',
+        attrs:     {
+          application: this,
+          endpoint:    this.linkFor('logs')
+        }
+      }, { root: true });
+    } catch (e) {
+      console.log(e);
+      this.$dispatch('growl/error', {
+        title: 'Something Went Wrong Opening App Logs!',
+        message: `Can't open application logs. Please try again or contact your system admin to investigate the issue.`,
+      }, { root: true });
+    }
   }
 
   showStagingLog(stageId = this.stage_id) {
     if (!stageId) {
-      console.warn('Unable to show staging logs, no stage id');
+      this.$dispatch('growl/error', {
+        title: 'Something Went Wrong Opening Build Logs!',
+        message: `Can't show build logs for ${ this.meta.name }, no build information is available.`,
+      }, { root: true });
+
+      return;
     }
 
-    // /namespaces/:namespace/staging/:stage_id/logs
-    let endpoint = `${ this.getUrl(this.meta?.namespace, stageId) }/logs`;
+    try {
+      // /namespaces/:namespace/staging/:stage_id/logs
+      let endpoint = `${ this.getUrl(this.meta?.namespace, stageId) }/logs`;
 
-    endpoint = endpoint.replace('/api/v1', '/wapi/v1');
-    endpoint = endpoint.replace('/applications', '/staging');
+      endpoint = endpoint.replace('/api/v1', '/wapi/v1');
+      endpoint = endpoint.replace('/applications', '/staging');
 
-    this.$dispatch('wm/open', {
-      id:        `${ this.stagingLog }${ stageId }`,
-      label:     `${ this.meta.name } - Build - ${ stageId }`,
-      product:   EPINIO_PRODUCT_NAME,
-      icon:      'file',
-      component: 'ApplicationLogs',
-      attrs:     {
-        application: this,
-        endpoint,
-        ansiToHtml:  true
-      }
-    }, { root: true });
+      this.$dispatch('wm/open', {
+        id:        `${ this.stagingLog }${ stageId }`,
+        label:     `${ this.meta.name } - Build - ${ stageId }`,
+        product:   EPINIO_PRODUCT_NAME,
+        icon:      'file',
+        component: 'ApplicationLogs',
+        attrs:     {
+          application: this,
+          endpoint,
+          ansiToHtml:  true
+        }
+      }, { root: true });
+    } catch (e) {
+      console.log(e);
+      this.$dispatch('growl/error', {
+        title: 'Something Went Wrong Opening Build Logs!',
+        message: `Can't open build logs. Please try again or contact your system admin to investigate the issue.`,
+      }, { root: true });
+    }
   }
 
   closeWindows() {
@@ -1373,14 +1413,21 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
   }
 
   async createManifest() {
-    const date = new Date().toISOString().split('.')[0];
-    const fileName = `${ this.metadata.namespace }-${ this.nameDisplay }-${ date }.yaml`;
+    try {
+      const date = new Date().toISOString().split('.')[0];
+      const fileName = `${ this.metadata.namespace }-${ this.nameDisplay }-${ date }.yaml`;
 
-    const manifest = await this.fetchPart('manifest');
+      const manifest = await this.fetchPart('manifest');
 
-    downloadFile(fileName, manifest, 'application/yaml').catch((e) => {
-      console.error('Failed to download manifest: ', e);
-    });
+      await downloadFile(fileName, manifest, 'application/yaml');
+    } catch (e) {
+      console.log(e);
+      this.$dispatch('growl/error', {
+        title: 'Something Went Wrong Downloading Manifest!',
+        message: `Can't download the application manifest. Please try again or contact your system admin to investigate the issue.`,
+      }, { root: true });
+      throw e;
+    }
   }
 
   async updateConfigurations(initialValues = [], currentValues = this.configuration.configurations) {

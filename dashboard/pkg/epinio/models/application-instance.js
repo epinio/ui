@@ -38,17 +38,25 @@ export default class ApplicationInstanceResource extends Resource {
   }
 
   showAppShell() {
-    this.$dispatch('wm/open', {
-      id:        `epinio-${ this.application.id }-app-shell`,
-      label:     `${ this.application.meta.name } - App Shell`,
-      product:   EPINIO_PRODUCT_NAME,
-      icon:      'chevron-right',
-      component: 'ApplicationShell',
-      attrs:     {
-        application:     this.application,
-        endpoint:        this.application.linkFor('shell'),
-        initialInstance: this.name,
-      }
-    }, { root: true });
+    try {
+      this.$dispatch('wm/open', {
+        id:        `epinio-${ this.application.id }-app-shell`,
+        label:     `${ this.application.meta.name } - App Shell`,
+        product:   EPINIO_PRODUCT_NAME,
+        icon:      'chevron-right',
+        component: 'ApplicationShell',
+        attrs:     {
+          application:     this.application,
+          endpoint:        this.application.linkFor('shell'),
+          initialInstance: this.name,
+        }
+      }, { root: true });
+    } catch (e) {
+      console.log(e);
+      this.$dispatch('growl/error', {
+        title: 'Something Went Wrong Opening App Shell!',
+        message: `Can't open the application shell. The application may not have running instances yet.`,
+      }, { root: true });
+    }
   }
 }

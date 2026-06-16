@@ -282,6 +282,11 @@ async function onSubmit() {
 
       closeModal();
 
+      store.dispatch('growl/success', {
+        title: 'Service Instance Created',
+        message: `Your service instance ${ capturedName } has been successfully created.`,
+      });
+
       // Show the new item quickly, then bind apps and refresh again once done
       svc.forceFetch().catch(() => {});
       if (capturedSelectedApps.length) {
@@ -307,8 +312,14 @@ async function onSubmit() {
       const bindApps = selectedApps.value;
       const unbindApps = initialBoundApps.value.filter(a => !bindApps.includes(a));
       const newBindApps = bindApps.filter(a => !initialBoundApps.value.includes(a));
+      const serviceName = svc.meta?.name;
 
       closeModal();
+
+      store.dispatch('growl/success', {
+        title: 'Service Instance Updated',
+        message: `Your service instance ${ serviceName } has been successfully updated.`,
+      });
 
       // Bind/unbind and refresh in the background
       Promise.all([
@@ -319,6 +330,10 @@ async function onSubmit() {
     }
   } catch (err: any) {
     errors.value = epinioExceptionToErrorsArray(err);
+    store.dispatch('growl/error', {
+      title: isEdit.value ? 'Service Instance Update Failed' : 'Service Instance Creation Failed',
+      message: `Something went wrong. Please try again or contact your system admin to investigate the issue.`,
+    });
   } finally {
     saving.value = false;
   }

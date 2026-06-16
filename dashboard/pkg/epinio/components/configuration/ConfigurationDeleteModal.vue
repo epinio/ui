@@ -52,10 +52,18 @@ async function onSubmitDelete() {
 
     await cfg.remove();
     closeDelete();
+    store.dispatch('growl/success', {
+      title: 'Configuration Deleted',
+      message: `Your configuration ${ configName } has been successfully deleted.`,
+    });
     store.dispatch('epinio/findAll', { type: EPINIO_TYPES.CONFIGURATION, opt: { force: true } });
     store.dispatch('epinio/findAll', { type: EPINIO_TYPES.APP, opt: { force: true } });
   } catch (e: any) {
     errors.value = epinioExceptionToErrorsArray(e);
+    store.dispatch('growl/error', {
+      title: 'Configuration Deletion Failed',
+      message: `Failed to delete configuration ${ configToDelete.value?.meta?.name }. Please try again.`,
+    });
   } finally {
     deleting.value = false;
   }

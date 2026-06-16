@@ -282,6 +282,11 @@ async function onSubmit() {
 
       closeModal();
 
+      store.dispatch('growl/success', {
+        title: 'Configuration Created',
+        message: `Your configuration ${ capturedName } has been successfully created.`,
+      });
+
       cfg.forceFetch().catch(() => {});
 
       if (capturedSelectedApps.length) {
@@ -308,6 +313,11 @@ async function onSubmit() {
       }
 
       closeModal();
+
+      store.dispatch('growl/success', {
+        title: 'Configuration Updated',
+        message: `Your configuration ${ capturedName } has been successfully updated.`,
+      });
 
       // Determine which apps were newly bound or unbound, and update accordingly
       const newBindApps = capturedSelectedApps.filter(a => !capturedInitialApps.includes(a));
@@ -336,6 +346,10 @@ async function onSubmit() {
     }
   } catch (err: any) {
     errors.value = epinioExceptionToErrorsArray(err);
+    store.dispatch('growl/error', {
+      title: isEdit.value ? 'Configuration Update Failed' : 'Configuration Creation Failed',
+      message: `Something went wrong. Please try again or contact your system admin to investigate the issue.`,
+    });
   } finally {
     saving.value = false;
   }

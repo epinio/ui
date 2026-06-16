@@ -27,15 +27,25 @@ async function onSubmitDelete() {
 if (!serviceToDelete.value) {
     return;
 }
+const serviceName = serviceToDelete.value.meta.name;
+
 try {
     deletingService.value = true;
     await serviceToDelete.value.remove();
     closeDelete();
+    store.dispatch('growl/success', {
+      title: 'Service Instance Deleted',
+      message: `Your service instance ${ serviceName } has been successfully deleted.`,
+    });
     store.dispatch('epinio/findAll', { type: EPINIO_TYPES.SERVICE_INSTANCE, opt: { force: true } });
-    store.dispatch('findAll', { type: 'applications', opt: { force: true } });
+    store.dispatch('epinio/findAll', { type: EPINIO_TYPES.APP, opt: { force: true } });
 } catch(e) {
     errors.value = [];
     errors.value = epinioExceptionToErrorsArray(e).map(JSON.stringify);
+    store.dispatch('growl/error', {
+      title: 'Service Instance Deletion Failed',
+      message: `Failed to delete service instance ${ serviceName }. Please try again.`,
+    });
 } finally {
     deletingService.value = false;
 }

@@ -80,27 +80,37 @@ const exportApplicationManifest = async () => {
           'application/zip',
         );
         await delayBeforeClose(1500);
-        return;
+      } else {
+        // Fallback: fetch three parts and zip in browser (slower, especially in Rancher extension)
+        const partsData = await zipParts.value.reduce(async(acc, part) => ({
+          ...await acc,
+          [part]: await fetchPart(resource, part),
+        }), Promise.resolve({}));
+
+        if (Object.values(partsData).some((part) => !part)) {
+          throw new Error('One or more export parts could not be downloaded');
+        }
+
+        toggleStep('zip');
+
+        await chartZip(partsData);
+
+        await delayBeforeClose(1500);
       }
-
-      // Fallback: fetch three parts and zip in browser (slower, especially in Rancher extension)
-      const partsData = await zipParts.value.reduce(async(acc, part) => ({
-        ...await acc,
-        [part]: await fetchPart(resource, part),
-      }), Promise.resolve({}));
-
-      if (Object.values(partsData).some((part) => !part)) {
-        return;
-      }
-
-      toggleStep('zip');
-
-      await chartZip(partsData);
-
-      await delayBeforeClose(1500);
     }
+
+    store.dispatch('growl/success', {
+      title: 'Application Exported!',
+      message: `${ resource.meta.name } has been exported successfully.`,
+    });
   } catch (error) {
-    errors.value.push(error.message ?? 'Error exporting application');
+    const message = error.message ?? 'Error exporting application';
+
+    errors.value.push(message);
+    store.dispatch('growl/error', {
+      title: 'Something Went Wrong Exporting!',
+      message: `Can't export the application. Please try again or contact your system admin to investigate the issue.`,
+    });
   } finally {
     exporting.value = false;
     closeExport();  
