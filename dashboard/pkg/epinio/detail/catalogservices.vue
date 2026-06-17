@@ -12,6 +12,8 @@ import ServiceInstanceModal from '../components/service/ServiceInstanceModal.vue
 import EpinioServiceModel from 'models/services';
 import { makeActionMenu } from '../utils/table-formatters';
 import Masthead from '@shell/components/ResourceList/Masthead';
+import CatalogServiceModal from '../components/service/CatalogServiceModal.vue';
+import CatalogServiceDeleteModal from '../components/service/CatalogServiceDeleteModal.vue';
 
 const store = useStore();
 const router = useRouter();
@@ -19,17 +21,59 @@ const t = store.getters['i18n/t'];
 
 const props = defineProps<{ value: EpinioCatalogServiceModel }>();
 
-const deleteModal = ref<InstanceType<typeof ServiceDeleteModal> | null>(null);
+const serviceDeleteModal = ref<InstanceType<typeof ServiceDeleteModal> | null>(null);
 const serviceModal = ref<InstanceType<typeof ServiceInstanceModal> | null>(null);
+const catalogServiceModal = ref<InstanceType<typeof CatalogServiceModal> | null>(null);
+const catalogServiceDeleteModal = ref<InstanceType<typeof CatalogServiceDeleteModal> | null>(null);
 const displayRows = ref<any[]>([]);
 
-const canEdit = computed(() => {
+const canEditService = computed(() => {
   const can = store.getters['epinio/can'];
 
   return can && (can('service_write') || can('service'));
 });
-const canDelete = canEdit;
-const canCreate = canEdit;
+const canDeleteService = canEditService;
+const canCreateService = canEditService;
+
+const canEditCatalogService = computed(() => {
+  const can = store.getters['epinio/can'];
+
+  return can && (can('catalog_service_write') || can('catalog_service'));
+});
+const canDeleteCatalogService = canEditCatalogService;
+
+const availableActions = computed(() => {
+    const rowActions = (row: EpinioCatalogServiceModel) => {
+    const out: any[] = [];
+
+    if (canCreateService.value) {
+      out.push({
+        label: 'Create Service',
+        enabled: true,
+        action: () => serviceModal.value?.openCreate(row.id)
+      });
+    }
+    if (canEditCatalogService.value) {
+      out.push({
+        label: 'Edit',
+        enabled: true,
+        action: () => catalogServiceModal.value?.openEdit(row),
+
+      });
+    }
+    if (canDeleteCatalogService.value) {
+      out.push({
+        enabled: true,
+        label: 'Delete',
+        action: () => catalogServiceDeleteModal.value?.openDelete(row),
+      });
+    }
+
+    return out;
+  };
+
+  return rowActions(props.value);
+});
 
 watchEffect(() => {
   const all = store.getters['epinio/all'](EPINIO_TYPES.SERVICE_INSTANCE) as any[];
@@ -42,7 +86,7 @@ watchEffect(() => {
   const rowActions = (row: EpinioServiceModel) => {
     const out: any[] = [];
 
-    if (canDelete.value) {
+    if (canDeleteService.value) {
       out.push({
         action: 'removeService',
         altAction: 'remove',
@@ -54,7 +98,7 @@ watchEffect(() => {
         weight: -10
       });
     }
-    if (canEdit.value) {
+    if (canEditService.value) {
       out.push({
         action: 'editServiceModal',
         label: 'Edit',
@@ -74,16 +118,16 @@ watchEffect(() => {
       {
         prop: 'removeService',
         value: (row: EpinioServiceModel) => () => {
-          deleteModal.value?.openDelete(row);
+          serviceDeleteModal.value?.openDelete(row);
         },
-        conditionFn: (row: EpinioServiceModel) => canDelete.value && row.canDelete,
+        conditionFn: (row: EpinioServiceModel) => canDeleteService.value && row.canDelete,
       },
       {
         prop: 'editServiceModal',
         value: (row: EpinioServiceModel) => () => {
           serviceModal.value?.openEdit(row);
         },
-        conditionFn: () => canEdit.value,
+        conditionFn: () => canEditService.value,
       }
     ];
 
@@ -154,6 +198,16 @@ const columns = [
     formatter: 'age'
   }
 ];
+
+function handleDeleted() {
+  store.$router.push({
+    name: 'epinio-c-cluster-resource',
+    params: {
+      ...store.$router.currentRoute.params,
+      resource: 'catalogservices',
+    },
+  });
+}
 </script>
 
 <template>
@@ -167,14 +221,10 @@ const columns = [
         <p class="description">{{ value.description ?? '' }}</p>
       </template>
       <template #createButton>
-        <trailhand-button
-          v-if="canCreate"
-          variant="primary"
-          size="large"
-          @click="serviceModal?.openCreate(value.id)"
-        >
-          {{ t('generic.create') }}
-        </trailhand-button>
+        <trailhand-action-menu 
+          v-if="availableActions.length > 0 && canEditCatalogService"
+          :actions="availableActions"
+        />
         <div v-else></div>
       </template>
     </Masthead>
@@ -188,6 +238,8 @@ const columns = [
     />
     <ServiceDeleteModal ref="deleteModal" />
     <ServiceInstanceModal ref="serviceModal" />
+    <CatalogServiceModal ref="catalogServiceModal" />
+    <CatalogServiceDeleteModal ref="catalogServiceDeleteModal" @deleted="handleDeleted" />
   </div>
 </template>
 

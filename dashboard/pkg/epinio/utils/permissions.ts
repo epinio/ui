@@ -15,6 +15,7 @@ const ROLE_ACTIONS: Record<string, string[]> = {
     'export_registries_read',
     'chart_read',
     'image_read',
+    'catalog_service_read',
   ],
 
   // Read-only role
@@ -28,6 +29,7 @@ const ROLE_ACTIONS: Record<string, string[]> = {
     'export_registries_read',
     'chart_read',
     'image_read',
+    'catalog_service_read',
   ],
 
   // Application Developer: create/update applications but no delete or non-app writes
@@ -54,6 +56,8 @@ const ROLE_ACTIONS: Record<string, string[]> = {
     'chart_write',
     'image_read',
     'image_write',
+    'catalog_service_read',
+    'catalog_service_write',
   ],
 
   // Application Manager: full app CRUD and runtime operations, no non-app writes
@@ -84,6 +88,8 @@ const ROLE_ACTIONS: Record<string, string[]> = {
     'chart_write',
     'image_read',
     'image_write',
+    'catalog_service_read',
+    'catalog_service_write',
   ],
 
   // System Manager: no-delete role, app create/update/runtime plus read-only on other resources
@@ -116,6 +122,8 @@ const ROLE_ACTIONS: Record<string, string[]> = {
     'chart_write',
     'image_read',
     'image_write',
+    'catalog_service_read',
+    'catalog_service_write',
   ],
 };
 
