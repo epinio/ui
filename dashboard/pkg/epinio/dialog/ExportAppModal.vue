@@ -41,6 +41,7 @@ const exportApplicationManifest = async () => {
   exporting.value = true;
   enableDownload();
   const resource = resources.value[0];
+  let exportSucceeded = false;
 
   try {
     const chartZip = async(files) => {
@@ -103,17 +104,21 @@ const exportApplicationManifest = async () => {
       title: 'Application Exported!',
       message: `${ resource.meta.name } has been exported successfully.`,
     });
+    exportSucceeded = true;
   } catch (error) {
     const message = error.message ?? 'Error exporting application';
 
     errors.value.push(message);
+    disableDownload();
     store.dispatch('growl/error', {
       title: 'Something Went Wrong Exporting!',
       message: `Can't export the application. Please try again or contact your system admin to investigate the issue.`,
     });
   } finally {
     exporting.value = false;
-    closeExport();  
+    if (exportSucceeded) {
+      closeExport();
+    }
   }
 
 
