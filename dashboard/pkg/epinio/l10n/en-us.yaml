@@ -119,6 +119,8 @@ epinio:
       availability: 'Available node resources: { availableCpu }% cpu, { availableMemory }% memory. '
       link:
         label: Show Metrics in Cluster Explorer
+      notAvailable: Metrics are not enabled. CPU and memory usage cannot be displayed. Install a metrics server in your cluster to enable this feature.
+      notAvailableShort: not available
   tableHeaders:
     namespace: Namespace
   instances:

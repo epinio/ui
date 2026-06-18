@@ -32,6 +32,7 @@ const t = store.getters['i18n/t'];
 //Variables that can recieve updates
 const version = ref<string>('');
 const showMetricsInfo = ref<boolean>(false);
+const metricsStatus = ref<'unknown' | 'available' | 'unavailable'>('unknown');
 const availableCpu = ref<number>(100);
 const availableMemory = ref<number>(100);
 const sectionContent = ref<Array>([
@@ -188,6 +189,30 @@ const metricsDetails = computed(() => {
   };
 });
 
+const showMetricsUnavailable = computed(() => {
+  if (store.getters['isSingleProduct']) {
+    const allApps = store.getters['epinio/all'](EPINIO_TYPES.APP) as EpinioApplicationResource[];
+
+    return allApps.some((app) => {
+      const replicas = app.deployment?.replicas;
+
+      if (!replicas) {
+        return false;
+      }
+
+      const replicaList = Object.values(replicas);
+
+      if (replicaList.length === 0) {
+        return false;
+      }
+
+      return replicaList.some((r) => !r.metricsOk);
+    });
+  }
+
+  return metricsStatus.value === 'unavailable';
+});
+
 onMounted(async () => {
   generateCards();
   await getVersionHash();
@@ -228,7 +253,13 @@ async function calcAvailableResources() {
 
   const nodeMetricsSchema = store.getters[`epinio/schemaFor`](METRIC.NODE);
 
-  if (nodeMetricsSchema) {
+  if (!nodeMetricsSchema) {
+    metricsStatus.value = 'unavailable';
+
+    return;
+  }
+
+  try {
     const id = store.getters['clusterId'];
 
     const nodeMetrics = await store.dispatch(
@@ -253,6 +284,9 @@ async function calcAvailableResources() {
     availableMemory.value = Math.floor(100 - memory.useful / memory.total * 100);
 
     showMetricsInfo.value = true;
+    metricsStatus.value = 'available';
+  } catch (e) {
+    metricsStatus.value = 'unavailable';
   }
 }
 
@@ -346,7 +380,14 @@ function handleCardDismiss(e: Event, cardType: string) {
       </div>
     </div>
     <Banner
-      v-if="showMetricsInfo"
+      v-if="showMetricsUnavailable"
+      class="metrics"
+      color="warning"
+    >
+      {{ t('epinio.intro.metrics.notAvailable') }}
+    </Banner>
+    <Banner
+      v-else-if="showMetricsInfo"
       class="metrics"
       color="info"
     >
