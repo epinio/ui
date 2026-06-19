@@ -763,7 +763,7 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
     return res.blobuid;
   }
 
-  async stage(blobuid, builderImage) {
+  async stage(blobuid, builderImage, buildMode, dockerfilePath) {
     this.trace('Staging Application bits');
 
     const { image, stage } = await this.followLink('stage', {
@@ -775,7 +775,9 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
           namespace: this.meta.namespace
         },
         blobuid,
-        builderimage: builderImage
+        builderimage: builderImage,
+        buildmode:      buildMode,
+        dockerfilepath: dockerfilePath,
       }
     });
 
@@ -1055,14 +1057,14 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
    * Build phase: wait until server leaves staging (async) or finish client-side stage+wait (sync fallback).
    * Container sources skip this step.
    */
-  async waitAsyncBuildPhase({ blobUid, builderImage, image, origin, isContainer }) {
+  async waitAsyncBuildPhase({ blobUid, builderImage, buildMode, dockerfilePath, image, origin, isContainer }) {
     this.trace('Async build phase');
     if (isContainer) {
       return;
     }
-    await this.ensureAsyncDeployStarted({ blobUid, builderImage, image, origin });
+    await this.ensureAsyncDeployStarted({ blobUid, builderImage, buildMode, dockerfilePath, image, origin });
     if (this.buildCache.deployMode === 'sync') {
-      await this.buildSyncOnly(blobUid, builderImage);
+      await this.buildSyncOnly(blobUid, builderImage, buildMode, dockerfilePath);
       return;
     }
     const id = this.buildCache.asyncDeployDeploymentId;
@@ -1082,9 +1084,9 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
   /**
    * Deploy phase: wait for terminal async status or run sync deploy (fallback).
    */
-  async waitAsyncDeployPhase({ blobUid, builderImage, image, origin }) {
+  async waitAsyncDeployPhase({ blobUid, builderImage, buildMode, dockerfilePath, image, origin }) {
     this.trace('Async deploy phase');
-    await this.ensureAsyncDeployStarted({ blobUid, builderImage, image, origin });
+    await this.ensureAsyncDeployStarted({ blobUid, builderImage, buildMode, dockerfilePath, image, origin });
     if (this.buildCache.deployMode === 'sync') {
       await this.deploySyncOnly({ image, origin });
       await this.forceFetch();
@@ -1105,7 +1107,7 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
     await this.forceFetch();
   }
 
-  async ensureAsyncDeployStarted({ blobUid, builderImage, image, origin }) {
+  async ensureAsyncDeployStarted({ blobUid, builderImage, buildMode, dockerfilePath, image, origin }) {
     this.buildCache = this.buildCache || {};
     if (this.buildCache.deployMode === 'sync' || this.buildCache.asyncDeployDeploymentId) {
       return;
@@ -1139,6 +1141,8 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
         },
         blobuid:      blobUid,
         builderimage: builderImage,
+        buildmode:      buildMode,
+        dockerfilepath: dockerfilePath,
         image,
         origin
       }
@@ -1177,9 +1181,9 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
     this.persistAsyncDeploymentId(deploymentId);
   }
 
-  async buildSyncOnly(blobUid, builderImage) {
+  async buildSyncOnly(blobUid, builderImage, buildMode, dockerfilePath) {
     this.trace('Sync build (stage) only');
-    const { image: builtImage, stage } = await this.stage(blobUid, builderImage);
+    const { image: builtImage, stage } = await this.stage(blobUid, builderImage, buildMode, dockerfilePath);
     this.buildCache.stageForSync = { stage, image: builtImage };
     if (stage?.id) {
       this.showStagingLog(stage.id);

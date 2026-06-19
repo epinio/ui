@@ -10,6 +10,7 @@ import { sortBy } from '@shell/utils/sort';
 import { generateZip } from '@shell/utils/download';
 import {
   APPLICATION_SOURCE_TYPE,
+  APPLICATION_BUILD_MODE,
   EpinioApplicationChartResource,
   EpinioInfo,
   EpinioAppSource,
@@ -61,6 +62,8 @@ const fileDialogActive = ref(false);
 // Defaults
 const defaultBuilderImage = ref(props.info?.default_builder_image || DEFAULT_BUILD_PACK); 
 const builderImageValue = ref(props.source?.builderImage?.value || defaultBuilderImage.value);
+const buildMode = ref(props.source?.buildMode || APPLICATION_BUILD_MODE.BUILDPACK);
+const dockerfilePath = ref(props.source?.dockerfilePath || 'Dockerfile');
 
 // Reactive State
 const gitSkipTypeReset = ref(false);
@@ -115,8 +118,20 @@ const appCharts = computed(() =>
 );
 
 const showBuilderImage = computed(() =>
+  [APPLICATION_SOURCE_TYPE.ARCHIVE, APPLICATION_SOURCE_TYPE.FOLDER, APPLICATION_SOURCE_TYPE.GIT_URL, APPLICATION_SOURCE_TYPE.GIT_HUB, APPLICATION_SOURCE_TYPE.GIT_LAB].includes(type.value) &&
+  buildMode.value === APPLICATION_BUILD_MODE.BUILDPACK
+);
+
+const showBuildMode = computed(() =>
   [APPLICATION_SOURCE_TYPE.ARCHIVE, APPLICATION_SOURCE_TYPE.FOLDER, APPLICATION_SOURCE_TYPE.GIT_URL, APPLICATION_SOURCE_TYPE.GIT_HUB, APPLICATION_SOURCE_TYPE.GIT_LAB].includes(type.value)
 );
+
+const showDockerfilePath = computed(() => showBuildMode.value && buildMode.value === APPLICATION_BUILD_MODE.DOCKERFILE);
+
+const buildModes = [
+  { label: t('epinio.applications.steps.source.buildMode.buildpack'), value: APPLICATION_BUILD_MODE.BUILDPACK },
+  { label: t('epinio.applications.steps.source.buildMode.dockerfile'), value: APPLICATION_BUILD_MODE.DOCKERFILE },
+];
 
 const gitSource = computed(() => ({
   type: type.value,
@@ -145,10 +160,16 @@ function validate() {
   switch (type.value) {
     case APPLICATION_SOURCE_TYPE.ARCHIVE:
     case APPLICATION_SOURCE_TYPE.FOLDER:
+      if (buildMode.value === APPLICATION_BUILD_MODE.DOCKERFILE) {
+        return !!archive.tarball && !!dockerfilePath.value;
+      }
       return !!archive.tarball && !!builderImage.value;
     case APPLICATION_SOURCE_TYPE.CONTAINER_URL:
       return !!container.url;
     case APPLICATION_SOURCE_TYPE.GIT_URL:
+      if (buildMode.value === APPLICATION_BUILD_MODE.DOCKERFILE) {
+        return !!gitUrl.url && !!gitUrl.branch && !!gitUrl.validGitUrl && !!dockerfilePath.value;
+      }
       return !!gitUrl.url && !!gitUrl.branch && !!builderImage.value && !!gitUrl.validGitUrl;
     case APPLICATION_SOURCE_TYPE.GIT_HUB:
     case APPLICATION_SOURCE_TYPE.GIT_LAB:
@@ -166,6 +187,8 @@ function update() {
       value: builderImageValue.value,
       default:  builderImageValue.value === defaultBuilderImage.value
     },
+    buildMode: buildMode.value,
+    dockerfilePath: dockerfilePath.value,
     appChart: appChart.value,
     git
   });
@@ -516,6 +539,34 @@ onMounted(() => {
         placeholder="Select an application chart"
         @dropdown-change="(e: CustomEvent) => { appChart = e.detail.value; update(); }"
       />
+
+      <template v-if="showBuildMode">
+        <div class="spacer source">
+          <h4>{{ t('epinio.applications.steps.source.buildMode.label') }}</h4>
+          <trailhand-dropdown
+            style="width: 100%;"
+            :options="buildModes"
+            :value="buildMode"
+            data-testid="epinio_app-source_build-mode"
+            :label="t('epinio.applications.steps.source.buildMode.inputLabel')"
+            @dropdown-change="(e: CustomEvent) => { buildMode = e.detail.value; update(); }"
+          />
+        </div>
+      </template>
+
+      <template v-if="showDockerfilePath">
+        <div class="spacer source">
+          <h4>{{ t('epinio.applications.steps.source.dockerfilePath.label') }}</h4>
+          <trailhand-text-input
+            style="width: 100%;"
+            :value="dockerfilePath"
+            data-testid="epinio_app-source_dockerfile-path"
+            :label="t('epinio.applications.steps.source.dockerfilePath.inputLabel')"
+            :required="true"
+            @text-input-change="(e: CustomEvent) => { dockerfilePath = e.detail.value; update(); }"
+          />
+        </div>
+      </template>
 
       <template v-if="showBuilderImage">
         <div class="spacer source builder-image">

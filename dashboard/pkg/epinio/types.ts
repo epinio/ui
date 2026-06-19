@@ -89,6 +89,11 @@ export interface AppSourceGit {
   sourceData: GitAPIData
 }
 
+export enum APPLICATION_BUILD_MODE {
+  BUILDPACK = 'buildpack',
+  DOCKERFILE = 'dockerfile',
+}
+
 export interface AppSourceBuilderImage {
   value: string,
   default: boolean,
@@ -104,6 +109,8 @@ export interface EpinioAppSource {
   git: AppSourceGit,
   gitUrl: AppSourceGitUrl,
   builderImage?: AppSourceBuilderImage,
+  buildMode?: string,
+  dockerfilePath?: string,
   appChart: string,
 }
 

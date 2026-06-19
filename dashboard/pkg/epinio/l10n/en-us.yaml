@@ -254,6 +254,14 @@ epinio:
             label: Container Image
             inputLabel: Image
             tooltip: Container Image for the app workload
+        buildMode:
+          label: Build Method
+          inputLabel: Build Method
+          buildpack: Buildpack (Paketo)
+          dockerfile: Dockerfile
+        dockerfilePath:
+          label: Dockerfile Path
+          inputLabel: Dockerfile Path
         manifest:
           button: From Manifest
           tooltip: Manifests can provide app configuration from another app
