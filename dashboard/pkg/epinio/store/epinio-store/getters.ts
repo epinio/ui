@@ -46,6 +46,7 @@ export default {
     const pathToType: Record<string, string> = {
       '/api/v1/appcharts':      EPINIO_TYPES.APP_CHARTS,
       '/api/v1/builderimages':  EPINIO_TYPES.BUILDER_IMAGE,
+      '/api/v1/gitconfigs':     EPINIO_TYPES.GIT_CONFIG,
       '/api/v1/namespaces':     EPINIO_TYPES.NAMESPACE,
       '/api/v1/configurations': EPINIO_TYPES.CONFIGURATION,
       '/api/v1/services':       EPINIO_TYPES.SERVICE_INSTANCE,

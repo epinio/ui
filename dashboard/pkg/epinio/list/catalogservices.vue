@@ -33,6 +33,7 @@ const canDelete = canEdit;
 const canCreate = canEdit;
 
 onMounted(async () => {
+  store.dispatch('epinio/me');
   await store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.CATALOG_SERVICE });
   pending.value = false;
 

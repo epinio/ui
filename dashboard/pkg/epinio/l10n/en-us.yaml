@@ -42,6 +42,11 @@ typeLabel:
       one { Catalog }
       other { Catalog }
     }
+  "gitconfigs": |-
+    {count, plural,
+      one { Git Configs }
+      other { Git Configs }
+    }
 typeDescription:
   namespaces: Namespaces group your applications, services and other resources.
   applications: Epinio uses Applications to transition your code, through build, to being deployed.
@@ -50,6 +55,7 @@ typeDescription:
   appcharts: Application Charts define kube resources created by your application. Templates for active applications cannot be changed
   builderimages: Builder Images are used to build your application from source. They contain the necessary tools and settings to perform the build.
   catalogservices: Catalog Services provide additional, common functionality to applications. For example an instance of a database Catalog Service can be bound to an application.
+  gitconfigs: Configurations enable cloning of private repositories, disabling of SSL verification, and/or extending verification through a custom bundle of certificates.
 asyncButton:
   discard:
     action: Discard Changes

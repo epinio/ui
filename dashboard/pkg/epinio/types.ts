@@ -27,6 +27,7 @@ export const EPINIO_TYPES = {
   CONFIGURATION:    'configurations',
   CATALOG_SERVICE:  'catalogservices',
   SERVICE_INSTANCE: 'services',
+  GIT_CONFIG:       'gitconfigs',
   // Internal
   DASHBOARD:        'dashboard',
   ABOUT:            'about',
@@ -73,7 +74,8 @@ export interface AppSourceContainer {
 
 export interface AppSourceGitUrl {
   url: string,
-  branch: string
+  branch: string,
+  config?: string,
 }
 
 export type GitAPIData = {
@@ -88,7 +90,8 @@ export interface AppSourceGit {
   commit: string,
   branch: { id?: string, name: string },
   url: string,
-  sourceData: GitAPIData
+  sourceData: GitAPIData,
+  config?: string,
 }
 
 export interface AppSourceBuilderImage {

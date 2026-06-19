@@ -122,6 +122,7 @@ watchEffect(() => {
 });
 
 onMounted(async () => {
+  store.dispatch('epinio/me');
   await store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.BUILDER_IMAGE });
   pending.value = false;
   startPolling(['builderimages'], store);
