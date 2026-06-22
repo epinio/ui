@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watchEffect } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watchEffect } from 'vue';
 import { useStore } from 'vuex';
 import day from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
@@ -9,6 +9,7 @@ import { GitUtils } from '@shell/utils/git';
 import { isArray } from '@shell/utils/array';
 import { EPINIO_TYPES } from '../types';
 import { epinioExceptionToErrorsArray } from '../utils/errors';
+import { startPolling, stopPolling } from '../utils/polling';
 import Tabs from '../components/application/Tabs.vue';
 import Banner from '@components/Banner/Banner.vue';
 import { makeStateTag, makeActionMenu, makeCommitShaCell, makeCommitAuthorCell, overrideTableRows } from '../utils/table-formatters';
@@ -331,6 +332,7 @@ onMounted(async () => {
   await store.dispatch('epinio/me'); //Need to fetch fresh rights for scaling
   await store.dispatch('epinio/findAll', { type: EPINIO_TYPES.SERVICE_INSTANCE });
   await store.dispatch('epinio/findAll', { type: EPINIO_TYPES.CONFIGURATION });
+  startPolling([EPINIO_TYPES.APP, EPINIO_TYPES.SERVICE_INSTANCE, EPINIO_TYPES.CONFIGURATION], store);
 
   if (props.value.appSource.git) {
     await fetchRepoDetails();
@@ -339,6 +341,10 @@ onMounted(async () => {
       { id: 'gitCommits', label: t('epinio.applications.detail.tables.gitCommits'), completed: false, valid: true, disabled: false }
     );
   }
+});
+
+onUnmounted(() => {
+  stopPolling([EPINIO_TYPES.APP, EPINIO_TYPES.SERVICE_INSTANCE, EPINIO_TYPES.CONFIGURATION]);
 });
 
 async function updateInstances(newInstances: number) {
