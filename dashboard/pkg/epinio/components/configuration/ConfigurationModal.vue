@@ -10,6 +10,7 @@ import isEqual from 'lodash/isEqual';
 import sortBy from 'lodash/sortBy';
 
 const store = useStore() as any;
+const t = store.getters['i18n/t'];
 
 const showModal = ref(false);
 const modalMode = ref<'view' | 'edit' | 'create'>('view');
@@ -282,6 +283,11 @@ async function onSubmit() {
 
       closeModal();
 
+      store.dispatch('growl/success', {
+        title:   t('epinio.growl.configuration.create.success.title'),
+        message: t('epinio.growl.configuration.create.success.message', { name: capturedName }),
+      });
+
       cfg.forceFetch().catch(() => {});
 
       if (capturedSelectedApps.length) {
@@ -308,6 +314,11 @@ async function onSubmit() {
       }
 
       closeModal();
+
+      store.dispatch('growl/success', {
+        title:   t('epinio.growl.configuration.update.success.title'),
+        message: t('epinio.growl.configuration.update.success.message', { name: capturedName }),
+      });
 
       // Determine which apps were newly bound or unbound, and update accordingly
       const newBindApps = capturedSelectedApps.filter(a => !capturedInitialApps.includes(a));
@@ -336,6 +347,12 @@ async function onSubmit() {
     }
   } catch (err: any) {
     errors.value = epinioExceptionToErrorsArray(err);
+    store.dispatch('growl/error', {
+      title: isEdit.value
+        ? t('epinio.growl.configuration.save.error.updateTitle')
+        : t('epinio.growl.configuration.save.error.createTitle'),
+      message: t('epinio.growl.configuration.save.error.message'),
+    });
   } finally {
     saving.value = false;
   }

@@ -41,6 +41,7 @@ const exportApplicationManifest = async () => {
   exporting.value = true;
   enableDownload();
   const resource = resources.value[0];
+  let exportSucceeded = false;
 
   try {
     const chartZip = async(files) => {
@@ -80,30 +81,44 @@ const exportApplicationManifest = async () => {
           'application/zip',
         );
         await delayBeforeClose(1500);
-        return;
+      } else {
+        // Fallback: fetch three parts and zip in browser (slower, especially in Rancher extension)
+        const partsData = await zipParts.value.reduce(async(acc, part) => ({
+          ...await acc,
+          [part]: await fetchPart(resource, part),
+        }), Promise.resolve({}));
+
+        if (Object.values(partsData).some((part) => !part)) {
+          throw new Error('One or more export parts could not be downloaded');
+        }
+
+        toggleStep('zip');
+
+        await chartZip(partsData);
+
+        await delayBeforeClose(1500);
       }
-
-      // Fallback: fetch three parts and zip in browser (slower, especially in Rancher extension)
-      const partsData = await zipParts.value.reduce(async(acc, part) => ({
-        ...await acc,
-        [part]: await fetchPart(resource, part),
-      }), Promise.resolve({}));
-
-      if (Object.values(partsData).some((part) => !part)) {
-        return;
-      }
-
-      toggleStep('zip');
-
-      await chartZip(partsData);
-
-      await delayBeforeClose(1500);
     }
+
+    store.dispatch('growl/success', {
+      title:   t('epinio.growl.application.export.success.title'),
+      message: t('epinio.growl.application.export.success.message', { name: resource.meta.name }),
+    });
+    exportSucceeded = true;
   } catch (error) {
-    errors.value.push(error.message ?? 'Error exporting application');
+    const message = error.message ?? 'Error exporting application';
+
+    errors.value.push(message);
+    disableDownload();
+    store.dispatch('growl/error', {
+      title:   t('epinio.growl.application.export.error.title'),
+      message: t('epinio.growl.application.export.error.message'),
+    });
   } finally {
     exporting.value = false;
-    closeExport();  
+    if (exportSucceeded) {
+      closeExport();
+    }
   }
 
 

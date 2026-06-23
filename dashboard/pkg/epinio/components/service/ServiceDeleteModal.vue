@@ -12,6 +12,7 @@ const errors = ref<Array<string>>([]);
 const deletingService = ref<boolean>(false);
 
 const store = useStore();
+const t = store.getters['i18n/t'];
 
 function openDelete(row: EpinioServiceModel) {
   serviceToDelete.value = row;
@@ -27,15 +28,25 @@ async function onSubmitDelete() {
 if (!serviceToDelete.value) {
     return;
 }
+const serviceName = serviceToDelete.value.meta.name;
+
 try {
     deletingService.value = true;
     await serviceToDelete.value.remove();
     closeDelete();
+    store.dispatch('growl/success', {
+      title:   t('epinio.growl.serviceInstance.delete.success.title'),
+      message: t('epinio.growl.serviceInstance.delete.success.message', { name: serviceName }),
+    });
     store.dispatch('epinio/findAll', { type: EPINIO_TYPES.SERVICE_INSTANCE, opt: { force: true } });
-    store.dispatch('findAll', { type: 'applications', opt: { force: true } });
+    store.dispatch('epinio/findAll', { type: EPINIO_TYPES.APP, opt: { force: true } });
 } catch(e) {
     errors.value = [];
     errors.value = epinioExceptionToErrorsArray(e).map(JSON.stringify);
+    store.dispatch('growl/error', {
+      title:   t('epinio.growl.serviceInstance.delete.error.title'),
+      message: t('epinio.growl.serviceInstance.delete.error.message', { name: serviceName }),
+    });
 } finally {
     deletingService.value = false;
 }

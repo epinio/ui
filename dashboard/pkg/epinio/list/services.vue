@@ -139,11 +139,11 @@ watchEffect(() => {
 
 onMounted(() => {
   store.dispatch('epinio/me');
+  store.dispatch('epinio/findAll', { type: EPINIO_TYPES.APP });
   store.dispatch('epinio/findAll', { type: EPINIO_TYPES.SERVICE_INSTANCE });
   store.dispatch('epinio/findAll', { type: EPINIO_TYPES.NAMESPACE });
   store.dispatch('epinio/findAll', { type: EPINIO_TYPES.CATALOG_SERVICE });
-  store.dispatch('epinio/findAll', { type: EPINIO_TYPES.APP });
-  startPolling(['services'], store);
+  startPolling(['services', 'applications'], store);
 
   const query = store.$router.currentRoute._value.query;
 
@@ -153,7 +153,7 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
-  stopPolling(['services']);
+  stopPolling(['services', 'applications']);
 });
 
 const handleNavigate = (event: CustomEvent) => {
