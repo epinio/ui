@@ -12,6 +12,7 @@ const errors = ref<Array<string>>([]);
 const deletingService = ref<boolean>(false);
 
 const store = useStore();
+const t = store.getters['i18n/t'];
 
 function openDelete(row: EpinioServiceModel) {
   serviceToDelete.value = row;
@@ -34,8 +35,8 @@ try {
     await serviceToDelete.value.remove();
     closeDelete();
     store.dispatch('growl/success', {
-      title: 'Service Instance Deleted',
-      message: `Your service instance ${ serviceName } has been successfully deleted.`,
+      title:   t('epinio.growl.serviceInstance.delete.success.title'),
+      message: t('epinio.growl.serviceInstance.delete.success.message', { name: serviceName }),
     });
     store.dispatch('epinio/findAll', { type: EPINIO_TYPES.SERVICE_INSTANCE, opt: { force: true } });
     store.dispatch('epinio/findAll', { type: EPINIO_TYPES.APP, opt: { force: true } });
@@ -43,8 +44,8 @@ try {
     errors.value = [];
     errors.value = epinioExceptionToErrorsArray(e).map(JSON.stringify);
     store.dispatch('growl/error', {
-      title: 'Service Instance Deletion Failed',
-      message: `Failed to delete service instance ${ serviceName }. Please try again.`,
+      title:   t('epinio.growl.serviceInstance.delete.error.title'),
+      message: t('epinio.growl.serviceInstance.delete.error.message', { name: serviceName }),
     });
 } finally {
     deletingService.value = false;

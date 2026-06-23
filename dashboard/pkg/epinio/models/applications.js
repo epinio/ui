@@ -659,8 +659,8 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
       }).catch((e) => {
         console.log(e);
         this.$dispatch('growl/error', {
-          title: 'Something Went Wrong Opening Deployment!',
-          message: `Can't view the deployment in the cluster. Please try again or contact your system admin to investigate the issue.`,
+          title:   this.t('epinio.growl.application.deployment.error.title'),
+          message: this.t('epinio.growl.application.deployment.error.message'),
         }, { root: true });
         this.currentRouter().push(deploymentList);
       });
@@ -796,9 +796,8 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
 
   async restage() {
     this.$dispatch('growl/info', {
-      title: 'Attempting to Rebuild Application!',
-      message: `This may take a few moments, a window will open with live logs
-      soon.`,
+      title:   this.t('epinio.growl.application.restage.info.title'),
+      message: this.t('epinio.growl.application.restage.info.message'),
     }, { root: true });
     try {
       const { stage } = await this.stage();
@@ -806,15 +805,14 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
       this.showStagingLog(stage.id);
       await this.waitForStaging(stage.id);
       this.$dispatch('growl/success', {
-        title:   'Application Rebuilt Successfully!',
-        message: `${ this.meta.name } has been rebuilt successfully.`,
+        title:   this.t('epinio.growl.application.restage.success.title'),
+        message: this.t('epinio.growl.application.restage.success.message', { name: this.meta.name }),
       }, { root: true });
     } catch (e) {
       console.log(e);
       this.$dispatch('growl/error', {
-        title: 'Something Went Wrong Rebuilding!',
-        message: `This error occurs when there are missing resources in the
-        cluster, contact your system admin to investigate the issue.`,
+        title:   this.t('epinio.growl.application.restage.error.title'),
+        message: this.t('epinio.growl.application.restage.error.message'),
       }, { root: true });
     }
   }
@@ -886,8 +884,8 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
     } catch (e) {
       console.log(e);
       this.$dispatch('growl/error', {
-        title: 'Something Went Wrong Opening App Shell!',
-        message: `Can't open the application shell. The application may not have running instances yet.`,
+        title:   this.t('epinio.growl.application.shell.error.title'),
+        message: this.t('epinio.growl.application.shell.error.message'),
       }, { root: true });
     }
   }
@@ -908,8 +906,8 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
     } catch (e) {
       console.log(e);
       this.$dispatch('growl/error', {
-        title: 'Something Went Wrong Opening App Logs!',
-        message: `Can't open application logs. Please try again or contact your system admin to investigate the issue.`,
+        title:   this.t('epinio.growl.application.appLogs.error.title'),
+        message: this.t('epinio.growl.application.appLogs.error.message'),
       }, { root: true });
     }
   }
@@ -917,8 +915,8 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
   showStagingLog(stageId = this.stage_id) {
     if (!stageId) {
       this.$dispatch('growl/error', {
-        title: 'Something Went Wrong Opening Build Logs!',
-        message: `Can't show build logs for ${ this.meta.name }, no build information is available.`,
+        title:   this.t('epinio.growl.application.buildLogs.noInfo.title'),
+        message: this.t('epinio.growl.application.buildLogs.noInfo.message', { name: this.meta.name }),
       }, { root: true });
 
       return;
@@ -946,8 +944,8 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
     } catch (e) {
       console.log(e);
       this.$dispatch('growl/error', {
-        title: 'Something Went Wrong Opening Build Logs!',
-        message: `Can't open build logs. Please try again or contact your system admin to investigate the issue.`,
+        title:   this.t('epinio.growl.application.buildLogs.error.title'),
+        message: this.t('epinio.growl.application.buildLogs.error.message'),
       }, { root: true });
     }
   }
@@ -1390,8 +1388,8 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
 
   async restart() {
     this.$dispatch('growl/info', {
-      title: 'Attempting to Restart Application!',
-      message: `This can take a few moments, we'll let you know once it's ready.`,
+      title:   this.t('epinio.growl.application.restart.info.title'),
+      message: this.t('epinio.growl.application.restart.info.message'),
     }, { root: true });
 
     try {
@@ -1399,15 +1397,14 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
       await this.forceFetch();
       this.showAppLog();
       this.$dispatch('growl/success', {
-        title: 'Application Restarted!',
-        message: `${ this.meta.name } has been restarted successfully.`,
+        title:   this.t('epinio.growl.application.restart.success.title'),
+        message: this.t('epinio.growl.application.restart.success.message', { name: this.meta.name }),
       }, { root: true });
     } catch (e) {
       console.log(e);
       this.$dispatch('growl/error', {
-        title: 'Something Went Wrong Restarting!',
-        message: `Can't restart the application, the image may be missing,
-        reach out to your system admin to investigate the issue.`,
+        title:   this.t('epinio.growl.application.restart.error.title'),
+        message: this.t('epinio.growl.application.restart.error.message'),
       }, { root: true });
     }
   }
@@ -1423,8 +1420,8 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
     } catch (e) {
       console.log(e);
       this.$dispatch('growl/error', {
-        title: 'Something Went Wrong Downloading Manifest!',
-        message: `Can't download the application manifest. Please try again or contact your system admin to investigate the issue.`,
+        title:   this.t('epinio.growl.application.manifest.error.title'),
+        message: this.t('epinio.growl.application.manifest.error.message'),
       }, { root: true });
       throw e;
     }

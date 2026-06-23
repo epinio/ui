@@ -283,8 +283,8 @@ async function onSubmit() {
       closeModal();
 
       store.dispatch('growl/success', {
-        title: 'Service Instance Created',
-        message: `Your service instance ${ capturedName } has been successfully created.`,
+        title:   t('epinio.growl.serviceInstance.create.success.title'),
+        message: t('epinio.growl.serviceInstance.create.success.message', { name: capturedName }),
       });
 
       // Show the new item quickly, then bind apps and refresh again once done
@@ -317,8 +317,8 @@ async function onSubmit() {
       closeModal();
 
       store.dispatch('growl/success', {
-        title: 'Service Instance Updated',
-        message: `Your service instance ${ serviceName } has been successfully updated.`,
+        title:   t('epinio.growl.serviceInstance.update.success.title'),
+        message: t('epinio.growl.serviceInstance.update.success.message', { name: serviceName }),
       });
 
       // Bind/unbind and refresh in the background
@@ -331,8 +331,10 @@ async function onSubmit() {
   } catch (err: any) {
     errors.value = epinioExceptionToErrorsArray(err);
     store.dispatch('growl/error', {
-      title: isEdit.value ? 'Service Instance Update Failed' : 'Service Instance Creation Failed',
-      message: `Something went wrong. Please try again or contact your system admin to investigate the issue.`,
+      title: isEdit.value
+        ? t('epinio.growl.serviceInstance.save.error.updateTitle')
+        : t('epinio.growl.serviceInstance.save.error.createTitle'),
+      message: t('epinio.growl.serviceInstance.save.error.message'),
     });
   } finally {
     saving.value = false;

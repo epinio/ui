@@ -10,6 +10,7 @@ import isEqual from 'lodash/isEqual';
 import sortBy from 'lodash/sortBy';
 
 const store = useStore() as any;
+const t = store.getters['i18n/t'];
 
 const showModal = ref(false);
 const modalMode = ref<'view' | 'edit' | 'create'>('view');
@@ -283,8 +284,8 @@ async function onSubmit() {
       closeModal();
 
       store.dispatch('growl/success', {
-        title: 'Configuration Created',
-        message: `Your configuration ${ capturedName } has been successfully created.`,
+        title:   t('epinio.growl.configuration.create.success.title'),
+        message: t('epinio.growl.configuration.create.success.message', { name: capturedName }),
       });
 
       cfg.forceFetch().catch(() => {});
@@ -315,8 +316,8 @@ async function onSubmit() {
       closeModal();
 
       store.dispatch('growl/success', {
-        title: 'Configuration Updated',
-        message: `Your configuration ${ capturedName } has been successfully updated.`,
+        title:   t('epinio.growl.configuration.update.success.title'),
+        message: t('epinio.growl.configuration.update.success.message', { name: capturedName }),
       });
 
       // Determine which apps were newly bound or unbound, and update accordingly
@@ -347,8 +348,10 @@ async function onSubmit() {
   } catch (err: any) {
     errors.value = epinioExceptionToErrorsArray(err);
     store.dispatch('growl/error', {
-      title: isEdit.value ? 'Configuration Update Failed' : 'Configuration Creation Failed',
-      message: `Something went wrong. Please try again or contact your system admin to investigate the issue.`,
+      title: isEdit.value
+        ? t('epinio.growl.configuration.save.error.updateTitle')
+        : t('epinio.growl.configuration.save.error.createTitle'),
+      message: t('epinio.growl.configuration.save.error.message'),
     });
   } finally {
     saving.value = false;

@@ -101,8 +101,8 @@ const exportApplicationManifest = async () => {
     }
 
     store.dispatch('growl/success', {
-      title: 'Application Exported!',
-      message: `${ resource.meta.name } has been exported successfully.`,
+      title:   t('epinio.growl.application.export.success.title'),
+      message: t('epinio.growl.application.export.success.message', { name: resource.meta.name }),
     });
     exportSucceeded = true;
   } catch (error) {
@@ -111,8 +111,8 @@ const exportApplicationManifest = async () => {
     errors.value.push(message);
     disableDownload();
     store.dispatch('growl/error', {
-      title: 'Something Went Wrong Exporting!',
-      message: `Can't export the application. Please try again or contact your system admin to investigate the issue.`,
+      title:   t('epinio.growl.application.export.error.title'),
+      message: t('epinio.growl.application.export.error.message'),
     });
   } finally {
     exporting.value = false;

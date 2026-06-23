@@ -104,11 +104,15 @@ const create = async () => {
     } catch (err) {
       running.value = false;
       console.error(err);
+      const errDetails = err instanceof Error ? err.message : String(err);
+
       store.dispatch('growl/error', {
-        title: props.mode === 'edit' ? 'Application Update Failed' : 'Application Deployment Failed',
+        title: props.mode === 'edit'
+          ? t('epinio.growl.application.update.error.title')
+          : t('epinio.growl.application.deploy.error.title'),
         message: props.mode === 'edit'
-          ? `Your application ${props.application.meta.name} failed to update. Please try again. Error details: ${err instanceof Error ? err.message : String(err)}`
-          : `Your application ${props.application.meta.name} failed to deploy. Please try again. Error details: ${err instanceof Error ? err.message : String(err)}`,
+          ? t('epinio.growl.application.update.error.message', { name: props.application.meta.name, error: errDetails })
+          : t('epinio.growl.application.deploy.error.message', { name: props.application.meta.name, error: errDetails }),
       });
       await fetchApp();
       return;
@@ -116,10 +120,12 @@ const create = async () => {
   }
   
   store.dispatch('growl/success', {
-    title: props.mode === 'edit' ? 'Application Updates Deployed' : 'Application Deployed',
+    title: props.mode === 'edit'
+      ? t('epinio.growl.application.update.success.title')
+      : t('epinio.growl.application.deploy.success.title'),
     message: props.mode === 'edit'
-      ? `Your application ${props.application.meta.name} has been successfully updated.`
-      : `Your application ${props.application.meta.name} has been successfully deployed.`,
+      ? t('epinio.growl.application.update.success.message', { name: props.application.meta.name })
+      : t('epinio.growl.application.deploy.success.message', { name: props.application.meta.name }),
   });
   await fetchApp();
   running.value = false;

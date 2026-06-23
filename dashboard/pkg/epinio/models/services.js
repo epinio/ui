@@ -130,9 +130,8 @@ export default class EpinioServiceModel extends EpinioNamespacedResource {
     } catch (e) {
       console.log(e)
       this.$dispatch('growl/error', {
-        title: 'Something Went Wrong Binding the Service',
-        message: `The service most likely wasn't ready yet. Please wait a
-        moment and try again. If the problem persists, please contact support.`,
+        title:   this.t('epinio.growl.service.bind.error.title'),
+        message: this.t('epinio.growl.service.bind.error.message'),
       }, { root: true });
     }
   }
@@ -150,9 +149,8 @@ export default class EpinioServiceModel extends EpinioNamespacedResource {
     } catch (e) {
       console.log(e)
       this.$dispatch('growl/error', {
-        title: 'Something Went Wrong Unbinding the Service',
-        message: `Please wait a moment and try again. If the problem persists,
-        please contact support.`,
+        title:   this.t('epinio.growl.service.unbind.error.title'),
+        message: this.t('epinio.growl.service.unbind.error.message'),
       }, { root: true });
     }
   }

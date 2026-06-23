@@ -54,8 +54,8 @@ export default class ApplicationInstanceResource extends Resource {
     } catch (e) {
       console.log(e);
       this.$dispatch('growl/error', {
-        title: 'Something Went Wrong Opening App Shell!',
-        message: `Can't open the application shell. The application may not have running instances yet.`,
+        title:   this.t('epinio.growl.application.shell.error.title'),
+        message: this.t('epinio.growl.application.shell.error.message'),
       }, { root: true });
     }
   }
