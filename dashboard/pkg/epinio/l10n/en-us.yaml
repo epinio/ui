@@ -419,6 +419,138 @@ epinio:
     title: Unsaved Changes
     message: You have unsaved changes. Are you sure you want to leave this page?
     discard: Discard Changes
+  growl:
+    application:
+      deploy:
+        success:
+          title: Application Deployed
+          message: 'Your application { name } has been successfully deployed.'
+        error:
+          title: Application Deployment Failed
+          message: 'Your application { name } failed to deploy. Please try again. Error details: { error }'
+      update:
+        success:
+          title: Application Updates Deployed
+          message: 'Your application { name } has been successfully updated.'
+        error:
+          title: Application Update Failed
+          message: 'Your application { name } failed to update. Please try again. Error details: { error }'
+      delete:
+        success:
+          title: Application Deleted
+          message: 'Your application { name } has been successfully deleted.'
+        error:
+          title: Application Deletion Failed
+          message: 'Failed to delete application { name }. Please try again. Error details: { error }'
+      restage:
+        info:
+          title: Attempting to Rebuild Application!
+          message: This may take a few moments, a window will open with live logs soon.
+        success:
+          title: Application Rebuilt Successfully!
+          message: '{ name } has been rebuilt successfully.'
+        error:
+          title: Something Went Wrong Rebuilding!
+          message: This error occurs when there are missing resources in the cluster, contact your system admin to investigate the issue.
+      restart:
+        info:
+          title: Attempting to Restart Application!
+          message: This can take a few moments, we'll let you know once it's ready.
+        success:
+          title: Application Restarted!
+          message: '{ name } has been restarted successfully.'
+        error:
+          title: Something Went Wrong Restarting!
+          message: Can't restart the application, the image may be missing, reach out to your system admin to investigate the issue.
+      deployment:
+        error:
+          title: Something Went Wrong Opening Deployment!
+          message: Can't view the deployment in the cluster. Please try again or contact your system admin to investigate the issue.
+      shell:
+        error:
+          title: Something Went Wrong Opening App Shell!
+          message: Can't open the application shell. The application may not have running instances yet.
+      appLogs:
+        error:
+          title: Something Went Wrong Opening App Logs!
+          message: Can't open application logs. Please try again or contact your system admin to investigate the issue.
+      buildLogs:
+        error:
+          title: Something Went Wrong Opening Build Logs!
+          message: Can't open build logs. Please try again or contact your system admin to investigate the issue.
+        noInfo:
+          title: Something Went Wrong Opening Build Logs!
+          message: 'Can''t show build logs for { name }, no build information is available.'
+      manifest:
+        error:
+          title: Something Went Wrong Downloading Manifest!
+          message: Can't download the application manifest. Please try again or contact your system admin to investigate the issue.
+      export:
+        success:
+          title: Application Exported!
+          message: '{ name } has been exported successfully.'
+        error:
+          title: Something Went Wrong Exporting!
+          message: Can't export the application. Please try again or contact your system admin to investigate the issue.
+    configuration:
+      create:
+        success:
+          title: Configuration Created
+          message: 'Your configuration { name } has been successfully created.'
+      update:
+        success:
+          title: Configuration Updated
+          message: 'Your configuration { name } has been successfully updated.'
+      save:
+        error:
+          createTitle: Configuration Creation Failed
+          updateTitle: Configuration Update Failed
+          message: Something went wrong. Please try again or contact your system admin to investigate the issue.
+      delete:
+        success:
+          title: Configuration Deleted
+          message: 'Your configuration { name } has been successfully deleted.'
+        error:
+          title: Configuration Deletion Failed
+          message: 'Failed to delete configuration { name }. Please try again or contact your system admin to investigate the issue.'
+    service:
+      bind:
+        error:
+          title: Something Went Wrong Binding the Service
+          message: The service most likely wasn't ready yet. Please wait a moment and try again. If the problem persists, please contact support.
+      unbind:
+        error:
+          title: Something Went Wrong Unbinding the Service
+          message: Please wait a moment and try again. Please try again or contact your system admin to investigate the issue.
+    serviceInstance:
+      create:
+        success:
+          title: Service Instance Created
+          message: 'Your service instance { name } has been successfully created.'
+      update:
+        success:
+          title: Service Instance Updated
+          message: 'Your service instance { name } has been successfully updated.'
+      save:
+        error:
+          createTitle: Service Instance Creation Failed
+          updateTitle: Service Instance Update Failed
+          message: Something went wrong. Please try again or contact your system admin to investigate the issue.
+      delete:
+        success:
+          title: Service Instance Deleted
+          message: 'Your service instance { name } has been successfully deleted.'
+        error:
+          title: Service Instance Deletion Failed
+          message: 'Failed to delete service instance { name }. Please try again or contact your system admin to investigate the issue.'
+    auth:
+      logout:
+        success:
+          title: Logged Out Successfully!
+          message: You have been logged out of Epinio.
+        error:
+          title: Something Went Wrong Logging Out!
+          message: Can't log out. Please try again or contact your system admin to investigate the issue.
 model:
   authConfig:
     provider:
