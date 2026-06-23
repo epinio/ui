@@ -27,7 +27,7 @@ export function mapSettingsFromApiResponse(apiResponse: any) {
 export function mapSettingsToApiRequest(chartSettings: ConfigSetting[]) {
   const settings = chartSettings.reduce((acc, setting) => {
     acc[setting.name] = { type: setting.type };
-    if (setting.type === 'string' && setting.enum) {
+    if (setting.type === 'string' && setting.enum && setting.enum.length > 0) {
       acc[setting.name].enum = setting.enum.filter((v) => v);
     }
     if ((setting.type === 'number' || setting.type === 'integer') && setting.minimum !== undefined) {
@@ -72,7 +72,7 @@ export function validateSettings(chartSettings: ConfigSetting[]) {
     }
 
     if (setting.type === 'string') {
-      if (!setting.enum || setting.enum.length === 0 || setting.enum.some((v) => !v)) {
+      if (setting.enum && setting.enum.length > 0 && setting.enum.some((v) => !v)) {
         return false;
       }
     }

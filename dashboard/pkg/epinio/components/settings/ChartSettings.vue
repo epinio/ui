@@ -215,7 +215,12 @@ function addSetting() {
               () => {
                 const next = [...(setting.enum || [])];
                 next.splice(enumIndex, 1);
-                updateSetting(index, { enum: next });
+                updateSetting(index, { 
+                  enum: next,
+                  value: (!next || next.length === 0)
+                    ? ''
+                    : setting.value, 
+                });
               }
             "
           >
@@ -228,9 +233,15 @@ function addSetting() {
             variant="alternate"
             :disabled="disabled"
             @button-click="
-              updateSetting(index, {
-                enum: [...(setting.enum || []), ''],
-              })
+              () => {
+                updateSetting(index, {
+                  enum: [...(setting.enum || []), ''],
+                  value: (!setting.enum || setting.enum.length === 0)
+                    ? ''
+                    : setting.value,
+                })
+
+              }
             "
           >
             Add Value
@@ -240,6 +251,7 @@ function addSetting() {
 
       <div style="display:flex;align-items:flex-start;" v-if="props.allowDefaults">
         <trailhand-dropdown
+          v-if="setting.enum && setting.enum.length > 0"
           :value="setting.value"
           label="Default Value"
           :disabled="
@@ -256,6 +268,16 @@ function addSetting() {
               }))
           "
           @dropdown-change="
+            (e) => updateSetting(index, { value: e.detail.value })
+          "
+        />
+        <trailhand-text-input
+          v-else
+          :value="setting.value"
+          label="Default Value"
+          :disabled="disabled"
+          style="flex:1;"
+          @text-input-change="
             (e) => updateSetting(index, { value: e.detail.value })
           "
         />
