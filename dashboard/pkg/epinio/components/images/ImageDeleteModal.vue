@@ -13,6 +13,7 @@ const deletingImage = ref<boolean>(false);
 const hasAssociatedApps = ref<boolean>(false);
 
 const store = useStore();
+const t = store.getters['i18n/t'];
 
 function openDelete(row: EpinioBuilderImageModel) {
   imageToDelete.value = row;
@@ -31,14 +32,23 @@ async function onSubmitDelete() {
 if (!imageToDelete.value) {
     return;
 }
+const imageName = imageToDelete.value.meta.name;
 try {
     deletingImage.value = true;
     await imageToDelete.value.remove();
+    store.dispatch('growl/success', {
+      title:   t('epinio.growl.builderImages.delete.success.title'),
+      message: t('epinio.growl.builderImages.delete.success.message', { name: imageName }),
+    });
     closeDelete();
     store.dispatch('epinio/findAll', { type: EPINIO_TYPES.BUILDER_IMAGE, opt: { force: true } });
 } catch(e) {
     errors.value = [];
     errors.value = epinioExceptionToErrorsArray(e).map(JSON.stringify);
+    store.dispatch('growl/error', {
+      title:   t('epinio.growl.builderImages.delete.error.title'),
+      message: t('epinio.growl.builderImages.delete.error.message', { name: imageName }),
+    });
 } finally {
     deletingImage.value = false;
 }

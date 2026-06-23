@@ -13,6 +13,7 @@ const deletingGitConfig = ref<boolean>(false);
 const hasAssociatedApps = ref<boolean>(false);
 
 const store = useStore();
+const t = store.getters['i18n/t'];
 
 function openDelete(row: EpinioGitConfigModel) {
   gitConfigToDelete.value = row;
@@ -31,14 +32,23 @@ async function onSubmitDelete() {
 if (!gitConfigToDelete.value) {
     return;
 }
+const gitConfigName = gitConfigToDelete.value.meta.name;
 try {
     deletingGitConfig.value = true;
     await gitConfigToDelete.value.remove();
+    store.dispatch('growl/success', {
+      title:   t('epinio.growl.gitConfigs.delete.success.title'),
+      message: t('epinio.growl.gitConfigs.delete.success.message', { name: gitConfigName }),
+    });
     closeDelete();
     store.dispatch('epinio/findAll', { type: EPINIO_TYPES.GIT_CONFIG, opt: { force: true } });
 } catch(e) {
     errors.value = [];
     errors.value = epinioExceptionToErrorsArray(e).map(JSON.stringify);
+    store.dispatch('growl/error', {
+      title:   t('epinio.growl.gitConfigs.delete.error.title'),
+      message: t('epinio.growl.gitConfigs.delete.error.message', { name: gitConfigName }),
+    });
 } finally {
     deletingGitConfig.value = false;
 }

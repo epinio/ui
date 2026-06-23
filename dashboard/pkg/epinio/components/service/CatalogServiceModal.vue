@@ -205,6 +205,10 @@ async function onSubmit() {
       catalogService.secret_types      = [...catalogServiceSecretTypes.value];
 
       await catalogService.update();
+      store.dispatch('growl/success', {
+        title:   t('epinio.growl.catalogServices.update.success.title'),
+        message: t('epinio.growl.catalogServices.update.success.message', { name: catalogServiceName.value }),
+      });
       closeModal();
       store.dispatch('epinio/findAll', { type: EPINIO_TYPES.CATALOG_SERVICE, opt: { force: true } }).catch(() => {});
     } else {
@@ -222,11 +226,21 @@ async function onSubmit() {
       catalogService.secret_types      = [...catalogServiceSecretTypes.value];
 
       await catalogService.create();
+      store.dispatch('growl/success', {
+        title:   t('epinio.growl.catalogServices.create.success.title'),
+        message: t('epinio.growl.catalogServices.create.success.message', { name: catalogServiceName.value }),
+      });
       closeModal();
       store.dispatch('epinio/findAll', { type: EPINIO_TYPES.CATALOG_SERVICE, opt: { force: true } }).catch(() => {});
     }
   } catch (err: any) {
-    errors.value = epinioExceptionToErrorsArray(err, t);
+    errors.value = epinioExceptionToErrorsArray(err);
+    store.dispatch('growl/error', {
+      title: isEdit.value
+        ? t('epinio.growl.catalogServices.save.error.updateTitle')
+        : t('epinio.growl.catalogServices.save.error.createTitle'),
+      message: t('epinio.growl.catalogServices.save.error.message'),
+    });
     console.error('Error saving catalog service:', err);
   } finally {
     saving.value = false;
@@ -370,6 +384,13 @@ defineExpose({ openCreate, openEdit });
           </div>
         </template>
       </trailhand-form-card>
+
+      <Banner
+        v-for="(err, i) in errors"
+        :key="i"
+        color="error"
+        :label="err"
+      />
     </div>
 
     <div slot="footer">

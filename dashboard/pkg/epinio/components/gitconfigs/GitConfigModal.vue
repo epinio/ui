@@ -5,6 +5,7 @@ import { useStore } from 'vuex';
 import { EPINIO_TYPES } from '../../types';
 import { epinioExceptionToErrorsArray } from '../../utils/errors';
 import { validateKubernetesName } from '@shell/utils/validators/kubernetes-name';
+import Banner from '@components/Banner/Banner.vue';
 
 const store = useStore() as any;
 const t = store.getters['i18n/t'];
@@ -138,10 +139,18 @@ async function onSubmit() {
     gitConfig.global            = gitConfigGlobal.value;
 
     await gitConfig.create();
+    store.dispatch('growl/success', {
+        title:   t('epinio.growl.gitConfigs.create.success.title'),
+        message: t('epinio.growl.gitConfigs.create.success.message', { name: gitConfigId.value }),
+      });
     closeModal();
     store.dispatch('epinio/findAll', { type: EPINIO_TYPES.GIT_CONFIG, opt: { force: true } }).catch(() => {});
   } catch (err: any) {
-    errors.value = epinioExceptionToErrorsArray(err, t);
+    errors.value = epinioExceptionToErrorsArray(err);
+    store.dispatch('growl/error', {
+      title: t('epinio.growl.gitConfigs.save.error.createTitle'),
+      message: t('epinio.growl.gitConfigs.save.error.message'),
+    });
     console.error('Error saving git configuration:', err);
   } finally {
     saving.value = false;
@@ -228,6 +237,13 @@ defineExpose({ openCreate });
           >Global Configuration</trailhand-checkbox>
         </trailhand-form-row>
       </trailhand-form-card>
+
+      <Banner
+        v-for="(err, i) in errors"
+        :key="i"
+        color="error"
+        :label="err"
+      />
     </div>
 
     <div slot="footer">

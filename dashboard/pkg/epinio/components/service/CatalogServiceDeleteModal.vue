@@ -13,6 +13,7 @@ const deletingCatalogService = ref<boolean>(false);
 const hasAssociatedServices = ref<boolean>(false);
 
 const store = useStore();
+const t = store.getters['i18n/t'];
 
 function openDelete(row: EpinioCatalogServiceModel) {
   catalogServiceToDelete.value = row;
@@ -31,15 +32,24 @@ async function onSubmitDelete() {
 if (!catalogServiceToDelete.value) {
     return;
 }
+const catalogServiceName = catalogServiceToDelete.value.meta.name;
 try {
     deletingCatalogService.value = true;
     await catalogServiceToDelete.value.remove();
+    store.dispatch('growl/success', {
+      title:   t('epinio.growl.catalogServices.delete.success.title'),
+      message: t('epinio.growl.catalogServices.delete.success.message', { name: catalogServiceName }),
+    });
     closeDelete();
     emit('deleted');
     store.dispatch('epinio/findAll', { type: EPINIO_TYPES.CATALOG_SERVICE, opt: { force: true } });
 } catch(e) {
     errors.value = [];
     errors.value = epinioExceptionToErrorsArray(e).map(JSON.stringify);
+    store.dispatch('growl/error', {
+      title:   t('epinio.growl.catalogServices.delete.error.title'),
+      message: t('epinio.growl.catalogServices.delete.error.message', { name: catalogServiceName }),
+    });
 } finally {
     deletingCatalogService.value = false;
 }

@@ -13,6 +13,7 @@ const deletingChart = ref<boolean>(false);
 const hasAssociatedApps = ref<boolean>(false);
 
 const store = useStore();
+const t = store.getters['i18n/t'];
 
 function openDelete(row: EpinoAppChartModel) {
   chartToDelete.value = row;
@@ -31,14 +32,23 @@ async function onSubmitDelete() {
 if (!chartToDelete.value) {
     return;
 }
+const chartName = chartToDelete.value.meta.name;
 try {
     deletingChart.value = true;
     await chartToDelete.value.remove();
+    store.dispatch('growl/success', {
+      title:   t('epinio.growl.appCharts.delete.success.title'),
+      message: t('epinio.growl.appCharts.delete.success.message', { name: chartName }),
+    });
     closeDelete();
     store.dispatch('epinio/findAll', { type: EPINIO_TYPES.APP_CHARTS, opt: { force: true } });
 } catch(e) {
     errors.value = [];
     errors.value = epinioExceptionToErrorsArray(e).map(JSON.stringify);
+    store.dispatch('growl/error', {
+      title:   t('epinio.growl.appCharts.delete.error.title'),
+      message: t('epinio.growl.appCharts.delete.error.message', { name: chartName }),
+    });
 } finally {
     deletingChart.value = false;
 }

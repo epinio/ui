@@ -160,6 +160,10 @@ async function onSubmit() {
       chart.values            = values;
 
       await chart.update();
+      store.dispatch('growl/success', {
+        title:   t('epinio.growl.appCharts.update.success.title'),
+        message: t('epinio.growl.appCharts.update.success.message', { name: chartName.value }),
+      });
       closeModal();
       store.dispatch('epinio/findAll', { type: EPINIO_TYPES.APP_CHARTS, opt: { force: true } }).catch(() => {});
     } else {
@@ -174,11 +178,21 @@ async function onSubmit() {
       chart.values            = values;
 
       await chart.create();
+      store.dispatch('growl/success', {
+        title:   t('epinio.growl.appCharts.create.success.title'),
+        message: t('epinio.growl.appCharts.create.success.message', { name: chartName.value }),
+      });
       closeModal();
       store.dispatch('epinio/findAll', { type: EPINIO_TYPES.APP_CHARTS, opt: { force: true } }).catch(() => {});
     }
   } catch (err: any) {
-    errors.value = epinioExceptionToErrorsArray(err, t);
+    errors.value = epinioExceptionToErrorsArray(err);
+    store.dispatch('growl/error', {
+      title: isEdit.value
+        ? t('epinio.growl.appCharts.save.error.updateTitle')
+        : t('epinio.growl.appCharts.save.error.createTitle'),
+      message: t('epinio.growl.appCharts.save.error.message'),
+    });
     console.error('Error saving chart:', err);
   } finally {
     saving.value = false;

@@ -147,6 +147,10 @@ async function onSubmit() {
       image.image             = builderImage.value;
 
       await image.update();
+      store.dispatch('growl/success', {
+        title:   t('epinio.growl.builderImages.update.success.title'),
+        message: t('epinio.growl.builderImages.update.success.message', { name: imageName.value }),
+      });
       closeModal();
       store.dispatch('epinio/findAll', { type: EPINIO_TYPES.BUILDER_IMAGE, opt: { force: true } }).catch(() => {});
     } else {
@@ -158,11 +162,21 @@ async function onSubmit() {
       image.image             = builderImage.value;
 
       await image.create();
+      store.dispatch('growl/success', {
+        title:   t('epinio.growl.builderImages.create.success.title'),
+        message: t('epinio.growl.builderImages.create.success.message', { name: imageName.value }),
+      });
       closeModal();
       store.dispatch('epinio/findAll', { type: EPINIO_TYPES.BUILDER_IMAGE, opt: { force: true } }).catch(() => {});
     }
   } catch (err: any) {
-    errors.value = epinioExceptionToErrorsArray(err, t);
+    errors.value = epinioExceptionToErrorsArray(err);
+    store.dispatch('growl/error', {
+      title: isEdit.value
+        ? t('epinio.growl.builderImages.save.error.updateTitle')
+        : t('epinio.growl.builderImages.save.error.createTitle'),
+      message: t('epinio.growl.builderImages.save.error.message'),
+    });
     console.error('Error saving image:', err);
   } finally {
     saving.value = false;
@@ -223,6 +237,13 @@ defineExpose({ openCreate, openEdit, openView });
           ></trailhand-text-input>
         </trailhand-form-row>
       </trailhand-form-card>
+
+      <Banner
+        v-for="(err, i) in errors"
+        :key="i"
+        color="error"
+        :label="err"
+      />
     </div>
 
     <div slot="footer">

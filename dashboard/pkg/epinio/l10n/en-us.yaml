@@ -555,6 +555,85 @@ epinio:
         error:
           title: Service Instance Deletion Failed
           message: 'Failed to delete service instance { name }. Please try again or contact your system admin to investigate the issue.'
+    appCharts:
+      create:
+        success:
+          title: App Chart Created
+          message: 'Your app chart { name } has been successfully created.'
+      update:
+        success:
+          title: App Chart Updated
+          message: 'Your app chart { name } has been successfully updated.'
+      save:
+        error:
+          createTitle: App Chart Creation Failed
+          updateTitle: App Chart Update Failed
+          message: Something went wrong. Please try again or contact your system admin to investigate the issue.
+      delete:
+        success:
+          title: App Chart Deleted
+          message: 'Your app chart { name } has been successfully deleted.'
+        error:
+          title: App Chart Deletion Failed
+          message: 'Failed to delete app chart { name }. Please try again or contact your system admin to investigate the issue.'
+    builderImages:
+      create:
+        success:
+          title: Builder Image Created
+          message: 'Your builder image { name } has been successfully created.'
+      update:
+        success:
+          title: Builder Image Updated
+          message: 'Your builder image { name } has been successfully updated.'
+      save:
+        error:
+          createTitle: Builder Image Creation Failed
+          updateTitle: Builder Image Update Failed
+          message: Something went wrong. Please try again or contact your system admin to investigate the issue.
+      delete:
+        success:
+          title: Builder Image Deleted
+          message: 'Your builder image { name } has been successfully deleted.'
+        error:
+          title: Builder Image Deletion Failed
+          message: 'Failed to delete builder image { name }. Please try again or contact your system admin to investigate the issue.'
+    catalogServices:
+      create:
+        success:
+          title: Catalog Service Created
+          message: 'Your catalog service { name } has been successfully created.'
+      update:
+        success:
+          title: Catalog Service Updated
+          message: 'Your catalog service { name } has been successfully updated.'
+      save:
+        error:
+          createTitle: Catalog Service Creation Failed
+          updateTitle: Catalog Service Update Failed
+          message: Something went wrong. Please try again or contact your system admin to investigate the issue.
+      delete:
+        success:
+          title: Catalog Service Deleted
+          message: 'Your catalog service { name } has been successfully deleted.'
+        error:
+          title: Catalog Service Deletion Failed
+          message: 'Failed to delete catalog service { name }. Please try again or contact your system admin to investigate the issue.'
+    gitConfigs:
+      create:
+        success:
+          title: Git Config Created
+          message: 'Your git config { name } has been successfully created.'
+      save:
+        error:
+          createTitle: Git Config Creation Failed
+          message: Something went wrong. Please try again or contact your system admin to investigate the issue.
+      delete:
+        success:
+          title: Git Config Deleted
+          message: 'Your git config { name } has been successfully deleted.'
+        error:
+          title: Git Config Deletion Failed
+          message: 'Failed to delete git config { name }. Please try again or contact your system admin to investigate the issue.'
     auth:
       logout:
         success:
