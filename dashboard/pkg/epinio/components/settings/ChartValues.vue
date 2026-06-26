@@ -10,8 +10,6 @@ const props = defineProps<{
   disabled: boolean;
 }>();
 
-console.log('ChartValues props:', props); // Debug log to check props
-
 // Emit function
 const emit = defineEmits(['valid']);
 

@@ -25,8 +25,6 @@ export default class EpinioGitConfigModel extends EpinioNamespacedResource {
         id:               this.id,
         url:              this.url,
         provider:         this.provider,
-        userorg:          this.userorg,
-        repository:       this.repository,
         username:         this.username,
         password:         this.password,
         skipssl:          this.skipssl,

@@ -53,14 +53,14 @@ export default class EpinioCatalogServiceModel extends EpinioMetaResource {
       data: {
         name:             this.name,
         description:      this.description,
-        shortDescription: this.short_description,
+        short_description: this.short_description,
         chart:            this.chart,
-        chartVersion:     this.chart_version,
-        appVersion:       this.app_version,
-        serviceIcon:      this.icon,
-        helmRepo:         this.helm_repo,
+        chart_version:     this.chart_version,
+        app_version:       this.app_version,
+        service_icon:      this.icon,
+        helm_repo:         this.helm_repo,
         settings:         this.settings,
-        secretTypes:      this.secret_types,
+        secret_types:      this.secret_types,
       }
     });
   }
@@ -74,15 +74,15 @@ export default class EpinioCatalogServiceModel extends EpinioMetaResource {
       },
       data: {
         description:      this.description,
-        shortDescription: this.short_description,
+        short_description: this.short_description,
         chart:            this.chart,
-        chartVersion:     this.chart_version,
-        appVersion:       this.app_version,
-        serviceIcon:      this.icon,
-        helmRepo:         this.helm_repo,
+        chart_version:     this.chart_version,
+        app_version:       this.app_version,
+        service_icon:      this.icon,
+        helm_repo:         this.helm_repo,
         settings:         this.settings,
         values:           this.values,
-        secretTypes:      this.secret_types,
+        secret_types:      this.secret_types,
       }
     });
   }

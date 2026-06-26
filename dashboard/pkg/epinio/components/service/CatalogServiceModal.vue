@@ -67,14 +67,13 @@ const isDirty = computed(() => {
     catalogServiceChart.value !== (initialValues.value!.chart || '') ||
     catalogServiceChartVersion.value !== (initialValues.value!.chart_version || '') ||
     catalogServiceAppVersion.value !== (initialValues.value!.app_version || '') ||
-    catalogServiceIcon.value !== (initialValues.value!.icon || '') ||
+    catalogServiceIcon.value !== (initialValues.value!.service_icon || '') ||
     catalogServiceHelmRepo.value.name !== (initialValues.value!.helm_repo?.name || '') ||
     catalogServiceHelmRepo.value.url !== (initialValues.value!.helm_repo?.url || '') ||
     catalogServiceHelmRepo.value.secret !== (initialValues.value!.helm_repo?.secret || '') ||
     !isEqual(sortBy(chartSettings.value, 'name'), sortBy(initialSettings, 'name')) ||
-    !isEqual(sortBy(catalogServiceSecretTypes.value), sortBy(initialValues.value!.secretTypes || []));
+    !isEqual(sortBy(catalogServiceSecretTypes.value), sortBy(initialValues.value!.secret_types || []));
  
-  console.log('isDirty:', isDirty);
   return isDirty;
 });
 
@@ -130,16 +129,16 @@ function openEdit(row: EpinioCatalogServiceModel) {
   catalogServiceChart.value = row.chart || '';
   catalogServiceChartVersion.value = row.chart_version || '';
   catalogServiceAppVersion.value = row.app_version || '';
-  catalogServiceIcon.value = row.icon || '';
+  catalogServiceIcon.value = row.service_icon || '';
   catalogServiceHelmRepo.value = {
     name: row.helm_repo?.name || '',
     url: row.helm_repo?.url || '',
     secret: row.helm_repo?.secret || ''
   };
   chartSettings.value = mapSettingsFromApiResponse(row);
-  catalogServiceSecretTypes.value = row.secretTypes || [];
-  hasAssociatedServices.value = !!row.boundServices;
-  showAdvancedOptions.value = row.secretTypes && row.secretTypes.length > 0;
+  catalogServiceSecretTypes.value = row.secret_types || [];
+  hasAssociatedServices.value = !!row.bound_services && row.bound_services.length > 0;
+  showAdvancedOptions.value = row.secret_types && row.secret_types.length > 0;
 
   showModal.value = true;
 }
@@ -199,7 +198,7 @@ async function onSubmit() {
       catalogService.chart             = catalogServiceChart.value;
       catalogService.chart_version     = catalogServiceChartVersion.value;
       catalogService.app_version       = catalogServiceAppVersion.value;
-      catalogService.icon              = catalogServiceIcon.value;
+      catalogService.service_icon      = catalogServiceIcon.value;
       catalogService.helm_repo         = { ...catalogServiceHelmRepo.value };
       catalogService.settings          = settings;
       catalogService.secret_types      = [...catalogServiceSecretTypes.value];
@@ -220,7 +219,7 @@ async function onSubmit() {
       catalogService.chart             = catalogServiceChart.value;
       catalogService.chart_version     = catalogServiceChartVersion.value;
       catalogService.app_version       = catalogServiceAppVersion.value;
-      catalogService.icon              = catalogServiceIcon.value;
+      catalogService.service_icon      = catalogServiceIcon.value;
       catalogService.helm_repo         = { ...catalogServiceHelmRepo.value };
       catalogService.settings          = settings;
       catalogService.secret_types      = [...catalogServiceSecretTypes.value];
@@ -300,7 +299,7 @@ defineExpose({ openCreate, openEdit });
           <trailhand-text-input
             :value="catalogServiceChart"
             label="Chart"
-            placeholder="e.g. registry.example.com/builder:latest"
+            placeholder="e.g. mychart"
             required
             @text-input-change="(e: CustomEvent) => { catalogServiceChart = e.detail.value; }"
           ></trailhand-text-input>

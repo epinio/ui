@@ -24,7 +24,7 @@ export default class EpinioBuilderImageModel extends EpinioNamespacedResource {
       data: {
         name:             this.name,
         description:      this.description,
-        shortDescription: this.short_description,
+        short_description: this.short_description,
         image:            this.image,
       }
     });
@@ -39,7 +39,7 @@ export default class EpinioBuilderImageModel extends EpinioNamespacedResource {
       },
       data: {
         description:      this.description,
-        shortDescription: this.short_description,
+        short_description: this.short_description,
         image:            this.image,
       }
     });

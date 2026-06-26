@@ -75,7 +75,7 @@ export interface AppSourceContainer {
 export interface AppSourceGitUrl {
   url: string,
   branch: string,
-  config?: string,
+  gitconfig?: string,
 }
 
 export type GitAPIData = {
@@ -91,7 +91,7 @@ export interface AppSourceGit {
   branch: { id?: string, name: string },
   url: string,
   sourceData: GitAPIData,
-  config?: string,
+  gitconfig?: string,
 }
 
 export interface AppSourceBuilderImage {

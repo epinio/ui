@@ -99,6 +99,7 @@ async function openCreate() {
     ns: store.dispatch('epinio/findAll', { type: EPINIO_TYPES.NAMESPACE }),
     charts: store.dispatch('epinio/findAll', { type: EPINIO_TYPES.APP_CHARTS }),
     images: store.dispatch('epinio/findAll', { type: EPINIO_TYPES.BUILDER_IMAGE }),
+    gitConfigs: store.dispatch('epinio/findAll', { type: EPINIO_TYPES.GIT_CONFIG }),
     info: store.dispatch('epinio/info'),
   });
 
@@ -122,6 +123,8 @@ async function openEdit(row: EpinioApplicationModel, commit?: string) {
   const hash = await allHash({
     ns: store.dispatch('epinio/findAll', { type: EPINIO_TYPES.NAMESPACE }),
     charts: store.dispatch('epinio/findAll', { type: EPINIO_TYPES.APP_CHARTS }),
+    images: store.dispatch('epinio/findAll', { type: EPINIO_TYPES.BUILDER_IMAGE }),
+    gitConfigs: store.dispatch('epinio/findAll', { type: EPINIO_TYPES.GIT_CONFIG }),
     info: store.dispatch('epinio/info'),
   });
 

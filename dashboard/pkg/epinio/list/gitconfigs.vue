@@ -68,6 +68,12 @@ watchEffect(() => {
   // Touch meta so _MERGE polling (which deletes/re-adds all properties) re-runs this effect
   all.forEach((row: any) => { void row.meta; });
 
+  // Filter empty rows that are added during delete
+  const filtered = all.filter((row) => {
+    if (!row.id) return false;
+    else return true;
+  });
+
   // Build the row action menu with RBAC gating. The model already gates the
   // base actions; here we inject the modal-driven Edit/Delete entries only
   // when the user has git config write permissions.
@@ -101,7 +107,7 @@ watchEffect(() => {
     },
   ];
 
-  const processedRows = overrideTableRows(all, overrideProps);
+  const processedRows = overrideTableRows(filtered, overrideProps);
 
   rows.value = [...processedRows];
 });
@@ -130,14 +136,6 @@ const columns = [
   {
     field: 'url',
     label: 'URL'
-  },
-  {
-    field: 'userorg',
-    label: 'User/Org',
-  },
-  {
-    field: 'repository',
-    label: 'Repository',
   },
   {
     field:     'meta.createdAt',

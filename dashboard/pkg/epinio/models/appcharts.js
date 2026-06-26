@@ -24,9 +24,9 @@ export default class EpinioAppChartModel extends EpinioNamespacedResource {
       data: {
         name:             this.name,
         description:      this.description,
-        shortDescription: this.short_description,
-        helmChart:        this.helm_chart,
-        helmRepo:         this.helm_repo,
+        short_description: this.short_description,
+        helm_chart:        this.helm_chart,
+        helm_repo:         this.helm_repo,
         settings:         this.settings,
         values:           this.values,
       }
@@ -42,9 +42,9 @@ export default class EpinioAppChartModel extends EpinioNamespacedResource {
       },
       data: {
         description:      this.description,
-        shortDescription: this.short_description,
-        helmChart:        this.helm_chart,
-        helmRepo:         this.helm_repo,
+        short_description: this.short_description,
+        helm_chart:        this.helm_chart,
+        helm_repo:         this.helm_repo,
         settings:         this.settings,
         values:           this.values,
       }

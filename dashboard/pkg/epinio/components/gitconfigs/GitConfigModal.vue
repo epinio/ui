@@ -18,8 +18,6 @@ const modalMode = ref<'create' | 'edit' | 'view'>('create');
 const gitConfigId = ref('');
 const gitConfigUrl = ref('');
 const gitConfigProvider = ref('');
-const gitConfigUserOrg = ref('');
-const gitConfigRepo = ref('');
 const gitConfigUsername = ref('');
 const gitConfigPassword = ref('');
 const gitConfigSkipSSL = ref(false);
@@ -50,8 +48,6 @@ const isDirty = computed(() => {
     return gitConfigId.value !== '' ||
         gitConfigUrl.value !== '' ||
         gitConfigProvider.value !== '' ||
-        gitConfigUserOrg.value !== '' ||
-        gitConfigRepo.value !== '' ||
         gitConfigUsername.value !== '' ||
         gitConfigPassword.value !== '' ||
         gitConfigSkipSSL.value !== false ||
@@ -65,8 +61,6 @@ const validationPassed = computed(() => {
   if (!gitConfigId.value) return false;
   if (!gitConfigUrl.value) return false;
   if (!gitConfigProvider.value) return false;
-  if (!gitConfigUserOrg.value) return false;
-  if (!gitConfigRepo.value) return false;
 
   const nameErrors = validateKubernetesName(gitConfigId.value, '', store.getters, undefined, []);
   return nameErrors.length === 0;
@@ -84,8 +78,6 @@ function openCreate() {
   gitConfigId.value = '';
   gitConfigUrl.value = '';
   gitConfigProvider.value = '';
-  gitConfigUserOrg.value = '';
-  gitConfigRepo.value = '';
   gitConfigUsername.value = '';
   gitConfigPassword.value = '';
   gitConfigSkipSSL.value = false;
@@ -107,8 +99,6 @@ function closeModal() {
   gitConfigId.value = '';
   gitConfigUrl.value = '';
   gitConfigProvider.value = '';
-  gitConfigUserOrg.value = '';
-  gitConfigRepo.value = '';
   gitConfigUsername.value = '';
   gitConfigPassword.value = '';
   gitConfigSkipSSL.value = false;
@@ -131,8 +121,6 @@ async function onSubmit() {
     gitConfig.id                = gitConfigId.value;
     gitConfig.url               = gitConfigUrl.value;
     gitConfig.provider          = gitConfigProvider.value;
-    gitConfig.userOrg           = gitConfigUserOrg.value;
-    gitConfig.repo              = gitConfigRepo.value;
     gitConfig.username          = gitConfigUsername.value;
     gitConfig.password          = gitConfigPassword.value;
     gitConfig.skipSSL           = gitConfigSkipSSL.value;
@@ -187,7 +175,7 @@ defineExpose({ openCreate });
             @text-input-change="(e: CustomEvent) => { gitConfigUrl = e.detail.value; }"
           ></trailhand-text-input>
         </trailhand-form-row>
-        <trailhand-form-row columns="3">
+        <trailhand-form-row columns="1">
           <trailhand-dropdown
             :value="gitConfigProvider"
             label="Provider"
@@ -196,20 +184,6 @@ defineExpose({ openCreate });
             :required="true"
             @dropdown-change="(e: CustomEvent) => { gitConfigProvider = e.detail.value; }"
           ></trailhand-dropdown>
-          <trailhand-text-input
-            :value="gitConfigUserOrg"
-            label="User/Organization"
-            placeholder="Git User or Organization Name"
-            :required="true"
-            @text-input-change="(e: CustomEvent) => { gitConfigUserOrg = e.detail.value; }"
-          ></trailhand-text-input>
-          <trailhand-text-input
-              :value="gitConfigRepo"
-              label="Repository"
-              placeholder="Git Repository Name"
-              :required="true"
-              @text-input-change="(e: CustomEvent) => { gitConfigRepo = e.detail.value; }"
-          ></trailhand-text-input>
         </trailhand-form-row>
         <trailhand-form-row columns="2">
           <trailhand-text-input
@@ -226,11 +200,13 @@ defineExpose({ openCreate });
             @text-input-change="(e: CustomEvent) => { gitConfigPassword = e.detail.value; }"
           ></trailhand-text-input>
         </trailhand-form-row>
-        <trailhand-form-row columns="2">
+        <trailhand-form-row columns="1">
           <trailhand-checkbox
             :value="gitConfigSkipSSL"
             @checkbox-change="(e: CustomEvent) => { gitConfigSkipSSL = e.detail.value; }"
           >Skip SSL Verification</trailhand-checkbox>
+        </trailhand-form-row>
+        <trailhand-form-row columns="1">
           <trailhand-checkbox
             :value="gitConfigGlobal"
             @checkbox-change="(e: CustomEvent) => { gitConfigGlobal = e.detail.value; }"

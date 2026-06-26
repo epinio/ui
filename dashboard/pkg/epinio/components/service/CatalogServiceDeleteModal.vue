@@ -18,7 +18,7 @@ const t = store.getters['i18n/t'];
 function openDelete(row: EpinioCatalogServiceModel) {
   catalogServiceToDelete.value = row;
   showDeleteModal.value = true;
-  hasAssociatedServices.value = !!row.boundServices;
+  hasAssociatedServices.value = !!row.bound_services && row.bound_services.length > 0;
 }
 
 function closeDelete() {

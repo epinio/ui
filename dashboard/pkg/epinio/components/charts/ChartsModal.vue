@@ -102,7 +102,7 @@ function openEdit(row: EpinioAppChartModel) {
   chartDescription.value = row.description || '';
   helmChartUrl.value = row.helm_chart || '';
   helmRepoUrl.value = row.helm_repo || '';
-  hasAssociatedApps.value = !!row.boundApps;
+  hasAssociatedApps.value = !!row.bound_apps;
   chartSettings.value = mapSettingsFromApiResponse(row);
   showModal.value = true;
 }

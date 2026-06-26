@@ -5,6 +5,7 @@ import { makeCommitShaCell, makeCommitAuthorCell } from '../../utils/table-forma
 import debounce from 'lodash/debounce';
 import { isArray } from '@shell/utils/array';
 import { GitUtils, Commit } from '@shell/utils/git';
+import { EPINIO_TYPES } from '../../types';
 
 const props = defineProps<{
   value?: any;
@@ -22,12 +23,15 @@ const hasError = reactive({ acc: false, repo: false, branch: false, commits: fal
 const repos = ref<object[]>([]);
 const branches = ref<object[]>([]);
 const commits = ref<any[]>([]);
-const selectedAccOrOrg = ref<string | undefined>(props.value?.selectedAccOrOrg);
-const selectedRepo = ref<object | undefined>(props.value?.selectedRepo);
+const selectedAccOrOrg = ref<string | null>(props.value?.selectedAccOrOrg || null);
+const selectedRepo = ref<object | null>(props.value?.selectedRepo || null);
 const selectedRepoName = computed(() => selectedRepo.value?.name);
-const selectedBranch = ref<object | undefined>(props.value?.selectedBranch);
+const selectedBranch = ref<object | null>(props.value?.selectedBranch || null);
 const selectedBranchName = computed(() => selectedBranch.value?.name);
-const selectedCommit = ref<Commit | null>(props.value?.selectedCommit);
+const selectedCommit = ref<Commit | null>(props.value?.selectedCommit || null);
+const gitconfig = ref<string | null>(props.value?.gitconfig || null);
+
+const gitUserType = ref<string | null>(null);
 
 // Computed
 const preparedRepos = computed(() =>
@@ -43,6 +47,8 @@ const preparedCommits = computed<Commit[]>(() =>
 );
 
 const selectedCommitId = computed(() => selectedCommit.value?.commitId);
+
+const gitConfigs = computed(() => store.getters['epinio/all'](EPINIO_TYPES.GIT_CONFIG) || []);
 
 // Columns for trailhand-table
 const columns = computed(() => [
@@ -112,10 +118,19 @@ const tableRows = computed(() => {
   return [...preparedCommits.value];
 });
 
+// Watch the gitconfig, reset on change, and fetch repos if type is gitlab
+watch(() => gitconfig.value, async(neu, old) => {
+  if (neu === old) return;
+  reset();
+  if (props.type === 'gitlab' && neu) {
+    await fetchRepos('', neu);
+  }
+});
+
 // Watch the account/org and perform a debounced search when it changes
 watch(() => selectedAccOrOrg.value, async(neu, old) => {
-  if (neu === old) return;
-  debouncedFetchRepos();
+  if (neu === old || !neu) return;
+  debouncedFetchRepos(neu, gitconfig.value);
 });
 
 // Watch the repo and fetch branches when it changes
@@ -141,16 +156,19 @@ function communicateReset() {
   emit('change', {
     selectedAccOrOrg: selectedAccOrOrg.value,
     repo:             selectedRepo.value,
+    branch:           selectedBranch.value,
     commit:           selectedCommit.value,
+    gitconfig:        gitconfig.value
   });
 }
 
 function reset() {
   repos.value = [];
-  selectedAccOrOrg.value = undefined;
-  selectedRepo.value = undefined;
-  selectedBranch.value = undefined;
+  selectedAccOrOrg.value = null;
+  selectedRepo.value = null;
+  selectedBranch.value = null;
   selectedCommit.value = null;
+  gitUserType.value = null;
   communicateReset();
 }
 
@@ -167,44 +185,156 @@ function final(commitId: string) {
         repos:    repos.value,
         branches: branches.value,
         commits:  commits.value,
-      }
+      },
+      gitconfig: gitconfig.value
     });
   }
 }
 
-async function fetchRepos() {
-  repos.value = [];
-  selectedRepo.value = undefined;
-  selectedBranch.value = undefined;
+async function getGithubUserType(username: string, gitconfig: string | null) {
+  const payload = { url: `https://api.github.com/users/${username}` };
+  if (gitconfig) {
+    payload['gitconfig'] = gitconfig;
+  }
+  try {
+    const res = await store.dispatch('epinio/request', {
+      opt: {
+        url: '/api/v1/gitproxy',
+        method: 'POST',
+        data: payload,
+        responseType: 'json'
+      }
+    });
+
+    const userType = res.data.type === 'User' ? 'user' : res.data.type === 'Organization' ? 'org' : null;
+    gitUserType.value = userType;
+    return userType;
+  } catch (err) {
+    console.error('Error fetching user type:', err);
+    return null;
+  }
+}
+
+async function getGitlabUserType(username: string, gitconfig: string | null) {
+  // Try group first
+  try {
+    const res = await store.dispatch('epinio/request', {
+      opt: {
+        url: '/api/v1/gitproxy',
+        method: 'POST',
+        data: { 
+          url: `https://gitlab.com/api/v4/groups/${username}`,
+          ...(gitconfig ? { gitconfig } : {})
+        },
+        responseType: 'json'
+      }
+    });
+    if (res.data?.id) {
+      gitUserType.value = 'group';
+      return 'group';
+    }
+  } catch (err) {
+    console.error('Error fetching GitLab group:', err);
+  }
+
+  // Fall back to user
+  try {
+    const res = await store.dispatch('epinio/request', {
+      opt: {
+        url: '/api/v1/gitproxy',
+        method: 'POST',
+        data: { 
+          url: `https://gitlab.com/api/v4/users?username=${username}`,
+          ...(gitconfig ? { gitconfig } : {})
+        },
+        responseType: 'json'
+      }
+    });
+    if (res.data?.[0]?.id) {
+      gitUserType.value = 'user';
+      return 'user';
+    }
+  } catch (err) {
+    console.error('Error fetching GitLab user:', err);
+  }
+
+  return null;
+}
+
+async function fetchRepos(username: string, gitconfig: string | null) {
+  selectedRepo.value = null;
+  selectedBranch.value = null;
   selectedCommit.value = null;
   communicateReset();
 
-  if (selectedAccOrOrg.value?.length) {
-    try {
-      const res = await store.dispatch(`${ props.type }/fetchRecentRepos`, { username: selectedAccOrOrg.value });
-
-      repos.value = res;
-      hasError.acc = false;
-    } catch {
-      hasError.acc = true;
-    }
+  const payload: any = {
+    url: '',
+  };
+  if (gitconfig) {
+    payload['gitconfig'] = gitconfig;
   }
+
+  if (props.type === 'github') {
+    const userType = await getGithubUserType(username, gitconfig);
+    if (!userType) {
+      hasError.acc = true;
+      return;
+    }
+
+    payload.url = `https://api.github.com/search/repositories?q=${userType}:${username}`;
+  } else {
+    const userType = await getGitlabUserType(username, gitconfig);
+    payload.url = `https://gitlab.com/api/v4/projects?${gitconfig ? 'membership=true&' : ''}simple=true${username ? `&search=${username}` : ''}`;
+  }
+
+  try {
+    const res = await store.dispatch('epinio/request', {
+      opt: {
+        url: '/api/v1/gitproxy',
+        method: 'POST',
+        data: payload,
+        responseType: 'json'
+      }
+    });
+    repos.value = props.type === 'github' ? res.data.items || [] : res.data || [];
+    hasError.acc = false;
+  } catch {
+    hasError.acc = true;
+  }
+
 }
 
 const debouncedFetchRepos = debounce(fetchRepos, debounceTime);
 
 async function fetchBranches() {
-  selectedBranch.value = undefined;
+  selectedBranch.value = null;
   selectedCommit.value = null;
   communicateReset();
 
+  const payload = {
+    url: '',
+  }
+  if (gitconfig.value) {
+    payload['gitconfig'] = gitconfig.value;
+  }
+
+  if (props.type === 'github') {
+    payload.url = `https://api.github.com/repos/${selectedAccOrOrg.value}/${selectedRepo.value?.name}/branches`;
+  } else {
+    payload.url = `https://gitlab.com/api/v4/projects/${encodeURIComponent(selectedRepo.value?.id)}/repository/branches`;
+  }
+
   try {
-    const res = await store.dispatch(`${ props.type }/fetchBranches`, {
-      repo:     selectedRepo.value,
-      username: selectedAccOrOrg.value,
+    const res = await store.dispatch('epinio/request', {
+      opt: {
+        url: '/api/v1/gitproxy',
+        method: 'POST',
+        data: payload,
+        responseType: 'json'
+      }
     });
 
-    branches.value = res;
+    branches.value = res.data || [];
     hasError.branch = false;
   } catch {
     hasError.branch = true;
@@ -215,14 +345,30 @@ async function fetchCommits() {
   selectedCommit.value = null;
   communicateReset();
 
+  const payload = {
+    url: '',
+  }
+  if (gitconfig.value) {
+    payload['gitconfig'] = gitconfig.value;
+  }
+
+  if (props.type === 'github') {
+    payload.url = `https://api.github.com/repos/${selectedAccOrOrg.value}/${selectedRepo.value?.name}/commits?sha=${selectedBranch.value?.name}`;
+  } else {
+    payload.url = `https://gitlab.com/api/v4/projects/${encodeURIComponent(selectedRepo.value?.id)}/repository/commits?ref_name=${selectedBranch.value?.name}`;
+  }
+
   try {
-    const res = await store.dispatch(`${ props.type }/fetchCommits`, {
-      repo:     selectedRepo.value,
-      username: selectedAccOrOrg.value,
-      branch:   selectedBranch.value,
+    const res = await store.dispatch('epinio/request', {
+      opt: {
+        url: '/api/v1/gitproxy',
+        method: 'POST',
+        data: payload,
+        responseType: 'json'
+      }
     });
 
-    commits.value = res as any[];
+    commits.value = res.data || [];
     hasError.branch = false;
   } catch {
     hasError.commits = true;
@@ -232,8 +378,8 @@ async function fetchCommits() {
 async function loadSourceCache(accOrOrg: string, repo: any, branch: any, commit: any) {
   selectedAccOrOrg.value = accOrOrg;
 
-  if (selectedAccOrOrg.value) {
-    await fetchRepos()
+  if (selectedAccOrOrg.value || (props.type === 'gitlab' && gitconfig.value)) {
+    await fetchRepos(selectedAccOrOrg.value, gitconfig.value)
       .then(() => {
         if (repos.value.length && !hasError.repo) {
           selectedRepo.value = repo;
@@ -265,42 +411,79 @@ async function loadSourceCache(accOrOrg: string, repo: any, branch: any, commit:
 
 async function searchRepo(query: string) {
   if (query.length) {
-    const resultInCurrentState = repos.value.filter((r: any) => r.name.startsWith(query));
-
-    if (!resultInCurrentState.length) {
-      const res = await store.dispatch(`${ props.type }/search`, {
-        repo:     { id: query, name: query },
-        username: selectedAccOrOrg.value,
-      });
-
-      if (!res.hasError) {
-        repos.value = [...repos.value, res[0]];
-      }
-    } else {
-      return resultInCurrentState;
+    const payload: any = {
+      url: '',
     }
+    if (gitconfig.value) {
+      payload['gitconfig'] = gitconfig.value;
+    }
+
+    if (props.type === 'github') {
+      if (!gitUserType.value) {
+        await getGithubUserType(selectedAccOrOrg.value, gitconfig.value);
+      }
+      payload.url = `https://api.github.com/search/repositories?q=${query}+${gitUserType.value}:${selectedAccOrOrg.value}`;
+    } else {
+      if (gitconfig.value) {
+        payload.url = `https://gitlab.com/api/v4/projects?membership=true&simple=true&search=${query}`;
+      } else {
+        if (!gitUserType.value) {
+          await getGitlabUserType(selectedAccOrOrg.value, gitconfig.value);
+        }
+        payload.url = `https://gitlab.com/api/v4/${gitconfig.value ? '' : `${gitUserType.value}s/${encodeURIComponent(selectedAccOrOrg.value)}/`}projects?${gitconfig.value ? 'membership=true&' : ''}simple=true&search=${query}`;
+      }
+    }
+
+    const res = await store.dispatch('epinio/request', {
+      opt: {
+        url: '/api/v1/gitproxy',
+        method: 'POST',
+        data: payload,
+        responseType: 'json'
+      }
+    });
+
+    const results = props.type === 'github' ? res.data.items || [] : res.data || [];
+
+    if (!res.hasError) {
+      repos.value = [ ...results];
+    }
+  } else {
+    await fetchRepos(selectedAccOrOrg.value, gitconfig.value);
   }
 }
 
 const debouncedSearchRepo = debounce(searchRepo, debounceTime);
 
 async function searchBranch(query: string) {
+  if (props.type === 'github') {
+    // github has no search branches endpoint, so we just fetch all branches and filter them client-side
+    return;
+  }
   if (query.length) {
-    const resultInCurrentState = branches.value.filter((b: any) => b.name.startsWith(query));
-
-    if (!resultInCurrentState.length) {
-      const res = await store.dispatch(`${ props.type }/search`, {
-        repo:     selectedRepo.value,
-        branch:   { name: query },
-        username: selectedAccOrOrg.value,
-      });
-
-      if (!hasError.branch) {
-        branches.value = [...branches.value, res[0]];
-      }
-    } else {
-      return resultInCurrentState;
+    const payload: any = {
+      url: '',
     }
+    if (gitconfig.value) {
+      payload['gitconfig'] = gitconfig.value;
+    }
+    payload.url = `https://gitlab.com/api/v4/projects/${selectedRepo.value?.id}/repository/branches?search=${query}`;
+    const res = await store.dispatch('epinio/request', {
+      opt: {
+        url: '/api/v1/gitproxy',
+        method: 'POST',
+        data: payload,
+        responseType: 'json'
+      }
+    });
+
+    const results = res.data || [];
+
+    if (!res.hasError) {
+      branches.value = [...results];
+    }
+  } else {
+    await fetchBranches();
   }
 }
 
@@ -318,7 +501,22 @@ watch(() => props.value, async(neu, old) => {
 <template>
   <div class="picker">
     <div class="row">
-      <div class="spacer">
+      <div class="spacer source">
+        <h3>Config</h3>
+        <trailhand-dropdown
+          style="width: 100%;"
+          :value="gitconfig"
+          :options="gitConfigs.map((c: any) => ({ value: c.metadata.name, label: c.metadata.name }))"
+          data-testid="epinio_app-source_git-config"
+          label="Config"
+          @dropdown-change="(e: CustomEvent) => { gitconfig = e.detail.value }"
+        />
+      </div>
+
+      <div
+        v-if="type === 'github' || (type === 'gitlab' && !gitconfig)"
+        class="spacer"
+      >
         <trailhand-text-input
           style="width: 100%"
           :value="selectedAccOrOrg"
@@ -346,7 +544,7 @@ watch(() => props.value, async(neu, old) => {
           filterable
           @dropdown-change="(e: CustomEvent) => { 
             const selected = repos.find((r: any) => r.name === e.detail.value);
-            selectedRepo = selected; 
+            selectedRepo = selected || null; 
           }"
           @dropdown-filter="(e: CustomEvent<{ filter: string }>) => { debouncedSearchRepo(e.detail.filter); }"
         />
@@ -366,7 +564,11 @@ watch(() => props.value, async(neu, old) => {
           filterable
           @dropdown-change="(e: CustomEvent) => { 
             const selected = branches.find((b: any) => b.name === e.detail.value);
-            selectedBranch = selected; 
+            if (selected) {
+              selectedBranch = selected;
+            } else {
+              selectedBranch = null;
+            }
           }"
           @dropdown-filter="(e: CustomEvent<{ filter: string }>) => { debouncedSearchBranch(e.detail.filter); }"
         />

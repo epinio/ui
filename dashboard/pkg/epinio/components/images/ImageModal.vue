@@ -78,17 +78,6 @@ function openCreate() {
   showModal.value = true;
 }
 
-function openView(row: EpinioBuilderImageModel) {
-  errors.value = [];
-  modalMode.value = 'view';
-  imageName.value = row.name || row.meta?.name || '';
-  imageShortDescription.value = row.short_description || '';
-  imageDescription.value = row.description || '';
-  builderImage.value = row.image || '';
-  hasAssociatedApps.value = !!row.boundApps;
-  showModal.value = true;
-}
-
 function openEdit(row: EpinioBuilderImageModel) {
   errors.value = [];
   modalMode.value = 'edit';
@@ -97,7 +86,7 @@ function openEdit(row: EpinioBuilderImageModel) {
   imageShortDescription.value = row.short_description || '';
   imageDescription.value = row.description || '';
   builderImage.value = row.image || '';
-  hasAssociatedApps.value = !!row.boundApps;
+  hasAssociatedApps.value = !!row.bound_apps;
   showModal.value = true;
 }
 
@@ -183,7 +172,7 @@ async function onSubmit() {
   }
 }
 
-defineExpose({ openCreate, openEdit, openView });
+defineExpose({ openCreate, openEdit });
 </script>
 
 <template>

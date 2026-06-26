@@ -18,6 +18,7 @@ import {
 import { EpinioAppInfo } from '../../types';
 import { _EDIT } from '@shell/config/query-params';
 import { AppUtils } from '../../utils/application';
+import { EPINIO_TYPES } from '../../types';
 
 const GIT_BASE_URL = {
   [APPLICATION_SOURCE_TYPE.GIT_HUB]: 'https://github.com',
@@ -74,7 +75,8 @@ const container = reactive({
 const gitUrl = reactive({
   url: props.source?.gitUrl?.url || '',
   branch: props.source?.gitUrl?.branch || '',
-  validGitUrl: false,
+  validGitUrl: props.source?.gitUrl?.url ? true : false,
+  gitconfig: props.source?.gitUrl?.gitconfig || ''
 });
 
 const git = reactive({
@@ -87,7 +89,8 @@ const git = reactive({
     repos: [],
     branches: [],
     commits: []
-  }
+  },
+  gitconfig: props.source?.git?.gitconfig || ''
 });
 
 const appChart = ref(props.application.configuration?.appchart || props.source?.appChart || '');
@@ -99,22 +102,18 @@ const types = Object.values(APPLICATION_SOURCE_TYPE).map(value => ({
   value
 }));
 
-const namespaces = computed(() => sortBy(store.getters['epinio/all']('namespace'), 'name', false));
+const namespaces = computed(() => sortBy(store.getters['epinio/all'](EPINIO_TYPES.NAMESPACE), 'name', false));
 const appCharts = computed(() =>
-  sortBy(store.getters['epinio/all']('appCharts'), 'name', false).map((ap: EpinioApplicationChartResource) => ({
+  sortBy(store.getters['epinio/all'](EPINIO_TYPES.APP_CHARTS), 'name', false).map((ap: EpinioApplicationChartResource) => ({
     value: ap.meta.name,
     label: `${ap.meta.name} (${ap.short_description})`
   }))
 );
+const gitConfigs = computed(() => store.getters['epinio/all'](EPINIO_TYPES.GIT_CONFIG) || []);
 
 // Get the builder images from the store, add custom option and format for dropdown
 const builderImages = computed(() => {
-  // const defaultOption = {
-  //   value: DEFAULT_BUILD_PACK,
-  //   label: `default-image (Default)`,
-  //   default: true
-  // };
-  const catalogImages = sortBy(store.getters['epinio/all']('builderimages'), 'meta.name', false).map((bi: any) => ({
+  const catalogImages = sortBy(store.getters['epinio/all'](EPINIO_TYPES.BUILDER_IMAGE), 'meta.name', false).map((bi: any) => ({
     value: bi.image,
     label: `${bi.meta.name} (${bi.short_description})`,
     default: bi.default
@@ -148,7 +147,8 @@ const gitSource = computed(() => ({
   selectedAccOrOrg: git.usernameOrOrg,
   selectedRepo: git.repo,
   selectedBranch: git.branch,
-  selectedCommit: { sha: git.commit }
+  selectedCommit: { sha: git.commit },
+  gitconfig: git.gitconfig
 }));
 
 const valid = ref(validate());
@@ -211,14 +211,15 @@ function handleBuilderImageDropdownChange(value: string) {
   update();
 }
 
-function gitUpdate({ repo, selectedAccOrOrg, branch, commit, sourceData }: any) {
+function gitUpdate({ repo, selectedAccOrOrg, branch, commit, sourceData, gitconfig }: any) {
   if (!!selectedAccOrOrg && !!repo && !!commit && !!branch) {
     git.usernameOrOrg = selectedAccOrOrg;
-    git.url = `${GIT_BASE_URL[type.value]}/${selectedAccOrOrg}/${repo.name}`;
+    git.url = `${GIT_BASE_URL[type.value]}/${selectedAccOrOrg}/${type.value === 'gitlab' ? repo.path : repo.name}`;
     git.commit = commit;
     git.branch = branch;
     git.repo = repo;
     git.sourceData = sourceData;
+    git.gitconfig = gitconfig;
     update();
     emit('valid', true);
   } else {
@@ -495,6 +496,17 @@ onMounted(() => {
     </template>
 
     <template v-else-if="type === APPLICATION_SOURCE_TYPE.GIT_URL">
+      <div class="spacer source">
+        <h3>Config</h3>
+        <trailhand-dropdown
+          style="width: 100%;"
+          :value="gitUrl.gitconfig"
+          data-testid="epinio_app-source_git-config"
+          label="Config"
+          :options="gitConfigs.map((c: any) => ({ value: c.metadata.name, label: c.metadata.name }))"
+          @dropdown-change="(e: CustomEvent) => { gitUrl.gitconfig = e.detail.value; update(); }"
+        />
+      </div>
       <div class="spacer source">
         <h3>{{ t('epinio.applications.steps.source.git_url.url.label') }}</h3>
         <trailhand-text-input

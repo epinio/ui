@@ -165,6 +165,7 @@ export default class ApplicationActionResource extends Resource {
           git: {
             revision: source.gitUrl.branch,
             repository: source.gitUrl.url,
+            gitconfig: source.gitUrl.gitconfig,
           },
         };
       case APPLICATION_SOURCE_TYPE.GIT_HUB:
@@ -176,6 +177,7 @@ export default class ApplicationActionResource extends Resource {
             repository: source.git.url,
             branch: source.git.branch?.name,
             provider: source.type,
+            gitconfig: source.git.gitconfig,
           },
         };
     }

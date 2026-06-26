@@ -18,7 +18,7 @@ const t = store.getters['i18n/t'];
 function openDelete(row: EpinoAppChartModel) {
   chartToDelete.value = row;
   showDeleteModal.value = true;
-  hasAssociatedApps.value = !!row.boundApps;
+  hasAssociatedApps.value = !!row.bound_apps;
 }
 
 function closeDelete() {
