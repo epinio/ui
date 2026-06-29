@@ -133,8 +133,8 @@ const showDetails = (chart: any) => {
         :key="service.id"
         :card-title="service.meta.name"
         :description="service.short_description"
-        :icon-src="service.serviceIcon ? service.serviceIcon : null"
-        :icon-name="service.serviceIcon ? null : 'database'"
+        :icon-src="service.service_icon ? service.service_icon : null"
+        :icon-name="service.service_icon ? null : 'database'"
         clickable
         @click="showDetails(service)"
       >

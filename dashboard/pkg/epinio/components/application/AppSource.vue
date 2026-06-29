@@ -157,7 +157,17 @@ watch(type, () => {
   if (gitSkipTypeReset.value) {
     gitSkipTypeReset.value = false;
   } else {
-    Object.assign(git, {});
+    git.usernameOrOrg = '';
+    git.repo = '';
+    git.commit = '';
+    git.branch = '';
+    git.url = '';
+    git.sourceData = {
+      repos: [],
+      branches: [],
+      commits: []
+    };
+    git.gitconfig = '';
   }
   update();
 });
