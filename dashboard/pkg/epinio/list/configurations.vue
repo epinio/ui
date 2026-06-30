@@ -58,6 +58,7 @@ watch(searchQuery, (newQuery) => {
 onMounted(() => {
   window.addEventListener('resize', onResize);
   store.dispatch('epinio/me');
+  store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.APP });
   store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.CONFIGURATION });
   startPolling(['configurations'], store);
 });

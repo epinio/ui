@@ -137,10 +137,10 @@ watchEffect(() => {
 
 onMounted(() => {
   store.dispatch('epinio/me');
+  store.dispatch('epinio/findAll', { type: EPINIO_TYPES.APP });
   store.dispatch('epinio/findAll', { type: EPINIO_TYPES.SERVICE_INSTANCE });
   store.dispatch('epinio/findAll', { type: EPINIO_TYPES.NAMESPACE });
   store.dispatch('epinio/findAll', { type: EPINIO_TYPES.CATALOG_SERVICE });
-  store.dispatch('epinio/findAll', { type: EPINIO_TYPES.APP });
   startPolling(['services'], store);
 });
 
