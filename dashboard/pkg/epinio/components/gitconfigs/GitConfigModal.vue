@@ -118,12 +118,22 @@ async function onSubmit() {
   try {
     const gitConfig = await store.dispatch('epinio/create', { type: EPINIO_TYPES.GIT_CONFIG });
 
+    console.log('Creating git configuration:', {
+      id: gitConfigId.value,
+      url: gitConfigUrl.value,
+      provider: gitConfigProvider.value,
+      username: gitConfigUsername.value,
+      password: gitConfigPassword.value,
+      skipSSL: gitConfigSkipSSL.value,
+      global: gitConfigGlobal.value
+    });
+
     gitConfig.id                = gitConfigId.value;
     gitConfig.url               = gitConfigUrl.value;
     gitConfig.provider          = gitConfigProvider.value;
     gitConfig.username          = gitConfigUsername.value;
     gitConfig.password          = gitConfigPassword.value;
-    gitConfig.skipSSL           = gitConfigSkipSSL.value;
+    gitConfig.skipssl           = gitConfigSkipSSL.value;
     gitConfig.global            = gitConfigGlobal.value;
 
     await gitConfig.create();
@@ -143,6 +153,15 @@ async function onSubmit() {
   } finally {
     saving.value = false;
   }
+}
+
+function handleKeepEditing() {
+  showDiscardConfirm.value = false;
+}
+
+function handleDiscard() {
+  showDiscardConfirm.value = false;
+  closeModal();
 }
 
 defineExpose({ openCreate });
@@ -202,14 +221,14 @@ defineExpose({ openCreate });
         </trailhand-form-row>
         <trailhand-form-row columns="1">
           <trailhand-checkbox
-            :value="gitConfigSkipSSL"
-            @checkbox-change="(e: CustomEvent) => { gitConfigSkipSSL = e.detail.value; }"
+            :checked="gitConfigSkipSSL"
+            @checkbox-change="(e: CustomEvent) => { gitConfigSkipSSL = e.detail.checked; }"
           >Skip SSL Verification</trailhand-checkbox>
         </trailhand-form-row>
         <trailhand-form-row columns="1">
           <trailhand-checkbox
-            :value="gitConfigGlobal"
-            @checkbox-change="(e: CustomEvent) => { gitConfigGlobal = e.detail.value; }"
+            :checked="gitConfigGlobal"
+            @checkbox-change="(e: CustomEvent) => { gitConfigGlobal = e.detail.checked; }"
           >Global Configuration</trailhand-checkbox>
         </trailhand-form-row>
       </trailhand-form-card>
@@ -223,20 +242,39 @@ defineExpose({ openCreate });
     </div>
 
     <div slot="footer">
-      <trailhand-button
-        variant="secondary"
-        class="mr-10"
-        @button-click="handleModalClose"
-      >
-        Cancel
-      </trailhand-button>
-      <trailhand-button
-        variant="primary"
-        :disabled="!canSave"
-        @button-click="onSubmit"
-      >
-        Create
-      </trailhand-button>
+      <template v-if="showDiscardConfirm">
+        <span class="discard-message">You have unsaved changes.</span>
+        <trailhand-button
+          variant="secondary"
+          class="mr-10"
+          @button-click="handleKeepEditing"
+        >
+          Keep Editing
+        </trailhand-button>
+        <trailhand-button
+          variant="destructive"
+          @button-click="handleDiscard"
+        >
+          Discard
+        </trailhand-button>
+      </template>
+      <template v-else>
+        <trailhand-button
+          variant="secondary"
+          class="mr-10"
+          @button-click="handleModalClose"
+        >
+          Cancel
+        </trailhand-button>
+        <trailhand-button
+          variant="primary"
+          :disabled="!canSave"
+          @button-click="onSubmit"
+        >
+          Create
+        </trailhand-button>
+      </template>
+      
     </div>
   </trailhand-modal>
 </template>
@@ -248,5 +286,11 @@ defineExpose({ openCreate });
   gap: 1rem;
   width: 1000px;
   min-height: 350px;
+}
+
+.discard-message {
+  font-size: 13px;
+  color: var(--body-text);
+  margin-right: 12px;
 }
 </style>

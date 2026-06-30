@@ -184,7 +184,7 @@ const downloadSupportBundle = async() => {
 // Versions table
 const versionRows = computed(() => {
   if (!version.value) return [];
-  return [{ name: appName.value, version: versionString.value }, { name: 'Epinio UI', version: 'v1.14.1' }];
+  return [{ name: appName.value, version: versionString.value }, { name: 'Epinio UI', version: process.env.UI_VERSION }];
 });
 
 const versionColumns = [

@@ -124,8 +124,8 @@ const ROLE_ACTIONS: Record<string, string[]> = {
     'builderimage_write',
     'catalog_service_read',
     'catalog_service_write',
-    'git_config_read',
-    'git_config_write',
+    'gitconfig_read',
+    'gitconfig_write',
   ],
 };
 

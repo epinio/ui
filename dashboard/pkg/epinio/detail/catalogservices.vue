@@ -48,14 +48,14 @@ const availableActions = computed(() => {
 
     if (canCreateService.value) {
       out.push({
-        label: 'Create Service',
+        label: t('epinio.services.create.label'),
         enabled: true,
         action: () => serviceModal.value?.openCreate(row.id)
       });
     }
     if (canEditCatalogService.value) {
       out.push({
-        label: 'Edit',
+        label: t('generic.edit'),
         enabled: true,
         action: () => catalogServiceModal.value?.openEdit(row),
 
@@ -64,7 +64,7 @@ const availableActions = computed(() => {
     if (canDeleteCatalogService.value) {
       out.push({
         enabled: true,
-        label: 'Delete',
+        label: t('generic.delete'),
         action: () => catalogServiceDeleteModal.value?.openDelete(row),
       });
     }

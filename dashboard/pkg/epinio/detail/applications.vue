@@ -431,7 +431,7 @@ const preparedCommits = computed(() => {
 const gitCommitsColumns = computed(() => [
   {
     field: 'sha',
-    label: t(`gitPicker.${gitType.value}.tableHeaders.sha.label`),
+    label: t(`epinio.applications.gitSource.${gitType.value}.tableHeaders.sha.label`),
     width: '100px',
     formatter: (_v: any, row: any) => makeCommitShaCell(
       row,
@@ -441,20 +441,20 @@ const gitCommitsColumns = computed(() => [
   },
   {
     field: 'author_login',
-    label: t(`gitPicker.${gitType.value}.tableHeaders.author.label`),
+    label: t(`epinio.applications.gitSource.${gitType.value}.tableHeaders.author.label`),
     width: '190px',
     formatter: (_v: any, row: any) => makeCommitAuthorCell(
       row,
-      t(`gitPicker.${gitType.value}.tableHeaders.author.unknown`)
+      t(`epinio.applications.gitSource.${gitType.value}.tableHeaders.author.unknown`)
     )
   },
   {
     field: 'message',
-    label: t(`gitPicker.${gitType.value}.tableHeaders.message.label`)
+    label: t(`epinio.applications.gitSource.${gitType.value}.tableHeaders.message.label`)
   },
   {
     field: 'date',
-    label: t(`gitPicker.${gitType.value}.tableHeaders.date.label`),
+    label: t(`epinio.applications.gitSource.${gitType.value}.tableHeaders.date.label`),
     width: '220px',
     formatter: 'dateTime'
   }

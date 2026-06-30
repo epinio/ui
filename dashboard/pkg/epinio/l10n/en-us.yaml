@@ -1,3 +1,10 @@
+generic:
+  cancel: Cancel
+  close: Close
+  confirm: Confirm
+  delete: Delete
+  edit: Edit
+  save: Save
 typeLabel:
   withoutCount:
     namespaces: Namespaces
@@ -185,8 +192,56 @@ epinio:
     gitSource:
       github:
         label: GitHub
+        errors:
+          noAccount: No GitHub account or Organization found. Please review your query and try again.
+          noRepo: No GitHub repository found. Please review your query and try again.
+          noBranch: No GitHub branch found. Please review your query and try again.
+          noCommits: No GitHub commits found. Please review your query and try again.
+        tableHeaders:
+          choose:
+            label: Select
+          sha:
+            label: SHA
+          author:
+            label: Author
+            unknown: Unknown
+          message:
+            label: Message
+          date:
+            label: Date
+        inputs:
+          username:
+            label: Username / Organization
+          repo:
+            label: Repository
+          branch:
+            label: Branch
       gitlab:
         label: GitLab
+        errors:
+          noAccount: No GitLab account or Group found. Please review your query and try again.
+          noRepo: No GitLab repository found. Please review your query and try again.
+          noBranch: No GitLab branch found. Please review your query and try again.
+          noCommits: No GitLab commits found. Please review your query and try again.
+        tableHeaders:
+          choose:
+            label: Select
+          sha:
+            label: SHA
+          author:
+            label: Author
+            unknown: Unknown
+          message:
+            label: Message
+          date:
+            label: Date
+        inputs:
+          username:
+            label: Username / Group
+          repo:
+            label: Repository
+          branch:
+            label: Branch
       latestCommit: Latest commit deployed
       behindCommits: Commits behind
     create:
@@ -385,6 +440,8 @@ epinio:
       attemptingToRemove: You are attempting to delete the Service Instance
     chartValues:
       title: Service Variables
+    create:
+      label: Create Service
   configurations:
     pairs:
       label: Config Data

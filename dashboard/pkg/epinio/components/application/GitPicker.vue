@@ -57,7 +57,7 @@ const gitConfigs = computed(() => store.getters['epinio/all'](EPINIO_TYPES.GIT_C
 const columns = computed(() => [
   {
     field: 'commitId',
-    label: t(`gitPicker.${ props.type }.tableHeaders.choose.label`),
+    label: t(`epinio.applications.gitSource.${ props.type }.tableHeaders.choose.label`),
     width: '60px',
     sortable: false,
     formatter: (_v: any, row: any) => {
@@ -75,29 +75,29 @@ const columns = computed(() => [
   },
   {
     field: 'sha',
-    label: t(`gitPicker.${ props.type }.tableHeaders.sha.label`),
+    label: t(`epinio.applications.gitSource.${ props.type }.tableHeaders.sha.label`),
     width: '90px',
     sortable: false,
     formatter: (_v: any, row: any) => makeCommitShaCell(row)
   },
   {
     field: 'author',
-    label: t(`gitPicker.${ props.type }.tableHeaders.author.label`),
+    label: t(`epinio.applications.gitSource.${ props.type }.tableHeaders.author.label`),
     width: '190px',
     sortable: false,
     formatter: (_v: any, row: any) => makeCommitAuthorCell(
       row,
-      t(`gitPicker.${ props.type }.tableHeaders.author.unknown`)
+      t(`epinio.applications.gitSource.${ props.type }.tableHeaders.author.unknown`)
     )
   },
   {
     field: 'message',
-    label: t(`gitPicker.${ props.type }.tableHeaders.message.label`),
+    label: t(`epinio.applications.gitSource.${ props.type }.tableHeaders.message.label`),
     sortable: false,
   },
   {
     field: 'date',
-    label: t(`gitPicker.${ props.type }.tableHeaders.date.label`),
+    label: t(`epinio.applications.gitSource.${ props.type }.tableHeaders.date.label`),
     width: '220px',
     sortable: false,
     formatter: (_v: any, row: any) => {
@@ -546,7 +546,6 @@ watch(() => props.value, async(neu, old) => {
   <div class="picker">
     <div class="row">
       <div class="spacer source">
-        <h3>Config</h3>
         <trailhand-dropdown
           style="width: 100%;"
           :value="gitconfig"
@@ -565,12 +564,12 @@ watch(() => props.value, async(neu, old) => {
           style="width: 100%"
           :value="selectedAccOrOrg"
           data-testid="git_picker-username-or-org"
-          :label="t(`gitPicker.${ type }.username.inputLabel`)"
+          :label="t(`epinio.applications.gitSource.${ type }.inputs.username.label`)"
           :required="true"
           @text-input-change="(e: CustomEvent) => { selectedAccOrOrg = e.detail.value; }"
         />
         <p v-if="hasError.acc" class="error-message">
-          {{ t(`gitPicker.${ type }.errors.noAccount`) }}
+          {{ t(`epinio.applications.gitSource.${ type }.errors.noAccount`) }}
         </p>
       </div>
 
@@ -582,7 +581,7 @@ watch(() => props.value, async(neu, old) => {
           style="width: 100%"
           :value="selectedRepoName"
           data-testid="git_picker-repo"
-          :label="t(`gitPicker.${ type }.repo.inputLabel`)"
+          :label="t(`epinio.applications.gitSource.${ type }.inputs.repo.label`)"
           :required="true"
           :options="preparedRepos"
           filterable
@@ -594,7 +593,7 @@ watch(() => props.value, async(neu, old) => {
           @dropdown-filter="(e: CustomEvent<{ filter: string }>) => { debouncedSearchRepo(e.detail.filter); }"
         />
         <p v-if="hasError.repo" class="error-message">
-          {{ t(`gitPicker.${ type }.errors.noRepo`) }}
+          {{ t(`epinio.applications.gitSource.${ type }.errors.noRepo`) }}
         </p>
       </div>
 
@@ -606,7 +605,7 @@ watch(() => props.value, async(neu, old) => {
           style="width: 100%"
           :value="selectedBranchName"
           data-testid="git_picker-branch"
-          :label="t(`gitPicker.${ type }.branch.inputLabel`)"
+          :label="t(`epinio.applications.gitSource.${ type }.inputs.branch.label`)"
           :required="true"
           :options="preparedBranches"
           filterable
@@ -622,7 +621,7 @@ watch(() => props.value, async(neu, old) => {
           @dropdown-filter="(e: CustomEvent<{ filter: string }>) => { debouncedSearchBranch(e.detail.filter); }"
         />
         <p v-if="hasError.branch" class="error-message">
-          {{ t(`gitPicker.${ type }.errors.noBranch`) }}
+          {{ t(`epinio.applications.gitSource.${ type }.errors.noBranch`) }}
         </p>
       </div>
 
