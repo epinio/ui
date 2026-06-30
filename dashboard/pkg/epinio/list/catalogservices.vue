@@ -27,7 +27,7 @@ const resource: string = EPINIO_TYPES.CATALOG_SERVICE;
 const canEdit = computed(() => {
   const can = store.getters['epinio/can'];
 
-  return can && (can('catalog_service_write'));
+  return can && (can('service_write'));
 });
 const canDelete = canEdit;
 const canCreate = canEdit;
@@ -106,6 +106,7 @@ const showDetails = (chart: any) => {
       :schema="schema"
       :resource="resource"
     >
+      {{canCreate}}
       <template #createButton>
         <trailhand-button
           v-if="canCreate"
@@ -140,7 +141,7 @@ const showDetails = (chart: any) => {
       >
         <div slot="title" class="card-title">
           <h3>{{ service.meta.name }}</h3>
-          <trailhand-action-menu 
+          <trailhand-action-menu
             v-if="service.availableActions.length > 0"
             :actions="service.availableActions"
           />

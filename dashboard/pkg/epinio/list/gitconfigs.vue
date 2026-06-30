@@ -32,7 +32,7 @@ const paginating = ref(false);
 const canEdit = computed(() => {
   const can = store.getters['epinio/can'];
 
-  return can && (can('git_config_write'));
+  return can && (can('gitconfig_write'));
 });
 const canDelete = canEdit;
 const canCreate = canEdit;

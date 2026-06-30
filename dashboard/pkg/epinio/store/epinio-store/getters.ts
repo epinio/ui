@@ -40,7 +40,7 @@ export default {
     return url;
   },
 
-  // Ensure pagination params are included in URLs for list fetches, based on global pagination state for that type. 
+  // Ensure pagination params are included in URLs for list fetches, based on global pagination state for that type.
   // This allows pagination to work with any component that uses urlFor to generate its API URLs, without needing to explicitly pass page params from the component.
   urlOptions: (state: any) => (url: any) => {
     const pathToType: Record<string, string> = {
@@ -83,7 +83,7 @@ export default {
 
   searchQuery: (state: any) => (type: string) => state.searchQuery?.[type] ?? '',
 
-  // Return pagination meta for the given type, or null if not set. 
+  // Return pagination meta for the given type, or null if not set.
   // This is used by components to read pagination state for their API calls, which is managed globally in the store.
   paginationMeta: (state: any) => (type: string) => state.paginationMeta?.[type] ?? null,
 
