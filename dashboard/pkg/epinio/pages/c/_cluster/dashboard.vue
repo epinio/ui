@@ -285,7 +285,7 @@ async function calcAvailableResources() {
 
     showMetricsInfo.value = true;
     metricsStatus.value = 'available';
-  } catch (e) {
+  } catch {
     metricsStatus.value = 'unavailable';
   }
 }
