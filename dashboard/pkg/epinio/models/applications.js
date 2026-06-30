@@ -553,6 +553,22 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
     }));
   }
 
+  get metricsOk() {
+    const replicas = this.deployment?.replicas;
+
+    if (!replicas) {
+      return true;
+    }
+
+    const replicaList = Object.values(replicas);
+
+    if (replicaList.length === 0) {
+      return true;
+    }
+
+    return replicaList.every((r) => r.metricsOk);
+  }
+
   get instanceMemory() {
     const stats = this._instanceStats('memoryBytes');
     const opts = {

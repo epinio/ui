@@ -7,6 +7,7 @@ import relativeTime from 'dayjs/plugin/relativeTime';
 import Application from '../models/applications';
 import { GitUtils } from '@shell/utils/git';
 import { isArray } from '@shell/utils/array';
+import { formatSi } from '@shell/utils/units';
 import { EPINIO_TYPES } from '../types';
 import { epinioExceptionToErrorsArray } from '../utils/errors';
 import { startPolling, stopPolling } from '../utils/polling';
@@ -122,12 +123,18 @@ const instanceColumns = [
   {
     field: 'millicpus',
     label: 'Mill CPUs',
-    formatter: 'milliCPUs'
+    formatter: (value: unknown, row: { metricsOk?: boolean }) => formatMetricValue(value, row)
   },
   {
     field: 'memoryBytes',
     label: 'RAM',
-    formatter: 'memory'
+    formatter: (value: unknown, row: { metricsOk?: boolean }) => {
+      if (row.metricsOk === false) {
+        return t('epinio.intro.metrics.notAvailableShort');
+      }
+
+      return formatSi(value, { suffix: 'iB', firstSuffix: 'B', increment: 1024 });
+    }
   },
   {
     field: 'restarts',
@@ -210,6 +217,18 @@ const canEditConfig = computed(() => {
   const canGetter = store.getters['epinio/can'];
   return canGetter && (canGetter('configuration_write') || canGetter('configuration'));
 });
+
+const showMetricsUnavailable = computed(() => {
+  return props.value.instances.length > 0 && !props.value.metricsOk;
+});
+
+function formatMetricValue(value: unknown, row: { metricsOk?: boolean }) {
+  if (row.metricsOk === false) {
+    return t('epinio.intro.metrics.notAvailableShort');
+  }
+
+  return value;
+}
 
 
 watchEffect(() => {
@@ -565,7 +584,15 @@ function handleDeleted() {
                   </div>
                 </div>
                 <div class="deployment__origin__row">
+                  <Banner
+                    v-if="showMetricsUnavailable"
+                    color="warning"
+                    class="metrics-unavailable"
+                  >
+                    {{ t('epinio.intro.metrics.notAvailable') }}
+                  </Banner>
                   <div
+                    v-else
                     class="stats-table"
                   >
                     <table class="mt-15">
