@@ -236,7 +236,7 @@ function handleDeleted() {
       key-field="id"
       @navigate="handleNavigate"
     />
-    <ServiceDeleteModal ref="deleteModal" />
+    <ServiceDeleteModal ref="serviceDeleteModal" />
     <ServiceInstanceModal ref="serviceModal" />
     <CatalogServiceModal ref="catalogServiceModal" />
     <CatalogServiceDeleteModal ref="catalogServiceDeleteModal" @deleted="handleDeleted" />

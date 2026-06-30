@@ -137,7 +137,7 @@ function openEdit(row: EpinioCatalogServiceModel) {
   };
   chartSettings.value = mapSettingsFromApiResponse(row);
   catalogServiceSecretTypes.value = row.secret_types || [];
-  hasAssociatedServices.value = !!row.bound_services && row.bound_services.length > 0;
+  hasAssociatedServices.value = !!row.bound_services;
   showAdvancedOptions.value = row.secret_types && row.secret_types.length > 0;
 
   showModal.value = true;
