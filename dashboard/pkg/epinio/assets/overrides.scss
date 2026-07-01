@@ -5,6 +5,7 @@
 body.epinio-active {
   nav, main, .product, .rd-header-right {
       font-family: 'Poppins', sans-serif;
+      --font-family: 'Poppins', sans-serif;
   }
 }
 
@@ -17,6 +18,10 @@ body.epinio-active {
     --primary-border: var(--th-color-primary);
     --link: var(--th-color-primary); 
     --th-card-bg: var(--th-color-background);
+    --sortable-table-row-hover-bg: var(--sortable-table-hover-bg);
+    --sortable-table-header-hover-bg: var(--sortable-table-hover-bg);
+    --sortable-table-header-sorted-bg: var(--sortable-table-hover-bg);
+
     --th-progress-bar-height: 16px;
     --th-progress-bar-border-radius: 8px;
 

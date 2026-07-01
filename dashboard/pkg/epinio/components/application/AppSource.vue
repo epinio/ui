@@ -18,6 +18,7 @@ import {
 import { EpinioAppInfo } from '../../types';
 import { _EDIT } from '@shell/config/query-params';
 import { AppUtils } from '../../utils/application';
+import { EPINIO_TYPES } from '../../types';
 
 const GIT_BASE_URL = {
   [APPLICATION_SOURCE_TYPE.GIT_HUB]: 'https://github.com',
@@ -58,9 +59,7 @@ const archiveFileInput = ref<HTMLInputElement | null>(null);
 const folderFileInput = ref<HTMLInputElement | null>(null);
 const fileDialogActive = ref(false);
 
-// Defaults
-const defaultBuilderImage = ref(props.info?.default_builder_image || DEFAULT_BUILD_PACK); 
-const builderImageValue = ref(props.source?.builderImage?.value || defaultBuilderImage.value);
+const builderImage = ref(props.source?.builderImage || '');
 
 // Reactive State
 const gitSkipTypeReset = ref(false);
@@ -76,7 +75,8 @@ const container = reactive({
 const gitUrl = reactive({
   url: props.source?.gitUrl?.url || '',
   branch: props.source?.gitUrl?.branch || '',
-  validGitUrl: false,
+  validGitUrl: props.source?.gitUrl?.url ? true : false,
+  gitconfig: props.source?.gitUrl?.gitconfig || ''
 });
 
 const git = reactive({
@@ -89,12 +89,8 @@ const git = reactive({
     repos: [],
     branches: [],
     commits: []
-  }
-});
-
-const builderImage = reactive({
-  value: builderImageValue.value,
-  default: builderImageValue.value === defaultBuilderImage.value
+  },
+  gitconfig: props.source?.git?.gitconfig || ''
 });
 
 const appChart = ref(props.application.configuration?.appchart || props.source?.appChart || '');
@@ -106,12 +102,40 @@ const types = Object.values(APPLICATION_SOURCE_TYPE).map(value => ({
   value
 }));
 
-const namespaces = computed(() => sortBy(store.getters['epinio/all']('namespace'), 'name', false));
+const namespaces = computed(() => sortBy(store.getters['epinio/all'](EPINIO_TYPES.NAMESPACE), 'name', false));
 const appCharts = computed(() =>
-  sortBy(store.getters['epinio/all']('appCharts'), 'name', false).map((ap: EpinioApplicationChartResource) => ({
+  sortBy(store.getters['epinio/all'](EPINIO_TYPES.APP_CHARTS), 'name', false).map((ap: EpinioApplicationChartResource) => ({
     value: ap.meta.name,
     label: `${ap.meta.name} (${ap.short_description})`
   }))
+);
+const gitConfigs = computed(() => store.getters['epinio/all'](EPINIO_TYPES.GIT_CONFIG) || []);
+
+// Get the builder images from the store, add custom option and format for dropdown
+const builderImages = computed(() => {
+  const catalogImages = sortBy(store.getters['epinio/all'](EPINIO_TYPES.BUILDER_IMAGE), 'meta.name', false).map((bi: any) => ({
+    value: bi.image,
+    label: `${bi.meta.name} (${bi.short_description})`,
+    default: bi.default
+  }))
+  const customOption = {
+    value: 'custom',
+    label: 'Custom',
+    default: false
+  }
+  return [...catalogImages, customOption];
+});
+
+const selectedBuilderImage = computed(() => {
+  return builderImages.value.some(
+    (bi) => bi.value === builderImage.value
+  )
+    ? builderImage.value
+    : 'custom';
+});
+
+const isCustomBuilderImage = computed(
+  () => selectedBuilderImage.value === 'custom'
 );
 
 const showBuilderImage = computed(() =>
@@ -123,7 +147,8 @@ const gitSource = computed(() => ({
   selectedAccOrOrg: git.usernameOrOrg,
   selectedRepo: git.repo,
   selectedBranch: git.branch,
-  selectedCommit: { sha: git.commit }
+  selectedCommit: { sha: git.commit },
+  gitconfig: git.gitconfig
 }));
 
 const valid = ref(validate());
@@ -132,7 +157,17 @@ watch(type, () => {
   if (gitSkipTypeReset.value) {
     gitSkipTypeReset.value = false;
   } else {
-    Object.assign(git, {});
+    git.usernameOrOrg = '';
+    git.repo = '';
+    git.commit = '';
+    git.branch = '';
+    git.url = '';
+    git.sourceData = {
+      repos: [],
+      branches: [],
+      commits: []
+    };
+    git.gitconfig = '';
   }
   update();
 });
@@ -152,7 +187,7 @@ function validate() {
       return !!gitUrl.url && !!gitUrl.branch && !!builderImage.value && !!gitUrl.validGitUrl;
     case APPLICATION_SOURCE_TYPE.GIT_HUB:
     case APPLICATION_SOURCE_TYPE.GIT_LAB:
-      return !!git.usernameOrOrg && !!git.url && !!git.repo && !!git.branch && !!git.commit;
+      return !!git.usernameOrOrg && !!git.url && !!git.repo && !!git.branch && !!git.commit && !!builderImage.value;
   }
 }
 
@@ -162,10 +197,7 @@ function update() {
     archive,
     container,
     gitUrl,
-    builderImage: {
-      value: builderImageValue.value,
-      default:  builderImageValue.value === defaultBuilderImage.value
-    },
+    builderImage: builderImage.value,
     appChart: appChart.value,
     git
   });
@@ -180,24 +212,24 @@ function updateConfigurations(configs: string[]) {
   emit('changeAppConfig', configs);
 }
 
-function onImageType(defaultImage: boolean) {
-  if (defaultImage) {
-    builderImage.value = defaultBuilderImage.value;
+function handleBuilderImageDropdownChange(value: string) {
+  if (value === 'custom') {
+    builderImage.value = '';
   } else {
-    builderImage.value = builderImageValue.value;
+    builderImage.value = value;
   }
-  builderImage.default = defaultImage;
   update();
-} 
+}
 
-function gitUpdate({ repo, selectedAccOrOrg, branch, commit, sourceData }: any) {
+function gitUpdate({ repo, selectedAccOrOrg, branch, commit, sourceData, gitconfig }: any) {
   if (!!selectedAccOrOrg && !!repo && !!commit && !!branch) {
     git.usernameOrOrg = selectedAccOrOrg;
-    git.url = `${GIT_BASE_URL[type.value]}/${selectedAccOrOrg}/${repo.name}`;
+    git.url = `${GIT_BASE_URL[type.value]}/${selectedAccOrOrg}/${type.value === 'gitlab' ? repo.path : repo.name}`;
     git.commit = commit;
     git.branch = branch;
     git.repo = repo;
     git.sourceData = sourceData;
+    git.gitconfig = gitconfig;
     update();
     emit('valid', true);
   } else {
@@ -353,8 +385,15 @@ function onFolderSelected(files: FileWithRelativePath | FileWithRelativePath[]) 
 }
 
 onMounted(() => {
+  // If no app chart is set from the source or application configuration, default to the standard app chart
   if (!appChart.value) {
-    appChart.value = props.application.configuration?.appchart || props.source?.appChart || appCharts.value[0]?.value || appCharts.value[0];
+    const standardAppChart = appCharts.value.find((ac) => ac.value === 'standard');
+    appChart.value = props.application.configuration?.appchart || props.source?.appChart || standardAppChart?.value || appCharts.value[0]?.value || appCharts.value[0];
+  }
+  // If no builder image is set from the source, default to the info default or the first in the catalog
+  if (!builderImage.value) {
+    const defaultImage = builderImages.value.find((bi: any) => bi.default);
+    builderImage.value = defaultImage ? defaultImage.value : builderImages.value[0]?.value || '';
   }
   update();
 });
@@ -468,6 +507,17 @@ onMounted(() => {
 
     <template v-else-if="type === APPLICATION_SOURCE_TYPE.GIT_URL">
       <div class="spacer source">
+        <h3>Config</h3>
+        <trailhand-dropdown
+          style="width: 100%;"
+          :value="gitUrl.gitconfig"
+          data-testid="epinio_app-source_git-config"
+          label="Config"
+          :options="gitConfigs.map((c: any) => ({ value: c.metadata.name, label: c.metadata.name }))"
+          @dropdown-change="(e: CustomEvent) => { gitUrl.gitconfig = e.detail.value; update(); }"
+        />
+      </div>
+      <div class="spacer source">
         <h3>{{ t('epinio.applications.steps.source.git_url.url.label') }}</h3>
         <trailhand-text-input
           style="width: 100%;"
@@ -520,19 +570,21 @@ onMounted(() => {
       <template v-if="showBuilderImage">
         <div class="spacer source builder-image">
           <h4>Paketo Builder Image</h4>
-          <trailhand-checkbox
-            :checked="!builderImage.default"
-            data-testid="epinio_app-source_builder-default"
-            @checkbox-change="onImageType(!builderImage.default)"
-          >
-            Use Custom Builder Image
-          </trailhand-checkbox>
+          <trailhand-dropdown
+            :value="selectedBuilderImage"
+            data-testid="epinio_app-source_builder-catalog"
+            label="Builder Image"
+            :options="builderImages"
+            @dropdown-change="(e: CustomEvent) => { 
+              handleBuilderImageDropdownChange(e.detail.value);
+            }"
+          />
           <trailhand-text-input
             style="width: 100%;"
-            :value="builderImageValue"
+            :value="builderImage"
             data-testid="epinio_app-source_builder-value"
-            :disabled="builderImage.default"
-            @text-input-change="(e: CustomEvent) => { builderImageValue = e.detail.value; update(); }"
+            :disabled="!isCustomBuilderImage"
+            @text-input-change="(e: CustomEvent) => { builderImage = e.detail.value; update(); }"
           />
         </div>
       </template>

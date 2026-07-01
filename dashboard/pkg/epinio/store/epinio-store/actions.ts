@@ -227,8 +227,27 @@ export default {
         id:                EPINIO_TYPES.APP_CHARTS,
         type:              'schema',
         links:             { collection: '/api/v1/appcharts' },
-        collectionMethods: ['get'],
+        collectionMethods: ['get', 'post'],
         resourceFields:    { },
+        attributes:        { namespaced: true }
+      },
+      {
+        product:           EPINIO_PRODUCT_NAME,
+        id:                EPINIO_TYPES.BUILDER_IMAGE,
+        type:              'schema',
+        links:             { collection: '/api/v1/builderimages' },
+        collectionMethods: ['get', 'post'],
+        resourceFields:    { },
+        attributes:        { namespaced: true }
+      },
+      {
+        product:           EPINIO_PRODUCT_NAME,
+        id:                EPINIO_TYPES.GIT_CONFIG,
+        type:              'schema',
+        links:             { collection: '/api/v1/gitconfigs' },
+        collectionMethods: ['get', 'post'],
+        resourceFields:    { },
+        attributes:        { namespaced: true }
       }, {
         product:           EPINIO_PRODUCT_NAME,
         id:                EPINIO_TYPES.NAMESPACE,

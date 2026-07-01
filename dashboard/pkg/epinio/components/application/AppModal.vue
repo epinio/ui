@@ -98,6 +98,8 @@ async function openCreate() {
   const hash = await allHash({
     ns: store.dispatch('epinio/findAll', { type: EPINIO_TYPES.NAMESPACE }),
     charts: store.dispatch('epinio/findAll', { type: EPINIO_TYPES.APP_CHARTS }),
+    images: store.dispatch('epinio/findAll', { type: EPINIO_TYPES.BUILDER_IMAGE }),
+    gitConfigs: store.dispatch('epinio/findAll', { type: EPINIO_TYPES.GIT_CONFIG }),
     info: store.dispatch('epinio/info'),
   });
 
@@ -121,6 +123,8 @@ async function openEdit(row: EpinioApplicationModel, commit?: string) {
   const hash = await allHash({
     ns: store.dispatch('epinio/findAll', { type: EPINIO_TYPES.NAMESPACE }),
     charts: store.dispatch('epinio/findAll', { type: EPINIO_TYPES.APP_CHARTS }),
+    images: store.dispatch('epinio/findAll', { type: EPINIO_TYPES.BUILDER_IMAGE }),
+    gitConfigs: store.dispatch('epinio/findAll', { type: EPINIO_TYPES.GIT_CONFIG }),
     info: store.dispatch('epinio/info'),
   });
 
@@ -256,11 +260,12 @@ function updateSource(changes: EpinioAppSource) {
     if (chartId) {
       const chart = appChart.chartsList?.find((c: any) => c.id === chartId);
 
-      if (chart?.settings) {
-        const customSettings = Object.keys(chart.settings).reduce((acc, key) => {
-          acc[key] = '';
-          return acc;
-        }, {} as Record<string, any>);
+    if (chart?.settings) {
+      const customSettings = Object.keys(chart.settings).reduce((acc, key) => {
+        const fallbackValue = chart?.settings[key].type === 'bool' ? false : '';
+        acc[key] = chart?.values?.[key] || fallbackValue;
+        return acc;
+      }, {} as Record<string, any>);
 
         set(value.value.configuration, { settings: customSettings });
         set(value.value, { chart });
