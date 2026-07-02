@@ -59,8 +59,8 @@ const showDiscardConfirm = ref(false);
 
 const validationPassed = computed(() => {
   if (!gitConfigId.value) return false;
-  if (!gitConfigUrl.value) return false;
   if (!gitConfigProvider.value) return false;
+  if (!gitConfigUrl.value && (gitConfigProvider.value === 'github_enterprise' || gitConfigProvider.value === 'gitlab_enterprise' || gitConfigProvider.value === 'git')) return false;
 
   const nameErrors = validateKubernetesName(gitConfigId.value, '', store.getters, undefined, []);
   return nameErrors.length === 0;
@@ -117,16 +117,6 @@ async function onSubmit() {
 
   try {
     const gitConfig = await store.dispatch('epinio/create', { type: EPINIO_TYPES.GIT_CONFIG });
-
-    console.log('Creating git configuration:', {
-      id: gitConfigId.value,
-      url: gitConfigUrl.value,
-      provider: gitConfigProvider.value,
-      username: gitConfigUsername.value,
-      password: gitConfigPassword.value,
-      skipSSL: gitConfigSkipSSL.value,
-      global: gitConfigGlobal.value
-    });
 
     gitConfig.id                = gitConfigId.value;
     gitConfig.url               = gitConfigUrl.value;
@@ -186,15 +176,6 @@ defineExpose({ openCreate });
             :required="true"
             @text-input-change="(e: CustomEvent) => { gitConfigId = e.detail.value; }"
           ></trailhand-text-input>
-          <trailhand-text-input
-            :value="gitConfigUrl"
-            label="URL"
-            placeholder="Git Host URL"
-            :required="true"
-            @text-input-change="(e: CustomEvent) => { gitConfigUrl = e.detail.value; }"
-          ></trailhand-text-input>
-        </trailhand-form-row>
-        <trailhand-form-row columns="1">
           <trailhand-dropdown
             :value="gitConfigProvider"
             label="Provider"
@@ -203,6 +184,15 @@ defineExpose({ openCreate });
             :required="true"
             @dropdown-change="(e: CustomEvent) => { gitConfigProvider = e.detail.value; }"
           ></trailhand-dropdown>
+        </trailhand-form-row>
+        <trailhand-form-row columns="1" v-if="gitConfigProvider === 'github_enterprise' || gitConfigProvider === 'gitlab_enterprise' || gitConfigProvider === 'git'">
+          <trailhand-text-input
+            :value="gitConfigUrl"
+            label="URL"
+            placeholder="Git Host URL"
+            :required="true"
+            @text-input-change="(e: CustomEvent) => { gitConfigUrl = e.detail.value; }"
+          ></trailhand-text-input>
         </trailhand-form-row>
         <trailhand-form-row columns="2">
           <trailhand-text-input
