@@ -12,6 +12,7 @@ import EpinioServiceModel from 'models/services';
 import { overrideTableRows } from '../utils/table-formatters';
 import ServiceDeleteModal from '../components/service/ServiceDeleteModal.vue';
 import ServiceInstanceModal from '../components/service/ServiceInstanceModal.vue';
+import BulkDeleteModal from '../components/BulkDeleteModal.vue';
 
 defineProps<{
   schema: object,
@@ -56,6 +57,9 @@ watch(searchQuery, (newQuery) => {
 
 const serviceModal = ref<InstanceType<typeof ServiceInstanceModal> | null>(null);
 const deleteModal = ref<InstanceType<typeof ServiceDeleteModal> | null>(null);
+const bulkDeleteModal = ref<InstanceType<typeof BulkDeleteModal> | null>(null);
+const tableEl = ref<any>(null);
+const selectedRows = ref<any[]>([]);
 const displayRows = ref<any[]>([]);
 
 const canEdit = computed(() => {
@@ -156,6 +160,37 @@ onUnmounted(() => {
   stopPolling(['services']);
 });
 
+// Services without service_write/service permission on that row can't be
+// individually deleted, so they're excluded from bulk selection too.
+const isRowSelectable = (row: any) => row.canDelete;
+
+const handleSelectionChange = (event: CustomEvent) => {
+  selectedRows.value = event.detail.selectedRows;
+};
+
+const handleBulkDeleteClick = () => {
+  bulkDeleteModal.value?.openDelete(selectedRows.value);
+};
+
+const handleBulkDeleted = () => {
+  selectedRows.value = [];
+  tableEl.value?.clearSelection();
+};
+
+// NOTE: must be a named function declared here, not an inline arrow function
+// in the template — see feedback_vue_ref_unwrap_bug.md. Vue auto-unwraps
+// top-level refs inside template expressions, so referencing `tableEl`
+// directly in an inline template callback gives the already-unwrapped
+// (initially null) value instead of the Ref object, and `tableEl.value = el`
+// throws, silently aborting the rest of the block.
+const setTableRef = (el: any) => {
+  if (el) {
+    tableEl.value = el;
+    el.renderActions = makeActionMenu;
+    el.rowSelectable = isRowSelectable;
+  }
+};
+
 const handleNavigate = (event: CustomEvent) => {
   router.push(event.detail.url);
 };
@@ -218,6 +253,17 @@ const columns = [
       :schema="schema"
       :resource="resource"
     >
+      <template #extraActions>
+        <trailhand-button
+          v-if="selectedRows.length"
+          variant="destructive"
+          size="large"
+          @click="handleBulkDeleteClick"
+        >
+          <trailhand-icon name="trash" />
+          Delete ({{ selectedRows.length }})
+        </trailhand-button>
+      </template>
       <template #createButton>
         <trailhand-button
           v-if="canCreate"
@@ -238,10 +284,11 @@ const columns = [
       ></trailhand-text-input>
     </div>
     <trailhand-table
-      :ref="(el: any) => { if (el) el.renderActions = makeActionMenu; }"
+      :ref="setTableRef"
       :rows="displayRows"
       :columns="columns"
       :searchable="false"
+      :selectable="canDelete"
       :server-side="!!paginationMeta"
       :total-items="paginationMeta?.totalItems ?? displayRows.length"
       :current-page="currentPage"
@@ -249,9 +296,17 @@ const columns = [
       key-field="id"
       @navigate="handleNavigate"
       @page-change="(e: CustomEvent) => goToPage(e.detail.page)"
+      @selection-change="handleSelectionChange"
     />
     <ServiceInstanceModal ref="serviceModal" />
     <ServiceDeleteModal ref="deleteModal" />
+    <BulkDeleteModal
+      ref="bulkDeleteModal"
+      resource-label="service instance"
+      :resource-type="resource"
+      :show-unbind-notice="true"
+      @settled="handleBulkDeleted"
+    />
   </div>
 </template>
 
