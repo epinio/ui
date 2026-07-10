@@ -55,6 +55,19 @@ const gitConfigs = computed(() => (store.getters['epinio/all'](EPINIO_TYPES.GIT_
 
 const selectedGitConfig = computed(() => gitConfigs.value.find((c: any) => c.meta.name === gitconfig.value) || null);
 
+// hostFromUrl reduces a stored instance URL to its bare host (no scheme, no
+// path), so it can be interpolated into `https://<host>/...` API calls. Accepts
+// values with or without a scheme, e.g. 'https://ghe.corp.com' or 'ghe.corp.com'.
+function hostFromUrl(raw: string | null | undefined): string {
+  if (!raw) return '';
+  const withScheme = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+  try {
+    return new URL(withScheme).host;
+  } catch {
+    return '';
+  }
+}
+
 const gitBaseUrl = computed(() => {
   if (!selectedGitConfig.value) {
     return props.type === 'github' ? 'api.github.com' : 'gitlab.com';
@@ -68,7 +81,11 @@ const gitBaseUrl = computed(() => {
   } else if (provider === 'gitlab') {
     return 'gitlab.com';
   } else if (provider === 'github_enterprise' || provider === 'gitlab_enterprise' || provider === 'git') {
-    return url;
+    const host = hostFromUrl(url);
+    if (!host) return null;
+    // GitHub Enterprise Server serves its REST API under /api/v3. GitLab (and a
+    // generic git host) already carry /api/v4 in the request paths, so no prefix.
+    return provider === 'github_enterprise' ? `${host}/api/v3` : host;
   }
 
   return null;
@@ -199,8 +216,11 @@ function reset() {
 function final(commitId: string) {
   selectedCommit.value = preparedCommits.value.find((c: any) => c.commitId === commitId) || null;
 
-  if (selectedAccOrOrg.value && selectedRepo.value && selectedCommit.value?.commitId) {
+  if (selectedRepo.value && selectedCommit.value?.commitId) {
     emit('change', {
+      // Always pass the account/org through, even though it is no longer
+      // required to emit: GitHub needs it downstream, GitLab+gitconfig leaves
+      // it null (the membership flow has no account/org).
       selectedAccOrOrg: selectedAccOrOrg.value,
       repo:             selectedRepo.value,
       branch:           selectedBranch.value,
@@ -248,7 +268,7 @@ async function getGitlabUserType(username: string, gitconfig: string | null) {
       opt: {
         url: '/api/v1/gitproxy',
         method: 'POST',
-        data: { 
+        data: {
           url: `https://${gitBaseUrl.value}/api/v4/groups/${username}`,
           ...(gitconfig ? { gitconfig } : {})
         },
@@ -271,7 +291,7 @@ async function getGitlabUserType(username: string, gitconfig: string | null) {
       opt: {
         url: '/api/v1/gitproxy',
         method: 'POST',
-        data: { 
+        data: {
           url: `https://${gitBaseUrl.value}/api/v4/users?username=${username}`,
           ...(gitconfig ? { gitconfig } : {})
         },
@@ -473,7 +493,7 @@ async function searchRepo(query: string) {
         if (!gitUserType.value) {
           await getGithubUserType(selectedAccOrOrg.value, gitconfig.value);
         }
-        payload.url = `https://api.github.com/search/repositories?q=${query}+${gitUserType.value}:${selectedAccOrOrg.value}`;
+        payload.url = `https://${gitBaseUrl.value}/search/repositories?q=${query}+${gitUserType.value}:${selectedAccOrOrg.value}`;
       } else {
         if (gitconfig.value) {
           payload.url = `https://${gitBaseUrl.value}/api/v4/projects?membership=true&simple=true&search=${query}`;
@@ -568,7 +588,7 @@ watch(() => props.value, async(neu, old) => {
           :value="gitconfig"
           :options="gitConfigs.map((c: any) => ({ value: c.metadata.name, label: c.metadata.name }))"
           data-testid="epinio_app-source_git-config"
-          label="Config"
+          label="Git Config"
           @dropdown-change="(e: CustomEvent) => { gitconfig = e.detail.value }"
         />
       </div>
@@ -591,7 +611,7 @@ watch(() => props.value, async(neu, old) => {
       </div>
 
       <div
-        v-if="selectedAccOrOrg"
+        v-if="selectedAccOrOrg || (type === 'gitlab' && gitconfig)"
         class="spacer"
       >
         <trailhand-dropdown
@@ -603,9 +623,9 @@ watch(() => props.value, async(neu, old) => {
           :options="preparedRepos"
           filterable
           :loading="isLoadingRepos"
-          @dropdown-change="(e: CustomEvent) => { 
+          @dropdown-change="(e: CustomEvent) => {
             const selected = repos.find((r: any) => r.name === e.detail.value);
-            selectedRepo = selected || null; 
+            selectedRepo = selected || null;
           }"
           @dropdown-filter="(e: CustomEvent<{ filter: string }>) => { debouncedSearchRepo(e.detail.filter); }"
         />
@@ -627,7 +647,7 @@ watch(() => props.value, async(neu, old) => {
           :options="preparedBranches"
           filterable
           :loading="isLoadingBranches"
-          @dropdown-change="(e: CustomEvent) => { 
+          @dropdown-change="(e: CustomEvent) => {
             const selected = branches.find((b: any) => b.name === e.detail.value);
             if (selected) {
               selectedBranch = selected;

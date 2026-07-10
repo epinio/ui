@@ -109,6 +109,22 @@ function closeModal() {
   hasAssociatedApps.value = false;
 }
 
+// canonicalInstanceUrl normalizes an enterprise instance URL to `https://<host>`
+// (scheme + host, no path or trailing slash). The server matches a git config to
+// a repository by reducing the repo URL to scheme://host, so the stored config
+// URL must be in that same shape. Empty input (SaaS providers) is left empty.
+function canonicalInstanceUrl(raw: string): string {
+  const trimmed = (raw || '').trim();
+  if (!trimmed) return '';
+  const withScheme = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+  try {
+    const parsed = new URL(withScheme);
+    return `${parsed.protocol}//${parsed.host}`;
+  } catch {
+    return trimmed;
+  }
+}
+
 async function onSubmit() {
   if (!validationPassed.value || !isDirty.value || saving.value) return;
 
@@ -119,7 +135,7 @@ async function onSubmit() {
     const gitConfig = await store.dispatch('epinio/create', { type: EPINIO_TYPES.GIT_CONFIG });
 
     gitConfig.id                = gitConfigId.value;
-    gitConfig.url               = gitConfigUrl.value;
+    gitConfig.url               = canonicalInstanceUrl(gitConfigUrl.value);
     gitConfig.provider          = gitConfigProvider.value;
     gitConfig.username          = gitConfigUsername.value;
     gitConfig.password          = gitConfigPassword.value;
