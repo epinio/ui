@@ -34,8 +34,11 @@ const providerOptions = [{
   label: 'GitHub',
   value: 'github'
 }, {
-  label: 'GitHub Enterprise',
-  value: 'github_enterprise'
+  label: 'GitHub Enterprise Cloud',
+  value: 'github_enterprise_cloud'
+}, {
+  label: 'GitHub Enterprise Self-Hosted',
+  value: 'github_enterprise_self_hosted'
 }, {
   label: 'GitLab',
   value: 'gitlab'
@@ -60,7 +63,7 @@ const showDiscardConfirm = ref(false);
 const validationPassed = computed(() => {
   if (!gitConfigId.value) return false;
   if (!gitConfigProvider.value) return false;
-  if (!gitConfigUrl.value && (gitConfigProvider.value === 'github_enterprise' || gitConfigProvider.value === 'gitlab_enterprise' || gitConfigProvider.value === 'git')) return false;
+  if (!gitConfigUrl.value && (gitConfigProvider.value === 'github_enterprise_cloud' || gitConfigProvider.value === 'github_enterprise_self_hosted' || gitConfigProvider.value === 'gitlab_enterprise' || gitConfigProvider.value === 'git')) return false;
 
   const nameErrors = validateKubernetesName(gitConfigId.value, '', store.getters, undefined, []);
   return nameErrors.length === 0;
@@ -201,7 +204,7 @@ defineExpose({ openCreate });
             @dropdown-change="(e: CustomEvent) => { gitConfigProvider = e.detail.value; }"
           ></trailhand-dropdown>
         </trailhand-form-row>
-        <trailhand-form-row columns="1" v-if="gitConfigProvider === 'github_enterprise' || gitConfigProvider === 'gitlab_enterprise' || gitConfigProvider === 'git'">
+        <trailhand-form-row columns="1" v-if="gitConfigProvider === 'github_enterprise_cloud' || gitConfigProvider === 'github_enterprise_self_hosted' || gitConfigProvider === 'gitlab_enterprise' || gitConfigProvider === 'git'">
           <trailhand-text-input
             :value="gitConfigUrl"
             label="URL"

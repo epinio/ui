@@ -80,12 +80,12 @@ const gitBaseUrl = computed(() => {
     return 'api.github.com';
   } else if (provider === 'gitlab') {
     return 'gitlab.com';
-  } else if (provider === 'github_enterprise' || provider === 'gitlab_enterprise' || provider === 'git') {
+  } else if (provider === 'github_enterprise_self_hosted' || provider === 'github_enterprise_cloud' || provider === 'gitlab_enterprise' || provider === 'git') {
     const host = hostFromUrl(url);
     if (!host) return null;
     // GitHub Enterprise Server serves its REST API under /api/v3. GitLab (and a
     // generic git host) already carry /api/v4 in the request paths, so no prefix.
-    return provider === 'github_enterprise' ? `${host}/api/v3` : host;
+    return provider === 'github_enterprise_self_hosted' ? `${host}/api/v3` : host;
   }
 
   return null;
