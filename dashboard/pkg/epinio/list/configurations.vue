@@ -59,10 +59,22 @@ watch(searchQuery, (newQuery) => {
   onSearch(newQuery);
 });
 
-onMounted(() => {
+onMounted(async () => {
   window.addEventListener('resize', onResize);
-  store.dispatch('epinio/me');
-  store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.CONFIGURATION });
+  paginating.value = true;
+  try {
+    await Promise.all([
+      store.dispatch('epinio/me'),
+      store.dispatch('epinio/findAll', { type: EPINIO_TYPES.CONFIGURATION }),
+      // Bound Applications/Service columns cross-reference these; fetch them
+      // directly so they're populated on first load instead of depending on
+      // another page (Applications/Services) having fetched them already.
+      store.dispatch('epinio/findAll', { type: EPINIO_TYPES.APP }),
+      store.dispatch('epinio/findAll', { type: EPINIO_TYPES.SERVICE_INSTANCE }),
+    ]);
+  } finally {
+    paginating.value = false;
+  }
   startPolling(['configurations'], store);
 });
 
@@ -97,7 +109,12 @@ watchEffect(() => {
   const activeNamespaces = store.state.activeNamespaceCache;
   const all = store.getters['epinio/all'](EPINIO_TYPES.CONFIGURATION) as any[];
 
-  all.forEach((row: any) => { void row.status; void row.stateDisplay; void row.meta; });
+  // row.applications/row.service pull from the separate Applications/Services
+  // store slices; touch them here too so Vue re-runs this watchEffect (and
+  // recomputes displayRows) once that data arrives, instead of leaving the
+  // Bound Applications/Service columns stale until something unrelated
+  // happens to re-trigger it.
+  all.forEach((row: any) => { void row.status; void row.stateDisplay; void row.meta; void row.applications; void row.service; });
 
   const filtered = all.filter((row: any) => {
     const ns = row.meta?.namespace;

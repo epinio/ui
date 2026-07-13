@@ -74,7 +74,11 @@ watchEffect(() => {
   void store.state.activeNamespaceCacheKey;
   const activeNamespaces = store.state.activeNamespaceCache;
   const all = store.getters['epinio/all'](EPINIO_TYPES.SERVICE_INSTANCE) as any[];
-  all.forEach((row: any) => { void row.status; void row.stateDisplay; void row.meta; });
+  // row.applications pulls from the separate Applications store slice; touch
+  // it here too so Vue re-runs this watchEffect (and recomputes displayRows)
+  // once that data arrives or changes, instead of leaving the Bound
+  // Applications column stale until something unrelated re-triggers it.
+  all.forEach((row: any) => { void row.status; void row.stateDisplay; void row.meta; void row.applications; });
 
   // Filter empty rows that are added during delete, and filter by active namespace
   const filtered = all.filter((row) => {
@@ -141,12 +145,19 @@ watchEffect(() => {
   displayRows.value = [...processedRows];
 });
 
-onMounted(() => {
-  store.dispatch('epinio/me');
-  store.dispatch('epinio/findAll', { type: EPINIO_TYPES.SERVICE_INSTANCE });
-  store.dispatch('epinio/findAll', { type: EPINIO_TYPES.NAMESPACE });
-  store.dispatch('epinio/findAll', { type: EPINIO_TYPES.CATALOG_SERVICE });
-  store.dispatch('epinio/findAll', { type: EPINIO_TYPES.APP });
+onMounted(async () => {
+  paginating.value = true;
+  try {
+    await Promise.all([
+      store.dispatch('epinio/me'),
+      store.dispatch('epinio/findAll', { type: EPINIO_TYPES.SERVICE_INSTANCE }),
+      store.dispatch('epinio/findAll', { type: EPINIO_TYPES.NAMESPACE }),
+      store.dispatch('epinio/findAll', { type: EPINIO_TYPES.CATALOG_SERVICE }),
+      store.dispatch('epinio/findAll', { type: EPINIO_TYPES.APP }),
+    ]);
+  } finally {
+    paginating.value = false;
+  }
   startPolling(['services'], store);
 
   const query = store.$router.currentRoute._value.query;
@@ -178,7 +189,7 @@ const handleBulkDeleted = () => {
 };
 
 // NOTE: must be a named function declared here, not an inline arrow function
-// in the template — see feedback_vue_ref_unwrap_bug.md. Vue auto-unwraps
+// in the template, see feedback_vue_ref_unwrap_bug.md. Vue auto-unwraps
 // top-level refs inside template expressions, so referencing `tableEl`
 // directly in an inline template callback gives the already-unwrapped
 // (initially null) value instead of the Ref object, and `tableEl.value = el`
