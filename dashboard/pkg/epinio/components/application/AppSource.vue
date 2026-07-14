@@ -30,9 +30,6 @@ interface FileWithRelativePath extends File {
    readonly webkitRelativePath: string;
 }
 
-// Todo: Ensure this uses the same default as the backend.
-const DEFAULT_BUILD_PACK = 'paketobuildpacks/builder-jammy-full:0.3.495';
-
 const store = useStore();
 
 const t = store.getters['i18n/t'];
@@ -222,9 +219,21 @@ function handleBuilderImageDropdownChange(value: string) {
 }
 
 function gitUpdate({ repo, selectedAccOrOrg, branch, commit, sourceData, gitconfig }: any) {
-  if (!!selectedAccOrOrg && !!repo && !!commit && !!branch) {
+  // GitHub always has an account/org selected; GitLab with a gitconfig lists
+  // membership projects with no account/org, so only require it outside that case.
+  const hasOwner = type.value === 'gitlab' || !!selectedAccOrOrg;
+  if (hasOwner && !!repo && !!commit && !!branch) {
     git.usernameOrOrg = selectedAccOrOrg;
-    git.url = `${GIT_BASE_URL[type.value]}/${selectedAccOrOrg}/${type.value === 'gitlab' ? repo.path : repo.name}`;
+    // GitLab projects carry their own canonical URL (web_url), which is correct
+    // for gitlab.com, enterprise instances, and the membership flow where no
+    // account/org is picked. GitHub still builds from the selected org + repo.
+    // Both providers return the repo's canonical URL on its own instance
+    // (GitLab: web_url, GitHub: html_url), which is correct for SaaS and
+    // enterprise alike. Fall back to building from the hardcoded base only if
+    // that field is missing.
+    git.url = type.value === 'gitlab'
+      ? (repo.web_url || `${GIT_BASE_URL[type.value]}/${repo.path_with_namespace}`)
+      : (repo.html_url || `${GIT_BASE_URL[type.value]}/${selectedAccOrOrg}/${repo.name}`);
     git.commit = commit;
     git.branch = branch;
     git.repo = repo;
@@ -507,12 +516,12 @@ onMounted(() => {
 
     <template v-else-if="type === APPLICATION_SOURCE_TYPE.GIT_URL">
       <div class="spacer source">
-        <h3>Config</h3>
+        <h3>Git Config</h3>
         <trailhand-dropdown
           style="width: 100%;"
           :value="gitUrl.gitconfig"
           data-testid="epinio_app-source_git-config"
-          label="Config"
+          label="Git Config"
           :options="gitConfigs.map((c: any) => ({ value: c.metadata.name, label: c.metadata.name }))"
           @dropdown-change="(e: CustomEvent) => { gitUrl.gitconfig = e.detail.value; update(); }"
         />
@@ -530,7 +539,7 @@ onMounted(() => {
         />
         <p v-if="gitUrl.url && !gitUrl.validGitUrl" class="error">
           {{ t('epinio.applications.steps.source.git_url.error.label') }}
-        </p> 
+        </p>
       </div>
       <div class="spacer source">
         <h3>{{ t('epinio.applications.steps.source.git_url.branch.label') }}</h3>
@@ -575,7 +584,7 @@ onMounted(() => {
             data-testid="epinio_app-source_builder-catalog"
             label="Builder Image"
             :options="builderImages"
-            @dropdown-change="(e: CustomEvent) => { 
+            @dropdown-change="(e: CustomEvent) => {
               handleBuilderImageDropdownChange(e.detail.value);
             }"
           />

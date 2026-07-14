@@ -51,7 +51,45 @@ const preparedCommits = computed<Commit[]>(() =>
 
 const selectedCommitId = computed(() => selectedCommit.value?.commitId);
 
-const gitConfigs = computed(() => store.getters['epinio/all'](EPINIO_TYPES.GIT_CONFIG) || []);
+const gitConfigs = computed(() => (store.getters['epinio/all'](EPINIO_TYPES.GIT_CONFIG) || []).filter((c: any) => c.provider.includes(props.type) ));
+
+const selectedGitConfig = computed(() => gitConfigs.value.find((c: any) => c.meta.name === gitconfig.value) || null);
+
+// hostFromUrl reduces a stored instance URL to its bare host (no scheme, no
+// path), so it can be interpolated into `https://<host>/...` API calls. Accepts
+// values with or without a scheme, e.g. 'https://ghe.corp.com' or 'ghe.corp.com'.
+function hostFromUrl(raw: string | null | undefined): string {
+  if (!raw) return '';
+  const withScheme = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+  try {
+    return new URL(withScheme).host;
+  } catch {
+    return '';
+  }
+}
+
+const gitBaseUrl = computed(() => {
+  if (!selectedGitConfig.value) {
+    return props.type === 'github' ? 'api.github.com' : 'gitlab.com';
+  };
+
+  const provider = selectedGitConfig.value.provider;
+  const url = selectedGitConfig.value.url;
+
+  if (provider === 'github') {
+    return 'api.github.com';
+  } else if (provider === 'gitlab') {
+    return 'gitlab.com';
+  } else if (provider === 'github_enterprise_self_hosted' || provider === 'github_enterprise_cloud' || provider === 'gitlab_enterprise' || provider === 'git') {
+    const host = hostFromUrl(url);
+    if (!host) return null;
+    // GitHub Enterprise Server serves its REST API under /api/v3. GitLab (and a
+    // generic git host) already carry /api/v4 in the request paths, so no prefix.
+    return provider === 'github_enterprise_self_hosted' ? `${host}/api/v3` : host;
+  }
+
+  return null;
+});
 
 // Columns for trailhand-table
 const columns = computed(() => [
@@ -178,8 +216,11 @@ function reset() {
 function final(commitId: string) {
   selectedCommit.value = preparedCommits.value.find((c: any) => c.commitId === commitId) || null;
 
-  if (selectedAccOrOrg.value && selectedRepo.value && selectedCommit.value?.commitId) {
+  if (selectedRepo.value && selectedCommit.value?.commitId) {
     emit('change', {
+      // Always pass the account/org through, even though it is no longer
+      // required to emit: GitHub needs it downstream, GitLab+gitconfig leaves
+      // it null (the membership flow has no account/org).
       selectedAccOrOrg: selectedAccOrOrg.value,
       repo:             selectedRepo.value,
       branch:           selectedBranch.value,
@@ -195,7 +236,7 @@ function final(commitId: string) {
 }
 
 async function getGithubUserType(username: string, gitconfig: string | null) {
-  const payload = { url: `https://api.github.com/users/${username}` };
+  const payload = { url: `https://${gitBaseUrl.value}/users/${username}` };
   if (gitconfig) {
     payload['gitconfig'] = gitconfig;
   }
@@ -227,8 +268,8 @@ async function getGitlabUserType(username: string, gitconfig: string | null) {
       opt: {
         url: '/api/v1/gitproxy',
         method: 'POST',
-        data: { 
-          url: `https://gitlab.com/api/v4/groups/${username}`,
+        data: {
+          url: `https://${gitBaseUrl.value}/api/v4/groups/${username}`,
           ...(gitconfig ? { gitconfig } : {})
         },
         responseType: 'json'
@@ -250,8 +291,8 @@ async function getGitlabUserType(username: string, gitconfig: string | null) {
       opt: {
         url: '/api/v1/gitproxy',
         method: 'POST',
-        data: { 
-          url: `https://gitlab.com/api/v4/users?username=${username}`,
+        data: {
+          url: `https://${gitBaseUrl.value}/api/v4/users?username=${username}`,
           ...(gitconfig ? { gitconfig } : {})
         },
         responseType: 'json'
@@ -284,18 +325,14 @@ async function fetchRepos(username: string, gitconfig: string | null) {
     payload['gitconfig'] = gitconfig;
   }
 
-  if (!username) {
-    return;
-  }
-
   isLoadingRepos.value = true;
 
   if (props.type === 'github') {
     const userType = await getGithubUserType(username, gitconfig);
-    payload.url = `https://api.github.com/search/repositories?q=${userType}:${username}`;
+    payload.url = `https://${gitBaseUrl.value}/search/repositories?q=${userType}:${username}`;
   } else {
-    const userType = await getGitlabUserType(username, gitconfig);
-    payload.url = `https://gitlab.com/api/v4/projects?${gitconfig ? 'membership=true&' : ''}simple=true${username ? `&search=${username}` : ''}`;
+    if (!gitconfig) await getGitlabUserType(username, gitconfig);
+    payload.url = `https://${gitBaseUrl.value}/api/v4/projects?${gitconfig ? 'membership=true&' : ''}simple=true${username ? `&search=${username}` : ''}`;
   }
 
   if (!payload.url) {
@@ -336,9 +373,9 @@ async function fetchBranches() {
   }
 
   if (props.type === 'github' && selectedAccOrOrg.value && selectedRepo.value?.name) {
-    payload.url = `https://api.github.com/repos/${selectedAccOrOrg.value}/${selectedRepo.value.name}/branches`;
+    payload.url = `https://${gitBaseUrl.value}/repos/${selectedAccOrOrg.value}/${selectedRepo.value.name}/branches`;
   } else if (props.type === 'gitlab' && selectedRepo.value?.id) {
-    payload.url = `https://gitlab.com/api/v4/projects/${encodeURIComponent(selectedRepo.value.id)}/repository/branches`;
+    payload.url = `https://${gitBaseUrl.value}/api/v4/projects/${encodeURIComponent(selectedRepo.value.id)}/repository/branches`;
   }
 
   if (!payload.url) {
@@ -378,9 +415,9 @@ async function fetchCommits() {
   }
 
   if (props.type === 'github' && selectedAccOrOrg.value && selectedRepo.value?.name && selectedBranch.value?.name) {
-    payload.url = `https://api.github.com/repos/${selectedAccOrOrg.value}/${selectedRepo.value.name}/commits?sha=${selectedBranch.value.name}`;
+    payload.url = `https://${gitBaseUrl.value}/repos/${selectedAccOrOrg.value}/${selectedRepo.value.name}/commits?sha=${selectedBranch.value.name}`;
   } else if (props.type === 'gitlab' && selectedRepo.value?.id && selectedBranch.value?.name) {
-    payload.url = `https://gitlab.com/api/v4/projects/${encodeURIComponent(selectedRepo.value.id)}/repository/commits?ref_name=${selectedBranch.value.name}`;
+    payload.url = `https://${gitBaseUrl.value}/api/v4/projects/${encodeURIComponent(selectedRepo.value.id)}/repository/commits?ref_name=${selectedBranch.value.name}`;
   }
 
   if (!payload.url) {
@@ -456,15 +493,15 @@ async function searchRepo(query: string) {
         if (!gitUserType.value) {
           await getGithubUserType(selectedAccOrOrg.value, gitconfig.value);
         }
-        payload.url = `https://api.github.com/search/repositories?q=${query}+${gitUserType.value}:${selectedAccOrOrg.value}`;
+        payload.url = `https://${gitBaseUrl.value}/search/repositories?q=${query}+${gitUserType.value}:${selectedAccOrOrg.value}`;
       } else {
         if (gitconfig.value) {
-          payload.url = `https://gitlab.com/api/v4/projects?membership=true&simple=true&search=${query}`;
+          payload.url = `https://${gitBaseUrl.value}/api/v4/projects?membership=true&simple=true&search=${query}`;
         } else {
           if (!gitUserType.value) {
             await getGitlabUserType(selectedAccOrOrg.value, gitconfig.value);
           }
-          payload.url = `https://gitlab.com/api/v4/${gitconfig.value ? '' : `${gitUserType.value}s/${encodeURIComponent(selectedAccOrOrg.value)}/`}projects?${gitconfig.value ? 'membership=true&' : ''}simple=true&search=${query}`;
+          payload.url = `https://${gitBaseUrl.value}/api/v4/${gitconfig.value ? '' : `${gitUserType.value}s/${encodeURIComponent(selectedAccOrOrg.value)}/`}projects?${gitconfig.value ? 'membership=true&' : ''}simple=true&search=${query}`;
         }
       }
 
@@ -504,9 +541,9 @@ async function searchBranch(query: string) {
       payload['gitconfig'] = gitconfig.value;
     }
     if (props.type === 'github') {
-      payload.url = `https://api.github.com/repos/${selectedAccOrOrg.value}/${selectedRepo.value?.name}/branches/${query}`;
+      payload.url = `https://${gitBaseUrl.value}/repos/${selectedAccOrOrg.value}/${selectedRepo.value?.name}/branches/${query}`;
     } else {
-      payload.url = `https://gitlab.com/api/v4/projects/${selectedRepo.value?.id}/repository/branches?search=${query}`;
+      payload.url = `https://${gitBaseUrl.value}/api/v4/projects/${selectedRepo.value?.id}/repository/branches?search=${query}`;
     }
 
     try {
@@ -551,7 +588,7 @@ watch(() => props.value, async(neu, old) => {
           :value="gitconfig"
           :options="gitConfigs.map((c: any) => ({ value: c.metadata.name, label: c.metadata.name }))"
           data-testid="epinio_app-source_git-config"
-          label="Config"
+          label="Git Config"
           @dropdown-change="(e: CustomEvent) => { gitconfig = e.detail.value }"
         />
       </div>
@@ -574,7 +611,7 @@ watch(() => props.value, async(neu, old) => {
       </div>
 
       <div
-        v-if="selectedAccOrOrg"
+        v-if="selectedAccOrOrg || (type === 'gitlab' && gitconfig)"
         class="spacer"
       >
         <trailhand-dropdown
@@ -586,9 +623,9 @@ watch(() => props.value, async(neu, old) => {
           :options="preparedRepos"
           filterable
           :loading="isLoadingRepos"
-          @dropdown-change="(e: CustomEvent) => { 
+          @dropdown-change="(e: CustomEvent) => {
             const selected = repos.find((r: any) => r.name === e.detail.value);
-            selectedRepo = selected || null; 
+            selectedRepo = selected || null;
           }"
           @dropdown-filter="(e: CustomEvent<{ filter: string }>) => { debouncedSearchRepo(e.detail.filter); }"
         />
@@ -610,7 +647,7 @@ watch(() => props.value, async(neu, old) => {
           :options="preparedBranches"
           filterable
           :loading="isLoadingBranches"
-          @dropdown-change="(e: CustomEvent) => { 
+          @dropdown-change="(e: CustomEvent) => {
             const selected = branches.find((b: any) => b.name === e.detail.value);
             if (selected) {
               selectedBranch = selected;
