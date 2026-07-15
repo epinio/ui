@@ -282,6 +282,11 @@ async function onSubmit() {
 
       closeModal();
 
+      store.dispatch('growl/success', {
+        title:   t('epinio.growl.serviceInstance.create.success.title'),
+        message: t('epinio.growl.serviceInstance.create.success.message', { name: capturedName }),
+      });
+
       // Show the new item quickly, then bind apps and refresh again once done
       svc.forceFetch().catch(() => {});
       if (capturedSelectedApps.length) {
@@ -307,8 +312,14 @@ async function onSubmit() {
       const bindApps = selectedApps.value;
       const unbindApps = initialBoundApps.value.filter(a => !bindApps.includes(a));
       const newBindApps = bindApps.filter(a => !initialBoundApps.value.includes(a));
+      const serviceName = svc.meta?.name;
 
       closeModal();
+
+      store.dispatch('growl/success', {
+        title:   t('epinio.growl.serviceInstance.update.success.title'),
+        message: t('epinio.growl.serviceInstance.update.success.message', { name: serviceName }),
+      });
 
       // Bind/unbind and refresh in the background
       Promise.all([
@@ -319,6 +330,12 @@ async function onSubmit() {
     }
   } catch (err: any) {
     errors.value = epinioExceptionToErrorsArray(err);
+    store.dispatch('growl/error', {
+      title: isEdit.value
+        ? t('epinio.growl.serviceInstance.save.error.updateTitle')
+        : t('epinio.growl.serviceInstance.save.error.createTitle'),
+      message: t('epinio.growl.serviceInstance.save.error.message'),
+    });
   } finally {
     saving.value = false;
   }

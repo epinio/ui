@@ -109,7 +109,7 @@ export default class ApplicationActionResource extends Resource {
     const isContainer = source.type === APPLICATION_SOURCE_TYPE.CONTAINER_URL;
     const image = isContainer ? source.container.url : undefined;
     const blobUid = isContainer ? undefined : this.application.buildCache.store?.blobUid;
-    const builderImage = isContainer ? undefined : source.builderImage?.value;
+    const builderImage = isContainer ? undefined : source.builderImage;
 
     await this.application.waitAsyncBuildPhase({
       blobUid,
@@ -129,7 +129,7 @@ export default class ApplicationActionResource extends Resource {
     const image = isContainer ? source.container.url : undefined;
 
     const blobUid = isContainer ? undefined : this.application.buildCache.store?.blobUid;
-    const builderImage = isContainer ? undefined : source.builderImage?.value;
+    const builderImage = isContainer ? undefined : source.builderImage;
 
     await this.application.waitAsyncDeployPhase({
       blobUid,
@@ -165,6 +165,7 @@ export default class ApplicationActionResource extends Resource {
           git: {
             revision: source.gitUrl.branch,
             repository: source.gitUrl.url,
+            gitconfig: source.gitUrl.gitconfig,
           },
         };
       case APPLICATION_SOURCE_TYPE.GIT_HUB:
@@ -176,6 +177,7 @@ export default class ApplicationActionResource extends Resource {
             repository: source.git.url,
             branch: source.git.branch?.name,
             provider: source.type,
+            gitconfig: source.git.gitconfig,
           },
         };
     }

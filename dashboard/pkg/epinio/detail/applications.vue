@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watchEffect } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watchEffect } from 'vue';
 import { useStore } from 'vuex';
 import day from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
@@ -7,8 +7,10 @@ import relativeTime from 'dayjs/plugin/relativeTime';
 import Application from '../models/applications';
 import { GitUtils } from '@shell/utils/git';
 import { isArray } from '@shell/utils/array';
+import { formatSi } from '@shell/utils/units';
 import { EPINIO_TYPES } from '../types';
 import { epinioExceptionToErrorsArray } from '../utils/errors';
+import { startPolling, stopPolling } from '../utils/polling';
 import Tabs from '../components/application/Tabs.vue';
 import Banner from '@components/Banner/Banner.vue';
 import { makeStateTag, makeActionMenu, makeCommitShaCell, makeCommitAuthorCell, overrideTableRows } from '../utils/table-formatters';
@@ -121,12 +123,18 @@ const instanceColumns = [
   {
     field: 'millicpus',
     label: 'Mill CPUs',
-    formatter: 'milliCPUs'
+    formatter: (value: unknown, row: { metricsOk?: boolean }) => formatMetricValue(value, row)
   },
   {
     field: 'memoryBytes',
     label: 'RAM',
-    formatter: 'memory'
+    formatter: (value: unknown, row: { metricsOk?: boolean }) => {
+      if (row.metricsOk === false) {
+        return t('epinio.intro.metrics.notAvailableShort');
+      }
+
+      return formatSi(value, { suffix: 'iB', firstSuffix: 'B', increment: 1024 });
+    }
   },
   {
     field: 'restarts',
@@ -209,6 +217,18 @@ const canEditConfig = computed(() => {
   const canGetter = store.getters['epinio/can'];
   return canGetter && (canGetter('configuration_write') || canGetter('configuration'));
 });
+
+const showMetricsUnavailable = computed(() => {
+  return props.value.instances.length > 0 && !props.value.metricsOk;
+});
+
+function formatMetricValue(value: unknown, row: { metricsOk?: boolean }) {
+  if (row.metricsOk === false) {
+    return t('epinio.intro.metrics.notAvailableShort');
+  }
+
+  return value;
+}
 
 
 watchEffect(() => {
@@ -331,6 +351,7 @@ onMounted(async () => {
   await store.dispatch('epinio/me'); //Need to fetch fresh rights for scaling
   await store.dispatch('epinio/findAll', { type: EPINIO_TYPES.SERVICE_INSTANCE });
   await store.dispatch('epinio/findAll', { type: EPINIO_TYPES.CONFIGURATION });
+  startPolling([EPINIO_TYPES.APP, EPINIO_TYPES.SERVICE_INSTANCE, EPINIO_TYPES.CONFIGURATION], store);
 
   if (props.value.appSource.git) {
     await fetchRepoDetails();
@@ -339,6 +360,10 @@ onMounted(async () => {
       { id: 'gitCommits', label: t('epinio.applications.detail.tables.gitCommits'), completed: false, valid: true, disabled: false }
     );
   }
+});
+
+onUnmounted(() => {
+  stopPolling([EPINIO_TYPES.APP, EPINIO_TYPES.SERVICE_INSTANCE, EPINIO_TYPES.CONFIGURATION]);
 });
 
 async function updateInstances(newInstances: number) {
@@ -425,7 +450,7 @@ const preparedCommits = computed(() => {
 const gitCommitsColumns = computed(() => [
   {
     field: 'sha',
-    label: t(`gitPicker.${gitType.value}.tableHeaders.sha.label`),
+    label: t(`epinio.applications.gitSource.${gitType.value}.tableHeaders.sha.label`),
     width: '100px',
     formatter: (_v: any, row: any) => makeCommitShaCell(
       row,
@@ -435,20 +460,20 @@ const gitCommitsColumns = computed(() => [
   },
   {
     field: 'author_login',
-    label: t(`gitPicker.${gitType.value}.tableHeaders.author.label`),
+    label: t(`epinio.applications.gitSource.${gitType.value}.tableHeaders.author.label`),
     width: '190px',
     formatter: (_v: any, row: any) => makeCommitAuthorCell(
       row,
-      t(`gitPicker.${gitType.value}.tableHeaders.author.unknown`)
+      t(`epinio.applications.gitSource.${gitType.value}.tableHeaders.author.unknown`)
     )
   },
   {
     field: 'message',
-    label: t(`gitPicker.${gitType.value}.tableHeaders.message.label`)
+    label: t(`epinio.applications.gitSource.${gitType.value}.tableHeaders.message.label`)
   },
   {
     field: 'date',
-    label: t(`gitPicker.${gitType.value}.tableHeaders.date.label`),
+    label: t(`epinio.applications.gitSource.${gitType.value}.tableHeaders.date.label`),
     width: '220px',
     formatter: 'dateTime'
   }
@@ -559,7 +584,15 @@ function handleDeleted() {
                   </div>
                 </div>
                 <div class="deployment__origin__row">
+                  <Banner
+                    v-if="showMetricsUnavailable"
+                    color="warning"
+                    class="metrics-unavailable"
+                  >
+                    {{ t('epinio.intro.metrics.notAvailable') }}
+                  </Banner>
                   <div
+                    v-else
                     class="stats-table"
                   >
                     <table class="mt-15">

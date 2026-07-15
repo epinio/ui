@@ -1,6 +1,6 @@
 import EpinioNamespacedResource from './epinio-namespaced-resource';
 
-export default class EpinioAppChartModel extends EpinioNamespacedResource {
+export default class EpinioBuilderImageModel extends EpinioNamespacedResource {
   get links() {
     return {
       self:   this.getUrl(),
@@ -11,7 +11,7 @@ export default class EpinioAppChartModel extends EpinioNamespacedResource {
   }
 
   getUrl(name = this.metadata?.name) {
-    return this.$getters['urlFor'](this.type, this.id, { url: `/api/v1/appcharts/${ name || '' }` });
+    return this.$getters['urlFor'](this.type, this.id, { url: `/api/v1/builderimages/${ name || '' }` });
   }
 
   async create() {
@@ -25,10 +25,7 @@ export default class EpinioAppChartModel extends EpinioNamespacedResource {
         name:             this.name,
         description:      this.description,
         short_description: this.short_description,
-        helm_chart:        this.helm_chart,
-        helm_repo:         this.helm_repo,
-        settings:         this.settings,
-        values:           this.values,
+        image:            this.image,
       }
     });
   }
@@ -43,10 +40,7 @@ export default class EpinioAppChartModel extends EpinioNamespacedResource {
       data: {
         description:      this.description,
         short_description: this.short_description,
-        helm_chart:        this.helm_chart,
-        helm_repo:         this.helm_repo,
-        settings:         this.settings,
-        values:           this.values,
+        image:            this.image,
       }
     });
   }

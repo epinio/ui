@@ -428,7 +428,8 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
     case APPLICATION_SOURCE_TYPE.GIT_URL:
       opt.git_url = {
         branch: this.origin.git?.revision || '',
-        url:    this.origin.git?.repository || ''
+        url:    this.origin.git?.repository || '',
+        gitconfig: this.origin.git?.gitconfig || '',
       };
       break;
     case APPLICATION_SOURCE_TYPE.GIT_HUB:
@@ -553,6 +554,22 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
     }));
   }
 
+  get metricsOk() {
+    const replicas = this.deployment?.replicas;
+
+    if (!replicas) {
+      return true;
+    }
+
+    const replicaList = Object.values(replicas);
+
+    if (replicaList.length === 0) {
+      return true;
+    }
+
+    return replicaList.every((r) => r.metricsOk);
+  }
+
   get instanceMemory() {
     const stats = this._instanceStats('memoryBytes');
     const opts = {
@@ -656,7 +673,12 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
         } else {
           this.currentRouter().push(deploymentList);
         }
-      }).catch(() => {
+      }).catch((e) => {
+        console.log(e);
+        this.$dispatch('growl/error', {
+          title:   this.t('epinio.growl.application.deployment.error.title'),
+          message: this.t('epinio.growl.application.deployment.error.message'),
+        }, { root: true });
         this.currentRouter().push(deploymentList);
       });
   }
@@ -791,9 +813,8 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
 
   async restage() {
     this.$dispatch('growl/info', {
-      title: 'Attempting to Rebuild Application!',
-      message: `This may take a few moments, a window will open with live logs
-      soon.`,
+      title:   this.t('epinio.growl.application.restage.info.title'),
+      message: this.t('epinio.growl.application.restage.info.message'),
     }, { root: true });
     try {
       const { stage } = await this.stage();
@@ -801,15 +822,14 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
       this.showStagingLog(stage.id);
       await this.waitForStaging(stage.id);
       this.$dispatch('growl/success', {
-        title:   'Application Rebuilt Successfully!',
-        message: `${ this.meta.name } has been rebuilt successfully.`,
+        title:   this.t('epinio.growl.application.restage.success.title'),
+        message: this.t('epinio.growl.application.restage.success.message', { name: this.meta.name }),
       }, { root: true });
     } catch (e) {
       console.log(e);
       this.$dispatch('growl/error', {
-        title: 'Something Went Wrong Rebuilding!',
-        message: `This error occurs when there are missing resources in the
-        cluster, contact your system admin to investigate the issue.`,
+        title:   this.t('epinio.growl.application.restage.error.title'),
+        message: this.t('epinio.growl.application.restage.error.message'),
       }, { root: true });
     }
   }
@@ -859,57 +879,92 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
   }
 
   showAppShell() {
-    this.$dispatch('wm/open', {
-      id:        this.appShellId,
-      label:     `${ this.meta.name } - App Shell`,
-      product:   EPINIO_PRODUCT_NAME,
-      icon:      'chevron-right',
-      component: 'ApplicationShell',
-      attrs:     {
-        application:     this,
-        endpoint:        this.linkFor('shell'),
-        initialInstance: this.instances[0].id
+    try {
+      const initialInstance = this.instances?.[0]?.id;
+
+      if (!initialInstance) {
+        throw new Error('No running instances available');
       }
-    }, { root: true });
+
+      this.$dispatch('wm/open', {
+        id:        this.appShellId,
+        label:     `${ this.meta.name } - App Shell`,
+        product:   EPINIO_PRODUCT_NAME,
+        icon:      'chevron-right',
+        component: 'ApplicationShell',
+        attrs:     {
+          application:     this,
+          endpoint:        this.linkFor('shell'),
+          initialInstance,
+        }
+      }, { root: true });
+    } catch (e) {
+      console.log(e);
+      this.$dispatch('growl/error', {
+        title:   this.t('epinio.growl.application.shell.error.title'),
+        message: this.t('epinio.growl.application.shell.error.message'),
+      }, { root: true });
+    }
   }
 
   showAppLog() {
-    this.$dispatch('wm/open', {
-      id:        this.appLogId,
-      label:     `${ this.meta.name } - App Logs`,
-      product:   EPINIO_PRODUCT_NAME,
-      icon:      'file',
-      component: 'ApplicationLogs',
-      attrs:     {
-        application: this,
-        endpoint:    this.linkFor('logs')
-      }
-    }, { root: true });
+    try {
+      this.$dispatch('wm/open', {
+        id:        this.appLogId,
+        label:     `${ this.meta.name } - App Logs`,
+        product:   EPINIO_PRODUCT_NAME,
+        icon:      'file',
+        component: 'ApplicationLogs',
+        attrs:     {
+          application: this,
+          endpoint:    this.linkFor('logs')
+        }
+      }, { root: true });
+    } catch (e) {
+      console.log(e);
+      this.$dispatch('growl/error', {
+        title:   this.t('epinio.growl.application.appLogs.error.title'),
+        message: this.t('epinio.growl.application.appLogs.error.message'),
+      }, { root: true });
+    }
   }
 
   showStagingLog(stageId = this.stage_id) {
     if (!stageId) {
-      console.warn('Unable to show staging logs, no stage id');
+      this.$dispatch('growl/error', {
+        title:   this.t('epinio.growl.application.buildLogs.noInfo.title'),
+        message: this.t('epinio.growl.application.buildLogs.noInfo.message', { name: this.meta.name }),
+      }, { root: true });
+
+      return;
     }
 
-    // /namespaces/:namespace/staging/:stage_id/logs
-    let endpoint = `${ this.getUrl(this.meta?.namespace, stageId) }/logs`;
+    try {
+      // /namespaces/:namespace/staging/:stage_id/logs
+      let endpoint = `${ this.getUrl(this.meta?.namespace, stageId) }/logs`;
 
-    endpoint = endpoint.replace('/api/v1', '/wapi/v1');
-    endpoint = endpoint.replace('/applications', '/staging');
+      endpoint = endpoint.replace('/api/v1', '/wapi/v1');
+      endpoint = endpoint.replace('/applications', '/staging');
 
-    this.$dispatch('wm/open', {
-      id:        `${ this.stagingLog }${ stageId }`,
-      label:     `${ this.meta.name } - Build - ${ stageId }`,
-      product:   EPINIO_PRODUCT_NAME,
-      icon:      'file',
-      component: 'ApplicationLogs',
-      attrs:     {
-        application: this,
-        endpoint,
-        ansiToHtml:  true
-      }
-    }, { root: true });
+      this.$dispatch('wm/open', {
+        id:        `${ this.stagingLog }${ stageId }`,
+        label:     `${ this.meta.name } - Build - ${ stageId }`,
+        product:   EPINIO_PRODUCT_NAME,
+        icon:      'file',
+        component: 'ApplicationLogs',
+        attrs:     {
+          application: this,
+          endpoint,
+          ansiToHtml:  true
+        }
+      }, { root: true });
+    } catch (e) {
+      console.log(e);
+      this.$dispatch('growl/error', {
+        title:   this.t('epinio.growl.application.buildLogs.error.title'),
+        message: this.t('epinio.growl.application.buildLogs.error.message'),
+      }, { root: true });
+    }
   }
 
   closeWindows() {
@@ -1350,8 +1405,8 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
 
   async restart() {
     this.$dispatch('growl/info', {
-      title: 'Attempting to Restart Application!',
-      message: `This can take a few moments, we'll let you know once it's ready.`,
+      title:   this.t('epinio.growl.application.restart.info.title'),
+      message: this.t('epinio.growl.application.restart.info.message'),
     }, { root: true });
 
     try {
@@ -1359,28 +1414,34 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
       await this.forceFetch();
       this.showAppLog();
       this.$dispatch('growl/success', {
-        title: 'Application Restarted!',
-        message: `${ this.meta.name } has been restarted successfully.`,
+        title:   this.t('epinio.growl.application.restart.success.title'),
+        message: this.t('epinio.growl.application.restart.success.message', { name: this.meta.name }),
       }, { root: true });
     } catch (e) {
       console.log(e);
       this.$dispatch('growl/error', {
-        title: 'Something Went Wrong Restarting!',
-        message: `Can't restart the application, the image may be missing,
-        reach out to your system admin to investigate the issue.`,
+        title:   this.t('epinio.growl.application.restart.error.title'),
+        message: this.t('epinio.growl.application.restart.error.message'),
       }, { root: true });
     }
   }
 
   async createManifest() {
-    const date = new Date().toISOString().split('.')[0];
-    const fileName = `${ this.metadata.namespace }-${ this.nameDisplay }-${ date }.yaml`;
+    try {
+      const date = new Date().toISOString().split('.')[0];
+      const fileName = `${ this.metadata.namespace }-${ this.nameDisplay }-${ date }.yaml`;
 
-    const manifest = await this.fetchPart('manifest');
+      const manifest = await this.fetchPart('manifest');
 
-    downloadFile(fileName, manifest, 'application/yaml').catch((e) => {
-      console.error('Failed to download manifest: ', e);
-    });
+      await downloadFile(fileName, manifest, 'application/yaml');
+    } catch (e) {
+      console.log(e);
+      this.$dispatch('growl/error', {
+        title:   this.t('epinio.growl.application.manifest.error.title'),
+        message: this.t('epinio.growl.application.manifest.error.message'),
+      }, { root: true });
+      throw e;
+    }
   }
 
   async updateConfigurations(initialValues = [], currentValues = this.configuration.configurations) {

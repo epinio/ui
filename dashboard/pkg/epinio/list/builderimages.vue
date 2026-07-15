@@ -5,11 +5,11 @@ import { computed, ref, onMounted, onUnmounted, watchEffect, watch } from 'vue';
 import Masthead from '@shell/components/ResourceList/Masthead';
 import { startPolling, stopPolling } from '../utils/polling';
 import { debounce } from 'lodash';
-import ChartsModal from '../components/charts/ChartsModal.vue';
+import ImageModal from '../components/images/ImageModal.vue';
 import { makeActionMenu } from '../utils/table-formatters';
 import { overrideTableRows } from '../utils/table-formatters';
-import EpinioAppChartModel from '../models/appcharts';
-import ChartsDeleteModal from '../components/charts/ChartsDeleteModal.vue';
+import EpinioBuilderImageModel from '../models/builderimages';
+import ImageDeleteModal from '../components/images/ImageDeleteModal.vue';
 
 
 defineProps<{ schema: object }>(); // Keep for compatibility
@@ -19,10 +19,10 @@ const store = useStore();
 const pending = ref(true);
 const rows = ref<any[]>([]);
 
-const chartsModal = ref<InstanceType<typeof ChartsModal> | null>(null);
-const deleteModal = ref<InstanceType<typeof ChartsDeleteModal> | null>(null);   
+const imageModal = ref<InstanceType<typeof ImageModal> | null>(null);
+const deleteModal = ref<InstanceType<typeof ImageDeleteModal> | null>(null);
 
-const resource: string = EPINIO_TYPES.APP_CHARTS;
+const resource: string = EPINIO_TYPES.BUILDER_IMAGE;
 const paginationMeta = computed(() => store.getters['epinio/paginationMeta'](resource));
 const currentPage = computed(() => store.getters['epinio/currentPaginationPage'](resource));
 
@@ -33,7 +33,7 @@ const paginating = ref(false);
 const canEdit = computed(() => {
   const can = store.getters['epinio/can'];
 
-  return can && (can('chart_write'));
+  return can && (can('image_write'));
 });
 const canDelete = canEdit;
 const canCreate = canEdit;
@@ -64,7 +64,7 @@ watch(searchQuery, (newQuery) => {
 });
 
 watchEffect(() => {
-  const all = store.getters['epinio/all'](EPINIO_TYPES.APP_CHARTS) as any[];
+  const all = store.getters['epinio/all'](EPINIO_TYPES.BUILDER_IMAGE) as any[];
 
   // Touch meta so _MERGE polling (which deletes/re-adds all properties) re-runs this effect
   all.forEach((row: any) => { void row.meta; });
@@ -77,20 +77,20 @@ watchEffect(() => {
 
   // Build the row action menu with RBAC gating. The model already gates the
   // base actions; here we inject the modal-driven Edit/Delete entries only
-  // when the user has chart write permissions.
-  const rowActions = (row: EpinioAppChartModel) => {
+  // when the user has builder image write permissions.
+  const rowActions = (row: EpinioBuilderImageModel) => {
     const out: any[] = [];
 
     if (canEdit.value) {
       out.push({
-        action: 'editAppChart',
+        action: 'editBuilderImage',
         label: 'Edit',
         enabled: true
       });
     }
-    if (canDelete.value) {
+    if (canDelete.value && !row.default) {
       out.push({
-        action: 'removeAppChart',
+        action: 'removeBuilderImage',
         enabled: true,
         label: 'Delete',
       });
@@ -107,18 +107,18 @@ watchEffect(() => {
       conditionFn: () => true,
     },
     {
-      prop: 'removeAppChart',
-      value: (row: EpinioAppChartModel) => () => {
+      prop: 'removeBuilderImage',
+      value: (row: EpinioBuilderImageModel) => () => {
         deleteModal.value?.openDelete(row);
       },
-      conditionFn: (row: EpinioAppChartModel) => canDelete.value,
+      conditionFn: (row: EpinioBuilderImageModel) => canDelete.value && !row.default,
     },
     {
-      prop: 'editAppChart',
-      value: (row: EpinioAppChartModel) => () => {
-        chartsModal.value?.openEdit(row);
+      prop: 'editBuilderImage',
+      value: (row: EpinioBuilderImageModel) => () => {
+         imageModal.value?.openEdit(row);
       },
-      conditionFn: (row: EpinioAppChartModel) => canEdit.value,
+      conditionFn: (row: EpinioBuilderImageModel) => canEdit.value,
     }
   ];
 
@@ -129,13 +129,13 @@ watchEffect(() => {
 
 onMounted(async () => {
   store.dispatch('epinio/me');
-  await store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.APP_CHARTS });
+  await store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.BUILDER_IMAGE });
   pending.value = false;
-  startPolling(['appcharts'], store);
+  startPolling(['builderimages'], store);
 });
 
 onUnmounted(() => {
-  stopPolling(['appcharts']);
+  stopPolling(['builderimages']);
 });
 
 const columns = [
@@ -148,8 +148,8 @@ const columns = [
     label: 'Description'
   },
   {
-    field: 'helm_chart',
-    label: 'Helm Chart'
+    field: 'image',
+    label: 'Image'
   },
   {
     field:     'meta.createdAt',
@@ -170,11 +170,11 @@ const columns = [
           v-if="canCreate"
           variant="primary"
           size="large"
-          @button-click="chartsModal?.openCreate()"
+          @button-click="imageModal?.openCreate()"
         >
           {{ t('generic.create') }}
         </trailhand-button>
-        <div v-else />
+        <div v-else></div>
       </template>
     </Masthead>
     <div class="search-container">
@@ -197,8 +197,8 @@ const columns = [
       @page-change="(e: CustomEvent) => goToPage(e.detail.page)"
     />
   </div>
-  <ChartsModal ref="chartsModal" />
-  <ChartsDeleteModal ref="deleteModal" />
+  <ImageModal ref="imageModal" />
+  <ImageDeleteModal ref="deleteModal" />
 </template>
 
 <style lang="scss" scoped>

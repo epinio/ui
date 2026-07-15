@@ -5,12 +5,11 @@ import { computed, ref, onMounted, onUnmounted, watchEffect, watch } from 'vue';
 import Masthead from '@shell/components/ResourceList/Masthead';
 import { startPolling, stopPolling } from '../utils/polling';
 import { debounce } from 'lodash';
-import ChartsModal from '../components/charts/ChartsModal.vue';
 import { makeActionMenu } from '../utils/table-formatters';
 import { overrideTableRows } from '../utils/table-formatters';
-import EpinioAppChartModel from '../models/appcharts';
-import ChartsDeleteModal from '../components/charts/ChartsDeleteModal.vue';
-
+import GitConfigModal from '../components/gitconfigs/GitConfigModal.vue';
+import GitConfigDeleteModal from '../components/gitconfigs/GitConfigDeleteModal.vue';
+import EpinioGitConfigModel from '../models/gitconfigs';
 
 defineProps<{ schema: object }>(); // Keep for compatibility
 
@@ -19,10 +18,10 @@ const store = useStore();
 const pending = ref(true);
 const rows = ref<any[]>([]);
 
-const chartsModal = ref<InstanceType<typeof ChartsModal> | null>(null);
-const deleteModal = ref<InstanceType<typeof ChartsDeleteModal> | null>(null);   
+const gitConfigModal = ref<InstanceType<typeof GitConfigModal> | null>(null);
+const gitConfigDeleteModal = ref<InstanceType<typeof GitConfigDeleteModal> | null>(null);
 
-const resource: string = EPINIO_TYPES.APP_CHARTS;
+const resource: string = EPINIO_TYPES.GIT_CONFIG;
 const paginationMeta = computed(() => store.getters['epinio/paginationMeta'](resource));
 const currentPage = computed(() => store.getters['epinio/currentPaginationPage'](resource));
 
@@ -33,7 +32,7 @@ const paginating = ref(false);
 const canEdit = computed(() => {
   const can = store.getters['epinio/can'];
 
-  return can && (can('chart_write'));
+  return can && (can('gitconfig_write'));
 });
 const canDelete = canEdit;
 const canCreate = canEdit;
@@ -64,7 +63,7 @@ watch(searchQuery, (newQuery) => {
 });
 
 watchEffect(() => {
-  const all = store.getters['epinio/all'](EPINIO_TYPES.APP_CHARTS) as any[];
+  const all = store.getters['epinio/all'](EPINIO_TYPES.GIT_CONFIG) as any[];
 
   // Touch meta so _MERGE polling (which deletes/re-adds all properties) re-runs this effect
   all.forEach((row: any) => { void row.meta; });
@@ -77,20 +76,13 @@ watchEffect(() => {
 
   // Build the row action menu with RBAC gating. The model already gates the
   // base actions; here we inject the modal-driven Edit/Delete entries only
-  // when the user has chart write permissions.
-  const rowActions = (row: EpinioAppChartModel) => {
+  // when the user has git config write permissions.
+  const rowActions = (row: EpinioGitConfigModel) => {
     const out: any[] = [];
 
-    if (canEdit.value) {
-      out.push({
-        action: 'editAppChart',
-        label: 'Edit',
-        enabled: true
-      });
-    }
     if (canDelete.value) {
       out.push({
-        action: 'removeAppChart',
+        action: 'removeGitConfig',
         enabled: true,
         label: 'Delete',
       });
@@ -107,19 +99,12 @@ watchEffect(() => {
       conditionFn: () => true,
     },
     {
-      prop: 'removeAppChart',
-      value: (row: EpinioAppChartModel) => () => {
-        deleteModal.value?.openDelete(row);
+      prop: 'removeGitConfig',
+      value: (row: EpinioGitConfigModel) => () => {
+        gitConfigDeleteModal.value?.openDelete(row);
       },
-      conditionFn: (row: EpinioAppChartModel) => canDelete.value,
+      conditionFn: (row: EpinioGitConfigModel) => canDelete.value,
     },
-    {
-      prop: 'editAppChart',
-      value: (row: EpinioAppChartModel) => () => {
-        chartsModal.value?.openEdit(row);
-      },
-      conditionFn: (row: EpinioAppChartModel) => canEdit.value,
-    }
   ];
 
   const processedRows = overrideTableRows(filtered, overrideProps);
@@ -129,13 +114,13 @@ watchEffect(() => {
 
 onMounted(async () => {
   store.dispatch('epinio/me');
-  await store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.APP_CHARTS });
+  await store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.GIT_CONFIG });
   pending.value = false;
-  startPolling(['appcharts'], store);
+  startPolling(['gitconfigs'], store);
 });
 
 onUnmounted(() => {
-  stopPolling(['appcharts']);
+  stopPolling(['gitconfigs']);
 });
 
 const columns = [
@@ -144,12 +129,13 @@ const columns = [
     label: 'Name'
   },
   {
-    field: 'description',
-    label: 'Description'
+    field: 'provider',
+    label: 'Provider',
+    formatter: 'gitProviders'
   },
   {
-    field: 'helm_chart',
-    label: 'Helm Chart'
+    field: 'url',
+    label: 'URL'
   },
   {
     field:     'meta.createdAt',
@@ -170,11 +156,11 @@ const columns = [
           v-if="canCreate"
           variant="primary"
           size="large"
-          @button-click="chartsModal?.openCreate()"
+          @button-click="gitConfigModal?.openCreate()"
         >
           {{ t('generic.create') }}
         </trailhand-button>
-        <div v-else />
+        <div v-else></div>
       </template>
     </Masthead>
     <div class="search-container">
@@ -197,8 +183,8 @@ const columns = [
       @page-change="(e: CustomEvent) => goToPage(e.detail.page)"
     />
   </div>
-  <ChartsModal ref="chartsModal" />
-  <ChartsDeleteModal ref="deleteModal" />
+  <GitConfigModal ref="gitConfigModal" />
+  <GitConfigDeleteModal ref="gitConfigDeleteModal" />
 </template>
 
 <style lang="scss" scoped>

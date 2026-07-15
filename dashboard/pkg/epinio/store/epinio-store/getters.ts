@@ -40,11 +40,13 @@ export default {
     return url;
   },
 
-  // Ensure pagination params are included in URLs for list fetches, based on global pagination state for that type. 
+  // Ensure pagination params are included in URLs for list fetches, based on global pagination state for that type.
   // This allows pagination to work with any component that uses urlFor to generate its API URLs, without needing to explicitly pass page params from the component.
   urlOptions: (state: any) => (url: any) => {
     const pathToType: Record<string, string> = {
       '/api/v1/appcharts':      EPINIO_TYPES.APP_CHARTS,
+      '/api/v1/builderimages':  EPINIO_TYPES.BUILDER_IMAGE,
+      '/api/v1/gitconfigs':     EPINIO_TYPES.GIT_CONFIG,
       '/api/v1/namespaces':     EPINIO_TYPES.NAMESPACE,
       '/api/v1/configurations': EPINIO_TYPES.CONFIGURATION,
       '/api/v1/services':       EPINIO_TYPES.SERVICE_INSTANCE,
@@ -81,7 +83,7 @@ export default {
 
   searchQuery: (state: any) => (type: string) => state.searchQuery?.[type] ?? '',
 
-  // Return pagination meta for the given type, or null if not set. 
+  // Return pagination meta for the given type, or null if not set.
   // This is used by components to read pagination state for their API calls, which is managed globally in the store.
   paginationMeta: (state: any) => (type: string) => state.paginationMeta?.[type] ?? null,
 

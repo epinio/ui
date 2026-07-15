@@ -74,6 +74,22 @@ export const dataTableFormatters = {
 
     const formatted = Math.round(Number(value)).toString();
     return formatted === '0' ? '0' : formatted;
+  },
+
+  /**
+   * Format git provider values to user-friendly labels
+   */
+  gitProviders: (value: any): string => {
+    if (!value) return '-';
+    const mapping: Record<string, string> = {
+      git: 'Git',
+      github: 'GitHub',
+      github_enterprise: 'GitHub Enterprise',
+      gitlab: 'GitLab',
+      gitlab_enterprise: 'GitLab Enterprise',
+      unknown: 'Unknown'
+    };
+    return mapping[value] || value;
   }
 };
 
