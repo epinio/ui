@@ -8,6 +8,7 @@ import Masthead from '@shell/components/ResourceList/Masthead';
 
 import AppModal from '../../../../components/application/AppModal.vue';
 import AppDeleteModal from '../../../../components/application/AppDeleteModal.vue';
+import BulkDeleteModal from '../../../../components/BulkDeleteModal.vue';
 import ExportAppModal from '../../../../dialog/ExportAppModal.vue';
 import { EPINIO_TYPES } from '../../../../types';
 import { startPolling, stopPolling } from '../../../../utils/polling';
@@ -42,6 +43,19 @@ const canEdit = computed(() => {
     canGetter('app_update') || canGetter('app_write') || canGetter('app')
   );
 });
+const canDelete = computed(() => {
+  const canGetter = store.getters['epinio/can'];
+  return canGetter && (
+    canGetter('app_delete') || canGetter('app_write') || canGetter('app')
+  );
+});
+
+const bulkDeleteModal = ref<InstanceType<typeof BulkDeleteModal> | null>(null);
+// Selection is scoped per-namespace-table, matching how bulkRemove() already
+// splits requests by namespace and how the tables are grouped in this view.
+const namespaceTableRefs = ref<Record<string, any>>({});
+const namespaceSelectedRows = ref<Record<string, any[]>>({});
+let bulkDeleteNamespace = '';
 
 const pending = ref(true);
 
@@ -257,6 +271,38 @@ function getApps(apps: any[], _namespace: string): any[] {
 
 const handleNavigate = (event: CustomEvent) => router.push(event.detail.url);
 
+const handleSelectionChange = (event: CustomEvent, ns: string) => {
+  namespaceSelectedRows.value = { ...namespaceSelectedRows.value, [ns]: event.detail.selectedRows };
+};
+
+const handleBulkDeleteClick = (ns: string) => {
+  bulkDeleteNamespace = ns;
+  bulkDeleteModal.value?.openDelete(namespaceSelectedRows.value[ns] ?? []);
+};
+
+// Fires on both success and failure. Applications render from per-namespace
+// fetches, not the generic findAll BulkDeleteModal already refreshes
+// internally, so re-fetch this namespace directly — a batch delete can
+// partially succeed even when it ultimately errors.
+const handleBulkDeleteSettled = async () => {
+  const ns = bulkDeleteNamespace;
+
+  namespaceSelectedRows.value = { ...namespaceSelectedRows.value, [ns]: [] };
+  namespaceTableRefs.value[ns]?.clearSelection();
+  await fetchNamespaceApps(ns, namespaceCurrentPages.value[ns] ?? 1, searchQueries.value[ns] ?? '', true);
+};
+
+// NOTE: must be a named function declared here, not an inline arrow function
+// in the template — see feedback_vue_ref_unwrap_bug.md. Vue auto-unwraps
+// top-level refs inside template expressions, so referencing a ref directly
+// in an inline template callback can silently break assignment.
+const setTableRef = (ns: string, el: any) => {
+  if (el) {
+    namespaceTableRefs.value[ns] = el;
+    el.renderActions = makeActionMenu;
+  }
+};
+
 // Lifecycle
 
 // Applications are never loaded via the unpaginated findAll. They come in
@@ -391,11 +437,22 @@ onUnmounted(() => {
         <h3 class="namespace-header">
           Namespace: <span class="namespace-name">{{ ns }}</span>
         </h3>
-        <trailhand-text-input
-          :value="searchQueries[ns] ?? ''"
-          placeholder="Search..."
-          @text-input-change="(e: CustomEvent) => handleSearchInput(ns, (e.target as HTMLInputElement).value)"
-        ></trailhand-text-input>
+        <div class="namespace-header-actions">
+          <trailhand-button
+            v-if="(namespaceSelectedRows[ns] ?? []).length"
+            variant="destructive"
+            size="medium"
+            @click="handleBulkDeleteClick(ns)"
+          >
+            <trailhand-icon name="trash" />
+            Delete ({{ (namespaceSelectedRows[ns] ?? []).length }})
+          </trailhand-button>
+          <trailhand-text-input
+            :value="searchQueries[ns] ?? ''"
+            placeholder="Search..."
+            @text-input-change="(e: CustomEvent) => handleSearchInput(ns, (e.target as HTMLInputElement).value)"
+          ></trailhand-text-input>
+        </div>
       </div>
 
       <!--
@@ -405,14 +462,16 @@ onUnmounted(() => {
         appears on explicit user-initiated page changes, not polling.
       -->
       <trailhand-table
-        :ref="(el: any) => { if (el) el.renderActions = makeActionMenu; }"
+        :ref="(el: any) => setTableRef(ns, el)"
         :rows="getApps(getDisplayRows(ns), ns)"
+        :selectable="canDelete"
         :columns="columns"
         :searchable="false"
         :server-side="!!namespaceMeta[ns]"
         :total-items="namespaceMeta[ns]?.totalItems ?? 0"
         :current-page="namespaceCurrentPages[ns] ?? 1"
         :loading="namespaceLoading[ns] ?? false"
+        @selection-change="(e: CustomEvent) => handleSelectionChange(e, ns)"
         @navigate="handleNavigate"
         @page-change="(e: CustomEvent) => handlePageChange(e, ns)"
       />
@@ -420,6 +479,13 @@ onUnmounted(() => {
     <AppModal ref="appModal" />
     <ExportAppModal ref="exportAppModal" />
     <AppDeleteModal ref="deleteAppModal" @deleted="handleDeleted" />
+    <BulkDeleteModal
+      ref="bulkDeleteModal"
+      resource-label="application"
+      :resource-type="resource"
+      :show-delete-image-option="true"
+      @settled="handleBulkDeleteSettled"
+    />
   </div>
 </template>
 
@@ -446,6 +512,13 @@ onUnmounted(() => {
   gap: 1rem;
   padding: 0.5rem 0;
   margin-bottom: 0.5rem;
+}
+
+.namespace-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-shrink: 0;
 }
 
 .namespace-header {

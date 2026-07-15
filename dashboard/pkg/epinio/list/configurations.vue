@@ -8,6 +8,7 @@ import Masthead from '@shell/components/ResourceList/Masthead';
 import { makeEmptyCell, makeRouterLinks, makeRouterLinksOrEmpty, makeActionMenu, overrideTableRows } from '../utils/table-formatters';
 import ConfigurationModal from '../components/configuration/ConfigurationModal.vue';
 import ConfigurationDeleteModal from '../components/configuration/ConfigurationDeleteModal.vue';
+import BulkDeleteModal from '../components/BulkDeleteModal.vue';
 import { debounce } from 'lodash';
 
 const store = useStore();
@@ -19,6 +20,9 @@ const resource: string = EPINIO_TYPES.CONFIGURATION;
 
 const configModal = ref<InstanceType<typeof ConfigurationModal> | null>(null);
 const deleteModal = ref<InstanceType<typeof ConfigurationDeleteModal> | null>(null);
+const bulkDeleteModal = ref<InstanceType<typeof BulkDeleteModal> | null>(null);
+const tableEl = ref<any>(null);
+const selectedRows = ref<any[]>([]);
 const windowWidth = ref(window.innerWidth);
 const onResize = () => { windowWidth.value = window.innerWidth; };
 const displayRows = ref<any[]>([]);
@@ -55,17 +59,28 @@ watch(searchQuery, (newQuery) => {
   onSearch(newQuery);
 });
 
-onMounted(() => {
+onMounted(async () => {
   window.addEventListener('resize', onResize);
-  store.dispatch('epinio/me');
-  store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.APP });
-  store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.CONFIGURATION });
-  startPolling(['configurations'], store);
+  paginating.value = true;
+  try {
+    await Promise.all([
+      store.dispatch('epinio/me'),
+      store.dispatch('epinio/findAll', { type: EPINIO_TYPES.CONFIGURATION }),
+      // Bound Applications/Service columns cross-reference these; fetch them
+      // directly so they're populated on first load instead of depending on
+      // another page (Applications/Services) having fetched them already.
+      store.dispatch('epinio/findAll', { type: EPINIO_TYPES.APP }),
+      store.dispatch('epinio/findAll', { type: EPINIO_TYPES.SERVICE_INSTANCE }),
+    ]);
+  } finally {
+    paginating.value = false;
+  }
+  startPolling(['configurations', 'applications', 'services'], store);
 });
 
 onUnmounted(() => {
   window.removeEventListener('resize', onResize);
-  stopPolling(['configurations']);
+  stopPolling(['configurations', 'applications', 'services']);
 });
 
 const handleCreateClick = () => {
@@ -94,7 +109,12 @@ watchEffect(() => {
   const activeNamespaces = store.state.activeNamespaceCache;
   const all = store.getters['epinio/all'](EPINIO_TYPES.CONFIGURATION) as any[];
 
-  all.forEach((row: any) => { void row.status; void row.stateDisplay; void row.meta; });
+  // row.applications/row.service pull from the separate Applications/Services
+  // store slices; touch them here too so Vue re-runs this watchEffect (and
+  // recomputes displayRows) once that data arrives, instead of leaving the
+  // Bound Applications/Service columns stale until something unrelated
+  // happens to re-trigger it.
+  all.forEach((row: any) => { void row.status; void row.stateDisplay; void row.meta; void row.applications; void row.service; });
 
   const filtered = all.filter((row: any) => {
     const ns = row.meta?.namespace;
@@ -145,8 +165,38 @@ watchEffect(() => {
   displayRows.value = [...overrideTableRows(filtered, overrides)];
 });
 
+// Auto-generated configurations (bound to a service instance) can't be
+// individually deleted, so they're excluded from bulk selection too.
+const isRowSelectable = (row: any) => row.configuration?.type === 'custom';
+
+const handleSelectionChange = (event: CustomEvent) => {
+  selectedRows.value = event.detail.selectedRows;
+};
+
+const handleBulkDeleteClick = () => {
+  bulkDeleteModal.value?.openDelete(selectedRows.value);
+};
+
+const handleBulkDeleted = () => {
+  selectedRows.value = [];
+  tableEl.value?.clearSelection();
+};
+
 const handleNavigate = (event: CustomEvent) => {
   router.push(event.detail.url);
+};
+
+// NOTE: must be a named function declared here, not an inline arrow function
+// in the template. Vue auto-unwraps top-level refs inside template
+// expressions, so referencing `tableEl` directly in an inline template
+// callback gives the already-unwrapped (initially null) value instead of
+// the Ref object, and `tableEl.value = el` throws.
+const setTableRef = (el: any) => {
+  if (el) {
+    tableEl.value = el;
+    el.renderActions = makeActionMenu;
+    el.rowSelectable = isRowSelectable;
+  }
 };
 
 const allColumns = [
@@ -233,6 +283,17 @@ const columns = computed(() => {
       :schema="schema"
       :resource="resource"
     >
+      <template #extraActions>
+        <trailhand-button
+          v-if="selectedRows.length"
+          variant="destructive"
+          size="large"
+          @click="handleBulkDeleteClick"
+        >
+          <trailhand-icon name="trash" />
+          Delete ({{ selectedRows.length }})
+        </trailhand-button>
+      </template>
       <template #createButton>
         <trailhand-button
           v-if="canCreateConfiguration"
@@ -253,10 +314,11 @@ const columns = computed(() => {
       ></trailhand-text-input>
     </div>
     <trailhand-table
-      :ref="(el: any) => { if (el) el.renderActions = makeActionMenu; }"
+      :ref="setTableRef"
       :rows="displayRows"
       :columns="columns"
       :searchable="false"
+      :selectable="canDelete"
       :server-side="!!paginationMeta"
       :total-items="paginationMeta?.totalItems ?? displayRows.length"
       :current-page="currentPage"
@@ -264,9 +326,17 @@ const columns = computed(() => {
       key-field="id"
       @navigate="handleNavigate"
       @page-change="(e: CustomEvent) => goToPage(e.detail.page)"
+      @selection-change="handleSelectionChange"
     />
     <ConfigurationModal ref="configModal" />
     <ConfigurationDeleteModal ref="deleteModal" />
+    <BulkDeleteModal
+      ref="bulkDeleteModal"
+      resource-label="configuration"
+      :resource-type="resource"
+      :show-unbind-notice="true"
+      @settled="handleBulkDeleted"
+    />
   </div>
 </template>
 

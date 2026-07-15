@@ -12,6 +12,7 @@ import EpinioServiceModel from 'models/services';
 import { overrideTableRows } from '../utils/table-formatters';
 import ServiceDeleteModal from '../components/service/ServiceDeleteModal.vue';
 import ServiceInstanceModal from '../components/service/ServiceInstanceModal.vue';
+import BulkDeleteModal from '../components/BulkDeleteModal.vue';
 
 defineProps<{
   schema: object,
@@ -56,6 +57,9 @@ watch(searchQuery, (newQuery) => {
 
 const serviceModal = ref<InstanceType<typeof ServiceInstanceModal> | null>(null);
 const deleteModal = ref<InstanceType<typeof ServiceDeleteModal> | null>(null);
+const bulkDeleteModal = ref<InstanceType<typeof BulkDeleteModal> | null>(null);
+const tableEl = ref<any>(null);
+const selectedRows = ref<any[]>([]);
 const displayRows = ref<any[]>([]);
 
 const canEdit = computed(() => {
@@ -70,7 +74,11 @@ watchEffect(() => {
   void store.state.activeNamespaceCacheKey;
   const activeNamespaces = store.state.activeNamespaceCache;
   const all = store.getters['epinio/all'](EPINIO_TYPES.SERVICE_INSTANCE) as any[];
-  all.forEach((row: any) => { void row.status; void row.stateDisplay; void row.meta; });
+  // row.applications pulls from the separate Applications store slice; touch
+  // it here too so Vue re-runs this watchEffect (and recomputes displayRows)
+  // once that data arrives or changes, instead of leaving the Bound
+  // Applications column stale until something unrelated re-triggers it.
+  all.forEach((row: any) => { void row.status; void row.stateDisplay; void row.meta; void row.applications; });
 
   // Filter empty rows that are added during delete, and filter by active namespace
   const filtered = all.filter((row) => {
@@ -137,13 +145,20 @@ watchEffect(() => {
   displayRows.value = [...processedRows];
 });
 
-onMounted(() => {
-  store.dispatch('epinio/me');
-  store.dispatch('epinio/findAll', { type: EPINIO_TYPES.APP });
-  store.dispatch('epinio/findAll', { type: EPINIO_TYPES.SERVICE_INSTANCE });
-  store.dispatch('epinio/findAll', { type: EPINIO_TYPES.NAMESPACE });
-  store.dispatch('epinio/findAll', { type: EPINIO_TYPES.CATALOG_SERVICE });
-  startPolling(['services', 'applications'], store);
+onMounted(async () => {
+  paginating.value = true;
+  try {
+    await Promise.all([
+      store.dispatch('epinio/me'),
+      store.dispatch('epinio/findAll', { type: EPINIO_TYPES.SERVICE_INSTANCE }),
+      store.dispatch('epinio/findAll', { type: EPINIO_TYPES.NAMESPACE }),
+      store.dispatch('epinio/findAll', { type: EPINIO_TYPES.CATALOG_SERVICE }),
+      store.dispatch('epinio/findAll', { type: EPINIO_TYPES.APP }),
+    ]);
+  } finally {
+    paginating.value = false;
+  }
+  startPolling(['services', 'applications', 'namespaces'], store);
 
   const query = store.$router.currentRoute._value.query;
 
@@ -153,8 +168,39 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
-  stopPolling(['services', 'applications']);
+  stopPolling(['services', 'applications', 'namespaces']);
 });
+
+// Services without service_write/service permission on that row can't be
+// individually deleted, so they're excluded from bulk selection too.
+const isRowSelectable = (row: any) => row.canDelete;
+
+const handleSelectionChange = (event: CustomEvent) => {
+  selectedRows.value = event.detail.selectedRows;
+};
+
+const handleBulkDeleteClick = () => {
+  bulkDeleteModal.value?.openDelete(selectedRows.value);
+};
+
+const handleBulkDeleted = () => {
+  selectedRows.value = [];
+  tableEl.value?.clearSelection();
+};
+
+// NOTE: must be a named function declared here, not an inline arrow function
+// in the template, see feedback_vue_ref_unwrap_bug.md. Vue auto-unwraps
+// top-level refs inside template expressions, so referencing `tableEl`
+// directly in an inline template callback gives the already-unwrapped
+// (initially null) value instead of the Ref object, and `tableEl.value = el`
+// throws, silently aborting the rest of the block.
+const setTableRef = (el: any) => {
+  if (el) {
+    tableEl.value = el;
+    el.renderActions = makeActionMenu;
+    el.rowSelectable = isRowSelectable;
+  }
+};
 
 const handleNavigate = (event: CustomEvent) => {
   router.push(event.detail.url);
@@ -218,6 +264,17 @@ const columns = [
       :schema="schema"
       :resource="resource"
     >
+      <template #extraActions>
+        <trailhand-button
+          v-if="selectedRows.length"
+          variant="destructive"
+          size="large"
+          @click="handleBulkDeleteClick"
+        >
+          <trailhand-icon name="trash" />
+          Delete ({{ selectedRows.length }})
+        </trailhand-button>
+      </template>
       <template #createButton>
         <trailhand-button
           v-if="canCreate"
@@ -238,10 +295,11 @@ const columns = [
       ></trailhand-text-input>
     </div>
     <trailhand-table
-      :ref="(el: any) => { if (el) el.renderActions = makeActionMenu; }"
+      :ref="setTableRef"
       :rows="displayRows"
       :columns="columns"
       :searchable="false"
+      :selectable="canDelete"
       :server-side="!!paginationMeta"
       :total-items="paginationMeta?.totalItems ?? displayRows.length"
       :current-page="currentPage"
@@ -249,9 +307,17 @@ const columns = [
       key-field="id"
       @navigate="handleNavigate"
       @page-change="(e: CustomEvent) => goToPage(e.detail.page)"
+      @selection-change="handleSelectionChange"
     />
     <ServiceInstanceModal ref="serviceModal" />
     <ServiceDeleteModal ref="deleteModal" />
+    <BulkDeleteModal
+      ref="bulkDeleteModal"
+      resource-label="service instance"
+      :resource-type="resource"
+      :show-unbind-notice="true"
+      @settled="handleBulkDeleted"
+    />
   </div>
 </template>
 
