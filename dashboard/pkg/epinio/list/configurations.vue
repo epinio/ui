@@ -75,12 +75,12 @@ onMounted(async () => {
   } finally {
     paginating.value = false;
   }
-  startPolling(['configurations'], store);
+  startPolling(['configurations', 'applications', 'services'], store);
 });
 
 onUnmounted(() => {
   window.removeEventListener('resize', onResize);
-  stopPolling(['configurations']);
+  stopPolling(['configurations', 'applications', 'services']);
 });
 
 const handleCreateClick = () => {

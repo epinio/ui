@@ -71,6 +71,8 @@ async function onSubmitDelete() {
   try {
     if (props.showDeleteImageOption && deleteFromRegistry.value) {
       items.forEach((item) => { item._deleteImage = true; });
+    } else {
+      items.forEach((item) => { item._deleteImage = false; });
     }
 
     await items[0].bulkRemove(items);

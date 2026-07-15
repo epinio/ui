@@ -158,7 +158,7 @@ onMounted(async () => {
   } finally {
     paginating.value = false;
   }
-  startPolling(['services'], store);
+  startPolling(['services', 'applications', 'namespaces'], store);
 
   const query = store.$router.currentRoute._value.query;
 
@@ -168,7 +168,7 @@ onMounted(async () => {
 });
 
 onUnmounted(() => {
-  stopPolling(['services']);
+  stopPolling(['services', 'applications', 'namespaces']);
 });
 
 // Services without service_write/service permission on that row can't be
