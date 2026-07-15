@@ -721,12 +721,15 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
     });
   }
 
-  async gitFetch(url, rev) {
+  async gitFetch(url, rev, gitconfig) {
     this.trace('Downloading and storing git repo');
     const formData = new FormData();
 
     formData.append('giturl', url);
     formData.append('gitrev', rev );
+    if (gitconfig) {
+      formData.append('gitconfig', gitconfig);
+    }
 
     const res = await this.followLink('importGit', {
       method:  'post',
