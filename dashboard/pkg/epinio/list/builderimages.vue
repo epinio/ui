@@ -33,7 +33,7 @@ const paginating = ref(false);
 const canEdit = computed(() => {
   const can = store.getters['epinio/can'];
 
-  return can && (can('image_write'));
+  return can && (can('builderimage_write'));
 });
 const canDelete = canEdit;
 const canCreate = canEdit;
