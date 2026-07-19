@@ -20,6 +20,7 @@ const gitConfigUrl = ref('');
 const gitConfigProvider = ref('');
 const gitConfigUsername = ref('');
 const gitConfigPassword = ref('');
+const gitConfigCerts = ref('');
 const gitConfigSkipSSL = ref(false);
 const gitConfigGlobal = ref(false);
 
@@ -53,6 +54,7 @@ const isDirty = computed(() => {
         gitConfigProvider.value !== '' ||
         gitConfigUsername.value !== '' ||
         gitConfigPassword.value !== '' ||
+        gitConfigCerts.value !== '' ||
         gitConfigSkipSSL.value !== false ||
         gitConfigGlobal.value !== false;
     }
@@ -82,6 +84,7 @@ function openCreate() {
   gitConfigUrl.value = '';
   gitConfigProvider.value = '';
   gitConfigUsername.value = '';
+  gitConfigCerts.value = '';
   gitConfigPassword.value = '';
   gitConfigSkipSSL.value = false;
   gitConfigGlobal.value = false;
@@ -104,6 +107,7 @@ function closeModal() {
   gitConfigProvider.value = '';
   gitConfigUsername.value = '';
   gitConfigPassword.value = '';
+  gitConfigCerts.value = '';
   gitConfigSkipSSL.value = false;
   gitConfigGlobal.value = false;
   errors.value = [];
@@ -142,6 +146,7 @@ async function onSubmit() {
     gitConfig.provider          = gitConfigProvider.value;
     gitConfig.username          = gitConfigUsername.value;
     gitConfig.password          = gitConfigPassword.value;
+    gitConfig.certs             = gitConfigCerts.value;
     gitConfig.skipssl           = gitConfigSkipSSL.value;
     gitConfig.global            = gitConfigGlobal.value;
 
@@ -227,6 +232,14 @@ defineExpose({ openCreate });
             type="password"
             @text-input-change="(e: CustomEvent) => { gitConfigPassword = e.detail.value; }"
           ></trailhand-text-input>
+        </trailhand-form-row>
+        <trailhand-form-row>
+          <trailhand-text-area
+            :value="gitConfigCerts"
+            label="Certificate"
+            placeholder="Git Certificate"
+            @text-area-change="(e: CustomEvent) => { gitConfigCerts = e.detail.value; }"
+          ></trailhand-text-area>
         </trailhand-form-row>
         <trailhand-form-row columns="1">
           <trailhand-checkbox
