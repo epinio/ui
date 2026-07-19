@@ -1,4 +1,11 @@
-import { ConfigSetting } from "components/settings/ChartSettings.vue";
+export interface ConfigSetting {
+  name: string;
+  type: 'string' | 'number' | 'integer' | 'bool';
+  enum?: string[];
+  minimum?: string;
+  maximum?: string;
+  value?: any;
+}
 
 export function objValuesToString(obj: any) {
   const copy = { ...obj };
