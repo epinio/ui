@@ -10,6 +10,11 @@ import Banner from '@components/Banner/Banner.vue';
 const store = useStore() as any;
 const t = store.getters['i18n/t'];
 
+// Only admins may create global git configurations (the backend rejects a
+// non-admin global create with 403). Hide the checkbox for everyone else so the
+// option is never offered when it can't be used.
+const isAdmin = computed(() => store.getters['epinio/isAdmin']?.() ?? false);
+
 // Modal open state
 const showModal = ref(false);
 const modalMode = ref<'create' | 'edit' | 'view'>('create');
@@ -187,10 +192,10 @@ defineExpose({ openCreate });
     :dismissible.prop="false"
     title="Git Configuration"
     subtitle="Create New"
-    @modal-close="handleModalClose"
     position="top"
+    @modal-close="handleModalClose"
   >
-    <div class="modal-content" id="modal-container-element">
+    <div id="modal-container-element" class="modal-content">
       <trailhand-form-card>
         <trailhand-form-row columns="2">
           <trailhand-text-input
@@ -209,7 +214,7 @@ defineExpose({ openCreate });
             @dropdown-change="(e: CustomEvent) => { gitConfigProvider = e.detail.value; }"
           ></trailhand-dropdown>
         </trailhand-form-row>
-        <trailhand-form-row columns="1" v-if="gitConfigProvider === 'github_enterprise_cloud' || gitConfigProvider === 'github_enterprise_self_hosted' || gitConfigProvider === 'gitlab_enterprise' || gitConfigProvider === 'git'">
+        <trailhand-form-row v-if="gitConfigProvider === 'github_enterprise_cloud' || gitConfigProvider === 'github_enterprise_self_hosted' || gitConfigProvider === 'gitlab_enterprise' || gitConfigProvider === 'git'" columns="1">
           <trailhand-text-input
             :value="gitConfigUrl"
             label="URL"
@@ -247,7 +252,7 @@ defineExpose({ openCreate });
             @checkbox-change="(e: CustomEvent) => { gitConfigSkipSSL = e.detail.checked; }"
           >Skip SSL Verification</trailhand-checkbox>
         </trailhand-form-row>
-        <trailhand-form-row columns="1">
+        <trailhand-form-row v-if="isAdmin" columns="1">
           <trailhand-checkbox
             :checked="gitConfigGlobal"
             @checkbox-change="(e: CustomEvent) => { gitConfigGlobal = e.detail.checked; }"
