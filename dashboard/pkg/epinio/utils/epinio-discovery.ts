@@ -50,7 +50,13 @@ class EpinioDiscovery {
   private async findNamespace(store: any, clusterId: string): Promise<string> {
     const url = `/k8s/clusters/${clusterId}/v1/apps.deployments`;
 
-    const deployments = await store.dispatch('cluster/request', { url }, { root: true });
+    // Use Promise.race to implement a timeout to prevent a single cluster from blocking the discovery of other clusters
+    const deployments = await Promise.race([
+      store.dispatch('cluster/request', { url }, { root: true }),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Timed out')), 5000)
+      )
+    ]);
 
     const epinioDeployments = deployments?.data.filter((d: any) =>
       d.metadata?.labels?.['app.kubernetes.io/component'] === 'epinio' &&
