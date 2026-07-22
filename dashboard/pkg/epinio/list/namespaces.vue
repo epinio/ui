@@ -11,6 +11,7 @@ import { makeActionMenu } from '../utils/table-formatters';
 import EpinioNamespace from 'models/namespaces';
 import { overrideTableRows } from '../utils/table-formatters';
 import { debounce } from 'lodash';
+import { useNamespaces } from '../queries/useNamespace';
 
 defineProps<{
   schema: object,
@@ -30,6 +31,14 @@ const currentPage = computed(() => store.getters['epinio/currentPaginationPage']
 const searchQuery = ref<string>('');
 
 const paginating = ref(false);
+
+const {data: namespaces, isLoading, isError, error} = useNamespaces(store);
+
+watchEffect(() => {
+  if (namespaces.value) {
+    console.log('|||||||||||||||||||| Namespaces fetched:', namespaces.value);
+  }
+});
 
 async function goToPage(page: number) {
   const meta = paginationMeta.value;
@@ -137,6 +146,7 @@ const validateDelete = computed(() => {
 
 onMounted(() => {
   store.dispatch('epinio/me');
+
   // Opens the create namespace modal if the query is passed as query param
   if (store.$router.currentRoute._value.query.mode === 'openModal') {
     openCreateModal();

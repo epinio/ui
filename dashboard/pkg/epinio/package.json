@@ -26,6 +26,7 @@
     "not dead"
   ],
   "dependencies": {
+    "@tanstack/vue-query": "^5.101.3",
     "vue-i18n": "^11.1.3"
   }
 }
