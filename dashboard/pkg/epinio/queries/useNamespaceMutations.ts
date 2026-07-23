@@ -8,13 +8,15 @@ import { CreateNamespaceRequest } from "../models/namespace/types";
 
 export function useCreateNamespace(store: any, onSuccessCallback?: () => void) {
     const { data: cluster } = useCluster(store);
+    const isExtension = computed(() => !!store.getters['isSingleProduct'] === false);
+
 
     return useMutation({
         mutationFn: async (request: CreateNamespaceRequest) => {
             if (!cluster?.value) {
                 throw new Error('Cluster is not available');
             }
-            const epinioClient = createEpinioClient(cluster.value);
+            const epinioClient = createEpinioClient(cluster.value, isExtension.value);
             return await namespacesApi(epinioClient).createNamespace(request);
         },
         onSuccess: () => {
@@ -28,13 +30,15 @@ export function useCreateNamespace(store: any, onSuccessCallback?: () => void) {
 
 export function useDeleteNamespace(store: any, onSuccessCallback?: () => void) {
     const { data: cluster } = useCluster(store);
+    const isExtension = computed(() => !!store.getters['isSingleProduct'] === false);
+
 
     return useMutation({
         mutationFn: async (name: string) => {
             if (!cluster?.value) {
                 throw new Error('Cluster is not available');
             }
-            const epinioClient = createEpinioClient(cluster.value);
+            const epinioClient = createEpinioClient(cluster.value, isExtension.value);
             return await namespacesApi(epinioClient).deleteNamespace(name);
         },
         onSuccess: () => {

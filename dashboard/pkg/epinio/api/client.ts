@@ -37,7 +37,7 @@ function readCookie(name: string): string | undefined {
   return match ? decodeURIComponent(match.split('=')[1]) : undefined;
 }
 
-export function createEpinioClient(cluster: EpinioClusterContext) {
+export function createEpinioClient(cluster: EpinioClusterContext, isExtension: boolean = false) {
   async function request(path: string,  opts: RequestInit & { params?: object } = {}) {
     const { params, ...fetchOpts } = opts;
 
@@ -50,7 +50,7 @@ export function createEpinioClient(cluster: EpinioClusterContext) {
     const csrfToken = readCookie('CSRF');
     const isMutating = opts.method && opts.method !== 'GET' && opts.method !== 'HEAD';
 
-    const res = await fetch(`/pp/v1/direct/r/${cluster.id}${path}${query}`, {
+    const res = await fetch(`${isExtension ? cluster.api : `/pp/v1/direct/r/${cluster.id}`}${path}${query}`, {
       ...fetchOpts,
       credentials: 'include',
       headers: {

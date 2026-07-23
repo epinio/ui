@@ -8,6 +8,7 @@ import { ListNamespacesRequestParams } from "../models/namespace/types";
 
 export function useNamespaces(store: any, params?: ListNamespacesRequestParams) {
     const { data: cluster } = useCluster(store);
+    const isExtension = computed(() => !!store.getters['isSingleProduct'] === false);
 
     return useQuery({
         queryKey: ['namespaces', cluster?.value?.id, params],
@@ -15,7 +16,7 @@ export function useNamespaces(store: any, params?: ListNamespacesRequestParams) 
             if (!cluster?.value) {
                 throw new Error('Cluster is not available');
             }
-            const epinioClient = createEpinioClient(cluster.value);
+            const epinioClient = createEpinioClient(cluster.value, isExtension.value);
             const namespaces = await namespacesApi(epinioClient).listNamespaces(params);
             return namespaces;
         },
