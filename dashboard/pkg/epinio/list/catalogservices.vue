@@ -27,7 +27,7 @@ const resource: string = EPINIO_TYPES.CATALOG_SERVICE;
 const canEdit = computed(() => {
   const can = store.getters['epinio/can'];
 
-  return can && (can('service_write'));
+  return can && (can('catalog_service_write') || can('catalog_service'));
 });
 const canDelete = canEdit;
 const canCreate = canEdit;

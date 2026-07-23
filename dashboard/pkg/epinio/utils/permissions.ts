@@ -132,6 +132,17 @@ const ROLE_ACTIONS: Record<string, string[]> = {
 // Actions only the admin role has (server-side admin can create/delete namespaces; other roles cannot).
 const ADMIN_ONLY_ACTIONS = ['namespace_write', 'namespace'];
 
+// Actions the server authorizes against GLOBAL (namespace-less) roles only,
+// because they act on cluster-scoped resources whose routes carry no :namespace:
+// app charts (/appcharts), builder images (/builderimages), git configs
+// (/gitconfigs). Server-side, User.IsAllowed resolves these against global roles,
+// so a namespace-scoped role must NOT grant them. Without this, the default
+// "epinio" user's admin:workspace role flattens into the global map and the UI
+// shows a Create button the server then 403s. This mirrors the isAdmin getter's
+// fix. NB: the git-config "global" checkbox is a separate admin-only concern,
+// already gated by isAdmin in GitConfigModal.vue.
+const CLUSTER_SCOPED_ACTIONS = ['chart_write', 'builderimage_write', 'gitconfig_write'];
+
 // Union of all actions for the admin role – effectively "everything".
 const ADMIN_ACTIONS = Array.from(
   new Set<string>([...Object.values(ROLE_ACTIONS).flat(), ...ADMIN_ONLY_ACTIONS]),
@@ -158,12 +169,23 @@ function normalizeRoleId(id: string): string {
  */
 export function buildPermissionsFromRoles(roles: EpinioRole[]): EpinioPermissions {
   const actions = new Set<string>();
+  // Actions granted specifically by global (namespace-less) roles. Cluster-scoped
+  // actions are sourced from here so a namespaced role cannot grant them.
+  const globalActions = new Set<string>();
 
   for (const role of roles || []) {
     const roleId = normalizeRoleId(role.id || '');
+    const isGlobal = !role.namespace;
+
+    const add = (a: string) => {
+      actions.add(a);
+      if (isGlobal) {
+        globalActions.add(a);
+      }
+    };
 
     if (roleId === 'admin') {
-      ADMIN_ACTIONS.forEach((a) => actions.add(a));
+      ADMIN_ACTIONS.forEach(add);
       continue;
     }
 
@@ -171,12 +193,12 @@ export function buildPermissionsFromRoles(roles: EpinioRole[]): EpinioPermission
     // hardcoded ROLE_ACTIONS map only when the server didn't send any —
     // i.e. older Epinio versions that don't include role.actions.
     if (Array.isArray(role.actions) && role.actions.length > 0) {
-      role.actions.forEach((a) => actions.add(a));
+      role.actions.forEach(add);
       continue;
     }
 
     const mapped = ROLE_ACTIONS[roleId] || [];
-    mapped.forEach((a) => actions.add(a));
+    mapped.forEach(add);
   }
 
   const perms: EpinioPermissions = {};
@@ -184,6 +206,26 @@ export function buildPermissionsFromRoles(roles: EpinioRole[]): EpinioPermission
   actions.forEach((a) => {
     perms[a] = true;
   });
+
+  // Cluster-scoped actions are valid only when a global role granted them.
+  // Override any that leaked in via a namespaced role (e.g. admin:workspace).
+  CLUSTER_SCOPED_ACTIONS.forEach((a) => {
+    perms[a] = globalActions.has(a);
+  });
+
+  // Catalog services are cluster-scoped too, but the server authorizes them via
+  // the mixed service_write action (which also grants namespaced service-instance
+  // writes) rather than a dedicated one. Derive the UI-only catalog_service_write
+  // from GLOBAL service_write so a namespaced service_write cannot grant catalog
+  // management. The catalog list/detail components gate on catalog_service_write.
+  perms.catalog_service_write = globalActions.has('service_write');
+
+  // namespace_write is also mixed: NamespaceCreate (POST /namespaces) is
+  // cluster-scoped, but per-namespace delete (DELETE /namespaces/:namespace) is
+  // namespaced. Derive a global-only create permission so a namespaced admin does
+  // not see the create-namespace button; per-namespace delete stays on the flat
+  // namespace_write. The namespaces list gates create on namespace_create.
+  perms.namespace_create = globalActions.has('namespace_write');
 
   return perms;
 }
