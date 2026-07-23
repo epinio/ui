@@ -68,7 +68,10 @@ export function createEpinioClient(cluster: EpinioClusterContext, isExtension: b
     const data = res.status === 204 ? null : await res.json().catch(() => null);
 
     if (!res.ok) {
-      throw new EpinioApiError(data?.message || res.statusText, res.status, data);
+      const message = data?.errors?.length
+        ? data.errors.map((e: any) => e.title).join(', ')
+        : data?.message ?? res.statusText;
+      throw new EpinioApiError(message, res.status, data);
     }
 
     return data;
