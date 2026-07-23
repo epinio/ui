@@ -17,18 +17,47 @@ export class EpinioApiError extends Error {
   }
 }
 
+function buildQueryString(params: object): string {
+  const search = new URLSearchParams();
+
+  for (const [key, value] of Object.entries(params)) {
+    // skip undefined/null so you don't get ?page=undefined in the URL
+    if (value === undefined || value === null || value === '') continue;
+    search.append(key, String(value));
+  }
+
+  const str = search.toString();
+  return str ? `?${str}` : '';
+}
+
+function readCookie(name: string): string | undefined {
+  const match = document.cookie
+    .split('; ')
+    .find((row) => row.startsWith(`${name}=`));
+  return match ? decodeURIComponent(match.split('=')[1]) : undefined;
+}
+
 export function createEpinioClient(cluster: EpinioClusterContext) {
-  async function request(path: string, opts: RequestInit = {}) {
+  async function request(path: string,  opts: RequestInit & { params?: object } = {}) {
+    const { params, ...fetchOpts } = opts;
+
+    const query = params ? buildQueryString(params) : '';
+
     const authHeader = await epinioAuth.authHeader(
       cluster.createAuthConfig(EpinioAuthTypes.AGNOSTIC)
     );
 
-    const res = await fetch(`/pp/v1/direct/r/${cluster.id}${path}`, {
-      ...opts,
+    const csrfToken = readCookie('CSRF');
+    const isMutating = opts.method && opts.method !== 'GET' && opts.method !== 'HEAD';
+
+    const res = await fetch(`/pp/v1/direct/r/${cluster.id}${path}${query}`, {
+      ...fetchOpts,
+      credentials: 'include',
       headers: {
         'content-type': 'application/json',
         ...(authHeader ? { Authorization: authHeader } : {}),
-        ...opts.headers,
+        ...(isMutating && csrfToken ? { 'X-Api-Csrf': `${csrfToken}=` } : {}),
+        ...fetchOpts.headers,
       },
     });
 
@@ -46,9 +75,9 @@ export function createEpinioClient(cluster: EpinioClusterContext) {
   }
 
   return {
-    get:    (path: string, opts?: RequestInit) => request(path, { ...opts, method: 'GET' }),
-    post:   (path: string, body?: unknown, opts?: RequestInit) => request(path, { ...opts, method: 'POST', body: JSON.stringify(body) }),
-    put:    (path: string, body?: unknown, opts?: RequestInit) => request(path, { ...opts, method: 'PUT', body: JSON.stringify(body) }),
-    delete: (path: string, opts?: RequestInit) => request(path, { ...opts, method: 'DELETE' }),
+    get:    (path: string, opts?: RequestInit & { params?: object }) => request(path, { ...opts, method: 'GET' }),
+    post:   (path: string, body?: unknown, opts?: RequestInit & { params?: object }) => request(path, { ...opts, method: 'POST', body: JSON.stringify(body) }),
+    put:    (path: string, body?: unknown, opts?: RequestInit & { params?: object }) => request(path, { ...opts, method: 'PUT', body: JSON.stringify(body) }),
+    delete: (path: string, opts?: RequestInit & { params?: object }) => request(path, { ...opts, method: 'DELETE' }),
   };
 }

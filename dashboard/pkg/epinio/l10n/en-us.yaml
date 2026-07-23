@@ -5,6 +5,12 @@ generic:
   delete: Delete
   edit: Edit
   save: Save
+  discard: Discard
+  creating: Creating
+  updating: Updating
+  deleting: Deleting
+  keepEditing: Keep Editing
+  search: Search...
 typeLabel:
   withoutCount:
     namespaces: Namespaces
@@ -426,11 +432,20 @@ epinio:
     tableHeaders:
       appCount: Applications
       configCount: Configs
+      age: Age
     name: Name
     create: Create a Namespace
     deleteWarning: All resources in a namespace will be deleted.
     validations:
       name: Namespace's name must consist of lower case alphanumeric characters or '-', and must start and end with an alphanumeric character (e.g. 'my-name', or '123-abc')
+    errors:
+      delete: Error deleting namespace, please try again.
+      create: Error creating namespace, please try again.
+      fetch: Error fetching namespaces, please try again.
+    placeholders:
+      name: Namespace Name
+    attemptDelete: You are attempting to delete the Namespace
+    confirmDelete: Confirm deletion of the Namespace by entering
   services:
     applicationsNotBound: No applications bound to the Service Instance(s)
     applicationsBound: |-
@@ -488,8 +503,9 @@ epinio:
     useGenericProvider: Use Auth Provider
   unsavedChanges:
     title: Unsaved Changes
-    message: You have unsaved changes. Are you sure you want to leave this page?
+    pageMessage: You have unsaved changes. Are you sure you want to leave this page?
     discard: Discard Changes
+    warning: You have unsaved changes.
   growl:
     application:
       deploy:

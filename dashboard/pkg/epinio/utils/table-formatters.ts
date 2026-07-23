@@ -1,4 +1,6 @@
 import type { Router } from 'vue-router';
+import { ActionMenuItem } from '@krumio/trailhand-ui/dist/components/action-menu/action-menu';
+import { ResourceTableRow } from '../models/resource/types';
 
 /**
  * Returns an empty non-breaking space cell element.
@@ -137,6 +139,28 @@ export function makeActionMenu(row: any): HTMLElement {
   });
 
   el.actions = actions;
+
+  return el;
+}
+
+/**
+ * Returns an action-menu element for a table row.
+ * Transforms epinio string action names into callable functions
+ * so the action-menu web component can invoke them.
+ */
+export function attachActionMenu(row: ResourceTableRow): HTMLElement {
+  ensureActionMenuCaptureListener();
+
+  const id = row.id;
+  let el = id ? _actionMenuCache.get(id) : null;
+
+  if (!el) {
+    el = document.createElement('trailhand-action-menu') as any;
+    if (id) _actionMenuCache.set(id, el);
+  }
+
+  el.resource = row;
+  el.actions = row.availableActions;
 
   return el;
 }

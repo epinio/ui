@@ -27,3 +27,7 @@ export interface ListNamespacesRequestParams {
     pageSize?: number;
     search?: string;
 }
+
+export interface CreateNamespaceRequest {
+    name: string;
+}
