@@ -124,4 +124,17 @@ export default {
 
     return !!perms[actionId];
   },
+
+  // Global admin check. Mirrors the server's User.IsAdmin: a role with id
+  // "admin" AND no namespace. A namespace-scoped admin (e.g. "admin:workspace",
+  // which the default "epinio" user has) is NOT a global admin, so we cannot key
+  // off the role id alone or the flattened permission map -- the namespaced
+  // admin role carries the same actions a global admin does, which would make
+  // can('namespace') wrongly true. Only the global (namespace-less) admin role
+  // may create global git configs, matching the backend's 403.
+  isAdmin: (state: any) => (): boolean => {
+    const roles = state.me?.roles || [];
+
+    return roles.some((role: any) => role.id === 'admin' && !role.namespace);
+  },
 };

@@ -55,9 +55,22 @@ const canCreateNamespace = computed(() => {
     return false;
   }
 
+  // Create is cluster-scoped: gate on the global-only namespace_create.
+  return can('namespace_create');
+});
+// Per-namespace delete is namespaced (server authorizes it against the role for
+// the namespace being deleted), so it stays on the flat namespace_write and is
+// further gated per-row by row.canDelete below.
+const canDelete = computed(() => {
+  const can = store.getters['epinio/can'];
+  const perms = store.getters['epinio/permissions']?.();
+
+  if (!can || !perms || Object.keys(perms).length === 0) {
+    return false;
+  }
+
   return can('namespace_write') || can('namespace');
 });
-const canDelete = canCreateNamespace;
 
 watchEffect(() => {
   if (!namespaces.value) {
