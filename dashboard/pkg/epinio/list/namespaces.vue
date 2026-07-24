@@ -43,7 +43,7 @@ const onSearch = debounce(async (query: string) => {
   requestParams.value.search = query;
 }, 500);
 
-const {data: namespaces, isLoading: isLoadingNamespaces, isError: isErrorNamespaces, error: namespacesError} = useNamespaces(store, requestParams.value);
+const {data: namespaces, isLoading: isLoadingNamespaces, isError: isErrorNamespaces, error: namespacesError} = useNamespaces(store, requestParams);
 
 // Strict RBAC: only show Create/Delete when the user has namespace write perms (admin).
 // Defined ahead of the watchEffect that consumes them to avoid a TDZ on first run.
