@@ -5,10 +5,9 @@ import Loading from '@shell/components/Loading.vue';
 import Banner from '@components/Banner/Banner.vue';
 import ChartValues from '../settings/ChartValues.vue';
 import { _EDIT } from '@shell/config/query-params';
-
-import { sortBy } from '@shell/utils/sort';
+import debounce from 'lodash/debounce';
 import { validateKubernetesName } from '@shell/utils/validators/kubernetes-name';
-import { EPINIO_TYPES, EpinioNamespace, EpinioAppInfo } from '../../types';
+import { EPINIO_TYPES, EpinioAppInfo } from '../../types';
 import Application from '../../models/applications';
 import { objValuesToString } from '../../utils/settings';
 
@@ -37,25 +36,50 @@ const validSettings = ref<boolean>(true);
 const envVariables = ref<{ key: string; value: string }[]>([]);
 const bulkFileInput = ref<HTMLInputElement | null>(null);
 const fileDialogActive = ref(false);
+const namespaces = ref<any[]>([]);
+const cachedNamespaces = ref<any[]>([]);
+const isLoadingNamespaces = ref(false);
+const debounceTime = ref<number>(1000);
 
-// Computed properties
-const namespaces = computed(() => {
+const fetchNamespaces = async () => {
+  if (cachedNamespaces.value.length > 0) {
+    namespaces.value = cachedNamespaces.value;
+    return;
+  }
   void store.state.activeNamespaceCacheKey;
   const active = store.state.activeNamespaceCache;
-  const activeNamespaces = store.getters['epinio/all'](EPINIO_TYPES.NAMESPACE).filter((ns: EpinioNamespace) => {
-    if (!active || Object.keys(active).length === 0) return true;
-    const isActive = active[ns.metadata.name];
-    return isActive;
-  });
-  if (activeNamespaces.length === 1) {
-    handleNameNsUpdate({ metadata: { namespace: activeNamespaces[0].metadata.name } });
+  isLoadingNamespaces.value = true;
+  try {
+    const res = await store.dispatch('epinio/request', {
+      opt: {
+        url: '/api/v1/namespaces',
+        method: 'GET',
+        responseType: 'json'
+      }
+    });
+    const namespacesData = res.data ? res.data : store.getters['epinio/all'](EPINIO_TYPES.NAMESPACE);
+    const activeNamespaces = namespacesData.filter((ns: any) => {
+      if (!active || Object.keys(active).length === 0) return true;
+      const name = ns.meta?.name ?? ns.metadata?.name;
+      const isActive = active[name];
+      return isActive;
+    });
+    if (activeNamespaces.length === 1) {
+      handleNameNsUpdate({ metadata: { namespace: activeNamespaces[0].meta.name } });
+    }
+    namespaces.value = activeNamespaces;
+    cachedNamespaces.value = activeNamespaces;
+  } catch (error) {
+    console.error('Failed to fetch namespaces', error);
+    errors.value.push('Failed to fetch namespaces');
+  } finally {
+    isLoadingNamespaces.value = false;
   }
-  return sortBy(activeNamespaces, 'name', false);
-});
+};
 
-const namespaceNames = computed(() => namespaces.value.map((n: EpinioNamespace) => ({
-  label: n.metadata.name,
-  value: n.metadata.name
+const namespaceNames = computed(() => namespaces.value.map((n: any) => ({
+  label: n.meta?.name ?? n.metadata?.name,
+  value: n.meta?.name ?? n.metadata?.name
 })));
 
 const valid = computed(() => {
@@ -151,6 +175,7 @@ watch(() => props.active, (isActive) => {
 
     envVariables.value = Object.entries(valuesData.configuration.environment).map(([key, value]) => ({ key, value }));
     values.value = valuesData;
+    fetchNamespaces();
     validSettings.value = {};
 
     emit('valid', valid.value);
@@ -195,6 +220,7 @@ watch(envVariables, (newEnvVars) => {
 
 // Handler for name and namespace updates
 function handleNameNsUpdate(updatedValue: { metadata?: { name?: string; namespace?: string } }) {
+
   if (updatedValue?.metadata && values.value?.meta) {
     if (updatedValue.metadata.name !== undefined) {
       values.value.meta.name = updatedValue.metadata.name;
@@ -305,6 +331,33 @@ function onBulkFileChange(event: Event) {
   reader.readAsText(file);
   (event.target as HTMLInputElement).value = '';
 }
+
+async function searchNamespaces(query: string) {
+  if (query.length) {
+    try {
+      isLoadingNamespaces.value = true;
+      const res = await store.dispatch('epinio/request', {
+        opt: {
+          url: `/api/v1/namespacematches/${query}`,
+          method: 'GET',
+          responseType: 'json'
+        }
+      });
+
+      const results = res.data?.names || [];
+      namespaces.value = results.map((name: string) => ({ meta: { name } }));
+    } catch (err) {
+      namespaces.value = [];
+      
+    } finally {
+      isLoadingNamespaces.value = false;
+    }
+  } else {
+    await fetchNamespaces();
+  }
+}
+
+const debouncedSearchNamespaces = debounce(searchNamespaces, debounceTime.value);
 </script>
 
 <template>
@@ -319,7 +372,9 @@ function onBulkFileChange(event: Event) {
         :disabled="isEdit"
         data-testid="epinio_app-info_namespace"
         required
+        filterable
         @dropdown-change="(e: CustomEvent) => handleNameNsUpdate({ metadata: { namespace: e.detail.value } })"
+        @dropdown-filter="(e: CustomEvent<{ filter: string }>) => { debouncedSearchNamespaces(e.detail.filter); }"
       />
       <trailhand-text-input
         :value="values.meta.name"
