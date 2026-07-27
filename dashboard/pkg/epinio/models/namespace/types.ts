@@ -1,9 +1,4 @@
-interface PaginatedResponseMetadata {
-    total: number;
-    pageSize: number;
-    totalItems: number;
-    totalPages: number;
-}
+import { ListResourceResponse } from "../resource/types";
 
 interface NamespaceMeta {
     name: string;
@@ -16,17 +11,7 @@ export interface Namespace {
     configurations: string[];
 }
 
-export interface ListNamespaces {
-    items: Namespace[];
-}
-
-export type ListNamespacesResponse = ListNamespaces & PaginatedResponseMetadata;
-
-export interface ListNamespacesRequestParams {
-    page?: number;
-    pageSize?: number;
-    search?: string;
-}
+export type ListNamespacesResponse = ListResourceResponse<Namespace>;
 
 export interface CreateNamespaceRequest {
     name: string;

@@ -1,11 +1,12 @@
 import { createEpinioClient } from "./client";
-import { ListNamespacesRequestParams, ListNamespacesResponse, CreateNamespaceRequest } from "../models/namespace/types";
+import { ListResourceRequestParams } from "../models/resource/types";
+import { ListNamespacesResponse, CreateNamespaceRequest } from "../models/namespace/types";
 
 export function namespacesApi(epinioClient: ReturnType<typeof createEpinioClient>) {
     const basePath = '/api/v1/namespaces';
 
     return {
-        listNamespaces: async (params?: ListNamespacesRequestParams): Promise<ListNamespacesResponse> => {
+        listNamespaces: async (params?: ListResourceRequestParams): Promise<ListNamespacesResponse> => {
             return await epinioClient.get(basePath, { params });
         },
         createNamespace: async (request: CreateNamespaceRequest) => {

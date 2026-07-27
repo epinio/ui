@@ -6,7 +6,8 @@ import Masthead from '@shell/components/ResourceList/Masthead';
 import { attachActionMenu } from '../utils/table-formatters';
 import { debounce } from 'lodash';
 import { useNamespaces } from '../queries/useNamespaceQueries';
-import { ListNamespacesRequestParams, Namespace } from '../models/namespace/types';
+import { ListResourceRequestParams } from '../models/resource/types';
+import { Namespace } from '../models/namespace/types';
 import NamespaceModal from '../components/namespace/NamespaceModal.vue';
 import NamespaceDeleteModal from '../components/namespace/NamespaceDeleteModal.vue';
 import Banner from '@components/Banner/Banner.vue';
@@ -26,7 +27,7 @@ const displayRows = ref<ResourceTableRow[]>([]);
 const namespaceModal = ref<InstanceType<typeof NamespaceModal> | null>(null);
 const namespaceDeleteModal = ref<InstanceType<typeof NamespaceDeleteModal> | null>(null);
 
-const requestParams = ref<ListNamespacesRequestParams>({
+const requestParams = ref<ListResourceRequestParams>({
   page: 1,
   pageSize: 10,
   search: ''
