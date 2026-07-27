@@ -144,7 +144,6 @@ onMounted(() => {
 
 onUnmounted(() => {
   stopPolling(['namespaces', 'applications', 'configurations']);
-  store.dispatch('epinio/search', { type: resource, query: '' });
 });
 
 async function openCreateModal() {
