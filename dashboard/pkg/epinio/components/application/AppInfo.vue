@@ -332,32 +332,82 @@ function onBulkFileChange(event: Event) {
   (event.target as HTMLInputElement).value = '';
 }
 
-async function searchNamespaces(query: string) {
-  if (query.length) {
-    try {
-      isLoadingNamespaces.value = true;
-      const res = await store.dispatch('epinio/request', {
-        opt: {
-          url: `/api/v1/namespacematches/${query}`,
-          method: 'GET',
-          responseType: 'json'
-        }
-      });
+// Monotonic token identifying the most recent namespace search/restore. A
+// search response only applies if its token is still current, so a request
+// that resolves after the user cleared (or started a newer search) is dropped
+// instead of overwriting the list. `.cancel()` alone can't do this: it only
+// stops a debounced call that hasn't fired yet, not a request already in flight.
+let namespaceSearchSeq = 0;
 
-      const results = res.data?.names || [];
-      namespaces.value = results.map((name: string) => ({ meta: { name } }));
-    } catch (err) {
+async function searchNamespaces(query: string) {
+  const seq = ++namespaceSearchSeq;
+
+  try {
+    isLoadingNamespaces.value = true;
+    const res = await store.dispatch('epinio/request', {
+      opt: {
+        url: `/api/v1/namespacematches/${query}`,
+        method: 'GET',
+        responseType: 'json'
+      }
+    });
+
+    if (seq !== namespaceSearchSeq) {
+      return;
+    }
+
+    const results = res.data?.names || [];
+    namespaces.value = results.map((name: string) => ({ meta: { name } }));
+  } catch {
+    if (seq === namespaceSearchSeq) {
       namespaces.value = [];
-      
-    } finally {
+    }
+  } finally {
+    if (seq === namespaceSearchSeq) {
       isLoadingNamespaces.value = false;
     }
-  } else {
-    await fetchNamespaces();
   }
 }
 
 const debouncedSearchNamespaces = debounce(searchNamespaces, debounceTime.value);
+
+// Restore the initial namespace list when the search is cleared. Bumping the
+// token invalidates any search response still in flight; cancelling drops any
+// debounced search not yet fired. Both are needed to avoid the cleared list
+// being overwritten by a late response.
+function restoreNamespaces() {
+  namespaceSearchSeq++;
+  debouncedSearchNamespaces.cancel();
+  fetchNamespaces();
+}
+
+// Route filter events: an empty query means the search was cleared.
+function onNamespaceFilter(query: string) {
+  if (!query.length) {
+    restoreNamespaces();
+    return;
+  }
+
+  debouncedSearchNamespaces(query);
+}
+
+// The dropdown doesn't emit events for two gestures we care about: opening the
+// panel (the `trigger`) and clearing the search box (the `search-clear-btn`).
+// Without handling them the dropdown keeps showing the last /namespacematches
+// subset, so a reopen shows stale results plus the selected item instead of the
+// full list.
+function onNamespaceDropdownClick(e: MouseEvent) {
+  const restoreOn = ['trigger', 'search-clear-btn'];
+
+  const shouldRestore = e.composedPath().some(
+    (el) => el instanceof HTMLElement &&
+      restoreOn.some((cls) => el.classList.contains(cls))
+  );
+
+  if (shouldRestore) {
+    restoreNamespaces();
+  }
+}
 </script>
 
 <template>
@@ -374,7 +424,8 @@ const debouncedSearchNamespaces = debounce(searchNamespaces, debounceTime.value)
         required
         filterable
         @dropdown-change="(e: CustomEvent) => handleNameNsUpdate({ metadata: { namespace: e.detail.value } })"
-        @dropdown-filter="(e: CustomEvent<{ filter: string }>) => { debouncedSearchNamespaces(e.detail.filter); }"
+        @dropdown-filter="(e: CustomEvent<{ filter: string }>) => { onNamespaceFilter(e.detail.filter); }"
+        @click="onNamespaceDropdownClick"
       />
       <trailhand-text-input
         :value="values.meta.name"

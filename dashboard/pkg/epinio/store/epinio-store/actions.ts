@@ -35,6 +35,11 @@ const createId = (schema: any, resource: any) => {
 
 const semanticVersionRegex = /v(?:(\d+)\.)?(?:(\d+)\.)?(?:(\d+)\.\d+)/;
 
+// Debounce timer for the navbar namespace search. Module-scoped so it
+// coalesces across dispatches (Vuex actions get a fresh context each call and
+// can't hold their own debounce state).
+let namespaceSearchTimer: ReturnType<typeof setTimeout> | null = null;
+
 export const epiniofy = (obj: any, schema: any, type: any) => ({
   ...obj,
   // Note - these must be applied here ... so things that need an id before classifying have access to them
@@ -50,6 +55,38 @@ export default {
 
   remove({ commit }: any, obj: any ) {
     commit('remove', obj);
+  },
+
+  // Navbar namespace filter search. Debounced, prefix-matches server-side via
+  // /namespacematches and stores the resulting names. An empty query clears the
+  // stored results (null), so the filter falls back to the full list.
+  searchNamespaces({ dispatch, commit }: any, query: string) {
+    if (namespaceSearchTimer) {
+      clearTimeout(namespaceSearchTimer);
+      namespaceSearchTimer = null;
+    }
+
+    if (!query?.length) {
+      commit('setNamespaceSearch', null);
+
+      return;
+    }
+
+    namespaceSearchTimer = setTimeout(async() => {
+      try {
+        const res = await dispatch('request', {
+          opt: {
+            url:          `/api/v1/namespacematches/${ query }`,
+            method:       'GET',
+            responseType: 'json'
+          }
+        });
+
+        commit('setNamespaceSearch', res.data?.names || []);
+      } catch {
+        commit('setNamespaceSearch', []);
+      }
+    }, 200);
   },
 
   async request(context: any, {

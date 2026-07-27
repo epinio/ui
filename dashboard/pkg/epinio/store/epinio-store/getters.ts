@@ -1,7 +1,8 @@
 import { EPINIO_TYPES } from '../../types';
 import {
   NAMESPACE_FILTER_ALL as ALL,
-  NAMESPACE_FILTER_KINDS
+  NAMESPACE_FILTER_KINDS,
+  NAMESPACE_FILTER_NS_FULL_PREFIX
 } from '@shell/utils/namespace-filter';
 
 export default {
@@ -90,11 +91,20 @@ export default {
   // Return the current page number for the given type, or 1 if not set.
   currentPaginationPage: (state: any) => (type: string) => state.paginationPage?.[type] ?? 1,
 
-  // Namespace filter options for the UI. Uses the addNamespace and divider helpers passed from the component to build the list
-  // of options, which includes an "All namespaces" option followed by a divider and then individual namespaces.
+  // Namespace filter options for the UI. Builds an "All namespaces" special, a
+  // divider, then the individual namespaces via the addNamespace/divider
+  // helpers passed from the component.
+  //
+  // When the component passes a non-empty `filter` and server search results
+  // exist (state.namespaceSearch), show those prefix matches instead of the
+  // full list. The currently-selected namespaces are always unioned in so the
+  // filter component's "prune values not in options" logic can't drop a
+  // selection that falls outside the current search.
   namespaceFilterOptions: (state: any, getters: any, rootState: any, rootGetters: any) => ({
     addNamespace,
-    divider
+    divider,
+    filter,
+    selected = []
   }: any) => {
     const out = [{
       id:    ALL,
@@ -103,7 +113,46 @@ export default {
     }];
 
     divider(out);
-    addNamespace(out, getters.all(EPINIO_TYPES.NAMESPACE));
+
+    const all = getters.all(EPINIO_TYPES.NAMESPACE);
+    const search = state.namespaceSearch;
+
+    let namespaces = all;
+
+    if ((filter || '').length && search) {
+      const byName = new Map(all.map((ns: any) => [ns.meta.name, ns]));
+
+      // A namespace not held client-side still renders from a minimal stub:
+      // addNamespace only reads `id` and `nameDisplay`, and namespaces are
+      // cluster-scoped so both equal the name.
+      const toNamespace = (name: string) =>
+        byName.get(name) || { id: name, nameDisplay: name };
+
+      // Server prefix-match results, keyed by name to dedupe.
+      const names = new Map();
+
+      search.forEach((name: string) => names.set(name, toNamespace(name)));
+
+      // Union in currently-selected namespaces so the filter component's
+      // "prune values not in options" logic can't drop a selection that falls
+      // outside the current search. Selected option ids are prefixed (ns://),
+      // so strip the prefix back to the bare namespace name.
+      selected
+        .filter((s: any) => s?.kind === NAMESPACE_FILTER_KINDS.NAMESPACE)
+        .forEach((s: any) => {
+          const name = typeof s.id === 'string' ?
+            s.id.replace(NAMESPACE_FILTER_NS_FULL_PREFIX, '') :
+            s?.meta?.name;
+
+          if (name && !names.has(name)) {
+            names.set(name, toNamespace(name));
+          }
+        });
+
+      namespaces = [...names.values()];
+    }
+
+    addNamespace(out, namespaces);
 
     return out;
   },
