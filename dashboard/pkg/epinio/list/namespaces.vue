@@ -22,6 +22,7 @@ const t = store.getters['i18n/t'];
 
 const errors = ref<Array<string>>([]);
 const resource: string = EPINIO_TYPES.NAMESPACE;
+const allNamespaces = ref<EpinioNamespace[]>([]);
 const displayRows = ref<EpinioNamespace[]>([]);
 
 const paginationMeta = computed(() => store.getters['epinio/paginationMeta'](resource));
@@ -31,26 +32,9 @@ const searchQuery = ref<string>('');
 
 const paginating = ref(false);
 
-async function goToPage(page: number) {
-  const meta = paginationMeta.value;
-
-  if (meta && (page < 1 || page > meta.totalPages)) return;
-  paginating.value = true;
-  try {
-    await store.dispatch('epinio/goToPage', { type: resource, page });
-  } finally {
-    paginating.value = false;
-  }
+const onSearch = (query: string) => {
+  displayRows.value = allNamespaces.value.filter((ns) => ns.meta.name.includes(query));
 }
-
-const onSearch = debounce(async (query: string) => {
-  paginating.value = true;
-  try {
-    await store.dispatch('epinio/search', { type: resource, query });
-  } finally {
-    paginating.value = false;
-  }
-}, 500);
 
 watch(searchQuery, (newQuery) => {
   onSearch(newQuery);
@@ -130,7 +114,7 @@ watchEffect(() => {
     },
     conditionFn: (row: EpinioNamespace) => canDelete.value && row.canDelete,
   }];
-  displayRows.value = overrideTableRows(all, overrideProps);
+  allNamespaces.value = overrideTableRows(all, overrideProps);
 });
 
 const validateCreate = computed(() => {
@@ -296,15 +280,13 @@ const columns = [
     </div>
     <trailhand-table
       :ref="(el: any) => { if (el) el.renderActions = makeActionMenu; }"
-      :rows="displayRows"
+      :rows="searchQuery ? displayRows : allNamespaces"
       :columns="columns"
-      :server-side="!!paginationMeta"
       :total-items="paginationMeta?.totalItems ?? displayRows.length"
       :current-page="currentPage"
       :loading="paginating"
       :searchable="false"
       key-field="_key"
-      @page-change="(e: CustomEvent) => goToPage(e.detail.page)"
     />
     <trailhand-modal
       :open.prop="showCreateModal"

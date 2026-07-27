@@ -23,6 +23,10 @@ export function startPolling(types: string[], store: any): any {
     // Create and start a new poller for the specified type
     polling[type] = new PollerSequential(
       async() => {
+        if (type === 'namespaces') {
+          store.dispatch('epinio/fetchAllNamespaces');
+          return;
+        }
         await store.dispatch('epinio/findAll', { type, opt: { force: true, load: _MERGE } });
       },
       pollingRate,

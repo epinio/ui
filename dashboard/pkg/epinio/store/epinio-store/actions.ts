@@ -331,9 +331,30 @@ export default {
     });
   },
 
-  loadCluster: async( { dispatch, commit, rootGetters }: any, { id }: any ) => {
+  fetchAllNamespaces: async(ctx: any) => {
+    const { dispatch, commit } = ctx;
+
+    try {
+      const res = await dispatch('request', {
+        opt: {
+          url: '/api/v1/namespaces', // large enough to get everything in one page
+          method: 'GET',
+          _skipPaginationMeta: true, // don't clobber pagination state anything else might still read
+        },
+        type: EPINIO_TYPES.NAMESPACE,
+      });
+      
+      commit('loadAll', { ctx, type: EPINIO_TYPES.NAMESPACE, data: res.data });
+      return res.data;
+    } catch (e) {
+      console.error('Failed to fetch all namespaces', e);
+      return [];
+    }
+  },
+
+  loadCluster: async( { dispatch, commit, rootGetters, getters }: any, { id }: any ) => {
     await dispatch(`loadSchemas`);
-    await dispatch(`findAll`, { type: EPINIO_TYPES.NAMESPACE });
+    await dispatch(`fetchAllNamespaces`);
     await dispatch('cleanNamespaces', null, { root: true });
 
     const key = createNamespaceFilterKeyWithId(id, EPINIO_PRODUCT_NAME);

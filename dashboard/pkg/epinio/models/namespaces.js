@@ -46,7 +46,7 @@ export default class EpinioNamespace extends EpinioMetaResource {
       data: { name: this.meta.name }
     });
 
-    const namespaces = await this.$dispatch('findAll', { type: this.type, opt: { force: true } });
+    const namespaces = await this.$dispatch('fetchAllNamespaces');
 
     // Find new namespace
     return namespaces.filter((n) => n.name === this.name)?.[0];
