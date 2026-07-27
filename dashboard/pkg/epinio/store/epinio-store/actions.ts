@@ -337,7 +337,7 @@ export default {
     try {
       const res = await dispatch('request', {
         opt: {
-          url: '/api/v1/namespaces', // large enough to get everything in one page
+          url: '/api/v1/namespaces?pageSize=250', // large enough to get everything in one page
           method: 'GET',
           _skipPaginationMeta: true, // don't clobber pagination state anything else might still read
         },
