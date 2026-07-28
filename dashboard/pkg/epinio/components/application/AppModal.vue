@@ -392,6 +392,7 @@ defineExpose({ openCreate, openEdit });
             :mode="modalMode"
             :bindings="bindings"
             @change="updateConfigurations"
+            :active="activeTab === 'bindings'"
           />
         </template>
 

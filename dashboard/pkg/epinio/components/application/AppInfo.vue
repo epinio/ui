@@ -5,11 +5,11 @@ import Loading from '@shell/components/Loading.vue';
 import Banner from '@components/Banner/Banner.vue';
 import ChartValues from '../settings/ChartValues.vue';
 import { _EDIT } from '@shell/config/query-params';
-import debounce from 'lodash/debounce';
 import { validateKubernetesName } from '@shell/utils/validators/kubernetes-name';
 import { EPINIO_TYPES, EpinioAppInfo } from '../../types';
 import Application from '../../models/applications';
 import { objValuesToString } from '../../utils/settings';
+import ResourceDropdown from './ResourceDropdown.vue';
 
 const store = useStore();
 
@@ -39,16 +39,15 @@ const fileDialogActive = ref(false);
 const namespaces = ref<any[]>([]);
 const cachedNamespaces = ref<any[]>([]);
 const isLoadingNamespaces = ref(false);
-const debounceTime = ref<number>(1000);
 
 const fetchNamespaces = async () => {
   if (cachedNamespaces.value.length > 0) {
     namespaces.value = cachedNamespaces.value;
     return;
   }
+  isLoadingNamespaces.value = true;
   void store.state.activeNamespaceCacheKey;
   const active = store.state.activeNamespaceCache;
-  isLoadingNamespaces.value = true;
   try {
     const res = await store.dispatch('epinio/request', {
       opt: {
@@ -57,7 +56,11 @@ const fetchNamespaces = async () => {
         responseType: 'json'
       }
     });
-    const namespacesData = res.data ? res.data : store.getters['epinio/all'](EPINIO_TYPES.NAMESPACE);
+    
+    const rawData = res.data ?? [];
+    const namespacesData = await Promise.all(rawData.map((item: any) =>
+      store.dispatch('epinio/create', { type: EPINIO_TYPES.NAMESPACE, ...item })
+    ));
     const activeNamespaces = namespacesData.filter((ns: any) => {
       if (!active || Object.keys(active).length === 0) return true;
       const name = ns.meta?.name ?? ns.metadata?.name;
@@ -332,16 +335,7 @@ function onBulkFileChange(event: Event) {
   (event.target as HTMLInputElement).value = '';
 }
 
-// Monotonic token identifying the most recent namespace search/restore. A
-// search response only applies if its token is still current, so a request
-// that resolves after the user cleared (or started a newer search) is dropped
-// instead of overwriting the list. `.cancel()` alone can't do this: it only
-// stops a debounced call that hasn't fired yet, not a request already in flight.
-let namespaceSearchSeq = 0;
-
 async function searchNamespaces(query: string) {
-  const seq = ++namespaceSearchSeq;
-
   try {
     isLoadingNamespaces.value = true;
     const res = await store.dispatch('epinio/request', {
@@ -352,80 +346,37 @@ async function searchNamespaces(query: string) {
       }
     });
 
-    if (seq !== namespaceSearchSeq) {
-      return;
-    }
-
-    const results = res.data?.names || [];
+    const rawData = res.data ?? [];
+    const classifiedData = await Promise.all(rawData.map((item: any) =>
+      store.dispatch('epinio/create', { type: EPINIO_TYPES.NAMESPACE, ...item })
+    ));
+    const results = classifiedData.map((item: any) => item.meta.name);
     namespaces.value = results.map((name: string) => ({ meta: { name } }));
   } catch {
-    if (seq === namespaceSearchSeq) {
-      namespaces.value = [];
-    }
+    namespaces.value = [];
   } finally {
-    if (seq === namespaceSearchSeq) {
-      isLoadingNamespaces.value = false;
-    }
+    isLoadingNamespaces.value = false;
   }
 }
 
-const debouncedSearchNamespaces = debounce(searchNamespaces, debounceTime.value);
 
-// Restore the initial namespace list when the search is cleared. Bumping the
-// token invalidates any search response still in flight; cancelling drops any
-// debounced search not yet fired. Both are needed to avoid the cleared list
-// being overwritten by a late response.
-function restoreNamespaces() {
-  namespaceSearchSeq++;
-  debouncedSearchNamespaces.cancel();
-  fetchNamespaces();
-}
-
-// Route filter events: an empty query means the search was cleared.
-function onNamespaceFilter(query: string) {
-  if (!query.length) {
-    restoreNamespaces();
-    return;
-  }
-
-  debouncedSearchNamespaces(query);
-}
-
-// The dropdown doesn't emit events for two gestures we care about: opening the
-// panel (the `trigger`) and clearing the search box (the `search-clear-btn`).
-// Without handling them the dropdown keeps showing the last /namespacematches
-// subset, so a reopen shows stale results plus the selected item instead of the
-// full list.
-function onNamespaceDropdownClick(e: MouseEvent) {
-  const restoreOn = ['trigger', 'search-clear-btn'];
-
-  const shouldRestore = e.composedPath().some(
-    (el) => el instanceof HTMLElement &&
-      restoreOn.some((cls) => el.classList.contains(cls))
-  );
-
-  if (shouldRestore) {
-    restoreNamespaces();
-  }
-}
 </script>
 
 <template>
   <Loading v-if="!values" />
   <trailhand-form-card v-else>
     <trailhand-form-row columns="3">
-      <trailhand-dropdown
+      <ResourceDropdown
         :value="values.meta.namespace"
         :options="namespaceNames"
         label="Namespace"
         :placeholder="t('epinio.applications.create.namespacePlaceholder')"
         :disabled="isEdit"
-        data-testid="epinio_app-info_namespace"
         required
-        filterable
-        @dropdown-change="(e: CustomEvent) => handleNameNsUpdate({ metadata: { namespace: e.detail.value } })"
-        @dropdown-filter="(e: CustomEvent<{ filter: string }>) => { onNamespaceFilter(e.detail.filter); }"
-        @click="onNamespaceDropdownClick"
+        :onDropdownChange="(e: CustomEvent) => handleNameNsUpdate({ metadata: { namespace: e.detail.value } })"
+        :fetchAllResources="fetchNamespaces"
+        :searchResources="searchNamespaces"
+        :isLoading="isLoadingNamespaces"
       />
       <trailhand-text-input
         :value="values.meta.name"

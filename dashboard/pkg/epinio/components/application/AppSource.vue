@@ -19,6 +19,7 @@ import { EpinioAppInfo } from '../../types';
 import { _EDIT } from '@shell/config/query-params';
 import { AppUtils } from '../../utils/application';
 import { EPINIO_TYPES } from '../../types';
+import ResourceDropdown from './ResourceDropdown.vue';
 
 const GIT_BASE_URL = {
   [APPLICATION_SOURCE_TYPE.GIT_HUB]: 'https://github.com',
@@ -55,6 +56,20 @@ const manifestFileInput = ref<HTMLInputElement | null>(null);
 const archiveFileInput = ref<HTMLInputElement | null>(null);
 const folderFileInput = ref<HTMLInputElement | null>(null);
 const fileDialogActive = ref(false);
+
+const isLoadingGitConfigs = ref(false);
+const gitConfigs = ref<any[]>([]);
+const cachedGitConfigs = ref<any[]>([]);
+
+const isLoadingAppCharts = ref(false);
+const appCharts = ref<any[]>([]);
+const cachedAppCharts = ref<any[]>([]);
+
+const isLoadingBuilderImages = ref(false);
+const builderImages = ref<any[]>([]);
+const cachedBuilderImages = ref<any[]>([]);
+
+const isFetchingChartsAndImages = ref<boolean>(true);
 
 const builderImage = ref(props.source?.builderImage || '');
 
@@ -100,17 +115,10 @@ const types = Object.values(APPLICATION_SOURCE_TYPE).map(value => ({
 }));
 
 const namespaces = computed(() => sortBy(store.getters['epinio/all'](EPINIO_TYPES.NAMESPACE), 'name', false));
-const appCharts = computed(() =>
-  sortBy(store.getters['epinio/all'](EPINIO_TYPES.APP_CHARTS), 'name', false).map((ap: EpinioApplicationChartResource) => ({
-    value: ap.meta.name,
-    label: `${ap.meta.name} (${ap.short_description})`
-  }))
-);
-const gitConfigs = computed(() => store.getters['epinio/all'](EPINIO_TYPES.GIT_CONFIG) || []);
 
 // Get the builder images from the store, add custom option and format for dropdown
-const builderImages = computed(() => {
-  const catalogImages = sortBy(store.getters['epinio/all'](EPINIO_TYPES.BUILDER_IMAGE), 'meta.name', false).map((bi: any) => ({
+const allBuilderImages = computed(() => {
+  const catalogImages = sortBy(builderImages.value, 'meta.name', false).map((bi: any) => ({
     value: bi.image,
     label: `${bi.meta.name} (${bi.short_description})`,
     default: bi.default
@@ -124,7 +132,7 @@ const builderImages = computed(() => {
 });
 
 const selectedBuilderImage = computed(() => {
-  return builderImages.value.some(
+  return allBuilderImages.value.some(
     (bi) => bi.value === builderImage.value
   )
     ? builderImage.value
@@ -149,6 +157,153 @@ const gitSource = computed(() => ({
 }));
 
 const valid = ref(validate());
+
+const fetchGitConfigs = async () => {
+  if (cachedGitConfigs.value.length > 0) {
+    gitConfigs.value = cachedGitConfigs.value;
+    return;
+  }
+  isLoadingGitConfigs.value = true;
+  try {
+    const res = await store.dispatch('epinio/request', {
+      opt: {
+        url: '/api/v1/gitconfigs',
+        method: 'GET',
+        responseType: 'json'
+      }
+    });
+    const rawData = res.data ?? [];
+    const classifiedData = await Promise.all(rawData.map((item: any) =>
+      store.dispatch('epinio/create', { type: EPINIO_TYPES.GIT_CONFIG, ...item })
+    ));
+    gitConfigs.value = classifiedData;
+    cachedGitConfigs.value = classifiedData;
+  } catch (error) {
+    console.error('Failed to fetch git configs', error);
+  } finally {
+    isLoadingGitConfigs.value = false;
+  }
+};
+
+async function searchGitConfigs(query: string) {
+  isLoadingGitConfigs.value = true;
+  try {
+    const res = await store.dispatch('epinio/request', {
+      opt: {
+        url: `/api/v1/gitconfigs?search=${query}`,
+        method: 'GET',
+        responseType: 'json'
+      }
+    });
+    const rawData = res.data ?? [];
+    const classifiedData = await Promise.all(rawData.map((item: any) =>
+      store.dispatch('epinio/create', { type: EPINIO_TYPES.GIT_CONFIG, ...item })
+    ));
+    gitConfigs.value = classifiedData;
+  } catch {
+    gitConfigs.value = [];
+  } finally {
+    isLoadingGitConfigs.value = false;
+  }
+}
+
+const fetchAppCharts = async () => {
+  if (cachedAppCharts.value.length > 0) {
+    appCharts.value = cachedAppCharts.value;
+    return;
+  }
+  isLoadingAppCharts.value = true;
+  try {
+    const res = await store.dispatch('epinio/request', {
+      opt: {
+        url: '/api/v1/appcharts',
+        method: 'GET',
+        responseType: 'json'
+      }
+    });
+    const rawData = res.data ?? [];
+    const classifiedData = await Promise.all(rawData.map((item: any) =>
+      store.dispatch('epinio/create', { type: EPINIO_TYPES.APP_CHART, ...item })
+    ));
+    appCharts.value = classifiedData;
+    cachedAppCharts.value = classifiedData;
+  } catch (error) {
+    console.error('Failed to fetch app charts', error);
+  } finally {
+    isLoadingAppCharts.value = false;
+  }
+};
+
+async function searchAppCharts(query: string) {
+  isLoadingAppCharts.value = true;
+  try {
+    const res = await store.dispatch('epinio/request', {
+      opt: {
+        url: `/api/v1/appcharts?search=${query}`,
+        method: 'GET',
+        responseType: 'json'
+      }
+    });
+    const rawData = res.data ?? [];
+    const classifiedData = await Promise.all(rawData.map((item: any) =>
+      store.dispatch('epinio/create', { type: EPINIO_TYPES.APP_CHARTS, ...item })
+    ));
+    appCharts.value = classifiedData;
+  } catch {
+    appCharts.value = [];
+  } finally {
+    isLoadingAppCharts.value = false;
+  }
+}
+
+const fetchBuilderImages = async () => {
+  if (cachedBuilderImages.value.length > 0) {
+    builderImages.value = cachedBuilderImages.value;
+    return;
+  }
+  isLoadingBuilderImages.value = true;
+  try {
+    const res = await store.dispatch('epinio/request', {
+      opt: {
+        url: '/api/v1/builderimages',
+        method: 'GET',
+        responseType: 'json'
+      }
+    });
+    const rawData = res.data ?? [];
+    const classifiedData = await Promise.all(rawData.map((item: any) =>
+      store.dispatch('epinio/create', { type: EPINIO_TYPES.BUILDER_IMAGE, ...item })
+    ));
+    builderImages.value = classifiedData;
+    cachedBuilderImages.value = classifiedData;
+  } catch (error) {
+    console.error('Failed to fetch builder images', error);
+  } finally {
+    isLoadingBuilderImages.value = false;
+  }
+};
+
+async function searchBuilderImages(query: string) {
+  isLoadingBuilderImages.value = true;
+  try {
+    const res = await store.dispatch('epinio/request', {
+      opt: {
+        url: `/api/v1/builderimages?search=${query}`,
+        method: 'GET',
+        responseType: 'json'
+      }
+    });
+    const rawData = res.data ?? [];
+    const classifiedData = await Promise.all(rawData.map((item: any) =>
+      store.dispatch('epinio/create', { type: EPINIO_TYPES.BUILDER_IMAGE, ...item })
+    ));
+    builderImages.value = classifiedData;
+  } catch {
+    builderImages.value = [];
+  } finally {
+    isLoadingBuilderImages.value = false;
+  }
+}
 
 watch(type, () => {
   if (gitSkipTypeReset.value) {
@@ -393,17 +548,20 @@ function onFolderSelected(files: FileWithRelativePath | FileWithRelativePath[]) 
   });
 }
 
-onMounted(() => {
+onMounted(async () => {
+  await fetchAppCharts();
+  await fetchBuilderImages();
   // If no app chart is set from the source or application configuration, default to the standard app chart
   if (!appChart.value) {
-    const standardAppChart = appCharts.value.find((ac) => ac.value === 'standard');
-    appChart.value = props.application.configuration?.appchart || props.source?.appChart || standardAppChart?.value || appCharts.value[0]?.value || appCharts.value[0];
+    const standardAppChart = appCharts.value.find((ac) => ac.meta.name === 'standard');
+    appChart.value = props.application.configuration?.appchart || props.source?.appChart || standardAppChart?.value || appCharts.value[0]?.meta.name || '';
   }
   // If no builder image is set from the source, default to the info default or the first in the catalog
   if (!builderImage.value) {
-    const defaultImage = builderImages.value.find((bi: any) => bi.default);
-    builderImage.value = defaultImage ? defaultImage.value : builderImages.value[0]?.value || '';
+    const defaultImage = allBuilderImages.value.find((bi: any) => bi.default);
+    builderImage.value = defaultImage ? defaultImage.value : allBuilderImages.value[0]?.value || '';
   }
+  isFetchingChartsAndImages.value = false;
   update();
 });
 
@@ -517,13 +675,15 @@ onMounted(() => {
     <template v-else-if="type === APPLICATION_SOURCE_TYPE.GIT_URL">
       <div class="spacer source">
         <h3>Git Config</h3>
-        <trailhand-dropdown
-          style="width: 100%;"
+        <ResourceDropdown
           :value="gitUrl.gitconfig"
-          data-testid="epinio_app-source_git-config"
+          :options="gitConfigs.map((c: any) => ({ value: c.meta.name, label: c.meta.name }))"
           label="Git Config"
-          :options="gitConfigs.map((c: any) => ({ value: c.metadata.name, label: c.metadata.name }))"
-          @dropdown-change="(e: CustomEvent) => { gitUrl.gitconfig = e.detail.value; update(); }"
+          :disabled="isEdit"
+          :onDropdownChange="(e: CustomEvent) => { gitUrl.gitconfig = e.detail.value; update(); }"
+          :fetchAllResources="fetchGitConfigs"
+          :searchResources="searchGitConfigs"
+          :isLoading="isLoadingGitConfigs"
         />
       </div>
       <div class="spacer source">
@@ -560,43 +720,61 @@ onMounted(() => {
         v-model:value="gitSource"
         :type="type"
         @change="gitUpdate"
+        :gitConfigs="gitConfigs"
+        :fetchGitConfigs="fetchGitConfigs"
+        :searchGitConfigs="searchGitConfigs"
+        :isLoadingGitConfigs="isLoadingGitConfigs"
       />
     </template>
 
     <div class="spacer source">
       <h3>Advanced Settings</h3>
-      <trailhand-dropdown
-        style="width: 100%;"
-        :value="appChart"
-        data-testid="epinio_app-source_appchart"
-        :label="t('epinio.applications.steps.source.archive.appchart.label')"
-        :options="appCharts"
-        :disabled="isEdit || isView"
-        placeholder="Select an application chart"
-        @dropdown-change="(e: CustomEvent) => { appChart = e.detail.value; update(); }"
-      />
 
-      <template v-if="showBuilderImage">
-        <div class="spacer source builder-image">
-          <h4>Paketo Builder Image</h4>
-          <trailhand-dropdown
-            :value="selectedBuilderImage"
-            data-testid="epinio_app-source_builder-catalog"
-            label="Builder Image"
-            :options="builderImages"
-            @dropdown-change="(e: CustomEvent) => {
-              handleBuilderImageDropdownChange(e.detail.value);
-            }"
-          />
-          <trailhand-text-input
-            style="width: 100%;"
-            :value="builderImage"
-            data-testid="epinio_app-source_builder-value"
-            :disabled="!isCustomBuilderImage"
-            @text-input-change="(e: CustomEvent) => { builderImage = e.detail.value; update(); }"
-          />
-        </div>
-      </template>
+      <div
+        v-if="isFetchingChartsAndImages"
+        class="spacer"
+      >
+        <trailhand-loading-spinner />
+      </div>
+
+      <div v-else>
+        <ResourceDropdown
+          :value="appChart"
+          :options="appCharts.map((ap: EpinioApplicationChartResource) => ({
+            value: ap.meta.name,
+            label: `${ap.meta.name} (${ap.short_description})`
+          }))"
+          :label="t('epinio.applications.steps.source.archive.appchart.label')"
+          :disabled="isEdit || isView"
+          placeholder="Select an application chart"
+          :onDropdownChange="(e: CustomEvent) => { appChart = e.detail.value; update(); }"
+          :fetchAllResources="fetchAppCharts"
+          :searchResources="searchAppCharts"
+          :isLoading="isLoadingAppCharts"
+        />
+
+        <template v-if="showBuilderImage">
+          <div class="spacer source builder-image">
+            <h4>Paketo Builder Image</h4>
+            <ResourceDropdown
+              :value="selectedBuilderImage"
+              :options="allBuilderImages"
+              label="Builder Image"
+              :onDropdownChange="(e: CustomEvent) => { handleBuilderImageDropdownChange(e.detail.value) }"
+              :fetchAllResources="fetchBuilderImages"
+              :searchResources="searchBuilderImages"
+              :isLoading="isLoadingBuilderImages"
+            />
+            <trailhand-text-input
+              style="width: 100%;"
+              :value="builderImage"
+              data-testid="epinio_app-source_builder-value"
+              :disabled="!isCustomBuilderImage"
+              @text-input-change="(e: CustomEvent) => { builderImage = e.detail.value; update(); }"
+            />
+          </div>
+        </template>
+      </div>
     </div>
   </div>
 </template>
