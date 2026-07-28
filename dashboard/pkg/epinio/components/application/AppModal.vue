@@ -16,6 +16,12 @@ import EpinioApplicationModel from 'models/applications';
 const store = useStore() as any;
 const t = store.getters['i18n/t'];
 
+// Fires with the app's namespace once a create or edit has landed on the
+// server. The applications list renders from per-namespace paginated fetches,
+// not the global store, so it needs this signal to re-fetch the group -- a
+// model-level forceFetch only updates the store slice nothing there reads.
+const emit = defineEmits<{ saved: [namespace?: string] }>();
+
 // Modal open state
 const showModal = ref(false);
 const modalMode = ref<'create' | 'edit'>('create');
@@ -310,6 +316,7 @@ async function onSubmit() {
         completeTab('bindings', 'progress'); // progress tab handles the rest
       } else {
         await value.value.forceFetch();
+        emit('saved', value.value?.meta?.namespace);
         closeModal();
       }
     } else {
@@ -320,6 +327,12 @@ async function onSubmit() {
   } finally {
     if (!isEdit.value) saving.value = false;
   }
+}
+
+// Creates and source redeploys run through the progress tab's pipeline, so the
+// modal only learns the app landed when AppProgress says it finished.
+function handleProgressFinished() {
+  emit('saved', value.value?.meta?.namespace);
 }
 
 function completeTab(tabId: string | number, nextTabId: string | number) {
@@ -403,6 +416,7 @@ defineExpose({ openCreate, openEdit });
             :mode="modalMode"
             :tab="tab"
             :active="activeTab === tab.id"
+            @finished="handleProgressFinished"
           />
       </template>
       </Tabs>

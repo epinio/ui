@@ -88,6 +88,12 @@ async function fetchNamespaceApps(namespace: string, page = 1, search='', silent
 
     namespaceRows.value = { ...namespaceRows.value, [namespace]: items };
     namespaceMeta.value = { ...namespaceMeta.value, [namespace]: meta };
+
+    // A delete can empty the page we are on. Step back to the new last page
+    // rather than leaving the user on a page that no longer exists.
+    if (page > 1 && meta && meta.totalPages >= 1 && page > meta.totalPages) {
+      await fetchNamespaceApps(namespace, meta.totalPages, search, silent);
+    }
   } finally {
     if (!silent) {
       namespaceLoading.value = { ...namespaceLoading.value, [namespace]: false };
@@ -289,7 +295,7 @@ const handleBulkDeleteSettled = async () => {
 
   namespaceSelectedRows.value = { ...namespaceSelectedRows.value, [ns]: [] };
   namespaceTableRefs.value[ns]?.clearSelection();
-  await fetchNamespaceApps(ns, namespaceCurrentPages.value[ns] ?? 1, searchQueries.value[ns] ?? '', true);
+  await refreshNamespace(ns);
 };
 
 // NOTE: must be a named function declared here, not an inline arrow function
@@ -329,13 +335,35 @@ watchEffect(() => {
   }
 });
 
-function handleDeleted(app: any) {
-  const ns = app.meta.namespace;
+// Re-fetch rather than splicing the row out locally: these tables paginate
+// server-side, so dropping a row without new meta leaves totalItems (and so
+// the page count) stale, and the row that should shift up from the next page
+// never arrives.
+async function handleDeleted(app: any) {
+  await refreshNamespace(app.meta.namespace);
+}
 
-  namespaceRows.value[ns] =
-    (namespaceRows.value[ns] || []).filter(
-      (a) => a.id !== app.id
-    );
+// An app create can also create its namespace, so seed the group if it is new
+// (the namespace watchEffect adds it too, but only once the store catches up).
+async function handleSaved(namespace?: string) {
+  if (!namespace) {
+    return;
+  }
+
+  if (!(namespace in namespaceRows.value)) {
+    namespaceRows.value = { ...namespaceRows.value, [namespace]: [] };
+  }
+
+  await refreshNamespace(namespace);
+}
+
+function refreshNamespace(namespace: string) {
+  return fetchNamespaceApps(
+    namespace,
+    namespaceCurrentPages.value[namespace] ?? 1,
+    searchQueries.value[namespace] ?? '',
+    true,
+  );
 }
 
 onMounted(async () => {
@@ -476,7 +504,7 @@ onUnmounted(() => {
         @page-change="(e: CustomEvent) => handlePageChange(e, ns)"
       />
     </div>
-    <AppModal ref="appModal" />
+    <AppModal ref="appModal" @saved="handleSaved" />
     <ExportAppModal ref="exportAppModal" />
     <AppDeleteModal ref="deleteAppModal" @deleted="handleDeleted" />
     <BulkDeleteModal
