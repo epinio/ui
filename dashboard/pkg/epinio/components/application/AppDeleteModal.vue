@@ -43,15 +43,15 @@ async function onSubmitDelete() {
     emit('deleted', appToDelete.value);
     closeDelete();
     store.dispatch('growl/success', {
-      title: 'Application Deleted',
-      message: `Your application ${appName} has been successfully deleted.`,
+      title:   t('epinio.growl.application.delete.success.title'),
+      message: t('epinio.growl.application.delete.success.message', { name: appName }),
     });
     store.dispatch('epinio/findAll', { type: EPINIO_TYPES.APP, opt: { force: true } });
   } catch (e: any) {
     errors.value = epinioExceptionToErrorsArray(e);
     store.dispatch('growl/error', {
-      title: 'Application Deletion Failed',
-      message: `Failed to delete application ${appName}. Please try again. Error details: ${e instanceof Error ? e.message : String(e)}`,
+      title:   t('epinio.growl.application.delete.error.title'),
+      message: t('epinio.growl.application.delete.error.message', { name: appName, error: e instanceof Error ? e.message : String(e) }),
     });
   } finally {
     deleting.value = false;

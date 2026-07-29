@@ -7,7 +7,7 @@ export default class EpinioCatalogServiceModel extends EpinioMetaResource {
   get _availableActions() {
     return [{
       action:  'createService',
-      label:   this.t('generic.create'),
+      label:   'Create Service',
       icon:    'icon icon-fw icon-chevron-up',
       enabled: true,
     }];
@@ -41,6 +41,54 @@ export default class EpinioCatalogServiceModel extends EpinioMetaResource {
       .filter((s) => {
         return s.catalog_service === this.name;
       });
+  }
+
+  async create() {
+    await this.followLink('create', {
+      method:  'post',
+      headers: {
+        'content-type': 'application/json',
+        accept:         'application/json',
+      },
+      data: {
+        name:             this.name,
+        description:      this.description,
+        short_description: this.short_description,
+        chart:            this.chart,
+        chart_version:     this.chart_version,
+        app_version:       this.app_version,
+        service_icon:      this.service_icon,
+        helm_repo:         this.helm_repo,
+        settings:         this.settings,
+        secret_types:      this.secret_types,
+      }
+    });
+  }
+
+  async update() {
+    await this.followLink('update', {
+      method:  'patch',
+      headers: {
+        'content-type': 'application/json',
+        accept:         'application/json',
+      },
+      data: {
+        description:      this.description,
+        short_description: this.short_description,
+        chart:            this.chart,
+        chart_version:     this.chart_version,
+        app_version:       this.app_version,
+        service_icon:      this.service_icon,
+        helm_repo:         this.helm_repo,
+        settings:         this.settings,
+        values:           this.values,
+        secret_types:      this.secret_types,
+      }
+    });
+  }
+
+  async remove(unmounted = true) {
+    await this._remove({ data: { unmounted } });
   }
 
   createService() {

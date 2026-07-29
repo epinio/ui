@@ -8,6 +8,7 @@ import Masthead from '@shell/components/ResourceList/Masthead';
 
 import AppModal from '../../../../components/application/AppModal.vue';
 import AppDeleteModal from '../../../../components/application/AppDeleteModal.vue';
+import BulkDeleteModal from '../../../../components/BulkDeleteModal.vue';
 import ExportAppModal from '../../../../dialog/ExportAppModal.vue';
 import { EPINIO_TYPES } from '../../../../types';
 import { startPolling, stopPolling } from '../../../../utils/polling';
@@ -15,8 +16,7 @@ import {
   makeActionMenu,
   makeStateTag,
   makeAppRoutesCell,
-  makeRouterLinksOrEmpty,
-  makeBoundServicesCell,
+  makeNameLinks,
 } from '../../../../utils/table-formatters';
 import EpinioApplicationModel from 'models/applications';
 import { overrideTableRows } from '../../../../utils/table-formatters';
@@ -42,6 +42,19 @@ const canEdit = computed(() => {
     canGetter('app_update') || canGetter('app_write') || canGetter('app')
   );
 });
+const canDelete = computed(() => {
+  const canGetter = store.getters['epinio/can'];
+  return canGetter && (
+    canGetter('app_delete') || canGetter('app_write') || canGetter('app')
+  );
+});
+
+const bulkDeleteModal = ref<InstanceType<typeof BulkDeleteModal> | null>(null);
+// Selection is scoped per-namespace-table, matching how bulkRemove() already
+// splits requests by namespace and how the tables are grouped in this view.
+const namespaceTableRefs = ref<Record<string, any>>({});
+const namespaceSelectedRows = ref<Record<string, any[]>>({});
+let bulkDeleteNamespace = '';
 
 const pending = ref(true);
 
@@ -74,6 +87,12 @@ async function fetchNamespaceApps(namespace: string, page = 1, search='', silent
 
     namespaceRows.value = { ...namespaceRows.value, [namespace]: items };
     namespaceMeta.value = { ...namespaceMeta.value, [namespace]: meta };
+
+    // A delete can empty the page we are on. Step back to the new last page
+    // rather than leaving the user on a page that no longer exists.
+    if (page > 1 && meta && meta.totalPages >= 1 && page > meta.totalPages) {
+      await fetchNamespaceApps(namespace, meta.totalPages, search, silent);
+    }
   } finally {
     if (!silent) {
       namespaceLoading.value = { ...namespaceLoading.value, [namespace]: false };
@@ -106,13 +125,13 @@ const allColumns = [
   {
     field:     'stateDisplay',
     label:     'State',
-    width:     '125px',
+    width:     '110px',
     formatter: (_value: string, row: any) => makeStateTag(row)
   },
   {
     field: 'nameDisplay',
     label: 'Name',
-    width: '180px',
+    width: '125px',
     link:  (row: any) => {
       try { return router.resolve(row.detailLocation).href; } catch { return '#'; }
     }
@@ -130,14 +149,22 @@ const allColumns = [
     label:     'Bound Configs',
     width:     '180px',
     sortable:  false,
-    formatter: (_value: any, row: any) => makeRouterLinksOrEmpty(row.allConfigurations, router)
+    formatter: (_value: any, row: any) => makeNameLinks(
+      row.configuration?.configurations,
+      { cluster: store.getters['clusterId'], namespace: row.meta.namespace, resource: EPINIO_TYPES.CONFIGURATION },
+      router
+    )
   },
   {
     field:     'boundServices',
     label:     'Bound Services',
     width:     '180px',
     sortable:  false,
-    formatter: (_value: any, row: any) => makeBoundServicesCell(row, router)
+    formatter: (_value: any, row: any) => makeNameLinks(
+      row.configuration?.services,
+      { cluster: store.getters['clusterId'], namespace: row.meta.namespace, resource: EPINIO_TYPES.SERVICE_INSTANCE },
+      router
+    )
   },
   { field: 'deployment.username', label: 'Last Deployed By', width: '150px' },
   { field: 'meta.createdAt',      label: 'Age',              width: '50px', formatter: 'age' }
@@ -257,6 +284,38 @@ function getApps(apps: any[], _namespace: string): any[] {
 
 const handleNavigate = (event: CustomEvent) => router.push(event.detail.url);
 
+const handleSelectionChange = (event: CustomEvent, ns: string) => {
+  namespaceSelectedRows.value = { ...namespaceSelectedRows.value, [ns]: event.detail.selectedRows };
+};
+
+const handleBulkDeleteClick = (ns: string) => {
+  bulkDeleteNamespace = ns;
+  bulkDeleteModal.value?.openDelete(namespaceSelectedRows.value[ns] ?? []);
+};
+
+// Fires on both success and failure. Applications render from per-namespace
+// fetches, not the generic findAll BulkDeleteModal already refreshes
+// internally, so re-fetch this namespace directly — a batch delete can
+// partially succeed even when it ultimately errors.
+const handleBulkDeleteSettled = async () => {
+  const ns = bulkDeleteNamespace;
+
+  namespaceSelectedRows.value = { ...namespaceSelectedRows.value, [ns]: [] };
+  namespaceTableRefs.value[ns]?.clearSelection();
+  await refreshNamespace(ns);
+};
+
+// NOTE: must be a named function declared here, not an inline arrow function
+// in the template — see feedback_vue_ref_unwrap_bug.md. Vue auto-unwraps
+// top-level refs inside template expressions, so referencing a ref directly
+// in an inline template callback can silently break assignment.
+const setTableRef = (ns: string, el: any) => {
+  if (el) {
+    namespaceTableRefs.value[ns] = el;
+    el.renderActions = makeActionMenu;
+  }
+};
+
 // Lifecycle
 
 // Applications are never loaded via the unpaginated findAll. They come in
@@ -283,13 +342,35 @@ watchEffect(() => {
   }
 });
 
-function handleDeleted(app: any) {
-  const ns = app.meta.namespace;
+// Re-fetch rather than splicing the row out locally: these tables paginate
+// server-side, so dropping a row without new meta leaves totalItems (and so
+// the page count) stale, and the row that should shift up from the next page
+// never arrives.
+async function handleDeleted(app: any) {
+  await refreshNamespace(app.meta.namespace);
+}
 
-  namespaceRows.value[ns] =
-    (namespaceRows.value[ns] || []).filter(
-      (a) => a.id !== app.id
-    );
+// An app create can also create its namespace, so seed the group if it is new
+// (the namespace watchEffect adds it too, but only once the store catches up).
+async function handleSaved(namespace?: string) {
+  if (!namespace) {
+    return;
+  }
+
+  if (!(namespace in namespaceRows.value)) {
+    namespaceRows.value = { ...namespaceRows.value, [namespace]: [] };
+  }
+
+  await refreshNamespace(namespace);
+}
+
+function refreshNamespace(namespace: string) {
+  return fetchNamespaceApps(
+    namespace,
+    namespaceCurrentPages.value[namespace] ?? 1,
+    searchQueries.value[namespace] ?? '',
+    true,
+  );
 }
 
 onMounted(async () => {
@@ -391,11 +472,22 @@ onUnmounted(() => {
         <h3 class="namespace-header">
           Namespace: <span class="namespace-name">{{ ns }}</span>
         </h3>
-        <trailhand-text-input
-          :value="searchQueries[ns] ?? ''"
-          placeholder="Search..."
-          @text-input-change="(e: CustomEvent) => handleSearchInput(ns, (e.target as HTMLInputElement).value)"
-        ></trailhand-text-input>
+        <div class="namespace-header-actions">
+          <trailhand-button
+            v-if="(namespaceSelectedRows[ns] ?? []).length"
+            variant="destructive"
+            size="medium"
+            @click="handleBulkDeleteClick(ns)"
+          >
+            <trailhand-icon name="trash" />
+            Delete ({{ (namespaceSelectedRows[ns] ?? []).length }})
+          </trailhand-button>
+          <trailhand-text-input
+            :value="searchQueries[ns] ?? ''"
+            placeholder="Search..."
+            @text-input-change="(e: CustomEvent) => handleSearchInput(ns, (e.target as HTMLInputElement).value)"
+          ></trailhand-text-input>
+        </div>
       </div>
 
       <!--
@@ -405,21 +497,30 @@ onUnmounted(() => {
         appears on explicit user-initiated page changes, not polling.
       -->
       <trailhand-table
-        :ref="(el: any) => { if (el) el.renderActions = makeActionMenu; }"
+        :ref="(el: any) => setTableRef(ns, el)"
         :rows="getApps(getDisplayRows(ns), ns)"
+        :selectable="canDelete"
         :columns="columns"
         :searchable="false"
         :server-side="!!namespaceMeta[ns]"
         :total-items="namespaceMeta[ns]?.totalItems ?? 0"
         :current-page="namespaceCurrentPages[ns] ?? 1"
         :loading="namespaceLoading[ns] ?? false"
+        @selection-change="(e: CustomEvent) => handleSelectionChange(e, ns)"
         @navigate="handleNavigate"
         @page-change="(e: CustomEvent) => handlePageChange(e, ns)"
       />
     </div>
-    <AppModal ref="appModal" />
+    <AppModal ref="appModal" @saved="handleSaved" />
     <ExportAppModal ref="exportAppModal" />
     <AppDeleteModal ref="deleteAppModal" @deleted="handleDeleted" />
+    <BulkDeleteModal
+      ref="bulkDeleteModal"
+      resource-label="application"
+      :resource-type="resource"
+      :show-delete-image-option="true"
+      @settled="handleBulkDeleteSettled"
+    />
   </div>
 </template>
 
@@ -446,6 +547,13 @@ onUnmounted(() => {
   gap: 1rem;
   padding: 0.5rem 0;
   margin-bottom: 0.5rem;
+}
+
+.namespace-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-shrink: 0;
 }
 
 .namespace-header {
