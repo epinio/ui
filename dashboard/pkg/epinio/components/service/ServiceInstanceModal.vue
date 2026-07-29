@@ -44,7 +44,9 @@ const {
   fetchAll:  fetchNamespaces,
   search:    searchNamespaces,
   seed:      seedNamespace,
-} = useNamespaces(store);
+} = useNamespaces(store, {
+  scopeToActiveFilter: true
+});
 
 const catalogServices = computed(() =>
   store.getters['epinio/all'](EPINIO_TYPES.CATALOG_SERVICE)

@@ -44,7 +44,9 @@ const {
   firstName:  firstNamespace,
   fetchAll:   fetchNamespaces,
   search:     searchNamespaces,
-} = useNamespaces(store);
+} = useNamespaces(store, {
+  scopeToActiveFilter: true
+});
 
 // Filter apps to those in the selected namespace, and map to dropdown options
 const nsAppOptions = computed(() => {
