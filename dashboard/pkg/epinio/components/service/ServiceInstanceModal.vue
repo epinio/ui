@@ -299,7 +299,8 @@ async function onSubmit() {
       delete cleanSettings.value;
       svc.settings = Object.keys(cleanSettings).length ? objValuesToString(cleanSettings) : undefined;
 
-      await svc.create();
+      // Wait for the install only when apps are waiting to be bound to it
+      await svc.create(capturedSelectedApps.length > 0);
 
       // Re-assert metadata: followLink merges the sparse create response back
       // into the model, which can wipe metadata and break subsequent bind calls

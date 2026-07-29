@@ -91,7 +91,10 @@ export default class EpinioServiceModel extends EpinioNamespacedResource {
     });
   }
 
-  async create() {
+  // wait=true holds the response until the chart is installed. Without it the
+  // server installs in the background and an immediate bind fails with
+  // "release does not exist".
+  async create(wait = false) {
     await this.followLink('create', {
       method:  'post',
       headers: {
@@ -101,7 +104,8 @@ export default class EpinioServiceModel extends EpinioNamespacedResource {
       data: {
         name:            this.name,
         catalog_service: this.catalog_service,
-        settings:        this.settings
+        settings:        this.settings,
+        wait,
       }
     });
   }
