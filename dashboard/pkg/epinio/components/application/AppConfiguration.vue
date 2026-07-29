@@ -17,7 +17,9 @@ interface Props {
 }
 
 const props = defineProps<Props>();
-const emit = defineEmits(['change']);
+// 'initial' reports what was bound when the form opened, so the parent can diff
+// against it on save instead of re-deriving it from the store.
+const emit = defineEmits(['change', 'initial']);
 
 const store = useStore();
 
@@ -213,9 +215,15 @@ watch(noServices, (neu) => {
 watch(hasConfigs, (neu, old) => {
   if (!old && neu) {
     if (props.initialApplication?.configuration?.configurations) {
-      values.value.configurations = props.initialApplication.baseConfigurationsNames?.filter(
-        (cc: string) => configurations.value.find((c: any) => c.value === cc)
-      ) || [];
+      // Bound names come off the app record; the fetched list says which of
+      // those are plain configurations rather than service-generated ones.
+      const bound = props.initialApplication.configuration.configurations;
+
+      values.value.configurations = fetchedConfigurations.value
+        .filter((c: any) => !c.isServiceRelated && bound.includes(c.meta.name))
+        .map((c: any) => c.meta.name);
+
+      emit('initial', { configurations: values.value.configurations });
     }
 
     if (isFromManifest.value) {
@@ -232,10 +240,14 @@ watch(hasConfigs, (neu, old) => {
 watch(hasServices, (neu, old) => {
     if (!old && neu) {
       if (props.initialApplication?.configuration?.services) {
-        const serviceNames = props.initialApplication.configuration.services; 
-        values.value.services = fetchedServices.value
-          .filter((s: any) => serviceNames.includes(s.meta.name))
+        const serviceNames = props.initialApplication.configuration.services;
+        const bound = fetchedServices.value
+          .filter((s: any) => serviceNames.includes(s.meta.name));
+
+        values.value.services = bound
           .map((s: any) => `${props.application.metadata.namespace}/${s.meta.name}`);
+
+        emit('initial', { services: bound });
       }
     }
 

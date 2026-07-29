@@ -27,6 +27,7 @@ const loading = ref(true);
 const value = ref<any>(null);
 const source = ref<EpinioAppSource>();
 const bindings = ref<EpinioAppBindings>();
+const originalBindings = ref<EpinioAppBindings>();
 const appChart = reactive({ chartsList: undefined as any, selectedChart: undefined });
 const epinioInfo = ref<any>(null);
 const originalModel = ref<any>(null);
@@ -183,6 +184,7 @@ function closeModal() {
   originalModel.value = null;
   source.value = undefined;
   bindings.value = undefined;
+  originalBindings.value = undefined;
   epinioInfo.value = null;
   appChart.chartsList = undefined;
   appChart.selectedChart = undefined;
@@ -286,6 +288,13 @@ function updateConfigurations(changes: EpinioAppBindings) {
   set(value.value.configuration, { configurations: changes.configurations });
 }
 
+// What the bindings form found bound on open. The store's configuration and
+// service slices only hold one page of their lists, so they cannot be used as
+// the baseline for the save diff.
+function captureOriginalBindings(partial: Partial<EpinioAppBindings>) {
+  originalBindings.value = { ...originalBindings.value, ...partial } as EpinioAppBindings;
+}
+
 async function onSubmit() {
   if (saving.value) return;
   saving.value = true;
@@ -296,11 +305,11 @@ async function onSubmit() {
       // Always save metadata/config changes
       await value.value.update({ restart: !!value.value.canRestartAfterConfigSave });
       await value.value.updateConfigurations(
-        originalModel.value.baseConfigurationsNames || [],
+        originalBindings.value?.configurations || [],
         bindings.value?.configurations || [],
       );
       await value.value.updateServices(
-        originalModel.value.services || [],
+        originalBindings.value?.services || [],
         bindings.value?.services || [],
       );
 
@@ -392,6 +401,7 @@ defineExpose({ openCreate, openEdit });
             :mode="modalMode"
             :bindings="bindings"
             @change="updateConfigurations"
+            @initial="captureOriginalBindings"
             :active="activeTab === 'bindings'"
           />
         </template>

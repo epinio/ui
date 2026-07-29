@@ -7,7 +7,7 @@ import { useRouter } from 'vue-router';
 import { EPINIO_TYPES, EPINIO_SERVICE_PARAM } from '../types';
 import { startPolling, stopPolling } from '../utils/polling';
 import Masthead from '@shell/components/ResourceList/Masthead';
-import { makeStateTag, makeRouterLink, makeRouterLinksOrEmpty, makeActionMenu } from '../utils/table-formatters';
+import { makeStateTag, makeRouterLink, makeNameLinks, makeActionMenu } from '../utils/table-formatters';
 import EpinioServiceModel from 'models/services';
 import { overrideTableRows } from '../utils/table-formatters';
 import ServiceDeleteModal from '../components/service/ServiceDeleteModal.vue';
@@ -74,11 +74,7 @@ watchEffect(() => {
   void store.state.activeNamespaceCacheKey;
   const activeNamespaces = store.state.activeNamespaceCache;
   const all = store.getters['epinio/all'](EPINIO_TYPES.SERVICE_INSTANCE) as any[];
-  // row.applications pulls from the separate Applications store slice; touch
-  // it here too so Vue re-runs this watchEffect (and recomputes displayRows)
-  // once that data arrives or changes, instead of leaving the Bound
-  // Applications column stale until something unrelated re-triggers it.
-  all.forEach((row: any) => { void row.status; void row.stateDisplay; void row.meta; void row.applications; });
+  all.forEach((row: any) => { void row.status; void row.stateDisplay; void row.meta; void row.boundapps; });
 
   // Filter empty rows that are added during delete, and filter by active namespace
   const filtered = all.filter((row) => {
@@ -248,7 +244,11 @@ const columns = [
     field: 'boundApps',
     label: 'Bound Applications',
     sortable: false,
-    formatter: (_v: any, row: any) => makeRouterLinksOrEmpty(row.applications, router)
+    formatter: (_v: any, row: any) => makeNameLinks(
+      row.boundapps,
+      { cluster: store.getters['clusterId'], namespace: row.meta?.namespace, resource: EPINIO_TYPES.APP },
+      router
+    )
   },
   {
     field: 'meta.createdAt',

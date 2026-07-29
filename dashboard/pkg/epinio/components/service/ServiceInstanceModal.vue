@@ -9,9 +9,9 @@ import { objValuesToString } from '../../utils/settings';
 import Banner from '@components/Banner/Banner.vue';
 import ChartValues from '../settings/ChartValues.vue';
 import ResourceDropdown from '../application/ResourceDropdown.vue';
+import { useNamespaces } from '../../utils/namespaces';
 
 import isEqual from 'lodash/isEqual';
-import sortBy from 'lodash/sortBy';
 
 const store = useStore() as any;
 const t = store.getters['i18n/t'];
@@ -37,86 +37,14 @@ const errors = ref<string[]>([]);
 // Captured separately so background list polls (which omit internal_routes) can't wipe it
 const internalRoutes = ref<string[]>([]);
 
-const fetchedNamespaces = ref<any[]>([]);
-const cachedNamespaces = ref<any[]>([]);
-const isLoadingNamespaces = ref(false);
-
-const namespaces = computed(() =>
-  sortBy(fetchedNamespaces.value, 'meta.name', false) as any[]
-);
-
-const namespaceOpts = computed(() =>
-  namespaces.value.map((ns: any) => ({ label: ns.meta?.name || '', value: ns.meta?.name || '' }))
-);
-
-// Namespaces come from the API rather than the store slice, which only holds
-// whatever page the services list last fetched. Same approach as the app create
-// modal: full list when the dropdown opens, name filtering server-side as the
-// user types.
-const classifyNamespaces = (rawData: any[]) => Promise.all(
-  rawData.map((item: any) =>
-    store.dispatch('epinio/create', { type: EPINIO_TYPES.NAMESPACE, ...item })
-  )
-);
-
-async function fetchNamespaces() {
-  if (cachedNamespaces.value.length > 0) {
-    fetchedNamespaces.value = cachedNamespaces.value;
-
-    return;
-  }
-
-  isLoadingNamespaces.value = true;
-
-  try {
-    const res = await store.dispatch('epinio/request', {
-      opt: {
-        url:          '/api/v1/namespaces',
-        method:       'GET',
-        responseType: 'json'
-      }
-    });
-
-    const classified = await classifyNamespaces(res.data ?? []);
-
-    fetchedNamespaces.value = classified;
-    cachedNamespaces.value = classified;
-  } catch (e) {
-    console.error('Failed to fetch namespaces', e);
-  } finally {
-    isLoadingNamespaces.value = false;
-  }
-}
-
-// View and edit render the namespace as a disabled field, so the dropdown only
-// needs the row's own namespace present to show its label. No fetch needed, and
-// the create-path cache stays empty so a later create still loads the full list.
-function seedNamespace(name: string) {
-  fetchedNamespaces.value = name ? [{ meta: { name } }] : [];
-  cachedNamespaces.value = [];
-}
-
-// Filters by name server-side. Results are used as-is: the server has already
-// scoped them to the namespaces this user may access.
-async function searchNamespaces(query: string) {
-  isLoadingNamespaces.value = true;
-
-  try {
-    const res = await store.dispatch('epinio/request', {
-      opt: {
-        url:          `/api/v1/namespaces?search=${ encodeURIComponent(query) }`,
-        method:       'GET',
-        responseType: 'json'
-      }
-    });
-
-    fetchedNamespaces.value = await classifyNamespaces(res.data ?? []);
-  } catch {
-    fetchedNamespaces.value = [];
-  } finally {
-    isLoadingNamespaces.value = false;
-  }
-}
+const {
+  options:   namespaceOpts,
+  isLoading: isLoadingNamespaces,
+  firstName: firstNamespace,
+  fetchAll:  fetchNamespaces,
+  search:    searchNamespaces,
+  seed:      seedNamespace,
+} = useNamespaces(store);
 
 const catalogServices = computed(() =>
   store.getters['epinio/all'](EPINIO_TYPES.CATALOG_SERVICE)
@@ -219,7 +147,7 @@ async function openCreate(prefilledCatalogService?: string) {
   await fetchNamespaces();
 
   if (!formNamespace.value) {
-    formNamespace.value = namespaces.value[0]?.meta?.name || '';
+    formNamespace.value = firstNamespace.value;
   }
 }
 
@@ -444,10 +372,10 @@ defineExpose({ openCreate, openEdit, openView });
             :value="formNamespace"
             :options="namespaceOpts"
             label="Namespace"
-            :placeholder="t('epinio.applications.create.namespacePlaceholder')"
-            :disabled="isEdit"
-            required
-            :onDropdownChange="(e: CustomEvent) => handleNameNsUpdate({ metadata: { namespace: e.detail.value } })"
+            placeholder="Select a namespace"
+            :disabled="isEdit || isView"
+            :required="!isView"
+            :onDropdownChange="(e: CustomEvent) => { formNamespace = e.detail.value; selectedApps = []; }"
             :fetchAllResources="fetchNamespaces"
             :searchResources="searchNamespaces"
             :isLoading="isLoadingNamespaces"

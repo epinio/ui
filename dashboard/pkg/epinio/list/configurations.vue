@@ -5,7 +5,7 @@ import { useRouter } from 'vue-router';
 import { computed, onMounted, onUnmounted, ref, watchEffect, watch } from 'vue';
 import { startPolling, stopPolling } from '../utils/polling';
 import Masthead from '@shell/components/ResourceList/Masthead';
-import { makeEmptyCell, makeRouterLinks, makeRouterLinksOrEmpty, makeActionMenu, overrideTableRows } from '../utils/table-formatters';
+import { makeEmptyCell, makeNameLinks, makeActionMenu, overrideTableRows } from '../utils/table-formatters';
 import ConfigurationModal from '../components/configuration/ConfigurationModal.vue';
 import ConfigurationDeleteModal from '../components/configuration/ConfigurationDeleteModal.vue';
 import BulkDeleteModal from '../components/BulkDeleteModal.vue';
@@ -109,12 +109,7 @@ watchEffect(() => {
   const activeNamespaces = store.state.activeNamespaceCache;
   const all = store.getters['epinio/all'](EPINIO_TYPES.CONFIGURATION) as any[];
 
-  // row.applications/row.service pull from the separate Applications/Services
-  // store slices; touch them here too so Vue re-runs this watchEffect (and
-  // recomputes displayRows) once that data arrives, instead of leaving the
-  // Bound Applications/Service columns stale until something unrelated
-  // happens to re-trigger it.
-  all.forEach((row: any) => { void row.status; void row.stateDisplay; void row.meta; void row.applications; void row.service; });
+  all.forEach((row: any) => { void row.status; void row.stateDisplay; void row.meta; void row.configuration; });
 
   const filtered = all.filter((row: any) => {
     const ns = row.meta?.namespace;
@@ -228,16 +223,22 @@ const allColumns = [
     label: 'Bound Applications',
     width: '250px',
     sortable: false,
-    formatter: (_v: any, row: any) => makeRouterLinksOrEmpty(row.applications, router)
+    formatter: (_v: any, row: any) => makeNameLinks(
+      row.configuration?.boundapps,
+      { cluster: store.getters['clusterId'], namespace: row.meta?.namespace, resource: EPINIO_TYPES.APP },
+      router
+    )
   },
   {
     field: 'service',
     label: 'Service',
     width: '150px',
     sortable: false,
-    formatter: (_v: any, row: any) => row.service
-      ? makeRouterLinks([row.service], router)
-      : makeEmptyCell()
+    formatter: (_v: any, row: any) => makeNameLinks(
+      row.configuration?.origin ? [row.configuration.origin] : [],
+      { cluster: store.getters['clusterId'], namespace: row.meta?.namespace, resource: EPINIO_TYPES.SERVICE_INSTANCE },
+      router
+    )
   },
   {
     field: 'variableCount',

@@ -16,8 +16,7 @@ import {
   makeActionMenu,
   makeStateTag,
   makeAppRoutesCell,
-  makeRouterLinksOrEmpty,
-  makeBoundServicesCell,
+  makeNameLinks,
 } from '../../../../utils/table-formatters';
 import EpinioApplicationModel from 'models/applications';
 import { overrideTableRows } from '../../../../utils/table-formatters';
@@ -144,14 +143,22 @@ const allColumns = [
     label:     'Bound Configs',
     width:     '180px',
     sortable:  false,
-    formatter: (_value: any, row: any) => makeRouterLinksOrEmpty(row.allConfigurations, router)
+    formatter: (_value: any, row: any) => makeNameLinks(
+      row.configuration?.configurations,
+      { cluster: store.getters['clusterId'], namespace: row.meta.namespace, resource: EPINIO_TYPES.CONFIGURATION },
+      router
+    )
   },
   {
     field:     'boundServices',
     label:     'Bound Services',
     width:     '180px',
     sortable:  false,
-    formatter: (_value: any, row: any) => makeBoundServicesCell(row, router)
+    formatter: (_value: any, row: any) => makeNameLinks(
+      row.configuration?.services,
+      { cluster: store.getters['clusterId'], namespace: row.meta.namespace, resource: EPINIO_TYPES.SERVICE_INSTANCE },
+      router
+    )
   },
   { field: 'deployment.username', label: 'Last Deployed By', width: '150px' },
   { field: 'meta.createdAt',      label: 'Age',              width: '50px', formatter: 'age' }
