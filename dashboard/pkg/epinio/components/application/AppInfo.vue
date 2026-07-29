@@ -40,14 +40,24 @@ const namespaces = ref<any[]>([]);
 const cachedNamespaces = ref<any[]>([]);
 const isLoadingNamespaces = ref(false);
 
+// /api/v1/namespaces - Shared by the initial fetch and the search, which hit
+// the same endpoint and so get the same shape back.
+const classifyNamespaces = (rawData: any[]) => Promise.all(
+  rawData.map((item: any) =>
+    store.dispatch('epinio/create', { type: EPINIO_TYPES.NAMESPACE, ...item })
+  )
+);
+
 const fetchNamespaces = async () => {
   if (cachedNamespaces.value.length > 0) {
     namespaces.value = cachedNamespaces.value;
     return;
   }
+
   isLoadingNamespaces.value = true;
   void store.state.activeNamespaceCacheKey;
   const active = store.state.activeNamespaceCache;
+
   try {
     const res = await store.dispatch('epinio/request', {
       opt: {
@@ -56,20 +66,23 @@ const fetchNamespaces = async () => {
         responseType: 'json'
       }
     });
-    
-    const rawData = res.data ?? [];
-    const namespacesData = await Promise.all(rawData.map((item: any) =>
-      store.dispatch('epinio/create', { type: EPINIO_TYPES.NAMESPACE, ...item })
-    ));
+
+    const namespacesData = await classifyNamespaces(res.data ?? []);
+
+    // The default list follows the navbar's browse scope, and drives the
+    // auto-select below when that scope is a single namespace.
     const activeNamespaces = namespacesData.filter((ns: any) => {
       if (!active || Object.keys(active).length === 0) return true;
       const name = ns.meta?.name ?? ns.metadata?.name;
-      const isActive = active[name];
-      return isActive;
+      return !!active[name];
     });
+
     if (activeNamespaces.length === 1) {
-      handleNameNsUpdate({ metadata: { namespace: activeNamespaces[0].meta.name } });
+      handleNameNsUpdate({
+        metadata: { namespace: activeNamespaces[0].meta.name }
+      });
     }
+
     namespaces.value = activeNamespaces;
     cachedNamespaces.value = activeNamespaces;
   } catch (error) {
@@ -335,23 +348,23 @@ function onBulkFileChange(event: Event) {
   (event.target as HTMLInputElement).value = '';
 }
 
+// Searches the regular list endpoint, which filters by name server-side and
+// returns the same plain array as the unfiltered fetch. Deliberately not
+// /namespacematches: that one answers with {names: [...]}, a different shape
+// that this dropdown cannot consume (the navbar filter uses it and unwraps
+// .names itself).
 async function searchNamespaces(query: string) {
   try {
     isLoadingNamespaces.value = true;
     const res = await store.dispatch('epinio/request', {
       opt: {
-        url: `/api/v1/namespacematches/${query}`,
+        url: `/api/v1/namespaces?search=${encodeURIComponent(query)}`,
         method: 'GET',
         responseType: 'json'
       }
     });
 
-    const rawData = res.data ?? [];
-    const classifiedData = await Promise.all(rawData.map((item: any) =>
-      store.dispatch('epinio/create', { type: EPINIO_TYPES.NAMESPACE, ...item })
-    ));
-    const results = classifiedData.map((item: any) => item.meta.name);
-    namespaces.value = results.map((name: string) => ({ meta: { name } }));
+    namespaces.value = await classifyNamespaces(res.data ?? []);
   } catch {
     namespaces.value = [];
   } finally {
