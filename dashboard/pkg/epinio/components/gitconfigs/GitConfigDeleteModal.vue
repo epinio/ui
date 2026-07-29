@@ -41,7 +41,7 @@ try {
       message: t('epinio.growl.gitConfigs.delete.success.message', { name: gitConfigName }),
     });
     closeDelete();
-    store.dispatch('epinio/findAll', { type: EPINIO_TYPES.GIT_CONFIG, opt: { force: true } });
+    store.dispatch('epinio/refreshList', { type: EPINIO_TYPES.GIT_CONFIG });
 } catch(e) {
     errors.value = [];
     errors.value = epinioExceptionToErrorsArray(e).map(JSON.stringify);

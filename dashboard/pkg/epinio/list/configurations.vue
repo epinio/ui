@@ -198,7 +198,7 @@ const allColumns = [
   {
     field: 'nameDisplay',
     label: 'Name',
-    width: '300px',
+    width: '200px',
     formatter: (_v: any, row: any) => {
       const el = document.createElement('a');
 
@@ -221,7 +221,7 @@ const allColumns = [
   {
     field: 'boundApps',
     label: 'Bound Applications',
-    width: '250px',
+    width: '200px',
     sortable: false,
     formatter: (_v: any, row: any) => makeNameLinks(
       row.configuration?.boundapps,
