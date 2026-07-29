@@ -263,6 +263,19 @@ function onBulkFileChange(event: Event) {
   (event.target as HTMLInputElement).value = '';
 }
 
+// Refresh the whole list, not just the saved record: the table paginates
+// server-side, so a single-resource fetch adds an 11th row to a 10-row page
+// and leaves the page count stale until the 30s poller catches up.
+const refreshConfigurations = () => store
+  .dispatch('epinio/refreshList', { type: EPINIO_TYPES.CONFIGURATION })
+  .catch(() => {});
+
+// The Bound Applications column reads from the apps slice, so app bindings
+// need that list refreshed too.
+const refreshApps = () => store
+  .dispatch('epinio/findAll', { type: EPINIO_TYPES.APP, opt: { force: true } })
+  .catch(() => {});
+
 async function onSubmit() {
   if (!validationPassed.value || saving.value) return;
 
@@ -288,7 +301,7 @@ async function onSubmit() {
         message: t('epinio.growl.configuration.create.success.message', { name: capturedName }),
       });
 
-      cfg.forceFetch().catch(() => {});
+      refreshConfigurations();
 
       if (capturedSelectedApps.length) {
         const nsApps = store.getters['epinio/all'](EPINIO_TYPES.APP)
@@ -298,7 +311,10 @@ async function onSubmit() {
           nsApps
             .filter((a: any) => capturedSelectedApps.includes(a.metadata.name))
             .map((a: any) => a.bindConfigurations([capturedName]))
-        ).catch(() => {});
+        ).then(() => {
+          refreshApps();
+          refreshConfigurations();
+        }).catch(() => {});
       }
     } else {
       const cfg = configModel.value;
@@ -340,7 +356,10 @@ async function onSubmit() {
           return ops;
         }, []);
 
-        Promise.all(bindingOps).catch(() => {});
+        Promise.all(bindingOps).then(() => {
+          refreshApps();
+          refreshConfigurations();
+        }).catch(() => {});
       }
 
       cfg.forceFetch().catch(() => {});

@@ -250,6 +250,19 @@ function resetChartValues() {
   validChartValues.value = {};
 }
 
+// Refresh the whole list, not just the saved record: the table paginates
+// server-side, so a single-resource fetch adds an 11th row to a 10-row page
+// and leaves the page count stale until the 30s poller catches up.
+const refreshServices = () => store
+  .dispatch('epinio/refreshList', { type: EPINIO_TYPES.SERVICE_INSTANCE })
+  .catch(() => {});
+
+// The Bound Applications column reads from the apps slice, so app bindings
+// need that list refreshed too.
+const refreshApps = () => store
+  .dispatch('epinio/findAll', { type: EPINIO_TYPES.APP, opt: { force: true } })
+  .catch(() => {});
+
 async function onSubmit() {
   if (!validationPassed.value || saving.value) return;
 
@@ -288,10 +301,13 @@ async function onSubmit() {
       });
 
       // Show the new item quickly, then bind apps and refresh again once done
-      svc.forceFetch().catch(() => {});
+      refreshServices();
       if (capturedSelectedApps.length) {
         Promise.all(capturedSelectedApps.map((app: string) => svc.bindApp(app)))
-          .then(() => svc.forceFetch())
+          .then(() => {
+            refreshApps();
+            refreshServices();
+          })
           .catch(() => {});
       }
     } else {
@@ -325,7 +341,10 @@ async function onSubmit() {
       Promise.all([
         ...newBindApps.map((a: string) => svc.bindApp(a)),
         ...unbindApps.map((a: string) => svc.unbindApp(a)),
-      ]).catch(() => {});
+      ]).then(() => {
+        refreshApps();
+        refreshServices();
+      }).catch(() => {});
       svc.forceFetch().catch(() => {});
     }
   } catch (err: any) {
