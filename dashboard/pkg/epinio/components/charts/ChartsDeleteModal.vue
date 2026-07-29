@@ -76,10 +76,10 @@ defineExpose({
             />
         </div>
         <div slot="footer">
-        <trailhand-button @button-click="closeDelete" variant="secondary" class="mr-10"
+        <trailhand-button variant="secondary" class="mr-10" @button-click="closeDelete"
             >Cancel</trailhand-button
         >
-        <trailhand-button @button-click="onSubmitDelete" :disabled="deletingChart" variant="destructive"
+        <trailhand-button :disabled="deletingChart" variant="destructive" @button-click="onSubmitDelete"
             >{{ deletingChart ? 'Deleting...' : t('generic.delete') }}</trailhand-button
         >
         </div>

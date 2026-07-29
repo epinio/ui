@@ -94,9 +94,9 @@ function onDropdownClick(e: MouseEvent) {
         filterable
         :loading="isLoading"
         :multiselect="multiselect"
+        style="width: 100%;"
         @dropdown-change="(e: CustomEvent) => onDropdownChange(e)"
         @dropdown-filter="(e: CustomEvent<{ filter: string }>) => { onResourceFilter(e.detail.filter); }"
         @click="onDropdownClick"
-        style="width: 100%;"
     />
 </template>

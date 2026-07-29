@@ -78,7 +78,7 @@ watchEffect(() => {
   // Build the row action menu with RBAC gating. The model already gates the
   // base actions; here we inject the modal-driven Edit/Delete entries only
   // when the user has chart write permissions.
-  const rowActions = (row: EpinioAppChartModel) => {
+  const rowActions = () => {
     const out: any[] = [];
 
     if (canEdit.value) {
@@ -111,14 +111,14 @@ watchEffect(() => {
       value: (row: EpinioAppChartModel) => () => {
         deleteModal.value?.openDelete(row);
       },
-      conditionFn: (row: EpinioAppChartModel) => canDelete.value,
+      conditionFn: () => canDelete.value,
     },
     {
       prop: 'editAppChart',
       value: (row: EpinioAppChartModel) => () => {
         chartsModal.value?.openEdit(row);
       },
-      conditionFn: (row: EpinioAppChartModel) => canEdit.value,
+      conditionFn: () => canEdit.value,
     }
   ];
 
