@@ -10,7 +10,6 @@ import {
   EpinioAppSource,
   EpinioAppBindings
 } from '../../types';
-import type EpinioNamespace from '../../models/namespaces';
 import { makeProgressStateCell } from '../../utils/table-formatters';
 
 const props = defineProps<{
@@ -83,7 +82,6 @@ const tableRows = computed(() => {
 
   return [...actions.value];
 });
-const namespaces = computed(() => store.getters['epinio/all'](EPINIO_TYPES.NAMESPACE));
 const fetchApp = async () => {
   try {
     await props.application.forceFetch();
@@ -146,15 +144,6 @@ const createActions = async () => {
     bindings: props.bindings,
     type: EPINIO_TYPES.APP_ACTION,
   };
-
-  const nsMatch = namespaces.value.find((ns: EpinioNamespace) => ns.name === props.application.meta.namespace);
-  if (!nsMatch) {
-    actions.value.push(await store.dispatch('epinio/create', {
-      action: APPLICATION_ACTION_TYPE.CREATE_NS,
-      index: 0,
-      ...coreArgs
-    }));
-  }
 
   if (!REDEPLOY_SOURCE) {
     actions.value.push(await store.dispatch('epinio/create', {

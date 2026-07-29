@@ -528,6 +528,33 @@ export default {
     await dispatch('findAll', { type, opt: { force: true } });
   },
 
+  /**
+   * Re-fetch the current page of a list and resync its pagination meta.
+   *
+   * Use this after any create/delete instead of a single-resource `find`.
+   * A `find` only adds/updates one entry in the store slice, which leaves
+   * `paginationMeta.totalItems` at whatever the last list fetch reported: the
+   * table renders every row it is handed as the current page, so the extra
+   * rows pile onto the current page and the page count never moves until the
+   * background poller happens to re-fetch.
+   *
+   * If a delete emptied the page we are sitting on, step back to the new last
+   * page so the user is not left looking at a page that no longer exists.
+   */
+  refreshList: async({ commit, dispatch, getters }: any, { type }: { type: string }) => {
+    await dispatch('findAll', { type, opt: { force: true } });
+
+    const meta = getters['paginationMeta'](type);
+    const page = getters['currentPaginationPage'](type);
+
+    if (!meta || meta.totalPages < 1 || page <= meta.totalPages) {
+      return;
+    }
+
+    commit('setPaginationPage', { type, page: meta.totalPages });
+    await dispatch('findAll', { type, opt: { force: true } });
+  },
+
   search: async({ commit, dispatch }: any, { type, query }: { type: string; query: string }) => {
     commit('setSearchQuery', { type, query });
     commit('setPaginationPage', { type, page: 1 });

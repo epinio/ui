@@ -554,7 +554,7 @@ onMounted(async () => {
   // If no app chart is set from the source or application configuration, default to the standard app chart
   if (!appChart.value) {
     const standardAppChart = appCharts.value.find((ac) => ac.meta.name === 'standard');
-    appChart.value = props.application.configuration?.appchart || props.source?.appChart || standardAppChart?.value || appCharts.value[0]?.meta.name || '';
+    appChart.value = props.application.configuration?.appchart || props.source?.appChart || standardAppChart?.meta.name || appCharts.value[0]?.meta.name || '';
   }
   // If no builder image is set from the source, default to the info default or the first in the catalog
   if (!builderImage.value) {
