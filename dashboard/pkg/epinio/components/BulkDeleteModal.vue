@@ -91,7 +91,7 @@ async function onSubmitDelete() {
   } finally {
     // A batch delete can partially succeed even when it ultimately errors,
     // so always refresh rather than only refreshing on success.
-    await store.dispatch('epinio/findAll', { type: props.resourceType, opt: { force: true } });
+    await store.dispatch('epinio/refreshList', { type: props.resourceType });
     emit('settled', items);
     deleting.value = false;
   }

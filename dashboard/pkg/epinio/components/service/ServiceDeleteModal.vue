@@ -38,7 +38,7 @@ try {
       title:   t('epinio.growl.serviceInstance.delete.success.title'),
       message: t('epinio.growl.serviceInstance.delete.success.message', { name: serviceName }),
     });
-    store.dispatch('epinio/findAll', { type: EPINIO_TYPES.SERVICE_INSTANCE, opt: { force: true } });
+    store.dispatch('epinio/refreshList', { type: EPINIO_TYPES.SERVICE_INSTANCE });
     store.dispatch('epinio/findAll', { type: EPINIO_TYPES.APP, opt: { force: true } });
 } catch(e) {
     errors.value = [];
