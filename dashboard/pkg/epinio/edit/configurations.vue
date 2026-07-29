@@ -71,7 +71,6 @@ const namespaces = computed(() => {
 });
 
 const namespaceNames = computed(() => {
-  console.log('namespaces', namespaces.value);
   return namespaces.value.map((n: EpinioNamespace) => n.meta?.name);
 });
 

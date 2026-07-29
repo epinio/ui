@@ -12,7 +12,7 @@ export const bulkRemove = async(items, opt = {}) => {
 
   // Check if any items have the deleteImage flag set
   const deleteImage = items.some(item => item._deleteImage);
-  opt.data = JSON.stringify({ unmounted: true, ...(deleteImage && { deleteImage: true }) });
+  opt.data = JSON.stringify({ unbind: true, ...(deleteImage && { deleteImage: true }) });
 
   // Separates the resources by namespace
   const _byNamespace = items.reduce((acc, cur) => {

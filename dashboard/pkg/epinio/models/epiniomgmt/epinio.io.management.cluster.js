@@ -42,8 +42,18 @@ export default class EpinioCluster extends Resource {
       await epinioAuth.logout(this.createAuthConfig(EpinioAuthTypes.AGNOSTIC));
 
       this.loggedIn = false;
+
+      this.$dispatch('growl/success', {
+        title:   this.t('epinio.growl.auth.logout.success.title'),
+        message: this.t('epinio.growl.auth.logout.success.message'),
+      }, { root: true });
     } catch (err) {
       console.error(`Failed to log out: ${ err }`);
+
+      this.$dispatch('growl/error', {
+        title:   this.t('epinio.growl.auth.logout.error.title'),
+        message: this.t('epinio.growl.auth.logout.error.message'),
+      }, { root: true });
 
       this.metadata = {
         state: {

@@ -52,10 +52,18 @@ async function onSubmitDelete() {
 
     await cfg.remove();
     closeDelete();
-    store.dispatch('epinio/findAll', { type: EPINIO_TYPES.CONFIGURATION, opt: { force: true } });
+    store.dispatch('growl/success', {
+      title:   t('epinio.growl.configuration.delete.success.title'),
+      message: t('epinio.growl.configuration.delete.success.message', { name: configName }),
+    });
+    store.dispatch('epinio/refreshList', { type: EPINIO_TYPES.CONFIGURATION });
     store.dispatch('epinio/findAll', { type: EPINIO_TYPES.APP, opt: { force: true } });
   } catch (e: any) {
     errors.value = epinioExceptionToErrorsArray(e);
+    store.dispatch('growl/error', {
+      title:   t('epinio.growl.configuration.delete.error.title'),
+      message: t('epinio.growl.configuration.delete.error.message', { name: configToDelete.value?.meta?.name }),
+    });
   } finally {
     deleting.value = false;
   }

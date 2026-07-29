@@ -43,7 +43,7 @@ jobs:
     steps:
       - if: inputs.is_test == 'true'
         name: Checkout (test flow)
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: rancher/${{ inputs.test_ext_repo }}
           ref: ${{ inputs.test_ext_branch }}
@@ -51,7 +51,7 @@ jobs:
       
       - if: inputs.is_test != 'true'
         name: Checkout (normal flow)
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -69,7 +69,7 @@ jobs:
           version: v3.8.0
 
       - name: Setup Nodejs with yarn caching
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           cache: yarn
           node-version-file: .nvmrc
@@ -90,7 +90,7 @@ jobs:
         shell: bash
         id: build_script
         run: |
-          yarn add @babel/plugin-transform-class-static-block --dev
+          yarn add @babel/plugin-transform-class-static-block@^7.27.1 --dev
           publish="yarn publish-pkgs -s ${{ github.repository }} -b ${{ inputs.target_branch }}"
 
           if [[ -n "${{ inputs.tagged_release }}" ]]; then
@@ -124,7 +124,7 @@ jobs:
       release-status: ${{ job.status }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: '${{ inputs.target_branch }}'
 

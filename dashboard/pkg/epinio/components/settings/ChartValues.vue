@@ -1,9 +1,9 @@
 <script lang="ts" setup>
-import { ref, watch } from 'vue';
+import { ref, watch, computed } from 'vue';
 
 // Props
 const props = defineProps<{
-  chart: { [key: string]: object };
+  chart: { [key: string]: any };
   value: { [key: string]: any };
   title: string;
   mode: string;
@@ -13,13 +13,39 @@ const props = defineProps<{
 // Emit function
 const emit = defineEmits(['valid']);
 
-// Reactive data
-const valid = ref<{ [key: string]: boolean }>({});
+const valid = computed(() => {
+  return Object.entries(props.chart).every(([key, setting]: [string, any]) => {
+    if (setting.type !== 'number' && setting.type !== 'integer') {
+      return true;
+    }
 
-// Watch for changes in `valid`
-watch(valid, (newValid) => {
-  emit('valid', newValid);
-});
+    const rawValue = props.value[key];
+
+    if (rawValue === undefined || rawValue === null || rawValue === '') {
+      return true;
+    }
+
+    const value = Number(rawValue);
+
+    if (Number.isNaN(value)) {
+      return false;
+    }
+
+    if ((setting.minimum != null && setting.minimum !== '' && setting.minimum !== undefined) && value < Number(setting.minimum)) {
+      return false;
+    }
+
+    if ((setting.maximum != null && setting.maximum !== '' && setting.maximum !== undefined) && value > Number(setting.maximum)) {
+      return false;
+    }
+
+    return true;
+  });
+})
+
+watch(valid, (isValid) => {
+  emit("valid", isValid);
+}, { immediate: true });
 
 const onInputCheckbox = (key: string, value: boolean) => {
   props.value[key] = value ? 'true' : 'false';
@@ -54,7 +80,7 @@ const onInputCheckbox = (key: string, value: boolean) => {
         style="flex: 1;"
         :value="props.value[key]"
         :label="key"
-        :options="setting.enum.map((v: string) => ({ label: v, value: v }))"
+        :options="setting.enum.map((option: string) => ({ label: option, value: option }))"
         :disabled="props.disabled"
         @dropdown-change="(e: CustomEvent) => props.value[key] = e.detail.value"
        />
