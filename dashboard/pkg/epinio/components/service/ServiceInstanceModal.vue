@@ -8,6 +8,7 @@ import { validateKubernetesName } from '@shell/utils/validators/kubernetes-name'
 import { objValuesToString } from '../../utils/settings';
 import Banner from '@components/Banner/Banner.vue';
 import ChartValues from '../settings/ChartValues.vue';
+import ResourceDropdown from '../application/ResourceDropdown.vue';
 
 import isEqual from 'lodash/isEqual';
 import sortBy from 'lodash/sortBy';
@@ -36,13 +37,86 @@ const errors = ref<string[]>([]);
 // Captured separately so background list polls (which omit internal_routes) can't wipe it
 const internalRoutes = ref<string[]>([]);
 
+const fetchedNamespaces = ref<any[]>([]);
+const cachedNamespaces = ref<any[]>([]);
+const isLoadingNamespaces = ref(false);
+
 const namespaces = computed(() =>
-  sortBy(store.getters['epinio/all'](EPINIO_TYPES.NAMESPACE), 'meta.name', false) as any[]
+  sortBy(fetchedNamespaces.value, 'meta.name', false) as any[]
 );
 
 const namespaceOpts = computed(() =>
   namespaces.value.map((ns: any) => ({ label: ns.meta?.name || '', value: ns.meta?.name || '' }))
 );
+
+// Namespaces come from the API rather than the store slice, which only holds
+// whatever page the services list last fetched. Same approach as the app create
+// modal: full list when the dropdown opens, name filtering server-side as the
+// user types.
+const classifyNamespaces = (rawData: any[]) => Promise.all(
+  rawData.map((item: any) =>
+    store.dispatch('epinio/create', { type: EPINIO_TYPES.NAMESPACE, ...item })
+  )
+);
+
+async function fetchNamespaces() {
+  if (cachedNamespaces.value.length > 0) {
+    fetchedNamespaces.value = cachedNamespaces.value;
+
+    return;
+  }
+
+  isLoadingNamespaces.value = true;
+
+  try {
+    const res = await store.dispatch('epinio/request', {
+      opt: {
+        url:          '/api/v1/namespaces',
+        method:       'GET',
+        responseType: 'json'
+      }
+    });
+
+    const classified = await classifyNamespaces(res.data ?? []);
+
+    fetchedNamespaces.value = classified;
+    cachedNamespaces.value = classified;
+  } catch (e) {
+    console.error('Failed to fetch namespaces', e);
+  } finally {
+    isLoadingNamespaces.value = false;
+  }
+}
+
+// View and edit render the namespace as a disabled field, so the dropdown only
+// needs the row's own namespace present to show its label. No fetch needed, and
+// the create-path cache stays empty so a later create still loads the full list.
+function seedNamespace(name: string) {
+  fetchedNamespaces.value = name ? [{ meta: { name } }] : [];
+  cachedNamespaces.value = [];
+}
+
+// Filters by name server-side. Results are used as-is: the server has already
+// scoped them to the namespaces this user may access.
+async function searchNamespaces(query: string) {
+  isLoadingNamespaces.value = true;
+
+  try {
+    const res = await store.dispatch('epinio/request', {
+      opt: {
+        url:          `/api/v1/namespaces?search=${ encodeURIComponent(query) }`,
+        method:       'GET',
+        responseType: 'json'
+      }
+    });
+
+    fetchedNamespaces.value = await classifyNamespaces(res.data ?? []);
+  } catch {
+    fetchedNamespaces.value = [];
+  } finally {
+    isLoadingNamespaces.value = false;
+  }
+}
 
 const catalogServices = computed(() =>
   store.getters['epinio/all'](EPINIO_TYPES.CATALOG_SERVICE)
@@ -124,12 +198,12 @@ const validationPassed = computed(() => {
   return nameErrors.length === 0 && nsErrors.length === 0;
 });
 
-function openCreate(prefilledCatalogService?: string) {
+async function openCreate(prefilledCatalogService?: string) {
   errors.value = [];
   modalMode.value = 'create';
 
   serviceModel.value = null;
-  formNamespace.value = namespaces.value[0]?.meta?.name || '';
+  formNamespace.value = '';
   formName.value = '';
   formCatalogService.value = prefilledCatalogService || '';
 
@@ -138,7 +212,15 @@ function openCreate(prefilledCatalogService?: string) {
   Object.keys(chartValues).forEach(k => delete chartValues[k]);
   validChartValues.value = {};
 
+  // Open first so the user sees the modal while the namespaces load, then
+  // default to the first one as before.
   showModal.value = true;
+
+  await fetchNamespaces();
+
+  if (!formNamespace.value) {
+    formNamespace.value = namespaces.value[0]?.meta?.name || '';
+  }
 }
 
 function openView(row: any) {
@@ -147,6 +229,7 @@ function openView(row: any) {
 
   serviceModel.value = row;
   formNamespace.value = row.meta?.namespace || '';
+  seedNamespace(formNamespace.value);
   formName.value = row.name || row.meta?.name || '';
   formCatalogService.value = row.catalog_service || '';
   internalRoutes.value = [];
@@ -182,6 +265,7 @@ function openEdit(row: any) {
 
   serviceModel.value = row;
   formNamespace.value = row.meta?.namespace || '';
+  seedNamespace(formNamespace.value);
   formName.value = row.name || row.meta?.name || '';
   formCatalogService.value = row.catalog_service || '';
   internalRoutes.value = [];
@@ -356,16 +440,18 @@ defineExpose({ openCreate, openEdit, openView });
       <trailhand-form-card>
         <!-- Namespace + Name -->
         <trailhand-form-row columns="2">
-          <trailhand-dropdown
-            style="width: 100%"
-            :options="namespaceOpts"
+          <ResourceDropdown
             :value="formNamespace"
+            :options="namespaceOpts"
             label="Namespace"
-            :required="!isView"
-            :disabled="isEdit || isView"
-            placeholder="Select a namespace"
-            @dropdown-change="(e: CustomEvent) => { formNamespace = e.detail.value; selectedApps = []; }"
-          ></trailhand-dropdown>
+            :placeholder="t('epinio.applications.create.namespacePlaceholder')"
+            :disabled="isEdit"
+            required
+            :onDropdownChange="(e: CustomEvent) => handleNameNsUpdate({ metadata: { namespace: e.detail.value } })"
+            :fetchAllResources="fetchNamespaces"
+            :searchResources="searchNamespaces"
+            :isLoading="isLoadingNamespaces"
+          />
           <trailhand-text-input
             :value="formName"
             label="Name"
