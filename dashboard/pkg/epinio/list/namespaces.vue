@@ -160,7 +160,6 @@ onMounted(() => {
 
 onUnmounted(() => {
   stopPolling(['namespaces', 'applications', 'configurations']);
-  store.dispatch('epinio/search', { type: resource, query: '' });
 });
 
 async function openCreateModal() {
@@ -181,6 +180,7 @@ async function onSubmitCreate() {
   creatingNamespace.value = true;
   try {
     await value.value.create();
+    store.dispatch('epinio/refreshList', { type: EPINIO_TYPES.NAMESPACE });
     closeCreateModal();
   } catch (e) {
     errors.value = [];
@@ -234,7 +234,12 @@ async function onSubmitDelete() {
     deletingNamespace.value = true;
     await namespaceToDelete.value.remove();
     closeDeleteModal();
-    store.dispatch('findAll', { type: 'applications', opt: { force: true } });
+    // Was dispatched unprefixed ('findAll') against the root store, so it never
+    // ran: apps and configs in the deleted namespace stayed in the store until
+    // the next poll, keeping the per-namespace counts stale.
+    store.dispatch('epinio/findAll', { type: EPINIO_TYPES.APP, opt: { force: true } });
+    store.dispatch('epinio/refreshList', { type: EPINIO_TYPES.NAMESPACE });
+    store.dispatch('epinio/refreshList', { type: EPINIO_TYPES.CONFIGURATION });
   } catch(e) {
     errors.value = [];
     errors.value = epinioExceptionToErrorsArray(e).map(JSON.stringify);
@@ -328,7 +333,7 @@ const columns = [
           :key="i"
           color="error"
           :label="err"
-        />  
+        />
       </div>
       <div slot="footer">
         <trailhand-button variant="secondary" class="mr-10" @button-click="closeCreateModal"

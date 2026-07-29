@@ -41,7 +41,7 @@ try {
       message: t('epinio.growl.builderImages.delete.success.message', { name: imageName }),
     });
     closeDelete();
-    store.dispatch('epinio/findAll', { type: EPINIO_TYPES.BUILDER_IMAGE, opt: { force: true } });
+    store.dispatch('epinio/refreshList', { type: EPINIO_TYPES.BUILDER_IMAGE });
 } catch(e) {
     errors.value = [];
     errors.value = epinioExceptionToErrorsArray(e).map(JSON.stringify);

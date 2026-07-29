@@ -1489,8 +1489,14 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
   }
 
   async updateServices(initialValues = [], currentValues = []) {
-    const toBind = currentValues.filter((cV) => !initialValues.includes(cV));
-    const toUnbind = initialValues.filter((cV) => !currentValues.includes(cV));
+    // Compare by name: the two sides come from separate fetches, so the same
+    // service is a different object instance in each and `includes` never hits.
+    const nameOf = (s) => s?.meta?.name;
+    const initialNames = initialValues.map(nameOf);
+    const currentNames = currentValues.map(nameOf);
+
+    const toBind = currentValues.filter((s) => !initialNames.includes(nameOf(s)));
+    const toUnbind = initialValues.filter((s) => !currentNames.includes(nameOf(s)));
 
     await Promise.all([
       ...toBind.map((s) => s.bindApp(this.meta.name)),

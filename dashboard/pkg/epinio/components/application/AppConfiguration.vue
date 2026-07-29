@@ -6,16 +6,20 @@ import { sortBy } from '@shell/utils/sort';
 import { _VIEW } from '@shell/config/query-params';
 import { EpinioConfiguration, EpinioService, EPINIO_TYPES, EPINIO_APP_MANIFEST, EpinioAppBindings } from '../../types';
 import Application from '../../models/applications';
+import ResourceDropdown from './ResourceDropdown.vue';
 
 interface Props {
   initialApplication?: Application;
   application: Application;
   mode: string;
   bindings?: EpinioAppBindings;
+  active: boolean;
 }
 
 const props = defineProps<Props>();
-const emit = defineEmits(['change']);
+// 'initial' reports what was bound when the form opened, so the parent can diff
+// against it on save instead of re-deriving it from the store.
+const emit = defineEmits(['change', 'initial']);
 
 const store = useStore();
 
@@ -23,55 +27,166 @@ const t = store.getters['i18n/t'];
 
 const values = ref({
   configurations: props.bindings?.configurations || [] as string[],
-  services: props.bindings?.services.map((s: EpinioService) => s.id) || [] as string[],
+  services: props.bindings?.services.map((s: EpinioService) => `${props.application.metadata.namespace}/${s.meta.name}`) || [] as string[],
 });
 
-const fetchData = async () => {
-  await Promise.all([
-    store.dispatch('epinio/findAll', { type: EPINIO_TYPES.CONFIGURATION }),
-    store.dispatch('epinio/findAll', { type: EPINIO_TYPES.SERVICE_INSTANCE }),
-  ]);
+const isLoadingConfigurations = ref(false);
+const fetchedConfigurations = ref<any[]>([]);
+const cachedConfigurations = ref<any[]>([]);
+
+const isLoadingServices = ref(false);
+const fetchedServices = ref<any[]>([]);
+const cachedServices = ref<any[]>([]);
+
+const isFetchingConfigsAndServices = ref<boolean>(true);
+
+const hasConfigs = ref<boolean>(false);
+const noConfigs = computed(() => !hasConfigs.value);
+const hasServices = ref<boolean>(false);
+const noServices = computed(() => !hasServices.value);
+
+const fetchConfigurations = async () => {
+  if (cachedConfigurations.value.length > 0) {
+    fetchedConfigurations.value = cachedConfigurations.value;
+    return;
+  }
+  isLoadingConfigurations.value = true;
+  try {
+    const res = await store.dispatch('epinio/request', {
+      opt: {
+        url: `/api/v1/namespaces/${props.application.metadata.namespace}/configurations`,
+        method: 'GET',
+        responseType: 'json'
+      }
+    });
+    const rawData = res.data ?? [];
+    const classifiedData = await Promise.all(rawData.map((item: any) =>
+      store.dispatch('epinio/create', { type: EPINIO_TYPES.CONFIGURATION, ...item })
+    ));
+    fetchedConfigurations.value = classifiedData;
+    cachedConfigurations.value = classifiedData;
+    hasConfigs.value = classifiedData.length > 0;
+  } catch (error) {
+    console.error('Failed to fetch configurations', error);
+  } finally {
+    isLoadingConfigurations.value = false;
+  }
 };
 
-onMounted(fetchData);
+async function searchConfigurations(query: string) {
+  isLoadingConfigurations.value = true;
+  try {
+    const res = await store.dispatch('epinio/request', {
+      opt: {
+        url: `/api/v1/namespaces/${props.application.metadata.namespace}/configurations?search=${query}`,
+        method: 'GET',
+        responseType: 'json'
+      }
+    });
+    const rawData = res.data ?? [];
+    const classifiedData = await Promise.all(rawData.map((item: any) =>
+      store.dispatch('epinio/create', { type: EPINIO_TYPES.CONFIGURATION, ...item })
+    ));
+    fetchedConfigurations.value = classifiedData;
+  } catch {
+    fetchedConfigurations.value = [];
+  } finally {
+    isLoadingConfigurations.value = false;
+  }
+}
 
-// Computed
-const namespacedServices = computed(() =>
-  (store.getters['epinio/all'](EPINIO_TYPES.SERVICE_INSTANCE) || [])
-    .filter((s: EpinioService) => s.metadata.namespace === props.application.metadata.namespace)
-);
+const fetchServices = async () => {
+  if (cachedServices.value.length > 0) {
+    fetchedServices.value = cachedServices.value;
+    return;
+  }
+  isLoadingServices.value = true;
+  try {
+    const res = await store.dispatch('epinio/request', {
+      opt: {
+        url: `/api/v1/namespaces/${props.application.metadata.namespace}/services`,
+        method: 'GET',
+        responseType: 'json'
+      }
+    });
+    const rawData = res.data ?? [];
 
-const namespacedConfigurations = computed(() =>
-  (store.getters['epinio/all'](EPINIO_TYPES.CONFIGURATION) || [])
-    .filter((s: EpinioConfiguration) => s.metadata.namespace === props.application.metadata.namespace)
-);
+    // classify raw JSON into proper model instances (adds bindServices, etc.)
+    const classifiedData = await Promise.all(rawData.map((item: any) =>
+      store.dispatch('epinio/create', { type: EPINIO_TYPES.SERVICE_INSTANCE, ...item })
+    ));
+    fetchedServices.value = classifiedData;
+    cachedServices.value = classifiedData;
+    hasServices.value = classifiedData.length > 0;
+  } catch (error) {
+    console.error('Failed to fetch services', error);
+  } finally {
+    isLoadingServices.value = false;
+  }
+};
+
+async function searchServices(query: string) {
+  isLoadingServices.value = true;
+  try {
+    const res = await store.dispatch('epinio/request', {
+      opt: {
+        url: `/api/v1/namespaces/${props.application.metadata.namespace}/services?search=${query}`,
+        method: 'GET',
+        responseType: 'json'
+      }
+    });
+    const rawData = res.data ?? [];
+    const classifiedData = await Promise.all(rawData.map((item: any) =>
+      store.dispatch('epinio/create', { type: EPINIO_TYPES.SERVICE_INSTANCE, ...item })
+    ));
+    fetchedServices.value = classifiedData;
+  } catch {
+    fetchedServices.value = [];
+  } finally {
+    isLoadingServices.value = false;
+  }
+}
+
+const fetchData = async () => {
+  isFetchingConfigsAndServices.value = true;
+  await fetchConfigurations();
+  await fetchServices();
+  isFetchingConfigsAndServices.value = false;
+};
+
+watch(() => props.active, (isActive) => {
+  if (isActive) {
+    fetchData();
+  }
+  if (!isActive) {
+    fetchedConfigurations.value = [];
+    fetchedServices.value = [];
+    cachedConfigurations.value = [];
+    cachedServices.value = [];
+  }
+}, { immediate: true });
 
 const configurations = computed(() => {
-  const list = namespacedConfigurations.value
-    .filter((s: EpinioConfiguration) => !s.isServiceRelated)
+  const list = fetchedConfigurations.value
+    .filter((s: EpinioConfiguration) => { return s.configuration.type !== 'service'; })
     .map((s: EpinioConfiguration) => ({
-      label: s.metadata.name,
-      value: s.metadata.name,
+      label: s.meta.name,
+      value: s.meta.name,
     }));
 
   return sortBy(list, 'label', false);
 });
 
 const services = computed(() => {
-  const list = namespacedServices.value.map((s: EpinioService) => ({
-    label: `${s.metadata.name} (${s.catalog_service})`,
-    value: s.id,
+  const list = fetchedServices.value.map((s: EpinioService) => ({
+    label: `${s.meta.name} (${s.catalog_service})`,
+    value: `${props.application.metadata.namespace}/${s.meta.name}`,
   }));
 
   return sortBy(list, 'label', false);
 });
 
-const noConfigs = computed(() => !configurations.value.length);
-const hasConfigs = computed(() => !!configurations.value.length);
-const noServices = computed(() => !services.value.length);
-const hasServices = computed(() => {
-  return services.value.length > 0;
-});
+
 const isView = computed(() => props.mode === _VIEW);
 const isFromManifest = computed(
   () => store.$router.currentRoute._value.query.from === EPINIO_APP_MANIFEST
@@ -81,7 +196,7 @@ const isFromManifest = computed(
 watch(values, () => {
   emit('change', {
     configurations: values.value.configurations,
-    services: values.value.services.map((s: string) => namespacedServices.value.find((ns: any) => ns.id === s)),
+    services: values.value.services.map((s: string) => fetchedServices.value.find((ns: any) => `${props.application.metadata.namespace}/${ns.meta.name}` === s)),
   })
 }, { deep: true });
 
@@ -100,18 +215,24 @@ watch(noServices, (neu) => {
 watch(hasConfigs, (neu, old) => {
   if (!old && neu) {
     if (props.initialApplication?.configuration?.configurations) {
-      values.value.configurations = props.initialApplication.baseConfigurationsNames?.filter(
-        (cc: string) => configurations.value.find((c: any) => c.value === cc)
-      ) || [];
+      // Bound names come off the app record; the fetched list says which of
+      // those are plain configurations rather than service-generated ones.
+      const bound = props.initialApplication.configuration.configurations;
+
+      values.value.configurations = fetchedConfigurations.value
+        .filter((c: any) => !c.isServiceRelated && bound.includes(c.meta.name))
+        .map((c: any) => c.meta.name);
+
+      emit('initial', { configurations: values.value.configurations });
     }
 
     if (isFromManifest.value) {
-      values.value.configurations = namespacedConfigurations.value
+      values.value.configurations = fetchedConfigurations.value
         .filter((nc: any) =>
-          props.application.configuration.configurations.includes(nc.metadata.name) &&
+          props.application.configuration.configurations.includes(nc.meta.name) &&
           !nc.isServiceRelated
         )
-        .map((nc: any) => nc.metadata.name) || [];
+        .map((nc: any) => nc.meta.name) || [];
     }
   }
 }, { immediate: true });
@@ -119,49 +240,63 @@ watch(hasConfigs, (neu, old) => {
 watch(hasServices, (neu, old) => {
     if (!old && neu) {
       if (props.initialApplication?.configuration?.services) {
-        const serviceNames = props.initialApplication.configuration.services; 
-        values.value.services = namespacedServices.value
-          .filter((s: any) => serviceNames.includes(s.metadata.name))
-          .map((s: any) => s.id);
+        const serviceNames = props.initialApplication.configuration.services;
+        const bound = fetchedServices.value
+          .filter((s: any) => serviceNames.includes(s.meta.name));
+
+        values.value.services = bound
+          .map((s: any) => `${props.application.metadata.namespace}/${s.meta.name}`);
+
+        emit('initial', { services: bound });
       }
     }
 
     if (isFromManifest.value) {
-      const configurations = namespacedConfigurations.value
+      const configurations = fetchedConfigurations.value
         .filter((nc: any) =>
-          props.application.configuration.configurations.includes(nc.metadata.name) &&
+          props.application.configuration.configurations.includes(nc.meta.name) &&
           nc.isServiceRelated
         );
-      values.value.services = namespacedServices.value
-        .filter((s: any) => configurations.some((d: any) => s.metadata.name === d.configuration.origin))
-        .map((elem: any) => elem.id);
+      values.value.services = fetchedServices.value
+        .filter((s: any) => configurations.some((d: any) => s.meta.name === d.configuration.origin))
+        .map((elem: any) => `${props.application.metadata.namespace}/${elem.meta.name}`);
     }
 }, { immediate: true });
 </script>
 
 <template>
-  <div class="configurations">
-    <trailhand-dropdown
+  <div
+    v-if="isFetchingConfigsAndServices"
+    class="spacer"
+  >
+    <trailhand-loading-spinner />
+  </div>
+  <div class="configurations" v-else>
+    <ResourceDropdown
       :values="values.configurations"
-      data-testid="epinio_app-configuration_configurations"
-      :disabled="noConfigs || isView"
       :options="configurations"
-      multiselect
-      filterable
       :label="t('typeLabel.configurations', { count: 2})"
-      :placeholder="noConfigs ? t('epinio.applications.steps.configurations.configurations.select.placeholderNoOptions') : t('epinio.applications.steps.configurations.configurations.select.placeholderWithOptions')"
-      @dropdown-change="(e: CustomEvent) => values.configurations = e.detail.values"
-      />
-    <trailhand-dropdown
-      :values="values.services"
-      data-testid="epinio_app-configuration_services"
-      :disabled="noServices || isView"
-      :options="services"
-      multiselect
+      :disabled="noConfigs || isView"
       filterable
-      :label="t('epinio.applications.steps.configurations.services.select.label')"
+      multiselect
+      :placeholder="noConfigs ? t('epinio.applications.steps.configurations.configurations.select.placeholderNoOptions') : t('epinio.applications.steps.configurations.configurations.select.placeholderWithOptions')"
+      :onDropdownChange="(e: CustomEvent) => { values.configurations = e.detail.values; }"
+      :fetchAllResources="fetchConfigurations"
+      :searchResources="searchConfigurations"
+      :isLoading="isLoadingConfigurations"
+    />
+    <ResourceDropdown
+      :values="values.services"
+      :options="services"
+      :label="t('typeLabel.services', { count: 2})"
+      :disabled="noServices || isView"
+      filterable
+      multiselect
       :placeholder="noServices ? t('epinio.applications.steps.configurations.services.select.placeholderNoOptions') : t('epinio.applications.steps.configurations.services.select.placeholderWithOptions')"
-      @dropdown-change="(e: CustomEvent) => values.services = e.detail.values"
+      :onDropdownChange="(e: CustomEvent) => { values.services = e.detail.values; }"
+      :fetchAllResources="fetchServices"
+      :searchResources="searchServices"
+      :isLoading="isLoadingServices"
     />
   </div>
 </template>
