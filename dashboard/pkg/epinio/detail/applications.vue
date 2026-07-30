@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watchEffect } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch, watchEffect } from 'vue';
 import { useStore } from 'vuex';
 import day from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
@@ -231,8 +231,72 @@ function formatMetricValue(value: unknown, row: { metricsOk?: boolean }) {
 }
 
 
+const boundConfigurations = ref<any[]>([]);
+const boundServices = ref<any[]>([]);
+
+const BOUND_POLL_RATE_MS = 30000;
+let boundPollId: number | undefined;
+
+// Fetch each binding by name off the app record. The configuration and service
+// store slices hold one page of their lists, so anything past page 1 was missing
+// from these tables.
+async function fetchBound() {
+  const namespace = props.value.meta?.namespace;
+
+  if (!namespace) {
+    return;
+  }
+
+  const show = async (type: string, path: string, name: string) => {
+    try {
+      const res = await store.dispatch('epinio/request', {
+        opt: {
+          url:          `/api/v1/namespaces/${ namespace }/${ path }/${ encodeURIComponent(name) }`,
+          method:       'GET',
+          responseType: 'json'
+        }
+      });
+
+      // id is what epiniofy() would have added; the tables key and filter on it
+      return await store.dispatch('epinio/create', {
+        type,
+        ...res.data,
+        id: `${ namespace }/${ name }`,
+      });
+    } catch {
+      // a binding can name something that was just deleted
+      return null;
+    }
+  };
+
+  const [configs, services] = await Promise.all([
+    Promise.all((props.value.configuration?.configurations ?? []).map(
+      (name: string) => show(EPINIO_TYPES.CONFIGURATION, 'configurations', name)
+    )),
+    Promise.all((props.value.configuration?.services ?? []).map(
+      (name: string) => show(EPINIO_TYPES.SERVICE_INSTANCE, 'services', name)
+    )),
+  ]);
+
+  boundConfigurations.value = configs.filter(Boolean);
+  boundServices.value = services.filter(Boolean);
+}
+
+watch(
+  () => [props.value.configuration?.configurations, props.value.configuration?.services],
+  () => fetchBound(),
+  { deep: true, immediate: true }
+);
+
+const baseConfigurations = computed(
+  () => boundConfigurations.value.filter((c: any) => !c.isServiceRelated)
+);
+const serviceConfigurations = computed(
+  () => boundConfigurations.value.filter((c: any) => c.isServiceRelated)
+);
+
 watchEffect(() => {
-  const all = [...props.value.services];
+  const all = [...boundServices.value];
 
   all.forEach((row: any) => { void row.status; void row.stateDisplay; void row.meta; });
 
@@ -293,7 +357,7 @@ watchEffect(() => {
 });
 
 watchEffect(() => {
-  const all = [...props.value.baseConfigurations];
+  const all = [...baseConfigurations.value];
 
   all.forEach((row: any) => { void row.status; void row.stateDisplay; void row.meta; });
 
@@ -349,9 +413,11 @@ let updateInstancesTimeout: number | null = null;
 
 onMounted(async () => {
   await store.dispatch('epinio/me'); //Need to fetch fresh rights for scaling
-  await store.dispatch('epinio/findAll', { type: EPINIO_TYPES.SERVICE_INSTANCE });
-  await store.dispatch('epinio/findAll', { type: EPINIO_TYPES.CONFIGURATION });
-  startPolling([EPINIO_TYPES.APP, EPINIO_TYPES.SERVICE_INSTANCE, EPINIO_TYPES.CONFIGURATION], store);
+  startPolling([EPINIO_TYPES.APP], store);
+
+  // The bound tables read their own fetches, not the store slices, so refresh
+  // them on the same cadence to keep service state current.
+  boundPollId = window.setInterval(() => fetchBound(), BOUND_POLL_RATE_MS);
 
   if (props.value.appSource.git) {
     await fetchRepoDetails();
@@ -363,7 +429,10 @@ onMounted(async () => {
 });
 
 onUnmounted(() => {
-  stopPolling([EPINIO_TYPES.APP, EPINIO_TYPES.SERVICE_INSTANCE, EPINIO_TYPES.CONFIGURATION]);
+  stopPolling([EPINIO_TYPES.APP]);
+  if (boundPollId !== undefined) {
+    window.clearInterval(boundPollId);
+  }
 });
 
 async function updateInstances(newInstances: number) {
@@ -540,12 +609,12 @@ function handleDeleted() {
       </trailhand-card>
       <trailhand-card class="dashboard-card" variant="info">
         <div slot="title">
-          <p class="number-text"><span class="number">{{ value.serviceConfigurations.length }}</span> {{ t('epinio.applications.detail.counts.services') }}</p>
+          <p class="number-text"><span class="number">{{ serviceConfigurations.length }}</span> {{ t('epinio.applications.detail.counts.services') }}</p>
         </div>
       </trailhand-card>
       <trailhand-card class="dashboard-card" variant="info">
         <div slot="title">
-          <p class="number-text"><span class="number">{{ value.baseConfigurations.length }}</span> {{ t('epinio.applications.detail.counts.config') }}</p>
+          <p class="number-text"><span class="number">{{ baseConfigurations.length }}</span> {{ t('epinio.applications.detail.counts.config') }}</p>
         </div>
       </trailhand-card>
     </div>

@@ -56,7 +56,7 @@ async function onSubmitDelete() {
       title:   t('epinio.growl.configuration.delete.success.title'),
       message: t('epinio.growl.configuration.delete.success.message', { name: configName }),
     });
-    store.dispatch('epinio/findAll', { type: EPINIO_TYPES.CONFIGURATION, opt: { force: true } });
+    store.dispatch('epinio/refreshList', { type: EPINIO_TYPES.CONFIGURATION });
     store.dispatch('epinio/findAll', { type: EPINIO_TYPES.APP, opt: { force: true } });
   } catch (e: any) {
     errors.value = epinioExceptionToErrorsArray(e);

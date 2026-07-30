@@ -6,10 +6,15 @@ import debounce from 'lodash/debounce';
 import { isArray } from '@shell/utils/array';
 import { GitUtils, Commit } from '@shell/utils/git';
 import { EPINIO_TYPES } from '../../types';
+import ResourceDropdown from './ResourceDropdown.vue';
 
 const props = defineProps<{
   value?: any;
   type: string;
+  gitConfigs: any[];
+  fetchGitConfigs: () => Promise<void>;
+  searchGitConfigs: (query: string) => Promise<void>;
+  isLoadingGitConfigs: boolean;
 }>();
 
 const emit = defineEmits(['change']);
@@ -51,7 +56,7 @@ const preparedCommits = computed<Commit[]>(() =>
 
 const selectedCommitId = computed(() => selectedCommit.value?.commitId);
 
-const gitConfigs = computed(() => (store.getters['epinio/all'](EPINIO_TYPES.GIT_CONFIG) || []).filter((c: any) => c.provider.includes(props.type) ));
+const gitConfigs = computed(() => (props.gitConfigs || []).filter((c: any) => c.provider.includes(props.type)));
 
 const selectedGitConfig = computed(() => gitConfigs.value.find((c: any) => c.meta.name === gitconfig.value) || null);
 
@@ -583,13 +588,14 @@ watch(() => props.value, async(neu, old) => {
   <div class="picker">
     <div class="row">
       <div class="spacer source">
-        <trailhand-dropdown
-          style="width: 100%;"
-          :value="gitconfig"
-          :options="gitConfigs.map((c: any) => ({ value: c.metadata.name, label: c.metadata.name }))"
-          data-testid="epinio_app-source_git-config"
+        <ResourceDropdown
+          :value="gitconfig ?? ''"
+          :options="gitConfigs.map((c: any) => ({ value: c.meta.name, label: c.meta.name }))"
           label="Git Config"
-          @dropdown-change="(e: CustomEvent) => { gitconfig = e.detail.value }"
+          :onDropdownChange="(e: CustomEvent) => { gitconfig = e.detail.value }"
+          :fetchAllResources="fetchGitConfigs"
+          :searchResources="searchGitConfigs"
+          :isLoading="isLoadingGitConfigs"
         />
       </div>
 

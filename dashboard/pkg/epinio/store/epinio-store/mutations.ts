@@ -50,6 +50,10 @@ export default {
     state.searchQuery[type] = query;
   },
 
+  setNamespaceSearch(state: any, names: string[] | null) {
+    state.namespaceSearch = names;
+  },
+
   clearAll(state: any, type: string) {
     if (state.types?.[type]) {
       state.types[type].list = [];

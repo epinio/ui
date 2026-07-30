@@ -1,6 +1,6 @@
 import type { Router } from 'vue-router';
-import { ActionMenuItem } from '@krumio/trailhand-ui/dist/components/action-menu/action-menu';
 import { ResourceTableRow } from '../models/resource/types';
+import { createEpinioRoute } from './custom-routing';
 
 /**
  * Returns an empty non-breaking space cell element.
@@ -56,6 +56,29 @@ export function makeRouterLinksOrEmpty(
   router: Router
 ): HTMLElement {
   return items?.length ? makeRouterLinks(items, router) : makeEmptyCell();
+}
+
+/**
+ * Returns router links for resources a record names, built from the names alone.
+ * Use for cross-references: resolving names against a store slice only finds
+ * what is on the current page of that resource's list.
+ */
+export function makeNameLinks(
+  names: string[] | null | undefined,
+  opts: { cluster: string; namespace: string; resource: string },
+  router: Router
+): HTMLElement {
+  const items = (names ?? []).map((name) => ({
+    meta:           { name },
+    detailLocation: createEpinioRoute('c-cluster-resource-namespace-id', {
+      cluster:   opts.cluster,
+      resource:  opts.resource,
+      id:        name,
+      namespace: opts.namespace,
+    }),
+  }));
+
+  return makeRouterLinksOrEmpty(items, router);
 }
 
 /**
