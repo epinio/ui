@@ -413,9 +413,9 @@ defineExpose({ openCreate, openEdit });
             :initial-application="originalModel"
             :mode="modalMode"
             :bindings="bindings"
+            :active="activeTab === 'bindings'"
             @change="updateConfigurations"
             @initial="captureOriginalBindings"
-            :active="activeTab === 'bindings'"
           />
         </template>
 

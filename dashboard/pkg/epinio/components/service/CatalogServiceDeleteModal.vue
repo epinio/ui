@@ -78,10 +78,10 @@ const emit = defineEmits(['deleted']);
             />
         </div>
         <div slot="footer">
-        <trailhand-button @button-click="closeDelete" variant="secondary" class="mr-10"
+        <trailhand-button variant="secondary" class="mr-10" @button-click="closeDelete"
             >Cancel</trailhand-button
         >
-        <trailhand-button @button-click="onSubmitDelete" :disabled="deletingCatalogService" variant="destructive"
+        <trailhand-button :disabled="deletingCatalogService" variant="destructive" @button-click="onSubmitDelete"
             >{{ deletingCatalogService ? 'Deleting...' : t('generic.delete') }}</trailhand-button
         >
         </div>

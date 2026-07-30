@@ -5,12 +5,8 @@ import { useStore } from 'vuex';
 import { EPINIO_TYPES } from '../../types';
 import { epinioExceptionToErrorsArray } from '../../utils/errors';
 import { validateKubernetesName } from '@shell/utils/validators/kubernetes-name';
-import { objValuesToString } from '../../utils/settings';
 import Banner from '@components/Banner/Banner.vue';
 import EpinioBuilderImageModel from '../../models/builderimages';
-
-import isEqual from 'lodash/isEqual';
-import sortBy from 'lodash/sortBy';
 
 const store = useStore() as any;
 const t = store.getters['i18n/t'];
@@ -181,10 +177,10 @@ defineExpose({ openCreate, openEdit });
     :dismissible.prop="false"
     :title="(isView || isEdit) ? initialValues.meta?.name || 'Builder Image' : 'Builder Image'"
     :subtitle="(isView || isEdit) ? '' : 'Create New'"
-    @modal-close="handleModalClose"
     position="top"
+    @modal-close="handleModalClose"
   >
-    <div class="modal-content" id="modal-container-element">
+    <div id="modal-container-element" class="modal-content">
       <trailhand-form-card>
         <Banner v-if="hasAssociatedApps" color="warning" label="This image is currently associated with one or more applications. Editing it may cause issues for future rebuilds." />
         <trailhand-form-row columns="2">

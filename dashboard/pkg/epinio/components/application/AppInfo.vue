@@ -31,7 +31,7 @@ const emit = defineEmits<{
 }>();
 
 // Reactive state
-const errors = ref<string[]>([]); // eslint-disable-line @typescript-eslint/no-unused-vars
+const errors = ref<string[]>([]);
 const values = ref<EpinioAppInfo | undefined>(undefined);
 const validSettings = ref<boolean>(true);
 const envVariables = ref<{ key: string; value: string }[]>([]);

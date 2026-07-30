@@ -4,9 +4,6 @@ import { Codemirror } from 'vue-codemirror';
 import { yaml } from '@codemirror/lang-yaml';
 import { EditorView } from '@codemirror/view';
 import { lintGutter } from '@codemirror/lint';
-import { oneDark } from '@codemirror/theme-one-dark';
-import { HighlightStyle, syntaxHighlighting } from '@codemirror/language';
-import { tags } from '@lezer/highlight';
 
 const props = defineProps<{
   value: string;
