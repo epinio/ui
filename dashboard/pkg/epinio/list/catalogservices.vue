@@ -101,7 +101,7 @@ const showDetails = (chart: any) => {
 
 <template>
   <Loading v-if="pending" />
-  <div id="modal-container-element" v-else>
+  <div v-else id="modal-container-element">
     <Masthead
       :schema="schema"
       :resource="resource"

@@ -118,7 +118,7 @@ watchEffect(() => {
       value: (row: EpinioBuilderImageModel) => () => {
          imageModal.value?.openEdit(row);
       },
-      conditionFn: (row: EpinioBuilderImageModel) => canEdit.value,
+      conditionFn: () => canEdit.value,
     }
   ];
 

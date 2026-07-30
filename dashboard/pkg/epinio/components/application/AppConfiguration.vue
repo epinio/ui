@@ -1,6 +1,6 @@
 <script setup lang="ts">
 
-import { ref, computed, watch, onMounted } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { useStore } from 'vuex';
 import { sortBy } from '@shell/utils/sort';
 import { _VIEW } from '@shell/config/query-params';
@@ -271,7 +271,7 @@ watch(hasServices, (neu, old) => {
   >
     <trailhand-loading-spinner />
   </div>
-  <div class="configurations" v-else>
+  <div v-else class="configurations">
     <ResourceDropdown
       :values="values.configurations"
       :options="configurations"
