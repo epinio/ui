@@ -5,7 +5,7 @@ import { useStore } from 'vuex';
 import { EPINIO_TYPES } from '../../types';
 import { epinioExceptionToErrorsArray } from '../../utils/errors';
 import { validateKubernetesName } from '@shell/utils/validators/kubernetes-name';
-import { objValuesToString, mapSettingsFromApiResponse, mapSettingsToApiRequest, validateSettings } from '../../utils/settings';
+import { mapSettingsFromApiResponse, mapSettingsToApiRequest, validateSettings } from '../../utils/settings';
 import Banner from '@components/Banner/Banner.vue';
 import EpinioCatalogServiceModel from '../../models/catalogservices';
 import ChartSettings, { ConfigSetting } from '../settings/ChartSettings.vue';
@@ -255,10 +255,10 @@ defineExpose({ openCreate, openEdit });
     :dismissible.prop="false"
     :title="(isView || isEdit) ? initialValues?.meta?.name || 'Catalog Service' : 'Catalog Service'"
     :subtitle="(isView || isEdit) ? '' : 'Create New'"
-    @modal-close="handleModalClose"
     position="top"
+    @modal-close="handleModalClose"
   >
-    <div class="modal-content" id="modal-container-element">
+    <div id="modal-container-element" class="modal-content">
       <trailhand-form-card>
         <Banner v-if="hasAssociatedServices" color="warning" label="This catalog service is currently associated with one or more services. Editing it may cause issues for those services." />
         <trailhand-form-row columns="2">
@@ -354,7 +354,7 @@ defineExpose({ openCreate, openEdit });
         </trailhand-form-row>
         <template v-if="showAdvancedOptions">
           <h3>Secret Types</h3>
-          <trailhand-form-row columns="1" v-for="(value, index) in catalogServiceSecretTypes" :key="index">
+          <trailhand-form-row v-for="(value, index) in catalogServiceSecretTypes" :key="index" columns="1">
             <div style="display: flex; align-items: flex-end; gap: 8px;">
               <trailhand-text-input
                 :value="value"

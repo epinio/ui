@@ -719,11 +719,11 @@ onMounted(async () => {
       <GitPicker
         v-model:value="gitSource"
         :type="type"
-        @change="gitUpdate"
         :gitConfigs="gitConfigs"
         :fetchGitConfigs="fetchGitConfigs"
         :searchGitConfigs="searchGitConfigs"
         :isLoadingGitConfigs="isLoadingGitConfigs"
+        @change="gitUpdate"
       />
     </template>
 

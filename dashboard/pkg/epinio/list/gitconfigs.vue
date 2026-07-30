@@ -77,7 +77,7 @@ watchEffect(() => {
   // Build the row action menu with RBAC gating. The model already gates the
   // base actions; here we inject the modal-driven Edit/Delete entries only
   // when the user has git config write permissions.
-  const rowActions = (row: EpinioGitConfigModel) => {
+  const rowActions = () => {
     const out: any[] = [];
 
     if (canDelete.value) {
@@ -103,7 +103,7 @@ watchEffect(() => {
       value: (row: EpinioGitConfigModel) => () => {
         gitConfigDeleteModal.value?.openDelete(row);
       },
-      conditionFn: (row: EpinioGitConfigModel) => canDelete.value,
+      conditionFn: () => canDelete.value,
     },
   ];
 

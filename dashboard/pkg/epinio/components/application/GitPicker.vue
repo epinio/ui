@@ -5,7 +5,6 @@ import { makeCommitShaCell, makeCommitAuthorCell } from '../../utils/table-forma
 import debounce from 'lodash/debounce';
 import { isArray } from '@shell/utils/array';
 import { GitUtils, Commit } from '@shell/utils/git';
-import { EPINIO_TYPES } from '../../types';
 import ResourceDropdown from './ResourceDropdown.vue';
 
 const props = defineProps<{
@@ -563,7 +562,7 @@ async function searchBranch(query: string) {
 
       const results = props.type === 'github' ? res.data ? [{ name: res.data.name, ...res.data }] : [] : res.data || [];
       branches.value = [ ...results];
-    } catch (err) {
+    } catch {
       branches.value = [];
     } finally {
       isLoadingBranches.value = false;
