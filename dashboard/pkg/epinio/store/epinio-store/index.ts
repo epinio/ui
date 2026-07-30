@@ -15,7 +15,10 @@ const epinioFactory = (): CoreStoreSpecifics => {
         // Last pagination meta from API (totalPages, totalItems, etc.) per resource type
         paginationMeta: {} as Record<string, { page: number; pageSize: number; totalItems: number; totalPages: number }>,
         // Search query per resource type for list requests
-        searchQuery: {} as Record<string, string>
+        searchQuery: {} as Record<string, string>,
+        // Server-side namespace search results (names) for the navbar filter.
+        // null means no active query -> the filter shows the full list.
+        namespaceSearch: null as string[] | null
       };
     },
 

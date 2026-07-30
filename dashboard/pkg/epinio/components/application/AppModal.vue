@@ -16,6 +16,12 @@ import EpinioApplicationModel from 'models/applications';
 const store = useStore() as any;
 const t = store.getters['i18n/t'];
 
+// Fires with the app's namespace once a create or edit has landed on the
+// server. The applications list renders from per-namespace paginated fetches,
+// not the global store, so it needs this signal to re-fetch the group -- a
+// model-level forceFetch only updates the store slice nothing there reads.
+const emit = defineEmits<{ saved: [namespace?: string] }>();
+
 // Modal open state
 const showModal = ref(false);
 const modalMode = ref<'create' | 'edit'>('create');
@@ -27,6 +33,7 @@ const loading = ref(true);
 const value = ref<any>(null);
 const source = ref<EpinioAppSource>();
 const bindings = ref<EpinioAppBindings>();
+const originalBindings = ref<EpinioAppBindings>();
 const appChart = reactive({ chartsList: undefined as any, selectedChart: undefined });
 const epinioInfo = ref<any>(null);
 const originalModel = ref<any>(null);
@@ -183,6 +190,7 @@ function closeModal() {
   originalModel.value = null;
   source.value = undefined;
   bindings.value = undefined;
+  originalBindings.value = undefined;
   epinioInfo.value = null;
   appChart.chartsList = undefined;
   appChart.selectedChart = undefined;
@@ -286,6 +294,13 @@ function updateConfigurations(changes: EpinioAppBindings) {
   set(value.value.configuration, { configurations: changes.configurations });
 }
 
+// What the bindings form found bound on open. The store's configuration and
+// service slices only hold one page of their lists, so they cannot be used as
+// the baseline for the save diff.
+function captureOriginalBindings(partial: Partial<EpinioAppBindings>) {
+  originalBindings.value = { ...originalBindings.value, ...partial } as EpinioAppBindings;
+}
+
 async function onSubmit() {
   if (saving.value) return;
   saving.value = true;
@@ -296,11 +311,11 @@ async function onSubmit() {
       // Always save metadata/config changes
       await value.value.update({ restart: !!value.value.canRestartAfterConfigSave });
       await value.value.updateConfigurations(
-        originalModel.value.baseConfigurationsNames || [],
+        originalBindings.value?.configurations || [],
         bindings.value?.configurations || [],
       );
       await value.value.updateServices(
-        originalModel.value.services || [],
+        originalBindings.value?.services || [],
         bindings.value?.services || [],
       );
 
@@ -310,6 +325,7 @@ async function onSubmit() {
         completeTab('bindings', 'progress'); // progress tab handles the rest
       } else {
         await value.value.forceFetch();
+        emit('saved', value.value?.meta?.namespace);
         closeModal();
       }
     } else {
@@ -320,6 +336,12 @@ async function onSubmit() {
   } finally {
     if (!isEdit.value) saving.value = false;
   }
+}
+
+// Creates and source redeploys run through the progress tab's pipeline, so the
+// modal only learns the app landed when AppProgress says it finished.
+function handleProgressFinished() {
+  emit('saved', value.value?.meta?.namespace);
 }
 
 function completeTab(tabId: string | number, nextTabId: string | number) {
@@ -392,6 +414,8 @@ defineExpose({ openCreate, openEdit });
             :mode="modalMode"
             :bindings="bindings"
             @change="updateConfigurations"
+            @initial="captureOriginalBindings"
+            :active="activeTab === 'bindings'"
           />
         </template>
 
@@ -403,6 +427,7 @@ defineExpose({ openCreate, openEdit });
             :mode="modalMode"
             :tab="tab"
             :active="activeTab === tab.id"
+            @finished="handleProgressFinished"
           />
       </template>
       </Tabs>

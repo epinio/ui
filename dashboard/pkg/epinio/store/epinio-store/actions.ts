@@ -35,6 +35,11 @@ const createId = (schema: any, resource: any) => {
 
 const semanticVersionRegex = /v(?:(\d+)\.)?(?:(\d+)\.)?(?:(\d+)\.\d+)/;
 
+// Debounce timer for the navbar namespace search. Module-scoped so it
+// coalesces across dispatches (Vuex actions get a fresh context each call and
+// can't hold their own debounce state).
+let namespaceSearchTimer: ReturnType<typeof setTimeout> | null = null;
+
 export const epiniofy = (obj: any, schema: any, type: any) => ({
   ...obj,
   // Note - these must be applied here ... so things that need an id before classifying have access to them
@@ -50,6 +55,38 @@ export default {
 
   remove({ commit }: any, obj: any ) {
     commit('remove', obj);
+  },
+
+  // Navbar namespace filter search. Debounced, prefix-matches server-side via
+  // /namespacematches and stores the resulting names. An empty query clears the
+  // stored results (null), so the filter falls back to the full list.
+  searchNamespaces({ dispatch, commit }: any, query: string) {
+    if (namespaceSearchTimer) {
+      clearTimeout(namespaceSearchTimer);
+      namespaceSearchTimer = null;
+    }
+
+    if (!query?.length) {
+      commit('setNamespaceSearch', null);
+
+      return;
+    }
+
+    namespaceSearchTimer = setTimeout(async() => {
+      try {
+        const res = await dispatch('request', {
+          opt: {
+            url:          `/api/v1/namespacematches/${ query }`,
+            method:       'GET',
+            responseType: 'json'
+          }
+        });
+
+        commit('setNamespaceSearch', res.data?.names || []);
+      } catch {
+        commit('setNamespaceSearch', []);
+      }
+    }, 200);
   },
 
   async request(context: any, {
@@ -488,6 +525,33 @@ export default {
 
   goToPage: async({ commit, dispatch }: any, { type, page }: SetPaginationPagePayload) => {
     commit('setPaginationPage', { type, page });
+    await dispatch('findAll', { type, opt: { force: true } });
+  },
+
+  /**
+   * Re-fetch the current page of a list and resync its pagination meta.
+   *
+   * Use this after any create/delete instead of a single-resource `find`.
+   * A `find` only adds/updates one entry in the store slice, which leaves
+   * `paginationMeta.totalItems` at whatever the last list fetch reported: the
+   * table renders every row it is handed as the current page, so the extra
+   * rows pile onto the current page and the page count never moves until the
+   * background poller happens to re-fetch.
+   *
+   * If a delete emptied the page we are sitting on, step back to the new last
+   * page so the user is not left looking at a page that no longer exists.
+   */
+  refreshList: async({ commit, dispatch, getters }: any, { type }: { type: string }) => {
+    await dispatch('findAll', { type, opt: { force: true } });
+
+    const meta = getters['paginationMeta'](type);
+    const page = getters['currentPaginationPage'](type);
+
+    if (!meta || meta.totalPages < 1 || page <= meta.totalPages) {
+      return;
+    }
+
+    commit('setPaginationPage', { type, page: meta.totalPages });
     await dispatch('findAll', { type, opt: { force: true } });
   },
 

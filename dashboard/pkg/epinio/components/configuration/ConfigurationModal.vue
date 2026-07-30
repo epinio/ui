@@ -7,7 +7,8 @@ import { epinioExceptionToErrorsArray } from '../../utils/errors';
 import { validateKubernetesName } from '@shell/utils/validators/kubernetes-name';
 import Banner from '@components/Banner/Banner.vue';
 import isEqual from 'lodash/isEqual';
-import sortBy from 'lodash/sortBy';
+import ResourceDropdown from '../application/ResourceDropdown.vue';
+import { useNamespaces } from '../../utils/namespaces';
 
 const store = useStore() as any;
 const t = store.getters['i18n/t'];
@@ -37,13 +38,15 @@ const isEdit = computed(() => modalMode.value === 'edit');
 const isCreate = computed(() => modalMode.value === 'create');
 const isEditing = computed(() => isEdit.value || isCreate.value);
 
-const namespaces = computed(() =>
-  sortBy(store.getters['epinio/all'](EPINIO_TYPES.NAMESPACE), (ns: any) => ns.meta?.name) as any[]
-);
-
-const namespaceOpts = computed(() =>
-  namespaces.value.map((ns: any) => ({ label: ns.meta?.name || '', value: ns.meta?.name || '' }))
-);
+const {
+  options:    namespaceOpts,
+  isLoading:  isLoadingNamespaces,
+  firstName:  firstNamespace,
+  fetchAll:   fetchNamespaces,
+  search:     searchNamespaces,
+} = useNamespaces(store, {
+  scopeToActiveFilter: true
+});
 
 // Filter apps to those in the selected namespace, and map to dropdown options
 const nsAppOptions = computed(() => {
@@ -107,17 +110,25 @@ function rowsToDetails(rows: Array<{ key: string; value: string }>): Record<stri
   return obj;
 }
 
-function openCreate() {
+async function openCreate() {
   errors.value = [];
   modalMode.value = 'create';
   configModel.value = null;
-  formNamespace.value = namespaces.value[0]?.meta?.name || '';
+  formNamespace.value = '';
   formName.value = '';
   selectedApps.value = [];
   initialBoundApps.value = [];
   configData.value = [{ key: '', value: '' }];
   initialConfigDataSnapshot.value = '';
+
+  // Open first so the modal is visible while the namespaces load
   showModal.value = true;
+
+  await fetchNamespaces();
+
+  if (!formNamespace.value) {
+    formNamespace.value = firstNamespace.value;
+  }
 }
 
 function openView(row: any) {
@@ -263,6 +274,19 @@ function onBulkFileChange(event: Event) {
   (event.target as HTMLInputElement).value = '';
 }
 
+// Refresh the whole list, not just the saved record: the table paginates
+// server-side, so a single-resource fetch adds an 11th row to a 10-row page
+// and leaves the page count stale until the 30s poller catches up.
+const refreshConfigurations = () => store
+  .dispatch('epinio/refreshList', { type: EPINIO_TYPES.CONFIGURATION })
+  .catch(() => {});
+
+// The Bound Applications column reads from the apps slice, so app bindings
+// need that list refreshed too.
+const refreshApps = () => store
+  .dispatch('epinio/findAll', { type: EPINIO_TYPES.APP, opt: { force: true } })
+  .catch(() => {});
+
 async function onSubmit() {
   if (!validationPassed.value || saving.value) return;
 
@@ -288,7 +312,7 @@ async function onSubmit() {
         message: t('epinio.growl.configuration.create.success.message', { name: capturedName }),
       });
 
-      cfg.forceFetch().catch(() => {});
+      refreshConfigurations();
 
       if (capturedSelectedApps.length) {
         const nsApps = store.getters['epinio/all'](EPINIO_TYPES.APP)
@@ -298,7 +322,10 @@ async function onSubmit() {
           nsApps
             .filter((a: any) => capturedSelectedApps.includes(a.metadata.name))
             .map((a: any) => a.bindConfigurations([capturedName]))
-        ).catch(() => {});
+        ).then(() => {
+          refreshApps();
+          refreshConfigurations();
+        }).catch(() => {});
       }
     } else {
       const cfg = configModel.value;
@@ -340,7 +367,10 @@ async function onSubmit() {
           return ops;
         }, []);
 
-        Promise.all(bindingOps).catch(() => {});
+        Promise.all(bindingOps).then(() => {
+          refreshApps();
+          refreshConfigurations();
+        }).catch(() => {});
       }
 
       cfg.forceFetch().catch(() => {});
@@ -396,15 +426,17 @@ defineExpose({ openCreate, openView, openEdit });
       <trailhand-form-card>
         <!-- Namespace + Name -->
         <trailhand-form-row columns="2">
-          <trailhand-dropdown
+          <ResourceDropdown
             v-if="isCreate"
-            style="width: 100%"
             :options="namespaceOpts"
             :value="formNamespace"
             label="Namespace"
-            :required="true"
+            required
             placeholder="Select a namespace"
-            @dropdown-change="(e: CustomEvent) => { formNamespace = e.detail.value; selectedApps = []; }"
+            :onDropdownChange="(e: CustomEvent) => { formNamespace = e.detail.value; selectedApps = []; }"
+            :fetchAllResources="fetchNamespaces"
+            :searchResources="searchNamespaces"
+            :isLoading="isLoadingNamespaces"
           />
           <trailhand-text-input
             v-else

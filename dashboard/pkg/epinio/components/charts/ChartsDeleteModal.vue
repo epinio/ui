@@ -41,7 +41,7 @@ try {
       message: t('epinio.growl.appCharts.delete.success.message', { name: chartName }),
     });
     closeDelete();
-    store.dispatch('epinio/findAll', { type: EPINIO_TYPES.APP_CHARTS, opt: { force: true } });
+    store.dispatch('epinio/refreshList', { type: EPINIO_TYPES.APP_CHARTS });
 } catch(e) {
     errors.value = [];
     errors.value = epinioExceptionToErrorsArray(e).map(JSON.stringify);
