@@ -1330,9 +1330,6 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
       const status = await this.getDeploymentStatus(deploymentId);
 
       // Once staging begins, we can show staging logs
-      if (status?.stage_id && !this.buildCache?.deployment?.stage_id) {
-        this.buildCache.deployment.stage_id = status.stage_id;
-      }
       if (status?.stage_id && !stagingLogShown) {
         stagingLogShown = true;
         this.showStagingLog(status.stage_id);
