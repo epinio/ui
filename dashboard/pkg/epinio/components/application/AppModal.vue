@@ -8,7 +8,8 @@ import AppSource from './AppSource.vue';
 import AppInfo from './AppInfo.vue';
 import AppConfiguration from './AppConfiguration.vue';
 import AppProgress from './AppProgress.vue';
-import { EpinioAppInfo, EpinioAppBindings, EpinioAppSource, EPINIO_TYPES } from '../../types';
+import { EpinioAppInfo, EpinioAppBindings, EpinioAppSource, EPINIO_TYPES, APPLICATION_SOURCE_TYPE } from '../../types';
+import { AppUtils } from '../../utils/application';
 import Tabs from './Tabs.vue';
 import { allHash } from '@shell/utils/promise';
 import EpinioApplicationModel from 'models/applications';
@@ -69,26 +70,24 @@ const isDirty = computed(() => {
 
 const isSourceDirty = computed(() => {
   if (!snapshot.value) return false;
-  
-  const snapshotSource = JSON.parse(snapshot.value).source;
-  const currentSource = JSON.parse(takeSnapshot()).source;
-  
-  return JSON.stringify(snapshotSource) !== JSON.stringify(currentSource);
+
+  return JSON.parse(snapshot.value).source !== AppUtils.sourceFingerprint(source.value);
 });
+
+// Folder and archive sources live in the browser only, so a redeploy needs the
+// files selected again.
+const needsUploadedSource = computed(() => [
+  APPLICATION_SOURCE_TYPE.ARCHIVE,
+  APPLICATION_SOURCE_TYPE.FOLDER,
+].includes(source.value?.type as APPLICATION_SOURCE_TYPE));
 
 const showDiscardConfirm = ref(false);
 
 function takeSnapshot() {
   return JSON.stringify({
-    source: {
-      ...source.value,
-      git: {
-        ...source.value?.git,
-        sourceData: undefined, // ignore dynamic data
-      },
-    },
-    bindings: bindings.value,
-    meta: value.value?.meta,
+    source:        AppUtils.sourceFingerprint(source.value),
+    bindings:      bindings.value,
+    meta:          value.value?.meta,
     configuration: value.value?.configuration,
   });
 }
@@ -308,6 +307,14 @@ async function onSubmit() {
 
   try {
     if (isEdit.value) {
+      // Nothing is saved yet, so bail before a half-applied edit.
+      if (isSourceDirty.value && needsUploadedSource.value && !source.value?.archive?.tarball) {
+        errors.value = [t('epinio.applications.action.upload.missingSource')];
+        saving.value = false;
+
+        return;
+      }
+
       // Always save metadata/config changes
       await value.value.update({ restart: !!value.value.canRestartAfterConfigSave });
       await value.value.updateConfigurations(
@@ -342,6 +349,16 @@ async function onSubmit() {
 // modal only learns the app landed when AppProgress says it finished.
 function handleProgressFinished() {
   emit('saved', value.value?.meta?.namespace);
+}
+
+// A failed pipeline strands the user on the progress tab. Let them back into the
+// form to fix the source and retry.
+function handleProgressFailed() {
+  tabs.value.forEach((tab) => {
+    if (tab.id !== 'progress') {
+      tab.disabled = false;
+    }
+  });
 }
 
 function completeTab(tabId: string | number, nextTabId: string | number) {
@@ -428,6 +445,7 @@ defineExpose({ openCreate, openEdit });
             :tab="tab"
             :active="activeTab === tab.id"
             @finished="handleProgressFinished"
+            @failed="handleProgressFailed"
           />
       </template>
       </Tabs>

@@ -324,15 +324,19 @@ watch(type, () => {
   update();
 });
 
+// Immediate so the parent starts from the form's real validity instead of
+// assuming the tab is valid until something changes.
 watch(valid, (val) => {
   emit('valid', val);
-});
+}, { immediate: true });
 
 function validate() {
   switch (type.value) {
     case APPLICATION_SOURCE_TYPE.ARCHIVE:
     case APPLICATION_SOURCE_TYPE.FOLDER:
-      return !!archive.tarball && !!builderImage.value;
+      // A deployed app keeps its uploaded source until a new one is picked, so
+      // only a create needs files in hand.
+      return (isEdit.value || !!archive.tarball) && !!builderImage.value;
     case APPLICATION_SOURCE_TYPE.CONTAINER_URL:
       return !!container.url;
     case APPLICATION_SOURCE_TYPE.GIT_URL:
