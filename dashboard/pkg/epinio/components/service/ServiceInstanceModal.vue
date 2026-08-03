@@ -269,7 +269,7 @@ async function onSubmit() {
       Promise.all(capturedSelectedApps.map((app: string) => bindService({ namespace: capturedNamespace, serviceName: capturedName, request: { appName: app } })))
     }
   } else {
-    const svc = serviceModel.value;
+    const svc = {...serviceModel.value};
     if (!svc) throw new Error('Service model is missing');
     const newSettings = !isEqual(
       objValuesToString(chartValues),
@@ -292,11 +292,20 @@ async function onSubmit() {
     const newBindApps = bindApps.filter(a => !initialBoundApps.value.includes(a));
     const serviceName = svc.meta?.name;
 
+    if (showModal.value) {
+      closeModal();
+    }
+
     // Bind/unbind and refresh in the background
     Promise.all([
       ...newBindApps.map((a: string) => bindService({ namespace: svc.meta?.namespace || '', serviceName: serviceName || '', request: { appName: a } })),
       ...unbindApps.map((a: string) => unbindService({ namespace: svc.meta?.namespace || '', serviceName: serviceName || '', request: { appName: a } })),
-    ])
+    ]).then(() => {
+      store.dispatch('growl/success', {
+        title:   t(`epinio.growl.service.both.success.title`),
+        message: t(`epinio.growl.service.both.success.message`, { name: svc.meta?.name }),
+      });
+    })
   }
 }
 

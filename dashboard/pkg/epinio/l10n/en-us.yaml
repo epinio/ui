@@ -611,14 +611,18 @@ epinio:
           message: The service most likely wasn't ready yet. Please wait a moment and try again. If the problem persists, please contact support.
         success:
           title: Service Bound Successfully
-          message: 'Your service { name } has been successfully bound to the application.'
+          message: 'Your service { name } has been successfully bound to the application(s).'
       unbind:
         error:
           title: Something Went Wrong Unbinding the Service
           message: Please wait a moment and try again. Please try again or contact your system admin to investigate the issue.
         success:
           title: Service Unbound Successfully
-          message: 'Your service { name } has been successfully unbound from the application.'
+          message: 'Your service { name } has been successfully unbound from the application(s).'
+      both:
+        success:
+          title: Service bindings updated successfully
+          message: 'Your service { name } has been successfully updated with new bindings.'
     serviceInstance:
       create:
         success:

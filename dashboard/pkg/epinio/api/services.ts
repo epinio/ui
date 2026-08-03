@@ -23,7 +23,7 @@ export function servicesApi(epinioClient: ReturnType<typeof createEpinioClient>)
             return await epinioClient.put(`${namespacesBasePath}/${namespace}/services/${serviceName}`, request);
         },
         deleteService: async (namespace: string, serviceName: string) => {
-            return await epinioClient.delete(`${namespacesBasePath}/${namespace}/services/${serviceName}`);
+            return await epinioClient.delete(`${namespacesBasePath}/${namespace}/services/${serviceName}`, { unmounted: true });
         },
     };
 }
