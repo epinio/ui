@@ -1,4 +1,4 @@
-import { ListResourceResponse } from "../resource/types";
+import { ListResourceResponse } from "../resource/ui-types";
 
 interface NamespaceMeta {
     name: string;

@@ -1,5 +1,5 @@
 import type { Router } from 'vue-router';
-import { ResourceTableRow } from '../models/resource/types';
+import { ResourceTableRow } from '../models/resource/api-types';
 import { createEpinioRoute } from './custom-routing';
 
 /**
@@ -310,9 +310,9 @@ export function makeStateTag(row: any): HTMLElement {
   const tag = document.createElement('trailhand-tag') as any;
 
   tag.label = row.stateDisplay || '';
-  tag.variant = stateToTagVariant(row.state);
+  tag.variant = stateToTagVariant(row.status);
   tag.size = 'md';
-  tag.icon = stateToIcon(row.state);
+  tag.icon = stateToIcon(row.status);
 
   return tag;
 }

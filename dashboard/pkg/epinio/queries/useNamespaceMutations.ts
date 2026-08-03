@@ -4,7 +4,8 @@ import { useCluster } from "./useCluster";
 import { namespacesApi } from "../api/namespaces";
 import { epinioQueryClient } from "../api/queryClient";
 import { computed } from "vue";
-import { CreateNamespaceRequest } from "../models/namespace/types";
+import { CreateNamespaceRequest } from "../models/namespace/ui-types";
+import { toApiCreateNamespaceRequest } from "../models/namespace/mappers";
 
 export function useCreateNamespace(store: any, onSuccessCallback?: () => void) {
     const { data: cluster } = useCluster(store);
@@ -17,7 +18,7 @@ export function useCreateNamespace(store: any, onSuccessCallback?: () => void) {
                 throw new Error('Cluster is not available');
             }
             const epinioClient = createEpinioClient(cluster.value, isExtension.value);
-            return await namespacesApi(epinioClient).createNamespace(request);
+            return await namespacesApi(epinioClient).createNamespace(toApiCreateNamespaceRequest(request));
         },
         onSuccess: () => {
             epinioQueryClient.invalidateQueries({ queryKey: ['namespaces', cluster.value?.id] });

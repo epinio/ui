@@ -35,3 +35,8 @@ export interface ResourceTableRowMeta {
 export type ResourceTableRow = {
     [key: string]: any;
 } & ResourceTableRowMeta;
+
+export interface ResourceQueryOptions {
+    enabled?: boolean;
+    polling?: boolean;
+}

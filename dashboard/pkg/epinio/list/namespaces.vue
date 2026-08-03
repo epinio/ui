@@ -6,12 +6,12 @@ import Masthead from '@shell/components/ResourceList/Masthead';
 import { attachActionMenu } from '../utils/table-formatters';
 import { debounce } from 'lodash';
 import { useNamespaces } from '../queries/useNamespaceQueries';
-import { ListResourceRequestParams } from '../models/resource/types';
-import { Namespace } from '../models/namespace/types';
+import { ListResourceRequestParams, ResourceQueryOptions } from '../models/resource/ui-types';
+import { Namespace } from '../models/namespace/ui-types';
 import NamespaceModal from '../components/namespace/NamespaceModal.vue';
 import NamespaceDeleteModal from '../components/namespace/NamespaceDeleteModal.vue';
 import Banner from '@components/Banner/Banner.vue';
-import { ResourceTableRow } from 'models/resource/types';
+import { ResourceTableRow } from '../models/resource/ui-types';
 
 defineProps<{
   schema: object,
@@ -27,24 +27,24 @@ const displayRows = ref<ResourceTableRow[]>([]);
 const namespaceModal = ref<InstanceType<typeof NamespaceModal> | null>(null);
 const namespaceDeleteModal = ref<InstanceType<typeof NamespaceDeleteModal> | null>(null);
 
-const requestParams = ref<ListResourceRequestParams>({
-  page: 1,
-  pageSize: 10,
-  search: ''
-});
-
 const searchQuery = ref<string>('');
 
 watch(searchQuery, (newQuery) => {
   onSearch(newQuery);
 });
 
+const requestParams = ref<ListResourceRequestParams>({
+  page: 1,
+  pageSize: 10,
+  search: ''
+});
+const requestOptions = ref<ResourceQueryOptions>({ enabled: true, polling: true });
+const {data: namespaces, isLoading: isLoadingNamespaces, isError: isErrorNamespaces, error: namespacesError} = useNamespaces(store, requestParams, requestOptions);
+
 const onSearch = debounce(async (query: string) => {
   requestParams.value.page = 1;
   requestParams.value.search = query;
 }, 500);
-
-const {data: namespaces, isLoading: isLoadingNamespaces, isError: isErrorNamespaces, error: namespacesError} = useNamespaces(store, requestParams);
 
 // Strict RBAC: only show Create/Delete when the user has namespace write perms (admin).
 // Defined ahead of the watchEffect that consumes them to avoid a TDZ on first run.

@@ -459,6 +459,10 @@ epinio:
       title: Service Variables
     create:
       label: Create Service
+    errors:
+      save: Error saving Service Instance, please try again.
+      delete: Error deleting Service Instance, please try again.
+      unbind: Error unbinding Service Instance, please try again.
   configurations:
     pairs:
       label: Config Data
@@ -605,10 +609,16 @@ epinio:
         error:
           title: Something Went Wrong Binding the Service
           message: The service most likely wasn't ready yet. Please wait a moment and try again. If the problem persists, please contact support.
+        success:
+          title: Service Bound Successfully
+          message: 'Your service { name } has been successfully bound to the application.'
       unbind:
         error:
           title: Something Went Wrong Unbinding the Service
           message: Please wait a moment and try again. Please try again or contact your system admin to investigate the issue.
+        success:
+          title: Service Unbound Successfully
+          message: 'Your service { name } has been successfully unbound from the application.'
     serviceInstance:
       create:
         success:
