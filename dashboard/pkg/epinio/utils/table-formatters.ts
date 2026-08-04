@@ -65,16 +65,16 @@ export function makeRouterLinksOrEmpty(
  */
 export function makeNameLinks(
   names: string[] | null | undefined,
-  opts: { cluster: string; namespace: string; resource: string },
+  opts: { cluster: string; namespace?: string; resource: string },
   router: Router
 ): HTMLElement {
   const items = (names ?? []).map((name) => ({
     meta:           { name },
-    detailLocation: createEpinioRoute('c-cluster-resource-namespace-id', {
+    detailLocation: createEpinioRoute(opts.namespace ? 'c-cluster-resource-namespace-id' : 'c-cluster-resource-id', {
       cluster:   opts.cluster,
       resource:  opts.resource,
       id:        name,
-      namespace: opts.namespace,
+      namespace: opts.namespace ?? '',
     }),
   }));
 

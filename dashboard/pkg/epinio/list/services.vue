@@ -87,7 +87,8 @@ watchEffect(() => {
       action: () => openEditModal(s),
       enabled: canEdit.value,
       visible: canEdit.value,
-    }]
+    }],
+    canDelete: canDelete.value,
   }));
   displayRows.value = rows;
 });
@@ -185,7 +186,11 @@ const columns = [
     field: 'catalogService',
     label: 'Catalog Service',
     sortable: false,
-    formatter: (_v: any, row: any) => makeRouterLink(row.catalogService, row.serviceLocation, router)
+    formatter: (_v: any, row: any) => makeNameLinks(
+      [row.catalogService],
+      { cluster: store.getters['clusterId'], resource: EPINIO_TYPES.CATALOG_SERVICE },
+      router
+    )
   },
   {
     field: 'catalogServiceVersion',
