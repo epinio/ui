@@ -64,8 +64,9 @@ const prevTab = computed(() => {
 })
 
 const isDirty = computed(() => {
-  if (!snapshot.value || !value.value) return false
-  return takeSnapshot() !== snapshot.value
+  if (!snapshot.value || !value.value) return false;
+  const newSnapshot = takeSnapshot();
+  return newSnapshot !== snapshot.value
 });
 
 const isSourceDirty = computed(() => {
@@ -139,6 +140,27 @@ async function openEdit(row: EpinioApplicationModel, commit?: string) {
   appChart.selectedChart = row.configuration?.appchart;
   originalModel.value = row;
   value.value = await store.dispatch('epinio/clone', { resource: originalModel.value });
+
+  // If the app has no settings, but the chart does, populate the app's settings with
+  // empty values.
+  if (!row.configuration.settings) {
+    const chartList = await store.dispatch(
+      'epinio/findAll',
+      { type: EPINIO_TYPES.APP_CHARTS },
+    );
+
+    const filterChart = chartList?.find(
+      (chart: any) => chart.id === row.configuration.appchart
+    );
+
+    if (filterChart?.settings) {
+      const customValues = Object.keys(filterChart?.settings).reduce((acc: any, key: any) => {
+        acc[key] = row.configuration.settings?.[key] || '';
+        return acc;
+      }, {});
+      value.value.configuration.settings = customValues;
+    }
+  }
 
   source.value = row.appSource;
 
