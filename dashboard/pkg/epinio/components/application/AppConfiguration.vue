@@ -17,6 +17,7 @@ interface Props {
 }
 
 const props = defineProps<Props>();
+console.log('AppConfiguration props:', props);
 // 'initial' reports what was bound when the form opened, so the parent can diff
 // against it on save instead of re-deriving it from the store.
 const emit = defineEmits(['change', 'initial']);

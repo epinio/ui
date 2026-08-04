@@ -66,6 +66,10 @@ const prevTab = computed(() => {
 const isDirty = computed(() => {
   if (!snapshot.value || !value.value) return false;
   const newSnapshot = takeSnapshot();
+  console.log(`Snapshot comparison:`, {
+    old: snapshot.value,
+    new: newSnapshot,
+  });
   return newSnapshot !== snapshot.value
 });
 
@@ -85,9 +89,14 @@ const needsUploadedSource = computed(() => [
 const showDiscardConfirm = ref(false);
 
 function takeSnapshot() {
+  const simplifiedBindings = {
+    configurations: bindings.value?.configurations || [],
+    services: bindings.value?.services.map((s) => s.meta?.name || s.name || s) || [],
+  };
+  console.log('Taking snapshot bindings:', bindings.value);
   return JSON.stringify({
     source:        AppUtils.sourceFingerprint(source.value),
-    bindings:      bindings.value,
+    bindings:      simplifiedBindings,
     meta:          value.value?.meta,
     configuration: value.value?.configuration,
   });
@@ -122,6 +131,7 @@ async function openCreate() {
 }
 
 async function openEdit(row: EpinioApplicationModel, commit?: string) {
+  console.log('Opening edit modal for application:', row, 'with commit:', commit);
   errors.value = [];
   modalMode.value = 'edit';
   loading.value = true;
@@ -139,7 +149,7 @@ async function openEdit(row: EpinioApplicationModel, commit?: string) {
   appChart.chartsList = hash.charts;
   appChart.selectedChart = row.configuration?.appchart;
   originalModel.value = row;
-  value.value = await store.dispatch('epinio/clone', { resource: originalModel.value });
+  value.value = await store.dispatch('epinio/clone', { resource: originalModel.value }); 
 
   // If the app has no settings, but the chart does, populate the app's settings with
   // empty values.
@@ -161,6 +171,14 @@ async function openEdit(row: EpinioApplicationModel, commit?: string) {
       value.value.configuration.settings = customValues;
     }
   }
+
+  // Populate bindings
+  console.log('Populating bindings for edit with configurations:', row.configuration?.configurations, 'and services:', row.configuration?.services);
+  bindings.value = {
+    configurations: [...(row.configuration?.configurations || [])],
+    services: [...(row.configuration?.services || [])],
+  };
+  console.log('Bindings after population:', bindings.value);
 
   source.value = row.appSource;
 
@@ -237,6 +255,9 @@ function closeModal() {
 
 // when namepace changes, remove bindings
 watch(() => value.value?.meta.namespace, () => {
+  if (modalMode.value !== 'create') {
+    return;
+  }
   bindings.value = { configurations: [], services: [] };
   set(value.value.configuration, { configurations: [] });
 });
