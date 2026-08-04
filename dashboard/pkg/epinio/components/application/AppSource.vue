@@ -745,7 +745,7 @@ onMounted(async () => {
             label: `${ap.meta.name} (${ap.short_description})`
           }))"
           :label="t('epinio.applications.steps.source.archive.appchart.label')"
-          :disabled="isEdit || isView"
+          :disabled="isView"
           placeholder="Select an application chart"
           :onDropdownChange="(e: CustomEvent) => { appChart = e.detail.value; update(); }"
           :fetchAllResources="fetchAppCharts"
