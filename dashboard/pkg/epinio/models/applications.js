@@ -713,7 +713,7 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
           appchart:       this.configuration.appchart,
           settings:       pickBy(this.configuration?.settings, identity) || null,
           instances:      this.configuration.instances,
-          configurations: this.configuration.configurations,
+          configurations: this.configuration.configurations.map((c) => c.meta.name),
           environment:    this.configuration.environment,
           routes:         this.configuration.routes.length ? this.configuration.routes : null,
         }
@@ -757,7 +757,7 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
         restart:        options?.restart ?? true,
         appchart:       this.configuration.appchart,
         instances:      this.configuration.instances,
-        configurations: this.configuration.configurations,
+        configurations: this.configuration.configurations.map((c) => c.meta.name),
         settings:       pickBy(this.configuration?.settings, identity) || null,
         environment:    this.configuration.environment,
         // Replace the full env map so removals and renames match the form (API merges by default).
@@ -1445,8 +1445,14 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
   }
 
   async updateConfigurations(initialValues = [], currentValues = this.configuration.configurations) {
-    const toBind = currentValues.filter((cV) => !initialValues.includes(cV));
-    const toUnbind = initialValues.filter((cV) => !currentValues.includes(cV));
+    // Compare by name: the two sides come from separate fetches, so the same
+    // configuration is a different object instance in each and `includes` never hits.
+    const nameOf = (c) => c?.meta?.name;
+    const initialNames = initialValues.filter(c => !c.isServiceRelated).map(nameOf);
+    const currentNames = currentValues.filter(c => !c.isServiceRelated).map(nameOf);
+
+    const toBind = currentNames.filter((c) => !initialNames.includes(c));
+    const toUnbind = initialNames.filter((c) => !currentNames.includes(c));
 
     await Promise.all([
       this.bindConfigurations(toBind),

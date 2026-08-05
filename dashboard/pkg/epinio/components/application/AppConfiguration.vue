@@ -17,7 +17,6 @@ interface Props {
 }
 
 const props = defineProps<Props>();
-console.log('AppConfiguration props:', props);
 // 'initial' reports what was bound when the form opened, so the parent can diff
 // against it on save instead of re-deriving it from the store.
 const emit = defineEmits(['change', 'initial']);
@@ -27,8 +26,8 @@ const store = useStore();
 const t = store.getters['i18n/t'];
 
 const values = ref({
-  configurations: props.bindings?.configurations || [] as string[],
-  services: props.bindings?.services.map((s: EpinioService) => `${props.application.metadata.namespace}/${s.meta.name}`) || [] as string[],
+  configurations: props.initialApplication?.configuration?.configurations || [],
+  services: props.initialApplication?.configuration?.services || [],
 });
 
 const isLoadingConfigurations = ref(false);
@@ -197,7 +196,7 @@ const isFromManifest = computed(
 watch(values, () => {
   emit('change', {
     configurations: values.value.configurations,
-    services: values.value.services.map((s: string) => fetchedServices.value.find((ns: any) => `${props.application.metadata.namespace}/${ns.meta.name}` === s)),
+    services: values.value.services,
   })
 }, { deep: true });
 
@@ -218,11 +217,11 @@ watch(hasConfigs, (neu, old) => {
     if (props.initialApplication?.configuration?.configurations) {
       // Bound names come off the app record; the fetched list says which of
       // those are plain configurations rather than service-generated ones.
-      const bound = props.initialApplication.configuration.configurations;
+      const configurationNames = props.initialApplication.configuration.configurations;
+      const bound = fetchedConfigurations.value
+        .filter((c: any) => configurationNames.includes(c.meta.name))
 
-      values.value.configurations = fetchedConfigurations.value
-        .filter((c: any) => !c.isServiceRelated && bound.includes(c.meta.name))
-        .map((c: any) => c.meta.name);
+      values.value.configurations = bound;
 
       emit('initial', { configurations: values.value.configurations });
     }
@@ -230,10 +229,8 @@ watch(hasConfigs, (neu, old) => {
     if (isFromManifest.value) {
       values.value.configurations = fetchedConfigurations.value
         .filter((nc: any) =>
-          props.application.configuration.configurations.includes(nc.meta.name) &&
-          !nc.isServiceRelated
+          props.application.configuration.configurations.includes(nc.meta.name)
         )
-        .map((nc: any) => nc.meta.name) || [];
     }
   }
 }, { immediate: true });
@@ -245,8 +242,7 @@ watch(hasServices, (neu, old) => {
         const bound = fetchedServices.value
           .filter((s: any) => serviceNames.includes(s.meta.name));
 
-        values.value.services = bound
-          .map((s: any) => `${props.application.metadata.namespace}/${s.meta.name}`);
+        values.value.services = bound;
 
         emit('initial', { services: bound });
       }
@@ -260,7 +256,6 @@ watch(hasServices, (neu, old) => {
         );
       values.value.services = fetchedServices.value
         .filter((s: any) => configurations.some((d: any) => s.meta.name === d.configuration.origin))
-        .map((elem: any) => `${props.application.metadata.namespace}/${elem.meta.name}`);
     }
 }, { immediate: true });
 </script>
@@ -274,27 +269,31 @@ watch(hasServices, (neu, old) => {
   </div>
   <div v-else class="configurations">
     <ResourceDropdown
-      :values="values.configurations"
+      :values="values.configurations.filter((c: any) => !c.isServiceRelated).map((c: any) => c.meta.name)"
       :options="configurations"
       :label="t('typeLabel.configurations', { count: 2})"
       :disabled="noConfigs || isView"
       filterable
       multiselect
       :placeholder="noConfigs ? t('epinio.applications.steps.configurations.configurations.select.placeholderNoOptions') : t('epinio.applications.steps.configurations.configurations.select.placeholderWithOptions')"
-      :onDropdownChange="(e: CustomEvent) => { values.configurations = e.detail.values; }"
+      :onDropdownChange="(e: CustomEvent) => { 
+        const serviceRelatedConfigs = values.configurations.filter((c: any) => c.isServiceRelated);
+        const selectedConfigs = e.detail.values.map((c: string) => fetchedConfigurations.find((nc: any) => nc.meta.name === c));
+        values.configurations = [...serviceRelatedConfigs, ...selectedConfigs];
+      }"
       :fetchAllResources="fetchConfigurations"
       :searchResources="searchConfigurations"
       :isLoading="isLoadingConfigurations"
     />
     <ResourceDropdown
-      :values="values.services"
+      :values="values.services.map((s: any) => `${props.application.metadata.namespace}/${s.meta.name}`)"
       :options="services"
       :label="t('typeLabel.services', { count: 2})"
       :disabled="noServices || isView"
       filterable
       multiselect
       :placeholder="noServices ? t('epinio.applications.steps.configurations.services.select.placeholderNoOptions') : t('epinio.applications.steps.configurations.services.select.placeholderWithOptions')"
-      :onDropdownChange="(e: CustomEvent) => { values.services = e.detail.values; }"
+      :onDropdownChange="(e: CustomEvent) => { values.services = e.detail.values.map((s: string) => fetchedServices.find((ns: any) => `${props.application.metadata.namespace}/${ns.meta.name}` === s)); }"
       :fetchAllResources="fetchServices"
       :searchResources="searchServices"
       :isLoading="isLoadingServices"

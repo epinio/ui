@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, reactive, watch, nextTick } from 'vue';
+import { computed, ref, reactive, watch, nextTick, watchEffect } from 'vue';
 import { useStore } from 'vuex';
 
 import { epinioExceptionToErrorsArray } from '../../utils/errors';
@@ -66,10 +66,6 @@ const prevTab = computed(() => {
 const isDirty = computed(() => {
   if (!snapshot.value || !value.value) return false;
   const newSnapshot = takeSnapshot();
-  console.log(`Snapshot comparison:`, {
-    old: snapshot.value,
-    new: newSnapshot,
-  });
   return newSnapshot !== snapshot.value
 });
 
@@ -90,15 +86,18 @@ const showDiscardConfirm = ref(false);
 
 function takeSnapshot() {
   const simplifiedBindings = {
-    configurations: bindings.value?.configurations || [],
-    services: bindings.value?.services.map((s) => s.meta?.name || s.name || s) || [],
+    configurations: bindings.value?.configurations.map((c) => typeof c === 'string' ? c : c.meta?.name || c.name || c) || [],
+    services: bindings.value?.services.map((s) => typeof s === 'string' ? s : s.meta?.name || s.name || s) || [],
   };
-  console.log('Taking snapshot bindings:', bindings.value);
+  const simplifiedConfigutation = {
+    ...value.value?.configuration,
+    configurations: simplifiedBindings.configurations,
+  }
   return JSON.stringify({
     source:        AppUtils.sourceFingerprint(source.value),
     bindings:      simplifiedBindings,
     meta:          value.value?.meta,
-    configuration: value.value?.configuration,
+    configuration: simplifiedConfigutation,
   });
 }
 
@@ -131,7 +130,6 @@ async function openCreate() {
 }
 
 async function openEdit(row: EpinioApplicationModel, commit?: string) {
-  console.log('Opening edit modal for application:', row, 'with commit:', commit);
   errors.value = [];
   modalMode.value = 'edit';
   loading.value = true;
@@ -173,12 +171,10 @@ async function openEdit(row: EpinioApplicationModel, commit?: string) {
   }
 
   // Populate bindings
-  console.log('Populating bindings for edit with configurations:', row.configuration?.configurations, 'and services:', row.configuration?.services);
   bindings.value = {
     configurations: [...(row.configuration?.configurations || [])],
     services: [...(row.configuration?.services || [])],
   };
-  console.log('Bindings after population:', bindings.value);
 
   source.value = row.appSource;
 
@@ -331,7 +327,6 @@ function updateManifestConfigurations(configs: string[]) {
 }
 
 function updateConfigurations(changes: EpinioAppBindings) {
-  bindings.value = {};
   set(bindings.value, changes);
   set(value.value.configuration, { configurations: changes.configurations });
 }
