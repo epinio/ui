@@ -419,6 +419,9 @@ epinio:
     deleteImage:
       label: Also delete image from registry
       description: When enabled, the application's container image will be removed from the registry.
+    deletePVC:
+      label: Also delete PersistentVolumeClaims
+      description: When enabled, staging and application data PersistentVolumeClaims will be removed.
     wm:
       containerName: 'Instance: {label}'
       noData: There are no log entries to show.

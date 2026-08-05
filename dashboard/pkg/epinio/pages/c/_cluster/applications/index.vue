@@ -519,6 +519,7 @@ onUnmounted(() => {
       resource-label="application"
       :resource-type="resource"
       :show-delete-image-option="true"
+      :show-delete-pvc-option="true"
       @settled="handleBulkDeleteSettled"
     />
   </div>

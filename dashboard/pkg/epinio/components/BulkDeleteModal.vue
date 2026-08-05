@@ -14,10 +14,13 @@ const props = withDefaults(defineProps<{
   resourceType: string;
   // Applications only: offer an "also delete image from registry" checkbox
   showDeleteImageOption?: boolean;
+  // Applications only: offer an "also delete PVCs" checkbox
+  showDeletePVCOption?: boolean;
   // Services/Configurations: note that bound apps will be automatically unbound
   showUnbindNotice?: boolean;
 }>(), {
   showDeleteImageOption: false,
+  showDeletePVCOption:   false,
   showUnbindNotice:      false,
 });
 
@@ -36,6 +39,7 @@ const itemsToDelete = ref<any[]>([]);
 const deleting = ref(false);
 const errors = ref<string[]>([]);
 const deleteFromRegistry = ref(false);
+const deletePVC = ref(false);
 
 const names = computed(() => itemsToDelete.value.map((item) => item.meta?.name ?? item.name));
 const visibleNames = computed(() => names.value.slice(0, MAX_VISIBLE_NAMES));
@@ -47,6 +51,7 @@ function openDelete(items: any[]) {
   itemsToDelete.value = items;
   errors.value = [];
   deleteFromRegistry.value = false;
+  deletePVC.value = false;
   showModal.value = true;
 }
 
@@ -55,6 +60,7 @@ function closeDelete() {
   itemsToDelete.value = [];
   errors.value = [];
   deleteFromRegistry.value = false;
+  deletePVC.value = false;
 }
 
 async function onSubmitDelete() {
@@ -73,6 +79,12 @@ async function onSubmitDelete() {
       items.forEach((item) => { item._deleteImage = true; });
     } else {
       items.forEach((item) => { item._deleteImage = false; });
+    }
+
+    if (props.showDeletePVCOption && deletePVC.value) {
+      items.forEach((item) => { item._deletePVC = true; });
+    } else {
+      items.forEach((item) => { item._deletePVC = false; });
     }
 
     await items[0].bulkRemove(items);
@@ -125,6 +137,15 @@ defineExpose({ openDelete });
           @checkbox-change="(e: CustomEvent<{ checked: boolean }>) => { deleteFromRegistry = e.detail.checked; }"
         >Also delete images from registry</trailhand-checkbox>
         <p>When enabled, each application's container image will be removed from the registry.</p>
+      </template>
+
+      <template v-if="showDeletePVCOption">
+        <trailhand-checkbox
+          :value="deletePVC"
+          :checked="deletePVC"
+          @checkbox-change="(e: CustomEvent<{ checked: boolean }>) => { deletePVC = e.detail.checked; }"
+        >Also delete PersistentVolumeClaims</trailhand-checkbox>
+        <p>When enabled, staging and application data PersistentVolumeClaims will be removed.</p>
       </template>
 
       <p v-if="showUnbindNotice">

@@ -13,6 +13,7 @@ const appToDelete = ref<any>(null);
 const deleting = ref(false);
 const errors = ref<string[]>([]);
 const deleteFromRegistry = ref(false);
+const deletePVC = ref(false);
 
 function openDelete(row: any) {
   appToDelete.value = row;
@@ -23,6 +24,7 @@ function openDelete(row: any) {
 function closeDelete() {
   showModal.value = false;
   deleteFromRegistry.value = false;
+  deletePVC.value = false;
   errors.value = [];
   appToDelete.value = null;
 }
@@ -35,23 +37,22 @@ async function onSubmitDelete() {
   const appName = appToDelete.value.meta.name;
 
   try {
-    if (deleteFromRegistry.value) {
-      appToDelete.value._deleteImage = true;
-    }
+    appToDelete.value._deleteImage = !!deleteFromRegistry.value;
+    appToDelete.value._deletePVC = !!deletePVC.value;
 
     await appToDelete.value.remove();
     emit('deleted', appToDelete.value);
     closeDelete();
     store.dispatch('growl/success', {
-      title:   t('epinio.growl.application.delete.success.title'),
-      message: t('epinio.growl.application.delete.success.message', { name: appName }),
+      title:   t('epinio.growl.deleteApp.successTitle'),
+      message: t('epinio.growl.deleteApp.successMessage', { name: appName }),
     });
     store.dispatch('epinio/findAll', { type: EPINIO_TYPES.APP, opt: { force: true } });
   } catch (e: any) {
     errors.value = epinioExceptionToErrorsArray(e);
     store.dispatch('growl/error', {
-      title:   t('epinio.growl.application.delete.error.title'),
-      message: t('epinio.growl.application.delete.error.message', { name: appName, error: e instanceof Error ? e.message : String(e) }),
+      title:   t('epinio.growl.deleteApp.errorTitle'),
+      message: t('epinio.growl.deleteApp.errorMessage', { name: appName, error: e instanceof Error ? e.message : String(e) }),
     });
   } finally {
     deleting.value = false;
@@ -76,6 +77,12 @@ const emit = defineEmits(['deleted']);
         @checkbox-change="(e: CustomEvent<{ checked: boolean }>) => { deleteFromRegistry = e.detail.checked; }"
       >Also delete image from registry</trailhand-checkbox>
       <p>When enabled, the application's container image will be removed from the registry.</p>
+      <trailhand-checkbox
+        :value="deletePVC"
+        :checked="deletePVC"
+        @checkbox-change="(e: CustomEvent<{ checked: boolean }>) => { deletePVC = e.detail.checked; }"
+      >Also delete PersistentVolumeClaims</trailhand-checkbox>
+      <p>When enabled, staging and application data PersistentVolumeClaims will be removed.</p>
       <Banner
         v-for="(err, i) in errors"
         :key="i"

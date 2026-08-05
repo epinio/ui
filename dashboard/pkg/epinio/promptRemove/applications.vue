@@ -13,17 +13,19 @@ const store = useStore()
 const t = store.getters['i18n/t'];
 
 const deleteImage = ref(false);
+const deletePVC = ref(false);
 
 const plusMore = computed(() => {
   const remaining = props.names.length - 5; //5 is the max specified in resourceNames func
   return t('promptRemove.andOthers', { count: remaining })
 })
 
-// This allows us to pass the deleteImage option to the remove function in the parent PromptRemove component
+// This allows us to pass the delete options to the remove function in the parent PromptRemove component
 const remove = async () => {
-  // Set the deleteImage flag on each application to be removed
+  // Set the delete flags on each application to be removed
   props.value.forEach((app: any) => {
     app._deleteImage = deleteImage.value;
+    app._deletePVC = deletePVC.value;
   });
 
   //  Return false to indicate no error occurred
@@ -47,8 +49,16 @@ defineExpose({
         label-key="epinio.applications.deleteImage.label"
         class="mb-10"
       />
-      <div class="text-muted ml-20">
+      <div class="text-muted ml-20 mb-10">
         {{ t('epinio.applications.deleteImage.description') }}
+      </div>
+      <Checkbox
+        v-model:value="deletePVC"
+        label-key="epinio.applications.deletePVC.label"
+        class="mb-10"
+      />
+      <div class="text-muted ml-20">
+        {{ t('epinio.applications.deletePVC.description') }}
       </div>
     </div>
   </div>
