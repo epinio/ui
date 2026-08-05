@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watchEffect } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch, watchEffect } from 'vue';
 import { useStore } from 'vuex';
 import day from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
@@ -7,8 +7,10 @@ import relativeTime from 'dayjs/plugin/relativeTime';
 import Application from '../models/applications';
 import { GitUtils } from '@shell/utils/git';
 import { isArray } from '@shell/utils/array';
+import { formatSi } from '@shell/utils/units';
 import { EPINIO_TYPES } from '../types';
 import { epinioExceptionToErrorsArray } from '../utils/errors';
+import { startPolling, stopPolling } from '../utils/polling';
 import Tabs from '../components/application/Tabs.vue';
 import Banner from '@components/Banner/Banner.vue';
 import { makeStateTag, makeActionMenu, makeCommitShaCell, makeCommitAuthorCell, overrideTableRows } from '../utils/table-formatters';
@@ -121,12 +123,18 @@ const instanceColumns = [
   {
     field: 'millicpus',
     label: 'Mill CPUs',
-    formatter: 'milliCPUs'
+    formatter: (value: unknown, row: { metricsOk?: boolean }) => formatMetricValue(value, row)
   },
   {
     field: 'memoryBytes',
     label: 'RAM',
-    formatter: 'memory'
+    formatter: (value: unknown, row: { metricsOk?: boolean }) => {
+      if (row.metricsOk === false) {
+        return t('epinio.intro.metrics.notAvailableShort');
+      }
+
+      return formatSi(value, { suffix: 'iB', firstSuffix: 'B', increment: 1024 });
+    }
   },
   {
     field: 'restarts',
@@ -210,9 +218,85 @@ const canEditConfig = computed(() => {
   return canGetter && (canGetter('configuration_write') || canGetter('configuration'));
 });
 
+const showMetricsUnavailable = computed(() => {
+  return props.value.instances.length > 0 && !props.value.metricsOk;
+});
+
+function formatMetricValue(value: unknown, row: { metricsOk?: boolean }) {
+  if (row.metricsOk === false) {
+    return t('epinio.intro.metrics.notAvailableShort');
+  }
+
+  return value;
+}
+
+
+const boundConfigurations = ref<any[]>([]);
+const boundServices = ref<any[]>([]);
+
+const BOUND_POLL_RATE_MS = 30000;
+let boundPollId: number | undefined;
+
+// Fetch each binding by name off the app record. The configuration and service
+// store slices hold one page of their lists, so anything past page 1 was missing
+// from these tables.
+async function fetchBound() {
+  const namespace = props.value.meta?.namespace;
+
+  if (!namespace) {
+    return;
+  }
+
+  const show = async (type: string, path: string, name: string) => {
+    try {
+      const res = await store.dispatch('epinio/request', {
+        opt: {
+          url:          `/api/v1/namespaces/${ namespace }/${ path }/${ encodeURIComponent(name) }`,
+          method:       'GET',
+          responseType: 'json'
+        }
+      });
+
+      // id is what epiniofy() would have added; the tables key and filter on it
+      return await store.dispatch('epinio/create', {
+        type,
+        ...res.data,
+        id: `${ namespace }/${ name }`,
+      });
+    } catch {
+      // a binding can name something that was just deleted
+      return null;
+    }
+  };
+
+  const [configs, services] = await Promise.all([
+    Promise.all((props.value.configuration?.configurations ?? []).map(
+      (name: string) => show(EPINIO_TYPES.CONFIGURATION, 'configurations', name)
+    )),
+    Promise.all((props.value.configuration?.services ?? []).map(
+      (name: string) => show(EPINIO_TYPES.SERVICE_INSTANCE, 'services', name)
+    )),
+  ]);
+
+  boundConfigurations.value = configs.filter(Boolean);
+  boundServices.value = services.filter(Boolean);
+}
+
+watch(
+  () => [props.value.configuration?.configurations, props.value.configuration?.services],
+  () => fetchBound(),
+  { deep: true, immediate: true }
+);
+
+const baseConfigurations = computed(
+  () => boundConfigurations.value.filter((c: any) => !c.isServiceRelated)
+);
+const serviceConfigurations = computed(
+  () => boundConfigurations.value.filter((c: any) => c.isServiceRelated)
+);
 
 watchEffect(() => {
-  const all = [...props.value.services];
+  const all = [...boundServices.value];
 
   all.forEach((row: any) => { void row.status; void row.stateDisplay; void row.meta; });
 
@@ -273,7 +357,7 @@ watchEffect(() => {
 });
 
 watchEffect(() => {
-  const all = [...props.value.baseConfigurations];
+  const all = [...baseConfigurations.value];
 
   all.forEach((row: any) => { void row.status; void row.stateDisplay; void row.meta; });
 
@@ -329,8 +413,11 @@ let updateInstancesTimeout: number | null = null;
 
 onMounted(async () => {
   await store.dispatch('epinio/me'); //Need to fetch fresh rights for scaling
-  await store.dispatch('epinio/findAll', { type: EPINIO_TYPES.SERVICE_INSTANCE });
-  await store.dispatch('epinio/findAll', { type: EPINIO_TYPES.CONFIGURATION });
+  startPolling([EPINIO_TYPES.APP], store);
+
+  // The bound tables read their own fetches, not the store slices, so refresh
+  // them on the same cadence to keep service state current.
+  boundPollId = window.setInterval(() => fetchBound(), BOUND_POLL_RATE_MS);
 
   if (props.value.appSource.git) {
     await fetchRepoDetails();
@@ -338,6 +425,13 @@ onMounted(async () => {
     deploymentTabs.value.push(
       { id: 'gitCommits', label: t('epinio.applications.detail.tables.gitCommits'), completed: false, valid: true, disabled: false }
     );
+  }
+});
+
+onUnmounted(() => {
+  stopPolling([EPINIO_TYPES.APP]);
+  if (boundPollId !== undefined) {
+    window.clearInterval(boundPollId);
   }
 });
 
@@ -425,7 +519,7 @@ const preparedCommits = computed(() => {
 const gitCommitsColumns = computed(() => [
   {
     field: 'sha',
-    label: t(`gitPicker.${gitType.value}.tableHeaders.sha.label`),
+    label: t(`epinio.applications.gitSource.${gitType.value}.tableHeaders.sha.label`),
     width: '100px',
     formatter: (_v: any, row: any) => makeCommitShaCell(
       row,
@@ -435,20 +529,20 @@ const gitCommitsColumns = computed(() => [
   },
   {
     field: 'author_login',
-    label: t(`gitPicker.${gitType.value}.tableHeaders.author.label`),
+    label: t(`epinio.applications.gitSource.${gitType.value}.tableHeaders.author.label`),
     width: '190px',
     formatter: (_v: any, row: any) => makeCommitAuthorCell(
       row,
-      t(`gitPicker.${gitType.value}.tableHeaders.author.unknown`)
+      t(`epinio.applications.gitSource.${gitType.value}.tableHeaders.author.unknown`)
     )
   },
   {
     field: 'message',
-    label: t(`gitPicker.${gitType.value}.tableHeaders.message.label`)
+    label: t(`epinio.applications.gitSource.${gitType.value}.tableHeaders.message.label`)
   },
   {
     field: 'date',
-    label: t(`gitPicker.${gitType.value}.tableHeaders.date.label`),
+    label: t(`epinio.applications.gitSource.${gitType.value}.tableHeaders.date.label`),
     width: '220px',
     formatter: 'dateTime'
   }
@@ -515,12 +609,12 @@ function handleDeleted() {
       </trailhand-card>
       <trailhand-card class="dashboard-card" variant="info">
         <div slot="title">
-          <p class="number-text"><span class="number">{{ value.serviceConfigurations.length }}</span> {{ t('epinio.applications.detail.counts.services') }}</p>
+          <p class="number-text"><span class="number">{{ serviceConfigurations.length }}</span> {{ t('epinio.applications.detail.counts.services') }}</p>
         </div>
       </trailhand-card>
       <trailhand-card class="dashboard-card" variant="info">
         <div slot="title">
-          <p class="number-text"><span class="number">{{ value.baseConfigurations.length }}</span> {{ t('epinio.applications.detail.counts.config') }}</p>
+          <p class="number-text"><span class="number">{{ baseConfigurations.length }}</span> {{ t('epinio.applications.detail.counts.config') }}</p>
         </div>
       </trailhand-card>
     </div>
@@ -559,7 +653,15 @@ function handleDeleted() {
                   </div>
                 </div>
                 <div class="deployment__origin__row">
+                  <Banner
+                    v-if="showMetricsUnavailable"
+                    color="warning"
+                    class="metrics-unavailable"
+                  >
+                    {{ t('epinio.intro.metrics.notAvailable') }}
+                  </Banner>
                   <div
+                    v-else
                     class="stats-table"
                   >
                     <table class="mt-15">

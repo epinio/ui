@@ -3,6 +3,7 @@ import EpinioApplicationModel from './models/applications';
 import EpinioCatalogServiceModel from './models/catalogservices';
 import EpinioConfigurationModel from './models/configurations';
 import EpinioServiceModel from './models/services';
+import EpinioBuilderImageModel from './models/builderimages';
 
 export const TAPP = {
   DASHBOARD:           'tapp.io.dashboard'
@@ -21,10 +22,12 @@ export const EPINIO_TYPES = {
   // From API
   APP:              'applications',
   APP_CHARTS:       'appcharts',
+  BUILDER_IMAGE:    'builderimages',
   NAMESPACE:        'namespaces',
   CONFIGURATION:    'configurations',
   CATALOG_SERVICE:  'catalogservices',
   SERVICE_INSTANCE: 'services',
+  GIT_CONFIG:       'gitconfigs',
   // Internal
   DASHBOARD:        'dashboard',
   ABOUT:            'about',
@@ -71,7 +74,8 @@ export interface AppSourceContainer {
 
 export interface AppSourceGitUrl {
   url: string,
-  branch: string
+  branch: string,
+  gitconfig?: string,
 }
 
 export type GitAPIData = {
@@ -86,17 +90,13 @@ export interface AppSourceGit {
   commit: string,
   branch: { id?: string, name: string },
   url: string,
-  sourceData: GitAPIData
+  sourceData: GitAPIData,
+  gitconfig?: string,
 }
 
 export enum APPLICATION_BUILD_MODE {
   BUILDPACK = 'buildpack',
   DOCKERFILE = 'dockerfile',
-}
-
-export interface AppSourceBuilderImage {
-  value: string,
-  default: boolean,
 }
 
 /**
@@ -108,7 +108,7 @@ export interface EpinioAppSource {
   container: AppSourceContainer,
   git: AppSourceGit,
   gitUrl: AppSourceGitUrl,
-  builderImage?: AppSourceBuilderImage,
+  builderImage?: string,
   buildMode?: string,
   dockerfilePath?: string,
   appChart: string,
@@ -188,6 +188,15 @@ export interface EpinioApplicationChartResource {
 }
 
 export type EpinioAppChart = EpinioApplicationChartResource & EpinioAppChartModel & EpinioMetaProperty;
+
+export interface EpinioBuilderImageResource {
+  meta: EpinioMeta,
+  description: string,
+  image: string,
+  short_description: string,
+}
+
+export type EpinioBuilderImage = EpinioBuilderImageResource & EpinioBuilderImageModel & EpinioMetaProperty;
 
 export interface EpinioHelmRepoResource {
   name: string,

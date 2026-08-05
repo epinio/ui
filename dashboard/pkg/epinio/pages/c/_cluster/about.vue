@@ -48,7 +48,7 @@ onMounted(fetchData);
 
 const appName = computed(() => {
   const isSingleProduct = !!store.getters['isSingleProduct'];
-  return isSingleProduct ? getVendor() : t('epinio.label');
+  return `${isSingleProduct ? getVendor() : t('epinio.label')} Server`;
 });
 
 function createOSOption(label: string, icon: string, cliLink: string, imageList: any = null) {
@@ -184,7 +184,7 @@ const downloadSupportBundle = async() => {
 // Versions table
 const versionRows = computed(() => {
   if (!version.value) return [];
-  return [{ name: appName.value, version: versionString.value }];
+  return [{ name: appName.value, version: versionString.value }, { name: 'Epinio UI', version: process.env.UI_VERSION }];
 });
 
 const versionColumns = [
@@ -194,7 +194,7 @@ const versionColumns = [
     formatter: (_v: any, row: any) => {
       const a = document.createElement('a');
 
-      a.href = 'https://github.com/epinio/epinio';
+      a.href = row.name === 'Epinio UI' ? 'https://github.com/epinio/ui' : 'https://github.com/epinio/epinio';
       a.target = '_blank';
       a.rel = 'nofollow noopener noreferrer';
       a.textContent = row.name;

@@ -57,6 +57,58 @@ ${replacement}
 " "$file_path"
 
 
+# Patch NamespaceFilter.vue so the navbar namespace dropdown supports
+# server-side search for products that set customNamespaceFilter (Epinio).
+# Rancher shell only filters the namespace list client-side and never forwards
+# the typed query to the product's namespaceFilterOptions getter. This adds a
+# `filter` watcher that dispatches the store's searchNamespaces action and
+# passes the live filter + current selection into the getter. Idempotent.
+# TODO: drop once upstream shell forwards the filter into the getter.
+node <<'NODE'
+const fs = require('fs');
+const p = './node_modules/@rancher/shell/components/nav/NamespaceFilter.vue';
+
+let s = fs.readFileSync(p, 'utf8');
+
+const call1 = `          divider,
+          notFilterNamespaces
+        });`;
+const call1New = `          divider,
+          notFilterNamespaces,
+          filter:   this.filter,
+          selected: this.value
+        });`;
+
+if (!s.includes('filter:   this.filter')) {
+  if (!s.includes(call1)) {
+    throw new Error('NamespaceFilter patch: getter-call anchor not found');
+  }
+  s = s.replace(call1, call1New);
+}
+
+const watch2 = `  watch: {
+    value(neu) {`;
+const watch2New = `  watch: {
+    filter(q) {
+      if (this.currentProduct?.customNamespaceFilter && this.currentProduct?.inStore) {
+        this.$store.dispatch(\`\${ this.currentProduct.inStore }/searchNamespaces\`, q);
+      }
+    },
+
+    value(neu) {`;
+
+if (!s.includes('/searchNamespaces`, q)')) {
+  if (!s.includes(watch2)) {
+    throw new Error('NamespaceFilter patch: watch-block anchor not found');
+  }
+  s = s.replace(watch2, watch2New);
+}
+
+fs.writeFileSync(p, s);
+console.log('Patched NamespaceFilter.vue for server-side namespace search');
+NODE
+
+
 # Run the yarn command the user was expecting to run.
 if [ "$context" == "dev" ]; then
   NODE_ENV=dev ./node_modules/.bin/vue-cli-service serve

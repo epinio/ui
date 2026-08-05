@@ -6,16 +6,16 @@ This repository contains the UI for epinio. The UI consists of a Rancher Extensi
 ![image](https://github.com/user-attachments/assets/3dc1f1df-a5b0-48ca-838d-d26d5193ee23)
 
 ## Installing
-If you are looking to just install Epinio on a cluster, check out in-depth documentation on the [Epinio website](https://docs.epinio.io/installation/install_epinio).
+If you are looking to just install Epinio on a cluster, check out in-depth documentation on the [Epinio website](https://docs.epinio.io/getting-started/install-epinio).
 
 ## Main Epinio Repository
 If you are looking for the main Epinio repo that contains the Epinio backend, that is in this [repository](https://github.com/epinio/epinio).
 
 ## Installing and Production
-Follow the instructions [here](https://docs.epinio.io/contribute/ui/release).
+Follow the instructions [here](https://docs.epinio.io/getting-started/install-epinio).
 
 ## Development
 To get started with Epinio UI development, step through the guides below to get up and running. 
-1. [Prerequisites](https://docs.epinio.io/contribute/ui/prereqs)
-2. [Developing for the Epinio Rancher Extension](https://docs.epinio.io/contribute/ui/extension)
-3. [Developing for the Epinio Standalone application](https://docs.epinio.io/contribute/ui/standalone)
+1. [Prerequisites](https://docs.epinio.io/contribute/development/prereqs)
+2. [Developing for the Epinio Rancher Extension](https://docs.epinio.io/contribute/development/ui/extension)
+3. [Developing for the Epinio Standalone application](https://docs.epinio.io/contribute/development/ui/standalone)

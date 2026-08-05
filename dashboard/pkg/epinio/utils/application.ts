@@ -45,6 +45,7 @@ function getGitData(git: any): EPINIO_APP_GIT_SOURCE {
     branch:        { name: git.branch },
     commit:        git.revision,
     repo:          { name: parts[2] },
+    gitconfig:     git.gitconfig,
     url,
   };
 }

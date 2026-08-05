@@ -38,17 +38,25 @@ export default class ApplicationInstanceResource extends Resource {
   }
 
   showAppShell() {
-    this.$dispatch('wm/open', {
-      id:        `epinio-${ this.application.id }-app-shell`,
-      label:     `${ this.application.meta.name } - App Shell`,
-      product:   EPINIO_PRODUCT_NAME,
-      icon:      'chevron-right',
-      component: 'ApplicationShell',
-      attrs:     {
-        application:     this.application,
-        endpoint:        this.application.linkFor('shell'),
-        initialInstance: this.name,
-      }
-    }, { root: true });
+    try {
+      this.$dispatch('wm/open', {
+        id:        `epinio-${ this.application.id }-app-shell`,
+        label:     `${ this.application.meta.name } - App Shell`,
+        product:   EPINIO_PRODUCT_NAME,
+        icon:      'chevron-right',
+        component: 'ApplicationShell',
+        attrs:     {
+          application:     this.application,
+          endpoint:        this.application.linkFor('shell'),
+          initialInstance: this.name,
+        }
+      }, { root: true });
+    } catch (e) {
+      console.log(e);
+      this.$dispatch('growl/error', {
+        title:   this.t('epinio.growl.application.shell.error.title'),
+        message: this.t('epinio.growl.application.shell.error.message'),
+      }, { root: true });
+    }
   }
 }

@@ -154,6 +154,18 @@ export function init($plugin: any, store: any) {
     showState:   false,
     canYaml:     false,
     customRoute: createEpinioRoute('c-cluster-resource', { resource: EPINIO_TYPES.APP_CHARTS }),
+    showListMasthead: false // Disable default masthead because we provide a custom one.
+  });
+
+  // Builder Image resource
+  configureType(EPINIO_TYPES.BUILDER_IMAGE, {
+    isCreatable: false,
+    isEditable:  false,
+    isRemovable: false,
+    showState:   false,
+    canYaml:     false,
+    customRoute: createEpinioRoute('c-cluster-resource', { resource: EPINIO_TYPES.BUILDER_IMAGE }),
+    showListMasthead: false // Disable default masthead because we provide a custom one.
   });
 
   // Configuration resource
@@ -164,6 +176,17 @@ export function init($plugin: any, store: any) {
     showState:   false,
     canYaml:     false,
     customRoute: createEpinioRoute('c-cluster-resource', { resource: EPINIO_TYPES.CONFIGURATION }),
+    showListMasthead: false // Disable default masthead because we provide a custom one.
+  });
+
+  // Git Config resource
+  configureType(EPINIO_TYPES.GIT_CONFIG, {
+    isCreatable: false,
+    isEditable:  false,
+    isRemovable: false,
+    showState:   false,
+    canYaml:     false,
+    customRoute: createEpinioRoute('c-cluster-resource', { resource: EPINIO_TYPES.GIT_CONFIG }),
     showListMasthead: false // Disable default masthead because we provide a custom one.
   });
 
@@ -191,6 +214,7 @@ export function init($plugin: any, store: any) {
     showState:   false,
     canYaml:     false,
     customRoute: createEpinioRoute('c-cluster-resource', { resource: EPINIO_TYPES.CATALOG_SERVICE }),
+    showListMasthead: false // Disable default masthead because we provide a custom one.
   });
 
   // Namespace resource
@@ -224,9 +248,13 @@ export function init($plugin: any, store: any) {
 
   weightType(EPINIO_TYPES.CONFIGURATION, 200, true);
   weightType(EPINIO_TYPES.APP_CHARTS, 150, true);
+  weightType(EPINIO_TYPES.BUILDER_IMAGE, 140, true);
+  weightType(EPINIO_TYPES.GIT_CONFIG, 130, true);
   basicType([
     EPINIO_TYPES.CONFIGURATION,
-    EPINIO_TYPES.APP_CHARTS
+    EPINIO_TYPES.APP_CHARTS,
+    EPINIO_TYPES.BUILDER_IMAGE,
+    EPINIO_TYPES.GIT_CONFIG
   ], ADVANCED_GROUP);
 
   basicType([

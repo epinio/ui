@@ -8,9 +8,10 @@ import { validateKubernetesName } from '@shell/utils/validators/kubernetes-name'
 import { objValuesToString } from '../../utils/settings';
 import Banner from '@components/Banner/Banner.vue';
 import ChartValues from '../settings/ChartValues.vue';
+import ResourceDropdown from '../application/ResourceDropdown.vue';
+import { useNamespaces } from '../../utils/namespaces';
 
 import isEqual from 'lodash/isEqual';
-import sortBy from 'lodash/sortBy';
 
 const store = useStore() as any;
 const t = store.getters['i18n/t'];
@@ -36,13 +37,16 @@ const errors = ref<string[]>([]);
 // Captured separately so background list polls (which omit internal_routes) can't wipe it
 const internalRoutes = ref<string[]>([]);
 
-const namespaces = computed(() =>
-  sortBy(store.getters['epinio/all'](EPINIO_TYPES.NAMESPACE), 'meta.name', false) as any[]
-);
-
-const namespaceOpts = computed(() =>
-  namespaces.value.map((ns: any) => ({ label: ns.meta?.name || '', value: ns.meta?.name || '' }))
-);
+const {
+  options:   namespaceOpts,
+  isLoading: isLoadingNamespaces,
+  firstName: firstNamespace,
+  fetchAll:  fetchNamespaces,
+  search:    searchNamespaces,
+  seed:      seedNamespace,
+} = useNamespaces(store, {
+  scopeToActiveFilter: true
+});
 
 const catalogServices = computed(() =>
   store.getters['epinio/all'](EPINIO_TYPES.CATALOG_SERVICE)
@@ -124,12 +128,12 @@ const validationPassed = computed(() => {
   return nameErrors.length === 0 && nsErrors.length === 0;
 });
 
-function openCreate(prefilledCatalogService?: string) {
+async function openCreate(prefilledCatalogService?: string) {
   errors.value = [];
   modalMode.value = 'create';
 
   serviceModel.value = null;
-  formNamespace.value = namespaces.value[0]?.meta?.name || '';
+  formNamespace.value = '';
   formName.value = '';
   formCatalogService.value = prefilledCatalogService || '';
 
@@ -138,7 +142,15 @@ function openCreate(prefilledCatalogService?: string) {
   Object.keys(chartValues).forEach(k => delete chartValues[k]);
   validChartValues.value = {};
 
+  // Open first so the user sees the modal while the namespaces load, then
+  // default to the first one as before.
   showModal.value = true;
+
+  await fetchNamespaces();
+
+  if (!formNamespace.value) {
+    formNamespace.value = firstNamespace.value;
+  }
 }
 
 function openView(row: any) {
@@ -147,6 +159,7 @@ function openView(row: any) {
 
   serviceModel.value = row;
   formNamespace.value = row.meta?.namespace || '';
+  seedNamespace(formNamespace.value);
   formName.value = row.name || row.meta?.name || '';
   formCatalogService.value = row.catalog_service || '';
   internalRoutes.value = [];
@@ -182,6 +195,7 @@ function openEdit(row: any) {
 
   serviceModel.value = row;
   formNamespace.value = row.meta?.namespace || '';
+  seedNamespace(formNamespace.value);
   formName.value = row.name || row.meta?.name || '';
   formCatalogService.value = row.catalog_service || '';
   internalRoutes.value = [];
@@ -250,6 +264,19 @@ function resetChartValues() {
   validChartValues.value = {};
 }
 
+// Refresh the whole list, not just the saved record: the table paginates
+// server-side, so a single-resource fetch adds an 11th row to a 10-row page
+// and leaves the page count stale until the 30s poller catches up.
+const refreshServices = () => store
+  .dispatch('epinio/refreshList', { type: EPINIO_TYPES.SERVICE_INSTANCE })
+  .catch(() => {});
+
+// The Bound Applications column reads from the apps slice, so app bindings
+// need that list refreshed too.
+const refreshApps = () => store
+  .dispatch('epinio/findAll', { type: EPINIO_TYPES.APP, opt: { force: true } })
+  .catch(() => {});
+
 async function onSubmit() {
   if (!validationPassed.value || saving.value) return;
 
@@ -274,7 +301,8 @@ async function onSubmit() {
       delete cleanSettings.value;
       svc.settings = Object.keys(cleanSettings).length ? objValuesToString(cleanSettings) : undefined;
 
-      await svc.create();
+      // Wait for the install only when apps are waiting to be bound to it
+      await svc.create(capturedSelectedApps.length > 0);
 
       // Re-assert metadata: followLink merges the sparse create response back
       // into the model, which can wipe metadata and break subsequent bind calls
@@ -282,11 +310,19 @@ async function onSubmit() {
 
       closeModal();
 
+      store.dispatch('growl/success', {
+        title:   t('epinio.growl.serviceInstance.create.success.title'),
+        message: t('epinio.growl.serviceInstance.create.success.message', { name: capturedName }),
+      });
+
       // Show the new item quickly, then bind apps and refresh again once done
-      svc.forceFetch().catch(() => {});
+      refreshServices();
       if (capturedSelectedApps.length) {
         Promise.all(capturedSelectedApps.map((app: string) => svc.bindApp(app)))
-          .then(() => svc.forceFetch())
+          .then(() => {
+            refreshApps();
+            refreshServices();
+          })
           .catch(() => {});
       }
     } else {
@@ -307,18 +343,33 @@ async function onSubmit() {
       const bindApps = selectedApps.value;
       const unbindApps = initialBoundApps.value.filter(a => !bindApps.includes(a));
       const newBindApps = bindApps.filter(a => !initialBoundApps.value.includes(a));
+      const serviceName = svc.meta?.name;
 
       closeModal();
+
+      store.dispatch('growl/success', {
+        title:   t('epinio.growl.serviceInstance.update.success.title'),
+        message: t('epinio.growl.serviceInstance.update.success.message', { name: serviceName }),
+      });
 
       // Bind/unbind and refresh in the background
       Promise.all([
         ...newBindApps.map((a: string) => svc.bindApp(a)),
         ...unbindApps.map((a: string) => svc.unbindApp(a)),
-      ]).catch(() => {});
+      ]).then(() => {
+        refreshApps();
+        refreshServices();
+      }).catch(() => {});
       svc.forceFetch().catch(() => {});
     }
   } catch (err: any) {
     errors.value = epinioExceptionToErrorsArray(err);
+    store.dispatch('growl/error', {
+      title: isEdit.value
+        ? t('epinio.growl.serviceInstance.save.error.updateTitle')
+        : t('epinio.growl.serviceInstance.save.error.createTitle'),
+      message: t('epinio.growl.serviceInstance.save.error.message'),
+    });
   } finally {
     saving.value = false;
   }
@@ -339,16 +390,18 @@ defineExpose({ openCreate, openEdit, openView });
       <trailhand-form-card>
         <!-- Namespace + Name -->
         <trailhand-form-row columns="2">
-          <trailhand-dropdown
-            style="width: 100%"
-            :options="namespaceOpts"
+          <ResourceDropdown
             :value="formNamespace"
+            :options="namespaceOpts"
             label="Namespace"
-            :required="!isView"
-            :disabled="isEdit || isView"
             placeholder="Select a namespace"
-            @dropdown-change="(e: CustomEvent) => { formNamespace = e.detail.value; selectedApps = []; }"
-          ></trailhand-dropdown>
+            :disabled="isEdit || isView"
+            :required="!isView"
+            :onDropdownChange="(e: CustomEvent) => { formNamespace = e.detail.value; selectedApps = []; }"
+            :fetchAllResources="fetchNamespaces"
+            :searchResources="searchNamespaces"
+            :isLoading="isLoadingNamespaces"
+          />
           <trailhand-text-input
             :value="formName"
             label="Name"

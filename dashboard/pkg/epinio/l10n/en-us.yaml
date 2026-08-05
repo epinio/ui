@@ -1,3 +1,10 @@
+generic:
+  cancel: Cancel
+  close: Close
+  confirm: Confirm
+  delete: Delete
+  edit: Edit
+  save: Save
 typeLabel:
   withoutCount:
     namespaces: Namespaces
@@ -22,6 +29,11 @@ typeLabel:
       one { Application Charts }
       other { Application Charts }
     }
+  builderimages: |-
+    {count, plural,
+      one { Builder Images }
+      other { Builder Images }
+    }
   "services": |-
     {count, plural,
       one { Instances }
@@ -37,13 +49,20 @@ typeLabel:
       one { Catalog }
       other { Catalog }
     }
+  "gitconfigs": |-
+    {count, plural,
+      one { Git Configs }
+      other { Git Configs }
+    }
 typeDescription:
   namespaces: Namespaces group your applications, services and other resources.
   applications: Epinio uses Applications to transition your code, through build, to being deployed.
   services: Epinio can create instances of your services. Instances can be bound to your applications to provide data, for example a database service bound to an application might provide connection credentials.
   configurations: Configurations are a way to provide data to applications. The data becomes available once the configuration is bound to them.
   appcharts: Application Charts define kube resources created by your application. Templates for active applications cannot be changed
+  builderimages: Builder Images are used to build your application from source. They contain the necessary tools and settings to perform the build.
   catalogservices: Catalog Services provide additional, common functionality to applications. For example an instance of a database Catalog Service can be bound to an application.
+  gitconfigs: Configurations enable cloning of private repositories, disabling of SSL verification, and/or extending verification through a custom bundle of certificates.
 asyncButton:
   discard:
     action: Discard Changes
@@ -119,6 +138,8 @@ epinio:
       availability: 'Available node resources: { availableCpu }% cpu, { availableMemory }% memory. '
       link:
         label: Show Metrics in Cluster Explorer
+      notAvailable: Metrics are not enabled. CPU and memory usage cannot be displayed. Install a metrics server in your cluster to enable this feature.
+      notAvailableShort: not available
   tableHeaders:
     namespace: Namespace
   instances:
@@ -173,8 +194,56 @@ epinio:
     gitSource:
       github:
         label: GitHub
+        errors:
+          noAccount: No GitHub account or Organization found. Please review your query and try again.
+          noRepo: No GitHub repository found. Please review your query and try again.
+          noBranch: No GitHub branch found. Please review your query and try again.
+          noCommits: No GitHub commits found. Please review your query and try again.
+        tableHeaders:
+          choose:
+            label: Select
+          sha:
+            label: SHA
+          author:
+            label: Author
+            unknown: Unknown
+          message:
+            label: Message
+          date:
+            label: Date
+        inputs:
+          username:
+            label: Username / Organization
+          repo:
+            label: Repository
+          branch:
+            label: Branch
       gitlab:
         label: GitLab
+        errors:
+          noAccount: No GitLab account or Group found. Please review your query and try again.
+          noRepo: No GitLab repository found. Please review your query and try again.
+          noBranch: No GitLab branch found. Please review your query and try again.
+          noCommits: No GitLab commits found. Please review your query and try again.
+        tableHeaders:
+          choose:
+            label: Select
+          sha:
+            label: SHA
+          author:
+            label: Author
+            unknown: Unknown
+          message:
+            label: Message
+          date:
+            label: Date
+        inputs:
+          username:
+            label: Username / Group
+          repo:
+            label: Repository
+          branch:
+            label: Branch
       latestCommit: Latest commit deployed
       behindCommits: Commits behind
     create:
@@ -381,6 +450,8 @@ epinio:
       attemptingToRemove: You are attempting to delete the Service Instance
     chartValues:
       title: Service Variables
+    create:
+      label: Create Service
   configurations:
     pairs:
       label: Config Data
@@ -427,6 +498,217 @@ epinio:
     title: Unsaved Changes
     message: You have unsaved changes. Are you sure you want to leave this page?
     discard: Discard Changes
+  growl:
+    application:
+      deploy:
+        success:
+          title: Application Deployed
+          message: 'Your application { name } has been successfully deployed.'
+        error:
+          title: Application Deployment Failed
+          message: 'Your application { name } failed to deploy. Please try again. Error details: { error }'
+      update:
+        success:
+          title: Application Updates Deployed
+          message: 'Your application { name } has been successfully updated.'
+        error:
+          title: Application Update Failed
+          message: 'Your application { name } failed to update. Please try again. Error details: { error }'
+      delete:
+        success:
+          title: Application Deleted
+          message: 'Your application { name } has been successfully deleted.'
+        error:
+          title: Application Deletion Failed
+          message: 'Failed to delete application { name }. Please try again. Error details: { error }'
+      restage:
+        info:
+          title: Attempting to Rebuild Application!
+          message: This may take a few moments, a window will open with live logs soon.
+        success:
+          title: Application Rebuilt Successfully!
+          message: '{ name } has been rebuilt successfully.'
+        error:
+          title: Something Went Wrong Rebuilding!
+          message: This error occurs when there are missing resources in the cluster, contact your system admin to investigate the issue.
+      restart:
+        info:
+          title: Attempting to Restart Application!
+          message: This can take a few moments, we'll let you know once it's ready.
+        success:
+          title: Application Restarted!
+          message: '{ name } has been restarted successfully.'
+        error:
+          title: Something Went Wrong Restarting!
+          message: Can't restart the application, the image may be missing, reach out to your system admin to investigate the issue.
+      deployment:
+        error:
+          title: Something Went Wrong Opening Deployment!
+          message: Can't view the deployment in the cluster. Please try again or contact your system admin to investigate the issue.
+      shell:
+        error:
+          title: Something Went Wrong Opening App Shell!
+          message: Can't open the application shell. The application may not have running instances yet.
+      appLogs:
+        error:
+          title: Something Went Wrong Opening App Logs!
+          message: Can't open application logs. Please try again or contact your system admin to investigate the issue.
+      buildLogs:
+        error:
+          title: Something Went Wrong Opening Build Logs!
+          message: Can't open build logs. Please try again or contact your system admin to investigate the issue.
+        noInfo:
+          title: Something Went Wrong Opening Build Logs!
+          message: 'Can''t show build logs for { name }, no build information is available.'
+      manifest:
+        error:
+          title: Something Went Wrong Downloading Manifest!
+          message: Can't download the application manifest. Please try again or contact your system admin to investigate the issue.
+      export:
+        success:
+          title: Application Exported!
+          message: '{ name } has been exported successfully.'
+        error:
+          title: Something Went Wrong Exporting!
+          message: Can't export the application. Please try again or contact your system admin to investigate the issue.
+    configuration:
+      create:
+        success:
+          title: Configuration Created
+          message: 'Your configuration { name } has been successfully created.'
+      update:
+        success:
+          title: Configuration Updated
+          message: 'Your configuration { name } has been successfully updated.'
+      save:
+        error:
+          createTitle: Configuration Creation Failed
+          updateTitle: Configuration Update Failed
+          message: Something went wrong. Please try again or contact your system admin to investigate the issue.
+      delete:
+        success:
+          title: Configuration Deleted
+          message: 'Your configuration { name } has been successfully deleted.'
+        error:
+          title: Configuration Deletion Failed
+          message: 'Failed to delete configuration { name }. Please try again or contact your system admin to investigate the issue.'
+    service:
+      bind:
+        error:
+          title: Something Went Wrong Binding the Service
+          message: The service most likely wasn't ready yet. Please wait a moment and try again. If the problem persists, please contact support.
+      unbind:
+        error:
+          title: Something Went Wrong Unbinding the Service
+          message: Please wait a moment and try again. Please try again or contact your system admin to investigate the issue.
+    serviceInstance:
+      create:
+        success:
+          title: Service Instance Created
+          message: 'Your service instance { name } has been successfully created.'
+      update:
+        success:
+          title: Service Instance Updated
+          message: 'Your service instance { name } has been successfully updated.'
+      save:
+        error:
+          createTitle: Service Instance Creation Failed
+          updateTitle: Service Instance Update Failed
+          message: Something went wrong. Please try again or contact your system admin to investigate the issue.
+      delete:
+        success:
+          title: Service Instance Deleted
+          message: 'Your service instance { name } has been successfully deleted.'
+        error:
+          title: Service Instance Deletion Failed
+          message: 'Failed to delete service instance { name }. Please try again or contact your system admin to investigate the issue.'
+    appCharts:
+      create:
+        success:
+          title: App Chart Created
+          message: 'Your app chart { name } has been successfully created.'
+      update:
+        success:
+          title: App Chart Updated
+          message: 'Your app chart { name } has been successfully updated.'
+      save:
+        error:
+          createTitle: App Chart Creation Failed
+          updateTitle: App Chart Update Failed
+          message: Something went wrong. Please try again or contact your system admin to investigate the issue.
+      delete:
+        success:
+          title: App Chart Deleted
+          message: 'Your app chart { name } has been successfully deleted.'
+        error:
+          title: App Chart Deletion Failed
+          message: 'Failed to delete app chart { name }. Please try again or contact your system admin to investigate the issue.'
+    builderImages:
+      create:
+        success:
+          title: Builder Image Created
+          message: 'Your builder image { name } has been successfully created.'
+      update:
+        success:
+          title: Builder Image Updated
+          message: 'Your builder image { name } has been successfully updated.'
+      save:
+        error:
+          createTitle: Builder Image Creation Failed
+          updateTitle: Builder Image Update Failed
+          message: Something went wrong. Please try again or contact your system admin to investigate the issue.
+      delete:
+        success:
+          title: Builder Image Deleted
+          message: 'Your builder image { name } has been successfully deleted.'
+        error:
+          title: Builder Image Deletion Failed
+          message: 'Failed to delete builder image { name }. Please try again or contact your system admin to investigate the issue.'
+    catalogServices:
+      create:
+        success:
+          title: Catalog Service Created
+          message: 'Your catalog service { name } has been successfully created.'
+      update:
+        success:
+          title: Catalog Service Updated
+          message: 'Your catalog service { name } has been successfully updated.'
+      save:
+        error:
+          createTitle: Catalog Service Creation Failed
+          updateTitle: Catalog Service Update Failed
+          message: Something went wrong. Please try again or contact your system admin to investigate the issue.
+      delete:
+        success:
+          title: Catalog Service Deleted
+          message: 'Your catalog service { name } has been successfully deleted.'
+        error:
+          title: Catalog Service Deletion Failed
+          message: 'Failed to delete catalog service { name }. Please try again or contact your system admin to investigate the issue.'
+    gitConfigs:
+      create:
+        success:
+          title: Git Config Created
+          message: 'Your git config { name } has been successfully created.'
+      save:
+        error:
+          createTitle: Git Config Creation Failed
+          message: Something went wrong. Please try again or contact your system admin to investigate the issue.
+      delete:
+        success:
+          title: Git Config Deleted
+          message: 'Your git config { name } has been successfully deleted.'
+        error:
+          title: Git Config Deletion Failed
+          message: 'Failed to delete git config { name }. Please try again or contact your system admin to investigate the issue.'
+    auth:
+      logout:
+        success:
+          title: Logged Out Successfully!
+          message: You have been logged out of Epinio.
+        error:
+          title: Something Went Wrong Logging Out!
+          message: Can't log out. Please try again or contact your system admin to investigate the issue.
 model:
   authConfig:
     provider:
