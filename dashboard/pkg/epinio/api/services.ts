@@ -25,5 +25,19 @@ export function servicesApi(epinioClient: ReturnType<typeof createEpinioClient>)
         deleteService: async (namespace: string, serviceName: string) => {
             return await epinioClient.delete(`${namespacesBasePath}/${namespace}/services/${serviceName}`, { unmounted: true });
         },
+        bulkDelete: async (
+            namespace: string,
+            names: string[],
+            opts: { unbind?: boolean; deleteImage?: boolean } = {}
+        ) => {
+            const query = names
+            .map(name => `services[]=${encodeURIComponent(name)}`)
+            .join('&');
+
+            return epinioClient.delete(
+                `${namespacesBasePath}/${namespace}/services?${query}`,
+                { unbind: true, ...(opts.deleteImage && { deleteImage: true }) }
+            );
+        },
     };
 }

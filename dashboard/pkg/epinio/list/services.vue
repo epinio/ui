@@ -11,6 +11,7 @@ import ServiceInstanceModal from '../components/service/ServiceInstanceModal.vue
 import BulkDeleteModal from '../components/BulkDeleteModal.vue';
 import { ListResourceRequestParams, ResourceTableRow } from '../models/resource/ui-types';
 import { useServices } from '../queries/useServiceQueries';
+import { useBulkRemoveServiceInstances, useUnbindServiceInstance } from '../queries/useServiceMutations';
 import { ServiceInstance } from '../models/service/ui-types';
 
 defineProps<{
@@ -44,6 +45,8 @@ const onSearch = debounce(async (query: string) => {
 }, 500);
 
 const {data: services, isLoading: isLoadingServices, isError: isErrorServices, error: servicesError} = useServices(store, requestParams);
+const { mutateAsync: bulkRemove } = useBulkRemoveServiceInstances(store);
+const { mutateAsync: unbindServiceInstance } = useUnbindServiceInstance(store);
 
 const tableEl = ref<any>(null);
 const selectedRows = ref<ResourceTableRow[]>([]);
@@ -125,6 +128,18 @@ const isRowSelectable = (row: any) => row.canDelete;
 
 const handleSelectionChange = (event: CustomEvent) => {
   selectedRows.value = event.detail.selectedRows;
+};
+
+const handleBulkDelete = async (items: ServiceInstance[], deleteImage: boolean) => {
+  const servicesToUnbind = items.filter((item) => item.boundApps ? item.boundApps.length > 0 : false);
+  if (servicesToUnbind.length > 0) {
+    for (const service of servicesToUnbind) {
+      await Promise.all([
+      ...service.boundApps!.map((a: string) => unbindServiceInstance({ namespace: service.meta?.namespace || '', serviceName: service.meta?.name || '', request: { appName: a } })),
+    ]);
+    }
+  }
+  await bulkRemove({items,  deleteImage });
 };
 
 const handleBulkDeleteClick = () => {
@@ -277,6 +292,7 @@ const columns = [
       resource-label="service instance"
       :resource-type="resource"
       :show-unbind-notice="true"
+      :bulk-remove="handleBulkDelete"
       @settled="handleBulkDeleted"
     />
   </div>

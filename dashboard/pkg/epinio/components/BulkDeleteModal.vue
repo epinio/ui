@@ -12,6 +12,8 @@ const props = withDefaults(defineProps<{
   resourceLabel: string;
   // EPINIO_TYPES value used to refresh the list after delete
   resourceType: string;
+  // Function to call to delete the items. Must accept an array of items and return a Promise.
+  bulkRemove: (items: any[],  deleteImage: boolean ) => Promise<void>;
   // Applications only: offer an "also delete image from registry" checkbox
   showDeleteImageOption?: boolean;
   // Services/Configurations: note that bound apps will be automatically unbound
@@ -69,13 +71,13 @@ async function onSubmitDelete() {
   const label = count === 1 ? props.resourceLabel : resourceLabelPlural.value;
 
   try {
-    if (props.showDeleteImageOption && deleteFromRegistry.value) {
-      items.forEach((item) => { item._deleteImage = true; });
-    } else {
-      items.forEach((item) => { item._deleteImage = false; });
-    }
+    // if (props.showDeleteImageOption && deleteFromRegistry.value) {
+    //   items.forEach((item) => { item._deleteImage = true; });
+    // } else {
+    //   items.forEach((item) => { item._deleteImage = false; });
+    // }
 
-    await items[0].bulkRemove(items);
+    await props.bulkRemove(items, deleteFromRegistry.value);
     emit('deleted', items);
     closeDelete();
     store.dispatch('growl/success', {
