@@ -10,6 +10,7 @@ import { makeActionMenu } from '../utils/table-formatters';
 import { overrideTableRows } from '../utils/table-formatters';
 import EpinioBuilderImageModel from '../models/builderimages';
 import ImageDeleteModal from '../components/images/ImageDeleteModal.vue';
+import { isForbidden } from '../utils/errors';
 
 
 defineProps<{ schema: object }>(); // Keep for compatibility
@@ -129,9 +130,27 @@ watchEffect(() => {
 
 onMounted(async () => {
   store.dispatch('epinio/me');
-  await store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.BUILDER_IMAGE });
-  pending.value = false;
-  startPolling(['builderimages'], store);
+
+  // The list is a cluster-scoped read a role can lack. Let the table render
+  // empty on a refusal instead of leaving it on its loading spinner, and do not
+  // poll an endpoint that will keep answering 403.
+  let forbidden = false;
+
+  try {
+    await store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.BUILDER_IMAGE });
+  } catch (error: any) {
+    forbidden = isForbidden(error);
+
+    if (!forbidden) {
+      console.error('Failed to fetch builder images', error);
+    }
+  } finally {
+    pending.value = false;
+  }
+
+  if (!forbidden) {
+    startPolling(['builderimages'], store);
+  }
 });
 
 onUnmounted(() => {

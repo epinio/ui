@@ -105,8 +105,10 @@ async function openCreate() {
   const hash = await allHash({
     ns: store.dispatch('epinio/findAll', { type: EPINIO_TYPES.NAMESPACE }),
     charts: store.dispatch('epinio/findAll', { type: EPINIO_TYPES.APP_CHARTS }),
-    images: store.dispatch('epinio/findAll', { type: EPINIO_TYPES.BUILDER_IMAGE }),
-    gitConfigs: store.dispatch('epinio/findAll', { type: EPINIO_TYPES.GIT_CONFIG }),
+    // Store-warming only, and both catalogs are cluster-scoped reads a role can
+    // lack. A 403 here must not reject the hash and hang the modal on its spinner.
+    images: store.dispatch('epinio/findAll', { type: EPINIO_TYPES.BUILDER_IMAGE }).catch(() => []),
+    gitConfigs: store.dispatch('epinio/findAll', { type: EPINIO_TYPES.GIT_CONFIG }).catch(() => []),
     info: store.dispatch('epinio/info'),
   });
 
@@ -130,8 +132,8 @@ async function openEdit(row: EpinioApplicationModel, commit?: string) {
   const hash = await allHash({
     ns: store.dispatch('epinio/findAll', { type: EPINIO_TYPES.NAMESPACE }),
     charts: store.dispatch('epinio/findAll', { type: EPINIO_TYPES.APP_CHARTS }),
-    images: store.dispatch('epinio/findAll', { type: EPINIO_TYPES.BUILDER_IMAGE }),
-    gitConfigs: store.dispatch('epinio/findAll', { type: EPINIO_TYPES.GIT_CONFIG }),
+    images: store.dispatch('epinio/findAll', { type: EPINIO_TYPES.BUILDER_IMAGE }).catch(() => []),
+    gitConfigs: store.dispatch('epinio/findAll', { type: EPINIO_TYPES.GIT_CONFIG }).catch(() => []),
     info: store.dispatch('epinio/info'),
   });
 
