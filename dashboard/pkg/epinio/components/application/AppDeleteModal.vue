@@ -44,15 +44,15 @@ async function onSubmitDelete() {
     emit('deleted', appToDelete.value);
     closeDelete();
     store.dispatch('growl/success', {
-      title:   t('epinio.growl.deleteApp.successTitle'),
-      message: t('epinio.growl.deleteApp.successMessage', { name: appName }),
+      title:   t('epinio.growl.application.delete.success.title'),
+      message: t('epinio.growl.application.delete.success.message', { name: appName }),
     });
     store.dispatch('epinio/findAll', { type: EPINIO_TYPES.APP, opt: { force: true } });
   } catch (e: any) {
     errors.value = epinioExceptionToErrorsArray(e);
     store.dispatch('growl/error', {
-      title:   t('epinio.growl.deleteApp.errorTitle'),
-      message: t('epinio.growl.deleteApp.errorMessage', { name: appName, error: e instanceof Error ? e.message : String(e) }),
+      title:   t('epinio.growl.application.delete.error.title'),
+      message: t('epinio.growl.application.delete.error.message', { name: appName, error: e instanceof Error ? e.message : String(e) }),
     });
   } finally {
     deleting.value = false;
