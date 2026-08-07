@@ -10,6 +10,10 @@ import ConfigurationModal from '../components/configuration/ConfigurationModal.v
 import ConfigurationDeleteModal from '../components/configuration/ConfigurationDeleteModal.vue';
 import BulkDeleteModal from '../components/BulkDeleteModal.vue';
 import { debounce } from 'lodash';
+import { useConfigurations } from '../queries/useConfigurationQueries';
+import { ListResourceRequestParams } from '../models/resource/ui-types';
+import { ResourceTableRow } from '../models/resource/ui-types';
+import { ConfigurationResponse } from '../models/configuration/ui-types';
 
 const store = useStore();
 const router = useRouter();
@@ -30,57 +34,41 @@ const displayRows = ref<any[]>([]);
 const paginationMeta = computed(() => store.getters['epinio/paginationMeta'](resource));
 const currentPage = computed(() => store.getters['epinio/currentPaginationPage'](resource));
 
-const paginating = ref(false);
+const requestParams = ref<ListResourceRequestParams>({
+  page: 1,
+  pageSize: 10,
+  search: ''
+});
 
 const searchQuery = ref<string>('');
-
-async function goToPage(page: number) {
-  const meta = paginationMeta.value;
-
-  if (meta && (page < 1 || page > meta.totalPages)) return;
-  paginating.value = true;
-  try {
-    await store.dispatch('epinio/goToPage', { type: resource, page });
-  } finally {
-    paginating.value = false;
-  }
-}
-
-const onSearch = debounce(async (query: string) => {
-  paginating.value = true;
-  try {
-    await store.dispatch('epinio/search', { type: resource, query });
-  } finally {
-    paginating.value = false;
-  }
-}, 500);
 
 watch(searchQuery, (newQuery) => {
   onSearch(newQuery);
 });
 
+const onSearch = debounce(async (query: string) => {
+  requestParams.value.page = 1;
+  requestParams.value.search = query;
+}, 500);
+
+const {data: configurations, isLoading: isLoadingConfigurations, isError: isErrorConfigurations, error: configurationsError} = useConfigurations(store, requestParams);
+
 onMounted(async () => {
   window.addEventListener('resize', onResize);
-  paginating.value = true;
-  try {
-    await Promise.all([
-      store.dispatch('epinio/me'),
-      store.dispatch('epinio/findAll', { type: EPINIO_TYPES.CONFIGURATION }),
-      // Bound Applications/Service columns cross-reference these; fetch them
-      // directly so they're populated on first load instead of depending on
-      // another page (Applications/Services) having fetched them already.
-      store.dispatch('epinio/findAll', { type: EPINIO_TYPES.APP }),
-      store.dispatch('epinio/findAll', { type: EPINIO_TYPES.SERVICE_INSTANCE }),
-    ]);
-  } finally {
-    paginating.value = false;
-  }
-  startPolling(['configurations', 'applications', 'services'], store);
+  await Promise.all([
+    store.dispatch('epinio/me'),
+    // Bound Applications/Service columns cross-reference these; fetch them
+    // directly so they're populated on first load instead of depending on
+    // another page (Applications/Services) having fetched them already.
+    store.dispatch('epinio/findAll', { type: EPINIO_TYPES.APP }),
+    store.dispatch('epinio/findAll', { type: EPINIO_TYPES.SERVICE_INSTANCE }),
+  ]);
+  // startPolling(['configurations', 'applications', 'services'], store);
 });
 
 onUnmounted(() => {
   window.removeEventListener('resize', onResize);
-  stopPolling(['configurations', 'applications', 'services']);
+  // stopPolling(['configurations', 'applications', 'services']);
 });
 
 const handleCreateClick = () => {
@@ -105,60 +93,52 @@ const canEdit = canCreateConfiguration;
 const canDelete = canCreateConfiguration;
 
 watchEffect(() => {
+  if (!configurations.value) {
+    displayRows.value = [];
+    return;
+  }
+  
   void store.state.activeNamespaceCacheKey;
   const activeNamespaces = store.state.activeNamespaceCache;
-  const all = store.getters['epinio/all'](EPINIO_TYPES.CONFIGURATION) as any[];
-
-  all.forEach((row: any) => { void row.status; void row.stateDisplay; void row.meta; void row.configuration; });
-
-  const filtered = all.filter((row: any) => {
-    const ns = row.meta?.namespace;
-
+  // filter configurations by active namespace
+  // TODO: move to backend query once epinio supports filtering by namespace
+  const filteredConfigurations = (configurations.value.items ?? []).filter((s) => {
+    const ns = s.meta?.namespace;
     return !activeNamespaces || Object.keys(activeNamespaces).length === 0 || activeNamespaces[ns];
   });
-
-  const overrides = [
-    {
-      prop: 'availableActions',
-      value: (row: any) => {
-        const out: any[] = [];
-
-        if (canEdit.value) {
-          out.push({
-            action:  'editConfigModal',
-            label:   'Edit',
-            enabled: row.configuration?.type === 'custom',
-            icon:    'icon icon-edit',
-          });
-        }
-        if (canDelete.value) {
-          out.push({
-            action:  'deleteConfigModal',
-            label:   'Delete',
-            enabled: row.configuration?.type === 'custom',
-            icon:    'icon icon-trash',
-            weight:  -10,
-          });
-        }
-
-        return out;
-      },
-      conditionFn: () => true,
-    },
-    {
-      prop:        'editConfigModal',
-      value:       (row: any) => () => { configModal.value?.openEdit(row); },
-      conditionFn: (row: any) => canEdit.value && row.configuration?.type === 'custom',
-    },
-    {
-      prop:        'deleteConfigModal',
-      value:       (row: any) => () => { deleteModal.value?.openDelete(row); },
-      conditionFn: (row: any) => canDelete.value && row.configuration?.type === 'custom',
-    },
-  ];
-
-  displayRows.value = [...overrideTableRows(filtered, overrides)];
+  // Add custom namespace delete action to replace the built in rancher shell flow.
+  // Gate by namespace write perms so view-only / app-only roles don't see Delete.
+  const rows: ResourceTableRow[] = (filteredConfigurations ?? []).map((s) => ({
+    ...s,
+    id: s.meta.name, // stable, unique per namespace
+    availableActions: [{
+      label: 'Delete',
+      action: () => openDeleteModal(s),
+      enabled: canDelete.value,
+      visible: canDelete.value,
+      danger: true,
+    }, {
+      label: 'Edit',
+      action: () => openEditModal(s),
+      enabled: canEdit.value,
+      visible: canEdit.value,
+    }],
+    canDelete: canDelete.value,
+  }));
+  displayRows.value = rows;
 });
+
+async function openCreateModal() {
+  configModal.value?.openCreate();
+}
+
+function openDeleteModal(configuration: ConfigurationResponse) {
+  deleteModal.value?.openDelete(configuration);
+}
+
+function openEditModal(configuration: ConfigurationResponse) {
+  configModal.value?.openEdit(configuration);
+}
 
 // Auto-generated configurations (bound to a service instance) can't be
 // individually deleted, so they're excluded from bulk selection too.
@@ -199,10 +179,10 @@ const allColumns = [
     field: 'nameDisplay',
     label: 'Name',
     width: '200px',
-    formatter: (_v: any, row: any) => {
+    formatter: (_v: any, row: ConfigurationResponse) => {
       const el = document.createElement('a');
 
-      el.textContent = row.nameDisplay || row.meta?.name || '';
+      el.textContent = row.meta?.name || '';
       el.style.cursor = 'pointer';
       el.addEventListener('click', (e) => {
         e.preventDefault();
@@ -214,7 +194,7 @@ const allColumns = [
     }
   },
   {
-    field: 'namespace',
+    field: 'meta.namespace',
     label: 'Namespace',
     width: '100px',
   },
@@ -223,8 +203,8 @@ const allColumns = [
     label: 'Bound Applications',
     width: '200px',
     sortable: false,
-    formatter: (_v: any, row: any) => makeNameLinks(
-      row.configuration?.boundapps,
+    formatter: (_v: any, row: ConfigurationResponse) => makeNameLinks(
+      row.configuration?.boundApps ?? [],
       { cluster: store.getters['clusterId'], namespace: row.meta?.namespace, resource: EPINIO_TYPES.APP },
       router
     )
@@ -234,14 +214,14 @@ const allColumns = [
     label: 'Service',
     width: '150px',
     sortable: false,
-    formatter: (_v: any, row: any) => makeNameLinks(
+    formatter: (_v: any, row: ConfigurationResponse) => makeNameLinks(
       row.configuration?.origin ? [row.configuration.origin] : [],
       { cluster: store.getters['clusterId'], namespace: row.meta?.namespace, resource: EPINIO_TYPES.SERVICE_INSTANCE },
       router
     )
   },
   {
-    field: 'variableCount',
+    field: 'configuration.variableCount',
     label: 'No. of Variables',
     width: '150px'
   },
@@ -249,7 +229,7 @@ const allColumns = [
     field: 'configuration.user',
     label: 'Created By',
     width: '150px',
-    formatter: (_v: any, row: any) => row.configuration?.user || makeEmptyCell()
+    formatter: (_v: any, row: ConfigurationResponse) => row.configuration?.user || makeEmptyCell()
   },
   {
     field: 'meta.createdAt',
@@ -320,13 +300,13 @@ const columns = computed(() => {
       :columns="columns"
       :searchable="false"
       :selectable="canDelete"
-      :server-side="!!paginationMeta"
-      :total-items="paginationMeta?.totalItems ?? displayRows.length"
-      :current-page="currentPage"
-      :loading="paginating"
+      :server-side="true"
+      :total-items="configurations?.totalItems ?? 0"
+      :current-page="requestParams.page"
+      :loading="isLoadingConfigurations"
       key-field="id"
       @navigate="handleNavigate"
-      @page-change="(e: CustomEvent) => goToPage(e.detail.page)"
+      @page-change="(e: CustomEvent) => { requestParams.page = e.detail.page; }"
       @selection-change="handleSelectionChange"
     />
     <ConfigurationModal ref="configModal" />

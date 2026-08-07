@@ -174,15 +174,15 @@ const columns = [
     field: 'stateDisplay',
     label: 'State',
     width: '100px',
-    formatter: (_v: any, row: any) => makeStateTag(row)
+    formatter: (_v: any, row: ServiceInstance) => makeStateTag(row)
   },
   {
     field: 'nameDisplay',
     label: 'Name',
-    formatter: (_v: any, row: any) => {
+    formatter: (_v: any, row: ServiceInstance) => {
       const el = document.createElement('a');
 
-      el.textContent = row.nameDisplay || row.meta?.name || '';
+      el.textContent = row.meta?.name || '';
       el.style.cursor = 'pointer';
       el.addEventListener('click', (e) => {
         e.preventDefault();
@@ -201,7 +201,7 @@ const columns = [
     field: 'catalogService',
     label: 'Catalog Service',
     sortable: false,
-    formatter: (_v: any, row: any) => makeNameLinks(
+    formatter: (_v: any, row: ServiceInstance) => makeNameLinks(
       [row.catalogService],
       { cluster: store.getters['clusterId'], resource: EPINIO_TYPES.CATALOG_SERVICE },
       router
@@ -215,7 +215,7 @@ const columns = [
     field: 'boundApps',
     label: 'Bound Applications',
     sortable: false,
-    formatter: (_v: any, row: any) => makeNameLinks(
+    formatter: (_v: any, row: ServiceInstance) => makeNameLinks(
       row.boundApps,
       { cluster: store.getters['clusterId'], namespace: row.meta?.namespace, resource: EPINIO_TYPES.APP },
       router

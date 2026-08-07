@@ -604,6 +604,13 @@ epinio:
         error:
           title: Configuration Deletion Failed
           message: 'Failed to delete configuration { name }. Please try again or contact your system admin to investigate the issue.'
+      bindings:
+        success:
+          title: Configuration Bindings Updated
+          message: 'Your configuration { name } has been successfully updated with new bindings.'
+        error:
+          title: Something Went Wrong Updating Configuration Bindings
+          message: Please wait a moment and try again. If the problem persists, please contact support.
     service:
       bind:
         error:

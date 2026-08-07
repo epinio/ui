@@ -1,72 +1,57 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, watchEffect } from 'vue';
 import { useStore } from 'vuex';
-import { EPINIO_TYPES } from '../../types';
-import { epinioExceptionToErrorsArray } from '../../utils/errors';
 import Banner from '@components/Banner/Banner.vue';
+import { useDeleteConfiguration, useUnbindConfiguration } from '../../queries/useConfigurationMutations';
+import { ConfigurationResponse } from '../../models/configuration/ui-types';
 
 const store = useStore() as any;
 const t = store.getters['i18n/t'];
 
 const showModal = ref(false);
-const configToDelete = ref<any>(null);
-const deleting = ref(false);
-const errors = ref<string[]>([]);
+const configToDelete = ref<ConfigurationResponse | null>(null);
 
-const boundApps = computed(() => configToDelete.value?.configuration?.boundapps || []);
+const boundApps = computed(() => configToDelete.value?.configuration?.boundApps || []);
 
-function openDelete(row: any) {
+const {mutate: deleteConfiguration, isPending: isDeletingConfiguration, isError: deleteConfigurationError, error: deleteConfigurationErrorData} = useDeleteConfiguration(store, handleSuccess);
+const {mutateAsync: unbindConfiguration, isPending: isUnbindingConfiguration, isError: unbindConfigurationError, error: unbindConfigurationErrorData} = useUnbindConfiguration(store);
+
+function openDelete(row: ConfigurationResponse) {
   configToDelete.value = row;
-  errors.value = [];
   showModal.value = true;
 }
 
 function closeDelete() {
   showModal.value = false;
-  errors.value = [];
   configToDelete.value = null;
 }
 
 async function onSubmitDelete() {
-  if (!configToDelete.value) return;
-
-  deleting.value = true;
-  errors.value = [];
-
-  try {
-    const cfg = configToDelete.value;
-    const configName = cfg.meta?.name;
-    const namespace = cfg.meta?.namespace;
-
-    // Unbind all bound apps before deleting
-    if (boundApps.value.length) {
-      const nsApps = store.getters['epinio/all'](EPINIO_TYPES.APP)
-        .filter((a: any) => a.meta.namespace === namespace);
-
-      await Promise.all(
-        nsApps
-          .filter((a: any) => boundApps.value.includes(a.metadata.name))
-          .map((a: any) => a.unbindConfiguration([configName]))
-      );
+  if (!configToDelete.value) {
+        return;
     }
+    if (configToDelete.value.configuration.boundApps?.length) {
+        Promise.all([...configToDelete.value.configuration.boundApps.map(appName => unbindConfiguration({ namespace: configToDelete.value!.meta.namespace, appName: appName, configName: configToDelete.value!.meta.name }))])
+            .then(() => {
+                deleteConfiguration({ namespace: configToDelete.value!.meta.namespace, configurationName: configToDelete.value!.meta.name });
+            })
+            .catch((error) => {
+                store.dispatch('growl/error', {
+                    title: t('epinio.services.errors.unbind.error.title'),
+                    message: error?.message || t('epinio.services.errors.unbind.error.message'),
+                });
+            });
+    } else {
+        deleteConfiguration({ namespace: configToDelete.value.meta.namespace, configurationName: configToDelete.value.meta.name });
+    }
+}
 
-    await cfg.remove();
-    closeDelete();
-    store.dispatch('growl/success', {
-      title:   t('epinio.growl.configuration.delete.success.title'),
-      message: t('epinio.growl.configuration.delete.success.message', { name: configName }),
-    });
-    store.dispatch('epinio/refreshList', { type: EPINIO_TYPES.CONFIGURATION });
-    store.dispatch('epinio/findAll', { type: EPINIO_TYPES.APP, opt: { force: true } });
-  } catch (e: any) {
-    errors.value = epinioExceptionToErrorsArray(e);
-    store.dispatch('growl/error', {
-      title:   t('epinio.growl.configuration.delete.error.title'),
-      message: t('epinio.growl.configuration.delete.error.message', { name: configToDelete.value?.meta?.name }),
-    });
-  } finally {
-    deleting.value = false;
-  }
+function handleSuccess() {
+  store.dispatch('growl/success', {
+    title:   t('epinio.growl.configuration.delete.success.title'),
+    message: t('epinio.growl.configuration.delete.success.message', { name: configToDelete.value?.meta.name }),
+  });
+  closeDelete();
 }
 
 defineExpose({ openDelete });
@@ -95,10 +80,9 @@ defineExpose({ openDelete });
         No applications are bound to this configuration.
       </p>
       <Banner
-        v-for="(err, i) in errors"
-        :key="i"
+        v-if="deleteConfigurationError"
         color="error"
-        :label="err"
+        :label="deleteConfigurationErrorData?.message || t('epinio.configuration.errors.delete')"
       />
     </div>
 
@@ -112,10 +96,10 @@ defineExpose({ openDelete });
       </trailhand-button>
       <trailhand-button
         variant="destructive"
-        :disabled="deleting"
+        :disabled="isDeletingConfiguration || isUnbindingConfiguration"
         @button-click="onSubmitDelete"
       >
-        {{ deleting ? 'Deleting...' : t('generic.delete') }}
+        {{ isDeletingConfiguration || isUnbindingConfiguration ? t('generic.deleting') : t('generic.delete') }}
       </trailhand-button>
     </div>
   </trailhand-modal>
