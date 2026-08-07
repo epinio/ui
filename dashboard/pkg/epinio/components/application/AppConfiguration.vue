@@ -147,7 +147,11 @@ async function searchServices(query: string) {
   }
 }
 
-const fetchData = async () => {
+const fetchInitialData = async () => {
+  // if there is no namespace, we cannot fetch configurations or services on mount
+  if (!props.application.metadata.namespace) {
+    return;
+  }
   isFetchingConfigsAndServices.value = true;
   await fetchConfigurations();
   await fetchServices();
@@ -175,7 +179,25 @@ const fetchData = async () => {
 
 // fetch data immediately to populate the value with objects instead of strings
 onMounted(() => {
-  fetchData();
+  fetchInitialData();
+});
+
+const fetchData = async () => {
+  isFetchingConfigsAndServices.value = true;
+  await fetchConfigurations();
+  await fetchServices();
+  isFetchingConfigsAndServices.value = false;
+};
+
+// if the namespace changes, fetch data again to populate the value with objects instead of strings
+watch(() => props.application.metadata.namespace, (newNamespace, oldNamespace) => {
+  if (newNamespace && newNamespace !== oldNamespace) {
+    fetchedConfigurations.value = [];
+    fetchedServices.value = [];
+    cachedConfigurations.value = [];
+    cachedServices.value = [];
+    fetchData();
+  }
 });
 
 const configurations = computed(() => {
