@@ -391,6 +391,7 @@ epinio:
       upload:
         label: Upload
         description: Upload the source for the Application
+        missingSource: Select the folder or archive again to redeploy the source. The browser cannot re-read the files from the last deploy.
       build:
         label: Build
         description: Build the source for the Application

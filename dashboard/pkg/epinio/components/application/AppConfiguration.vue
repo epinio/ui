@@ -1,9 +1,9 @@
 <script setup lang="ts">
 
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 import { useStore } from 'vuex';
 import { sortBy } from '@shell/utils/sort';
-import { _VIEW } from '@shell/config/query-params';
+import { _VIEW, _EDIT } from '@shell/config/query-params';
 import { EpinioConfiguration, EpinioService, EPINIO_TYPES, EPINIO_APP_MANIFEST, EpinioAppBindings } from '../../types';
 import Application from '../../models/applications';
 import ResourceDropdown from './ResourceDropdown.vue';
@@ -26,8 +26,8 @@ const store = useStore();
 const t = store.getters['i18n/t'];
 
 const values = ref({
-  configurations: props.bindings?.configurations || [] as string[],
-  services: props.bindings?.services.map((s: EpinioService) => `${props.application.metadata.namespace}/${s.meta.name}`) || [] as string[],
+  configurations: props.initialApplication?.configuration?.configurations || [],
+  services: props.initialApplication?.configuration?.services || [],
 });
 
 const isLoadingConfigurations = ref(false);
@@ -40,9 +40,9 @@ const cachedServices = ref<any[]>([]);
 
 const isFetchingConfigsAndServices = ref<boolean>(true);
 
-const hasConfigs = ref<boolean>(false);
+const hasConfigs = ref<boolean>(props.initialApplication?.configuration?.configurations?.length > 0);
 const noConfigs = computed(() => !hasConfigs.value);
-const hasServices = ref<boolean>(false);
+const hasServices = ref<boolean>(props.initialApplication?.configuration?.services?.length > 0);
 const noServices = computed(() => !hasServices.value);
 
 const fetchConfigurations = async () => {
@@ -147,6 +147,41 @@ async function searchServices(query: string) {
   }
 }
 
+const fetchInitialData = async () => {
+  // if there is no namespace, we cannot fetch configurations or services on mount
+  if (!props.application.metadata.namespace) {
+    return;
+  }
+  isFetchingConfigsAndServices.value = true;
+  await fetchConfigurations();
+  await fetchServices();
+  isFetchingConfigsAndServices.value = false;
+
+  // emit initial bindings now that fetched data is available 
+  if (props.initialApplication?.configuration?.configurations?.length) {
+    const configurationNames = props.initialApplication.configuration.configurations;
+    const bound = fetchedConfigurations.value
+      .filter((c: any) => configurationNames.includes(c.meta.name));
+
+    values.value.configurations = bound;
+    emit('initial', { configurations: bound });
+  }
+
+  if (props.initialApplication?.configuration?.services?.length) {
+    const serviceNames = props.initialApplication.configuration.services;
+    const bound = fetchedServices.value
+      .filter((s: any) => serviceNames.includes(s.meta.name));
+
+    values.value.services = bound;
+    emit('initial', { services: bound });
+  }
+};
+
+// fetch data immediately to populate the value with objects instead of strings
+onMounted(() => {
+  fetchInitialData();
+});
+
 const fetchData = async () => {
   isFetchingConfigsAndServices.value = true;
   await fetchConfigurations();
@@ -154,17 +189,16 @@ const fetchData = async () => {
   isFetchingConfigsAndServices.value = false;
 };
 
-watch(() => props.active, (isActive) => {
-  if (isActive) {
-    fetchData();
-  }
-  if (!isActive) {
+// if the namespace changes, fetch data again to populate the value with objects instead of strings
+watch(() => props.application.metadata.namespace, (newNamespace, oldNamespace) => {
+  if (newNamespace && newNamespace !== oldNamespace) {
     fetchedConfigurations.value = [];
     fetchedServices.value = [];
     cachedConfigurations.value = [];
     cachedServices.value = [];
+    fetchData();
   }
-}, { immediate: true });
+});
 
 const configurations = computed(() => {
   const list = fetchedConfigurations.value
@@ -186,7 +220,6 @@ const services = computed(() => {
   return sortBy(list, 'label', false);
 });
 
-
 const isView = computed(() => props.mode === _VIEW);
 const isFromManifest = computed(
   () => store.$router.currentRoute._value.query.from === EPINIO_APP_MANIFEST
@@ -196,72 +229,38 @@ const isFromManifest = computed(
 watch(values, () => {
   emit('change', {
     configurations: values.value.configurations,
-    services: values.value.services.map((s: string) => fetchedServices.value.find((ns: any) => `${props.application.metadata.namespace}/${ns.meta.name}` === s)),
+    services: values.value.services,
   })
 }, { deep: true });
 
-watch(noConfigs, (neu) => {
-  if (neu && values.value.configurations?.length) {
+// if the namespace has no configurations, clear the values.configurations array. If it has configurations and the app is from a manifest, set values.configurations to the bound configurations.
+watch(hasConfigs, (neu, old) => {
+  if (!neu && values.value.configurations?.length) {
     values.value.configurations = [];
   }
+  if (neu && isFromManifest.value) {
+    values.value.configurations = fetchedConfigurations.value
+      .filter((nc: any) =>
+        props.application.configuration.configurations.includes(nc.meta.name)
+      );
+  }
 });
 
-watch(noServices, (neu) => {
-  if (neu && values.value.services?.length) {
+// if the namespace has no services, clear the values.services array. If it has services and the app is from a manifest, set values.services to the bound services.
+watch(hasServices, (neu) => {
+  if (!neu && values.value.services?.length) {
     values.value.services = [];
   }
-});
-
-watch(hasConfigs, (neu, old) => {
-  if (!old && neu) {
-    if (props.initialApplication?.configuration?.configurations) {
-      // Bound names come off the app record; the fetched list says which of
-      // those are plain configurations rather than service-generated ones.
-      const bound = props.initialApplication.configuration.configurations;
-
-      values.value.configurations = fetchedConfigurations.value
-        .filter((c: any) => !c.isServiceRelated && bound.includes(c.meta.name))
-        .map((c: any) => c.meta.name);
-
-      emit('initial', { configurations: values.value.configurations });
-    }
-
-    if (isFromManifest.value) {
-      values.value.configurations = fetchedConfigurations.value
-        .filter((nc: any) =>
-          props.application.configuration.configurations.includes(nc.meta.name) &&
-          !nc.isServiceRelated
-        )
-        .map((nc: any) => nc.meta.name) || [];
-    }
+  if (neu && isFromManifest.value) {
+    const configurations = fetchedConfigurations.value
+      .filter((nc: any) =>
+        props.application.configuration.configurations.includes(nc.meta.name) &&
+        nc.isServiceRelated
+      );
+    values.value.services = fetchedServices.value
+      .filter((s: any) => configurations.some((d: any) => s.meta.name === d.configuration.origin));
   }
-}, { immediate: true });
-
-watch(hasServices, (neu, old) => {
-    if (!old && neu) {
-      if (props.initialApplication?.configuration?.services) {
-        const serviceNames = props.initialApplication.configuration.services;
-        const bound = fetchedServices.value
-          .filter((s: any) => serviceNames.includes(s.meta.name));
-
-        values.value.services = bound
-          .map((s: any) => `${props.application.metadata.namespace}/${s.meta.name}`);
-
-        emit('initial', { services: bound });
-      }
-    }
-
-    if (isFromManifest.value) {
-      const configurations = fetchedConfigurations.value
-        .filter((nc: any) =>
-          props.application.configuration.configurations.includes(nc.meta.name) &&
-          nc.isServiceRelated
-        );
-      values.value.services = fetchedServices.value
-        .filter((s: any) => configurations.some((d: any) => s.meta.name === d.configuration.origin))
-        .map((elem: any) => `${props.application.metadata.namespace}/${elem.meta.name}`);
-    }
-}, { immediate: true });
+});
 </script>
 
 <template>
@@ -273,27 +272,31 @@ watch(hasServices, (neu, old) => {
   </div>
   <div v-else class="configurations">
     <ResourceDropdown
-      :values="values.configurations"
+      :values="values.configurations.filter((c: any) => !c.isServiceRelated).map((c: any) => c.meta.name)"
       :options="configurations"
       :label="t('typeLabel.configurations', { count: 2})"
       :disabled="noConfigs || isView"
       filterable
       multiselect
       :placeholder="noConfigs ? t('epinio.applications.steps.configurations.configurations.select.placeholderNoOptions') : t('epinio.applications.steps.configurations.configurations.select.placeholderWithOptions')"
-      :onDropdownChange="(e: CustomEvent) => { values.configurations = e.detail.values; }"
+      :onDropdownChange="(e: CustomEvent) => { 
+        const serviceRelatedConfigs = values.configurations.filter((c: any) => c.isServiceRelated);
+        const selectedConfigs = e.detail.values.map((c: string) => fetchedConfigurations.find((nc: any) => nc.meta.name === c));
+        values.configurations = [...serviceRelatedConfigs, ...selectedConfigs];
+      }"
       :fetchAllResources="fetchConfigurations"
       :searchResources="searchConfigurations"
       :isLoading="isLoadingConfigurations"
     />
     <ResourceDropdown
-      :values="values.services"
+      :values="values.services.map((s: any) => `${props.application.metadata.namespace}/${s.meta.name}`)"
       :options="services"
       :label="t('typeLabel.services', { count: 2})"
       :disabled="noServices || isView"
       filterable
       multiselect
       :placeholder="noServices ? t('epinio.applications.steps.configurations.services.select.placeholderNoOptions') : t('epinio.applications.steps.configurations.services.select.placeholderWithOptions')"
-      :onDropdownChange="(e: CustomEvent) => { values.services = e.detail.values; }"
+      :onDropdownChange="(e: CustomEvent) => { values.services = e.detail.values.map((s: string) => fetchedServices.find((ns: any) => `${props.application.metadata.namespace}/${ns.meta.name}` === s)); }"
       :fetchAllResources="fetchServices"
       :searchResources="searchServices"
       :isLoading="isLoadingServices"

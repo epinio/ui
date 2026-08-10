@@ -357,9 +357,11 @@ watch(type, () => {
   update();
 });
 
+// Immediate so the parent starts from the form's real validity instead of
+// assuming the tab is valid until something changes.
 watch(valid, (val) => {
   emit('valid', val);
-});
+}, { immediate: true });
 
 function validate() {
   switch (type.value) {

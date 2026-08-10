@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, reactive, watch, nextTick } from 'vue';
+import { computed, ref, reactive, watch, nextTick, watchEffect } from 'vue';
 import { useStore } from 'vuex';
 
 import { epinioExceptionToErrorsArray } from '../../utils/errors';
@@ -8,7 +8,8 @@ import AppSource from './AppSource.vue';
 import AppInfo from './AppInfo.vue';
 import AppConfiguration from './AppConfiguration.vue';
 import AppProgress from './AppProgress.vue';
-import { EpinioAppInfo, EpinioAppBindings, EpinioAppSource, EPINIO_TYPES } from '../../types';
+import { EpinioAppInfo, EpinioAppBindings, EpinioAppSource, EPINIO_TYPES, APPLICATION_SOURCE_TYPE } from '../../types';
+import { AppUtils } from '../../utils/application';
 import Tabs from './Tabs.vue';
 import { allHash } from '@shell/utils/promise';
 import EpinioApplicationModel from 'models/applications';
@@ -63,33 +64,40 @@ const prevTab = computed(() => {
 })
 
 const isDirty = computed(() => {
-  if (!snapshot.value || !value.value) return false
-  return takeSnapshot() !== snapshot.value
+  if (!snapshot.value || !value.value) return false;
+  const newSnapshot = takeSnapshot();
+  return newSnapshot !== snapshot.value
 });
 
 const isSourceDirty = computed(() => {
   if (!snapshot.value) return false;
-  
-  const snapshotSource = JSON.parse(snapshot.value).source;
-  const currentSource = JSON.parse(takeSnapshot()).source;
-  
-  return JSON.stringify(snapshotSource) !== JSON.stringify(currentSource);
+
+  return JSON.parse(snapshot.value).source !== AppUtils.sourceFingerprint(source.value);
 });
+
+// Folder and archive sources live in the browser only, so a redeploy needs the
+// files selected again.
+const needsUploadedSource = computed(() => [
+  APPLICATION_SOURCE_TYPE.ARCHIVE,
+  APPLICATION_SOURCE_TYPE.FOLDER,
+].includes(source.value?.type as APPLICATION_SOURCE_TYPE));
 
 const showDiscardConfirm = ref(false);
 
 function takeSnapshot() {
+  const simplifiedBindings = {
+    configurations: bindings.value?.configurations.map((c) => typeof c === 'string' ? c : c.meta?.name || c.name || c) || [],
+    services: bindings.value?.services.map((s) => typeof s === 'string' ? s : s.meta?.name || s.name || s) || [],
+  };
+  const simplifiedConfigutation = {
+    ...value.value?.configuration,
+    configurations: simplifiedBindings.configurations,
+  }
   return JSON.stringify({
-    source: {
-      ...source.value,
-      git: {
-        ...source.value?.git,
-        sourceData: undefined, // ignore dynamic data
-      },
-    },
-    bindings: bindings.value,
-    meta: value.value?.meta,
-    configuration: value.value?.configuration,
+    source:        AppUtils.sourceFingerprint(source.value),
+    bindings:      simplifiedBindings,
+    meta:          value.value?.meta,
+    configuration: simplifiedConfigutation,
   });
 }
 
@@ -141,7 +149,34 @@ async function openEdit(row: EpinioApplicationModel, commit?: string) {
   appChart.chartsList = hash.charts;
   appChart.selectedChart = row.configuration?.appchart;
   originalModel.value = row;
-  value.value = await store.dispatch('epinio/clone', { resource: originalModel.value });
+  value.value = await store.dispatch('epinio/clone', { resource: originalModel.value }); 
+
+  // If the app has no settings, but the chart does, populate the app's settings with
+  // empty values.
+  if (!row.configuration.settings) {
+    const chartList = await store.dispatch(
+      'epinio/findAll',
+      { type: EPINIO_TYPES.APP_CHARTS },
+    );
+
+    const filterChart = chartList?.find(
+      (chart: any) => chart.id === row.configuration.appchart
+    );
+
+    if (filterChart?.settings) {
+      const customValues = Object.keys(filterChart?.settings).reduce((acc: any, key: any) => {
+        acc[key] = row.configuration.settings?.[key] || '';
+        return acc;
+      }, {});
+      value.value.configuration.settings = customValues;
+    }
+  }
+
+  // Populate bindings
+  bindings.value = {
+    configurations: [...(row.configuration?.configurations || [])],
+    services: [...(row.configuration?.services || [])],
+  };
 
   source.value = row.appSource;
 
@@ -218,6 +253,9 @@ function closeModal() {
 
 // when namepace changes, remove bindings
 watch(() => value.value?.meta.namespace, () => {
+  if (modalMode.value !== 'create') {
+    return;
+  }
   bindings.value = { configurations: [], services: [] };
   set(value.value.configuration, { configurations: [] });
 });
@@ -291,7 +329,6 @@ function updateManifestConfigurations(configs: string[]) {
 }
 
 function updateConfigurations(changes: EpinioAppBindings) {
-  bindings.value = {};
   set(bindings.value, changes);
   set(value.value.configuration, { configurations: changes.configurations });
 }
@@ -310,6 +347,14 @@ async function onSubmit() {
 
   try {
     if (isEdit.value) {
+      // Nothing is saved yet, so bail before a half-applied edit.
+      if (isSourceDirty.value && needsUploadedSource.value && !source.value?.archive?.tarball) {
+        errors.value = [t('epinio.applications.action.upload.missingSource')];
+        saving.value = false;
+
+        return;
+      }
+
       // Always save metadata/config changes
       await value.value.update({ restart: !!value.value.canRestartAfterConfigSave });
       await value.value.updateConfigurations(
@@ -344,6 +389,16 @@ async function onSubmit() {
 // modal only learns the app landed when AppProgress says it finished.
 function handleProgressFinished() {
   emit('saved', value.value?.meta?.namespace);
+}
+
+// A failed pipeline strands the user on the progress tab. Let them back into the
+// form to fix the source and retry.
+function handleProgressFailed() {
+  tabs.value.forEach((tab) => {
+    if (tab.id !== 'progress') {
+      tab.disabled = false;
+    }
+  });
 }
 
 function completeTab(tabId: string | number, nextTabId: string | number) {
@@ -430,6 +485,7 @@ defineExpose({ openCreate, openEdit });
             :tab="tab"
             :active="activeTab === tab.id"
             @finished="handleProgressFinished"
+            @failed="handleProgressFailed"
           />
       </template>
       </Tabs>
