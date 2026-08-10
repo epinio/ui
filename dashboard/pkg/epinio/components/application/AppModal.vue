@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, reactive, watch, nextTick } from 'vue';
+import { computed, ref, reactive, watch, nextTick, watchEffect } from 'vue';
 import { useStore } from 'vuex';
 
 import { epinioExceptionToErrorsArray } from '../../utils/errors';
@@ -85,11 +85,19 @@ const needsUploadedSource = computed(() => [
 const showDiscardConfirm = ref(false);
 
 function takeSnapshot() {
+  const simplifiedBindings = {
+    configurations: bindings.value?.configurations.map((c) => typeof c === 'string' ? c : c.meta?.name || c.name || c) || [],
+    services: bindings.value?.services.map((s) => typeof s === 'string' ? s : s.meta?.name || s.name || s) || [],
+  };
+  const simplifiedConfigutation = {
+    ...value.value?.configuration,
+    configurations: simplifiedBindings.configurations,
+  }
   return JSON.stringify({
     source:        AppUtils.sourceFingerprint(source.value),
-    bindings:      bindings.value,
+    bindings:      simplifiedBindings,
     meta:          value.value?.meta,
-    configuration: value.value?.configuration,
+    configuration: simplifiedConfigutation,
   });
 }
 
@@ -139,7 +147,7 @@ async function openEdit(row: EpinioApplicationModel, commit?: string) {
   appChart.chartsList = hash.charts;
   appChart.selectedChart = row.configuration?.appchart;
   originalModel.value = row;
-  value.value = await store.dispatch('epinio/clone', { resource: originalModel.value });
+  value.value = await store.dispatch('epinio/clone', { resource: originalModel.value }); 
 
   // If the app has no settings, but the chart does, populate the app's settings with
   // empty values.
@@ -161,6 +169,12 @@ async function openEdit(row: EpinioApplicationModel, commit?: string) {
       value.value.configuration.settings = customValues;
     }
   }
+
+  // Populate bindings
+  bindings.value = {
+    configurations: [...(row.configuration?.configurations || [])],
+    services: [...(row.configuration?.services || [])],
+  };
 
   source.value = row.appSource;
 
@@ -237,6 +251,9 @@ function closeModal() {
 
 // when namepace changes, remove bindings
 watch(() => value.value?.meta.namespace, () => {
+  if (modalMode.value !== 'create') {
+    return;
+  }
   bindings.value = { configurations: [], services: [] };
   set(value.value.configuration, { configurations: [] });
 });
@@ -310,7 +327,6 @@ function updateManifestConfigurations(configs: string[]) {
 }
 
 function updateConfigurations(changes: EpinioAppBindings) {
-  bindings.value = {};
   set(bindings.value, changes);
   set(value.value.configuration, { configurations: changes.configurations });
 }
