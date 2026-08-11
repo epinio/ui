@@ -74,6 +74,13 @@ export default {
         params.delete('search');
       }
 
+      const namespaces = state.activeNamespaces;
+      if (namespaces && namespaces.length) {
+        params.set('namespaces', namespaces.join(','));
+      } else {
+        params.delete('namespaces');
+      }
+
       const qs = params.toString();
 
       return qs ? `${ path }?${ qs }` : path;
@@ -156,6 +163,8 @@ export default {
 
     return out;
   },
+
+  activeNamespaces: (state: any) => () => state.activeNamespaces,
 
   singleProductCNSI: (state: any) => () => state.singleProductCNSI,
 

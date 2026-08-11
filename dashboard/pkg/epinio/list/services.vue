@@ -70,18 +70,33 @@ const canEdit = computed(() => {
 const canDelete = canEdit;
 const canCreate = canEdit;
 
-watchEffect(() => {
-  void store.state.activeNamespaceCacheKey;
-  const activeNamespaces = store.state.activeNamespaceCache;
+// Watch the active namespace cache key and update the active namespaces in the store
+watch(
+  () => {
+    void store.state.activeNamespaceCacheKey;
+    const active = store.state.activeNamespaceCache;
+    return active ? Object.keys(active) : null;
+  },
+  async (namespacesArray) => {
+    paginating.value = true;
+    try {
+      await store.dispatch('epinio/setActiveNamespaces', { type: resource, namespaces: namespacesArray });
+    } finally {
+      paginating.value = false;
+    }
+  
+  },
+  { immediate: true }
+);
+
+watchEffect(async () => {
   const all = store.getters['epinio/all'](EPINIO_TYPES.SERVICE_INSTANCE) as any[];
   all.forEach((row: any) => { void row.status; void row.stateDisplay; void row.meta; void row.boundapps; });
 
   // Filter empty rows that are added during delete, and filter by active namespace
   const filtered = all.filter((row) => {
     if (!row.id) return false;
-    const ns = row.meta?.namespace;
-
-    return !activeNamespaces || Object.keys(activeNamespaces).length === 0 || activeNamespaces[ns];
+    return true;
   });
 
   // Build the row action menu with RBAC gating. The model already gates the
