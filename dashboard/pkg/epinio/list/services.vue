@@ -93,7 +93,7 @@ watchEffect(async () => {
   const all = store.getters['epinio/all'](EPINIO_TYPES.SERVICE_INSTANCE) as any[];
   all.forEach((row: any) => { void row.status; void row.stateDisplay; void row.meta; void row.boundapps; });
 
-  // Filter empty rows that are added during delete, and filter by active namespace
+  // Filter empty rows that are added during delete
   const filtered = all.filter((row) => {
     if (!row.id) return false;
     return true;
