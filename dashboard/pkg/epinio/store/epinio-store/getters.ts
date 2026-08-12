@@ -52,6 +52,7 @@ export default {
       '/api/v1/configurations': EPINIO_TYPES.CONFIGURATION,
       '/api/v1/services':       EPINIO_TYPES.SERVICE_INSTANCE,
       '/api/v1/applications':   EPINIO_TYPES.APP,
+      '/api/v1/catalogservices': EPINIO_TYPES.CATALOG_SERVICE,
     };
 
     const [path, query = ''] = String(url).split('?');
