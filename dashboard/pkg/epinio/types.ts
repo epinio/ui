@@ -173,6 +173,8 @@ export interface EpinioApplicationResource {
   stage_id: string
   staging: {
     builder: string
+    buildMode?: string
+    dockerfilePath?: string
   }
   status: string
   statusmessage: string

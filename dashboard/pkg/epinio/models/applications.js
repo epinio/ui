@@ -445,6 +445,8 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
         ...opt,
         type,
         builderImage: this.staging.builder,
+        buildMode:    this.staging.buildMode,
+        dockerfilePath: this.staging.dockerfilePath,
         appchart:     this.configuration.appchart,
       },
     };
@@ -461,6 +463,8 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
       container: source.container_url,
       archive:   source.archive,
       builderImage: source.builderImage,
+      buildMode:    source.buildMode,
+      dockerfilePath: source.dockerfilePath,
     };
   }
 
@@ -822,7 +826,8 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
       message: this.t('epinio.growl.application.restage.info.message'),
     }, { root: true });
     try {
-      const { stage } = await this.stage();
+      const { builderImage, buildMode, dockerfilePath } = this.appSource;
+      const { stage } = await this.stage(undefined, builderImage, buildMode, dockerfilePath);
       await this.forceFetch();
       this.showStagingLog(stage.id);
       await this.waitForStaging(stage.id);

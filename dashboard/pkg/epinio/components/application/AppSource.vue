@@ -75,6 +75,39 @@ const isFetchingChartsAndImages = ref<boolean>(true);
 const builderImage = ref(props.source?.builderImage || '');
 const buildMode = ref(props.source?.buildMode || APPLICATION_BUILD_MODE.BUILDPACK);
 const dockerfilePath = ref(props.source?.dockerfilePath || 'Dockerfile');
+const dockerfilePathError = ref('');
+
+function validateDockerfilePathValue(value: string): string {
+  const trimmed = (value || '').trim();
+  if (!trimmed) {
+    return '';
+  }
+  if (
+    trimmed.startsWith('/') ||
+    trimmed.startsWith('\\') ||
+    /^[A-Za-z]:[\\/]/.test(trimmed) ||
+    trimmed.startsWith('\\\\')
+  ) {
+    return t('epinio.applications.steps.source.dockerfilePath.error.absolute');
+  }
+
+  const normalized = trimmed.replace(/\\/g, '/');
+  if (normalized.split('/').some((part) => part === '..')) {
+    return t('epinio.applications.steps.source.dockerfilePath.error.parent');
+  }
+
+  if (!/^[A-Za-z0-9._/-]+$/.test(normalized)) {
+    return t('epinio.applications.steps.source.dockerfilePath.error.chars');
+  }
+
+  return '';
+}
+
+function onDockerfilePathChange(value: string) {
+  dockerfilePath.value = value;
+  dockerfilePathError.value = validateDockerfilePathValue(value);
+  update();
+}
 
 // Reactive State
 const gitSkipTypeReset = ref(false);
@@ -348,20 +381,23 @@ function validate() {
     case APPLICATION_SOURCE_TYPE.ARCHIVE:
     case APPLICATION_SOURCE_TYPE.FOLDER:
       if (buildMode.value === APPLICATION_BUILD_MODE.DOCKERFILE) {
-        return !!archive.tarball && !!dockerfilePath.value;
+        dockerfilePathError.value = validateDockerfilePathValue(dockerfilePath.value);
+        return !!archive.tarball && !!dockerfilePath.value && !dockerfilePathError.value;
       }
       return !!archive.tarball && !!builderImage.value;
     case APPLICATION_SOURCE_TYPE.CONTAINER_URL:
       return !!container.url;
     case APPLICATION_SOURCE_TYPE.GIT_URL:
       if (buildMode.value === APPLICATION_BUILD_MODE.DOCKERFILE) {
-        return !!gitUrl.url && !!gitUrl.branch && !!gitUrl.validGitUrl && !!dockerfilePath.value;
+        dockerfilePathError.value = validateDockerfilePathValue(dockerfilePath.value);
+        return !!gitUrl.url && !!gitUrl.branch && !!gitUrl.validGitUrl && !!dockerfilePath.value && !dockerfilePathError.value;
       }
       return !!gitUrl.url && !!gitUrl.branch && !!builderImage.value && !!gitUrl.validGitUrl;
     case APPLICATION_SOURCE_TYPE.GIT_HUB:
     case APPLICATION_SOURCE_TYPE.GIT_LAB:
       if (buildMode.value === APPLICATION_BUILD_MODE.DOCKERFILE) {
-        return !!git.usernameOrOrg && !!git.url && !!git.repo && !!git.branch && !!git.commit && !!dockerfilePath.value;
+        dockerfilePathError.value = validateDockerfilePathValue(dockerfilePath.value);
+        return !!git.usernameOrOrg && !!git.url && !!git.repo && !!git.branch && !!git.commit && !!dockerfilePath.value && !dockerfilePathError.value;
       }
       return !!git.usernameOrOrg && !!git.url && !!git.repo && !!git.branch && !!git.commit && !!builderImage.value;
   }
@@ -802,8 +838,11 @@ onMounted(async () => {
               data-testid="epinio_app-source_dockerfile-path"
               :label="t('epinio.applications.steps.source.dockerfilePath.inputLabel')"
               :required="true"
-              @text-input-change="(e: CustomEvent) => { dockerfilePath = e.detail.value; update(); }"
+              @text-input-change="(e: CustomEvent) => { onDockerfilePathChange(e.detail.value); }"
             />
+            <p v-if="dockerfilePathError" class="error">
+              {{ dockerfilePathError }}
+            </p>
           </div>
         </template>
 
