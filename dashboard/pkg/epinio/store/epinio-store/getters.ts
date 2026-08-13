@@ -66,7 +66,8 @@ export default {
         params.set('page', String(currentPage));
       }
       if (!params.has('pageSize')) {
-        params.set('pageSize', '10');
+        const pageSize = type === EPINIO_TYPES.CATALOG_SERVICE ? '9' : '10';
+        params.set('pageSize', pageSize);
       }
 
       const search = state.searchQuery?.[type];
