@@ -276,9 +276,11 @@ const allColumns = [
     field: 'nameDisplay',
     label: 'Name',
     width: '125px',
-    link:  (row: any) => {
-      try { return router.resolve(row.detailLocation).href; } catch { return '#'; }
-    }
+    formatter: (_value: any, row: any) => makeNameLinks(
+      [row.meta.name],
+      { cluster: store.getters['clusterId'], namespace: row.meta.namespace, resource: EPINIO_TYPES.APP },
+      router
+    )
   },
   {
     field: 'meta.namespace',
