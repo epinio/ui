@@ -5,7 +5,6 @@ import Masthead from '@shell/components/ResourceList/Masthead';
 
 import { EPINIO_TYPES } from '../types'
 
-import Loading from '@shell/components/Loading.vue'
 import { startPolling, stopPolling } from '../utils/polling';
 
 import CatalogServiceModal from '../components/service/CatalogServiceModal.vue';
@@ -154,7 +153,7 @@ const showDetails = (chart: any) => {
     <div v-if="paginating" class="flex justify-center items-center h-64">
       <trailhand-loading-spinner />
     </div>
-    <div class="cards-container" v-else>
+    <div v-else class="cards-container" >
       <trailhand-card
         v-for="service in list"
         :key="service.id"

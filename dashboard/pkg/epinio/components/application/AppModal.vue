@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, reactive, watch, nextTick, watchEffect } from 'vue';
+import { computed, ref, reactive, watch, nextTick } from 'vue';
 import { useStore } from 'vuex';
 
 import { epinioExceptionToErrorsArray } from '../../utils/errors';

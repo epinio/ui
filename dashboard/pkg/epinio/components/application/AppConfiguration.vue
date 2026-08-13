@@ -3,7 +3,7 @@
 import { ref, computed, watch, onMounted } from 'vue';
 import { useStore } from 'vuex';
 import { sortBy } from '@shell/utils/sort';
-import { _VIEW, _EDIT } from '@shell/config/query-params';
+import { _VIEW } from '@shell/config/query-params';
 import { EpinioConfiguration, EpinioService, EPINIO_TYPES, EPINIO_APP_MANIFEST, EpinioAppBindings } from '../../types';
 import Application from '../../models/applications';
 import ResourceDropdown from './ResourceDropdown.vue';
@@ -234,7 +234,7 @@ watch(values, () => {
 }, { deep: true });
 
 // if the namespace has no configurations, clear the values.configurations array. If it has configurations and the app is from a manifest, set values.configurations to the bound configurations.
-watch(hasConfigs, (neu, old) => {
+watch(hasConfigs, (neu) => {
   if (!neu && values.value.configurations?.length) {
     values.value.configurations = [];
   }
