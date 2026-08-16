@@ -51,6 +51,7 @@ export default {
       '/api/v1/namespaces':     EPINIO_TYPES.NAMESPACE,
       '/api/v1/configurations': EPINIO_TYPES.CONFIGURATION,
       '/api/v1/services':       EPINIO_TYPES.SERVICE_INSTANCE,
+      '/api/v1/applications':   EPINIO_TYPES.APP,
       '/api/v1/catalogservices': EPINIO_TYPES.CATALOG_SERVICE,
     };
 
@@ -74,6 +75,13 @@ export default {
         params.set('search', search);
       } else {
         params.delete('search');
+      }
+
+      const namespaces = state.activeNamespaces;
+      if (namespaces && namespaces.length) {
+        params.set('namespaces', namespaces.join(','));
+      } else {
+        params.delete('namespaces');
       }
 
       const qs = params.toString();
@@ -158,6 +166,8 @@ export default {
 
     return out;
   },
+
+  activeNamespaces: (state: any) => () => state.activeNamespaces,
 
   singleProductCNSI: (state: any) => () => state.singleProductCNSI,
 
