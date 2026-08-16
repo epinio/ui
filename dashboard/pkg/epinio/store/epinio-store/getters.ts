@@ -51,6 +51,7 @@ export default {
       '/api/v1/namespaces':     EPINIO_TYPES.NAMESPACE,
       '/api/v1/configurations': EPINIO_TYPES.CONFIGURATION,
       '/api/v1/services':       EPINIO_TYPES.SERVICE_INSTANCE,
+      '/api/v1/catalogservices': EPINIO_TYPES.CATALOG_SERVICE,
     };
 
     const [path, query = ''] = String(url).split('?');
@@ -64,7 +65,8 @@ export default {
         params.set('page', String(currentPage));
       }
       if (!params.has('pageSize')) {
-        params.set('pageSize', '10');
+        const pageSize = type === EPINIO_TYPES.CATALOG_SERVICE ? '9' : '10';
+        params.set('pageSize', pageSize);
       }
 
       const search = state.searchQuery?.[type];

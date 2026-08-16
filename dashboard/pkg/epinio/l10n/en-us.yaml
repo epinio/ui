@@ -315,6 +315,8 @@ epinio:
             tooltip: Paketo builder image to use for staging
             default: Default Image
             custom: Custom Image
+            inputLabel: Builder Image
+            clusterDefault: Builder Image (leave blank to use the cluster default)
           appchart:
             label: Application Chart
         container_url:
@@ -401,6 +403,7 @@ epinio:
       upload:
         label: Upload
         description: Upload the source for the Application
+        missingSource: Select the folder or archive again to redeploy the source. The browser cannot re-read the files from the last deploy.
       build:
         label: Build
         description: Build the source for the Application
