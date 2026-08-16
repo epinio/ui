@@ -475,10 +475,19 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
       label: 'App Chart',
       value: source.appchart
     };
-    const builderImage = {
-      label: 'Builder Image',
-      value: source.builderImage
-    };
+
+    var builder;
+    if (source?.buildMode === 'dockerfile') {
+      builder = {
+        label: 'Dockerfile Path',
+        value: source.dockerfilePath
+      }
+    } else {
+      builder = {
+        label: 'Builder Image',
+        value: source.builderImage
+      };
+    }
 
     switch (source.type) {
     case APPLICATION_SOURCE_TYPE.FOLDER:
@@ -490,7 +499,7 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
           {
             label: 'Original Name',
             value: source.archive?.fileName
-          }, appChart, builderImage
+          }, appChart, builder
         ]
       };
     case APPLICATION_SOURCE_TYPE.GIT_URL:
@@ -505,7 +514,7 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
             label: 'Revision',
             icon:  'icon-commit',
             value: source.git_url?.branch
-          }, appChart, builderImage
+          }, appChart, builder
         ]
       };
     case APPLICATION_SOURCE_TYPE.GIT_HUB:
@@ -525,7 +534,7 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
             label: 'Branch',
             icon:  'icon-commit',
             value: source[source.type]?.branch.name
-          }, appChart, builderImage
+          }, appChart, builder
         ]
       };
     case APPLICATION_SOURCE_TYPE.CONTAINER_URL:
