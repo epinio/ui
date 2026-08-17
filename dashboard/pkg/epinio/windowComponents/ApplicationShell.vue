@@ -14,7 +14,7 @@ import Socket, {
   EVENT_DISCONNECTED,
   EVENT_MESSAGE,
   EVENT_CONNECT_ERROR,
-} from '@shell/utils/socket';
+} from '../utils/socket';
 import { allHash } from '@shell/utils/promise';
 import { addParams } from '@shell/utils/url';
 import { base64Decode, base64Encode } from '@shell/utils/crypto';

@@ -1,5 +1,5 @@
 import Resource from '@shell/plugins/dashboard-store/resource-class';
-import { EPINIO_PRODUCT_NAME } from '../types';
+import { openTab } from '../utils/dock-state';
 
 export default class ApplicationInstanceResource extends Resource {
   get _availableActions() {
@@ -39,18 +39,17 @@ export default class ApplicationInstanceResource extends Resource {
 
   showAppShell() {
     try {
-      this.$dispatch('wm/open', {
+      openTab({
         id:        `epinio-${ this.application.id }-app-shell`,
         label:     `${ this.application.meta.name } - App Shell`,
-        product:   EPINIO_PRODUCT_NAME,
         icon:      'chevron-right',
         component: 'ApplicationShell',
-        attrs:     {
+        props:     {
           application:     this.application,
           endpoint:        this.application.linkFor('shell'),
           initialInstance: this.name,
         }
-      }, { root: true });
+      });
     } catch (e) {
       console.log(e);
       this.$dispatch('growl/error', {

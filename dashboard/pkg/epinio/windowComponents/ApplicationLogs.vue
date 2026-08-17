@@ -14,7 +14,7 @@ import Socket, {
   EVENT_DISCONNECTED,
   EVENT_MESSAGE,
   EVENT_CONNECT_ERROR
-} from '@shell/utils/socket';
+} from '../utils/socket';
 import day from 'dayjs';
 import AnsiUp from 'ansi_up';
 import { addParams } from '@shell/utils/url';
@@ -481,7 +481,7 @@ const fetchContainers = async () => {
     }
 
     const res = await store.dispatch('epinio/request', {
-      url: `/api/v1/namespaces/${ namespace }/applications/${ appName }/pods`
+      opt: { url: `/api/v1/namespaces/${ namespace }/applications/${ appName }/pods` }
     });
 
     const containers: ContainerInfo[] = [];
