@@ -18,19 +18,21 @@ import { WORKLOAD_TYPES } from '@shell/config/types';
 import { NAME as EXPLORER } from '@shell/config/product/explorer';
 // See https://github.com/epinio/epinio/blob/00684bc36780a37ab90091498e5c700337015a96/pkg/api/core/v1/models/app.go#L11
 const STATES = {
-  CREATING: 'created',
-  STAGING:  'staging',
-  RUNNING:  'running',
-  ERROR:    'error',
+  CREATING:  'created',
+  STAGING:   'staging',
+  DEPLOYING: 'deploying',
+  RUNNING:   'running',
+  ERROR:     'error',
 };
 
 // These map to @shell/plugins/dashboard-store/resource-class STATES
 const STATES_MAPPED = {
-  [STATES.CREATING]: 'created',
-  [STATES.STAGING]:  'building',
-  [STATES.RUNNING]:  'running',
-  [STATES.ERROR]:    'error',
-  unknown:           'unknown',
+  [STATES.CREATING]:  'created',
+  [STATES.STAGING]:   'building',
+  [STATES.DEPLOYING]: 'deploying',
+  [STATES.RUNNING]:   'running',
+  [STATES.ERROR]:     'error',
+  unknown:            'unknown',
 };
 
 function isGitRepo(type) {
@@ -163,6 +165,12 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
         transitioning: true,
         message:       this.statusmessage
       };
+    case STATES.DEPLOYING:
+      return {
+        error:         false,
+        transitioning: true,
+        message:       this.statusmessage
+      };
     case STATES.RUNNING:
       return {
         error:         false,
@@ -188,7 +196,9 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
     const res = [];
 
     const isRunning = [STATES.RUNNING].includes(this.status);
-    const isStaging = this.status === STATES.STAGING || this.stagingstatus === 'active';
+    const isStaging = this.status === STATES.STAGING
+      || this.status === STATES.DEPLOYING
+      || this.stagingstatus === 'active';
     const canGetter = this.$rootGetters?.['epinio/can'];
     const perms = this.$rootGetters?.['epinio/permissions']?.();
     const permsReady = !!(canGetter && perms && Object.keys(perms).length > 0);
