@@ -5,13 +5,13 @@ import { makeCommitShaCell, makeCommitAuthorCell } from '../../utils/table-forma
 import debounce from 'lodash/debounce';
 import { isArray } from '@shell/utils/array';
 import { GitUtils, Commit } from '@shell/utils/git';
-import { EPINIO_TYPES } from '../../types';
 import ResourceDropdown from './ResourceDropdown.vue';
 
 const props = defineProps<{
   value?: any;
   type: string;
   gitConfigs: any[];
+  gitConfigsForbidden?: boolean;
   fetchGitConfigs: () => Promise<void>;
   searchGitConfigs: (query: string) => Promise<void>;
   isLoadingGitConfigs: boolean;
@@ -563,7 +563,7 @@ async function searchBranch(query: string) {
 
       const results = props.type === 'github' ? res.data ? [{ name: res.data.name, ...res.data }] : [] : res.data || [];
       branches.value = [ ...results];
-    } catch (err) {
+    } catch {
       branches.value = [];
     } finally {
       isLoadingBranches.value = false;
@@ -587,7 +587,10 @@ watch(() => props.value, async(neu, old) => {
 <template>
   <div class="picker">
     <div class="row">
-      <div class="spacer source">
+      <div
+        v-if="!gitConfigsForbidden"
+        class="spacer source"
+      >
         <ResourceDropdown
           :value="gitconfig ?? ''"
           :options="gitConfigs.map((c: any) => ({ value: c.meta.name, label: c.meta.name }))"

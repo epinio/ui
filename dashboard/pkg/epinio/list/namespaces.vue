@@ -95,6 +95,18 @@ watchEffect(() => {
   displayRows.value = rows;
 });
 
+// Watch for changes to the active namespace cache and update the request params accordingly
+watchEffect(() => {
+  void store.state.activeNamespaceCacheKey;
+  const activeNamespaces = store.state.activeNamespaceCache;
+
+  if (activeNamespaces && Object.keys(activeNamespaces).length > 0) {
+    requestParams.value.namespaces = Object.keys(activeNamespaces);
+  } else {
+    requestParams.value.namespaces = undefined;
+  }
+});
+
 
 onMounted(() => {
   store.dispatch('epinio/me');
@@ -140,11 +152,6 @@ const columns = [
 ];
 </script>
 
-<!-- eslint-disable vue/no-deprecated-slot-attribute -->
-<!--
-  trailhand-modal is a Web Component, not a Vue component. The HTML standard
-  slot="x" attribute is correct here.
--->
 <template>
   <div id="modal-container-element">
     <Masthead

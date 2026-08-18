@@ -1,28 +1,56 @@
 <script setup lang="ts">
 import { useStore } from 'vuex'
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import Masthead from '@shell/components/ResourceList/Masthead';
 
 import { EPINIO_TYPES } from '../types'
 
-import Loading from '@shell/components/Loading.vue'
 import { startPolling, stopPolling } from '../utils/polling';
 
 import CatalogServiceModal from '../components/service/CatalogServiceModal.vue';
 import CatalogServiceDeleteModal from '../components/service/CatalogServiceDeleteModal.vue';
 import EpinioCatalogServiceModel from '../models/catalogservices';
 import { overrideTableRows } from '../utils/table-formatters';
+import { debounce } from 'lodash';
 
 const store = useStore()
 const props = defineProps<{ schema: object }>(); // eslint-disable-line @typescript-eslint/no-unused-vars
-
-const pending = ref(true);
-const searchQuery = ref(null);
 
 const catalogServiceModal = ref<InstanceType<typeof CatalogServiceModal> | null>(null);
 const deleteModal = ref<InstanceType<typeof CatalogServiceDeleteModal> | null>(null);
 
 const resource: string = EPINIO_TYPES.CATALOG_SERVICE;
+const paginationMeta = computed(() => store.getters['epinio/paginationMeta'](resource));
+const currentPage = computed(() => store.getters['epinio/currentPaginationPage'](resource));
+
+const searchQuery = ref<string>('');
+
+const paginating = ref(false);
+
+async function goToPage(page: number) {
+  const meta = paginationMeta.value;
+
+  if (meta && (page < 1 || page > meta.totalPages)) return;
+  paginating.value = true;
+  try {
+    await store.dispatch('epinio/goToPage', { type: resource, page });
+  } finally {
+    paginating.value = false;
+  }
+}
+
+const onSearch = debounce(async (query: string) => {
+  paginating.value = true;
+  try {
+    await store.dispatch('epinio/search', { type: resource, query });
+  } finally {
+    paginating.value = false;
+  }
+}, 500);
+
+watch(searchQuery, (newQuery) => {
+  onSearch(newQuery);
+});
 
 const canEdit = computed(() => {
   const can = store.getters['epinio/can'];
@@ -33,9 +61,13 @@ const canDelete = canEdit;
 const canCreate = canEdit;
 
 onMounted(async () => {
-  store.dispatch('epinio/me');
-  await store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.CATALOG_SERVICE });
-  pending.value = false;
+  paginating.value = true;
+  try {
+    await store.dispatch('epinio/me');
+    await store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.CATALOG_SERVICE });
+  } finally {
+    paginating.value = false;
+  }
 
   startPolling(["namespaces", "applications", "catalogservices", "services"], store);
 });
@@ -82,26 +114,16 @@ const list = computed(() => {
 
   const processedList = overrideTableRows(filteredList, overrideProps);
 
-  if (!searchQuery.value) {
-    return processedList;
-  } else {
-    const query = searchQuery.value.toLowerCase();
-
-    return processedList.filter((e) => e?.chart.toLowerCase().includes(query) ||
-      e?.description.toLowerCase().includes(query) ||
-      e?.short_description.toLowerCase().includes(query));
-  }
+  return processedList;
 })
 
 const showDetails = (chart: any) => {
   store.$router.push(chart.detailLocation)
 }
-
 </script>
 
 <template>
-  <Loading v-if="pending" />
-  <div id="modal-container-element" v-else>
+  <div id="modal-container-element">
     <Masthead
       :schema="schema"
       :resource="resource"
@@ -128,7 +150,10 @@ const showDetails = (chart: any) => {
       />
     </div>
 
-    <div class="cards-container">
+    <div v-if="paginating" class="flex justify-center items-center h-64">
+      <trailhand-loading-spinner />
+    </div>
+    <div v-else class="cards-container" >
       <trailhand-card
         v-for="service in list"
         :key="service.id"
@@ -149,6 +174,15 @@ const showDetails = (chart: any) => {
       </trailhand-card>
     </div>
   </div>
+  <trailhand-pagination
+    :current-page="currentPage"
+    :total-pages="paginationMeta.totalPages"
+    :show-info="false"
+    :start-item="(currentPage - 1) * paginationMeta.pageSize + 1"
+    :end-item="Math.min(currentPage * paginationMeta.pageSize, paginationMeta.totalItems)"
+    :total-items="paginationMeta.totalItems"
+    @page-change="(e) => goToPage(e.detail.page)"
+  />
   <CatalogServiceModal ref="catalogServiceModal" />
   <CatalogServiceDeleteModal ref="deleteModal" />
 </template>

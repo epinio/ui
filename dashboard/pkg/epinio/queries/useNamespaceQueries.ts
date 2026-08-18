@@ -13,7 +13,7 @@ export function useNamespaces(store: any, params: Ref<ListResourceRequestParams>
     const isExtension = computed(() => !!store.getters['isSingleProduct'] === false);
 
     return useQuery({
-        queryKey: computed(() => ['namespaces', cluster.value?.id, params]),
+        queryKey: computed(() => ['namespaces', cluster.value?.id, params.value]),
         queryFn: async () => {
             if (!cluster?.value) {
                 throw new Error('Cluster is not available');

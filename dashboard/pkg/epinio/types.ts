@@ -291,7 +291,7 @@ export interface EpinioAppInfo {
 export const EPINIO_APP_MANIFEST = 'manifest';
 
 export interface EpinioAppBindings {
-  configurations: string[],
-  services: EpinioService[],
+  configurations: any[],
+  services: any[],
 }
 

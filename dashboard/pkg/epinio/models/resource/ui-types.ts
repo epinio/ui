@@ -19,6 +19,7 @@ export interface ListResourceRequestParams {
     page?: number;
     pageSize?: number;
     search?: string;
+    namespaces?: string[];
 }
 
 export interface ResourceTableAction {

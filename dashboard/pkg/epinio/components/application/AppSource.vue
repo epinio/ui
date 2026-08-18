@@ -19,6 +19,7 @@ import { EpinioAppInfo } from '../../types';
 import { _EDIT } from '@shell/config/query-params';
 import { AppUtils } from '../../utils/application';
 import { EPINIO_TYPES } from '../../types';
+import { isForbidden } from '../../utils/errors';
 import ResourceDropdown from './ResourceDropdown.vue';
 
 const GIT_BASE_URL = {
@@ -60,6 +61,8 @@ const fileDialogActive = ref(false);
 const isLoadingGitConfigs = ref(false);
 const gitConfigs = ref<any[]>([]);
 const cachedGitConfigs = ref<any[]>([]);
+// Set when the config read is refused, which is a valid role, not a fault.
+const gitConfigsForbidden = ref(false);
 
 const isLoadingAppCharts = ref(false);
 const appCharts = ref<any[]>([]);
@@ -68,6 +71,8 @@ const cachedAppCharts = ref<any[]>([]);
 const isLoadingBuilderImages = ref(false);
 const builderImages = ref<any[]>([]);
 const cachedBuilderImages = ref<any[]>([]);
+// Set when the catalog read is refused, which is a valid role, not a fault.
+const builderImagesForbidden = ref(false);
 
 const isFetchingChartsAndImages = ref<boolean>(true);
 
@@ -143,8 +148,24 @@ const isCustomBuilderImage = computed(
   () => selectedBuilderImage.value === 'custom'
 );
 
+// An empty builder image is legal when the catalog cannot be read: the server
+// resolves its own default (request, then app CR, then default CR, then env).
+const hasBuilderImage = computed(
+  () => !!builderImage.value || builderImagesForbidden.value
+);
+
+const builderImageLabel = computed(() => builderImagesForbidden.value
+  ? t('epinio.applications.steps.source.archive.builderimage.clusterDefault')
+  : t('epinio.applications.steps.source.archive.builderimage.inputLabel'));
+
 const showBuilderImage = computed(() =>
-  [APPLICATION_SOURCE_TYPE.ARCHIVE, APPLICATION_SOURCE_TYPE.FOLDER, APPLICATION_SOURCE_TYPE.GIT_URL, APPLICATION_SOURCE_TYPE.GIT_HUB, APPLICATION_SOURCE_TYPE.GIT_LAB].includes(type.value)
+  [
+    APPLICATION_SOURCE_TYPE.ARCHIVE,
+    APPLICATION_SOURCE_TYPE.FOLDER,
+    APPLICATION_SOURCE_TYPE.GIT_URL,
+    APPLICATION_SOURCE_TYPE.GIT_HUB,
+    APPLICATION_SOURCE_TYPE.GIT_LAB,
+  ].includes(type.value)
 );
 
 const gitSource = computed(() => ({
@@ -178,8 +199,13 @@ const fetchGitConfigs = async () => {
     ));
     gitConfigs.value = classifiedData;
     cachedGitConfigs.value = classifiedData;
-  } catch (error) {
-    console.error('Failed to fetch git configs', error);
+    gitConfigsForbidden.value = false;
+  } catch (error: any) {
+    gitConfigsForbidden.value = isForbidden(error);
+
+    if (!gitConfigsForbidden.value) {
+      console.error('Failed to fetch git configs', error);
+    }
   } finally {
     isLoadingGitConfigs.value = false;
   }
@@ -200,7 +226,8 @@ async function searchGitConfigs(query: string) {
       store.dispatch('epinio/create', { type: EPINIO_TYPES.GIT_CONFIG, ...item })
     ));
     gitConfigs.value = classifiedData;
-  } catch {
+  } catch (error: any) {
+    gitConfigsForbidden.value = isForbidden(error);
     gitConfigs.value = [];
   } finally {
     isLoadingGitConfigs.value = false;
@@ -276,8 +303,13 @@ const fetchBuilderImages = async () => {
     ));
     builderImages.value = classifiedData;
     cachedBuilderImages.value = classifiedData;
-  } catch (error) {
-    console.error('Failed to fetch builder images', error);
+    builderImagesForbidden.value = false;
+  } catch (error: any) {
+    builderImagesForbidden.value = isForbidden(error);
+
+    if (!builderImagesForbidden.value) {
+      console.error('Failed to fetch builder images', error);
+    }
   } finally {
     isLoadingBuilderImages.value = false;
   }
@@ -298,7 +330,8 @@ async function searchBuilderImages(query: string) {
       store.dispatch('epinio/create', { type: EPINIO_TYPES.BUILDER_IMAGE, ...item })
     ));
     builderImages.value = classifiedData;
-  } catch {
+  } catch (error: any) {
+    builderImagesForbidden.value = isForbidden(error);
     builderImages.value = [];
   } finally {
     isLoadingBuilderImages.value = false;
@@ -324,22 +357,24 @@ watch(type, () => {
   update();
 });
 
+// Immediate so the parent starts from the form's real validity instead of
+// assuming the tab is valid until something changes.
 watch(valid, (val) => {
   emit('valid', val);
-});
+}, { immediate: true });
 
 function validate() {
   switch (type.value) {
     case APPLICATION_SOURCE_TYPE.ARCHIVE:
     case APPLICATION_SOURCE_TYPE.FOLDER:
-      return !!archive.tarball && !!builderImage.value;
+      return !!archive.tarball && hasBuilderImage.value;
     case APPLICATION_SOURCE_TYPE.CONTAINER_URL:
       return !!container.url;
     case APPLICATION_SOURCE_TYPE.GIT_URL:
-      return !!gitUrl.url && !!gitUrl.branch && !!builderImage.value && !!gitUrl.validGitUrl;
+      return !!gitUrl.url && !!gitUrl.branch && hasBuilderImage.value && !!gitUrl.validGitUrl;
     case APPLICATION_SOURCE_TYPE.GIT_HUB:
     case APPLICATION_SOURCE_TYPE.GIT_LAB:
-      return !!git.usernameOrOrg && !!git.url && !!git.repo && !!git.branch && !!git.commit && !!builderImage.value;
+      return !!git.usernameOrOrg && !!git.url && !!git.repo && !!git.branch && !!git.commit && hasBuilderImage.value;
   }
 }
 
@@ -549,17 +584,30 @@ function onFolderSelected(files: FileWithRelativePath | FileWithRelativePath[]) 
 }
 
 onMounted(async () => {
-  await fetchAppCharts();
-  await fetchBuilderImages();
-  // If no app chart is set from the source or application configuration, default to the standard app chart
+  // Git configs are fetched here rather than on first dropdown open so a refused
+  // read is known before the first paint. Opening it to find out hides the field
+  // under the user's cursor. Each fetch owns its loading flag, so they can race.
+  await Promise.all([fetchAppCharts(), fetchBuilderImages(), fetchGitConfigs()]);
+  // If no app chart is set from the source or application configuration
+  // default to the standard app chart.
   if (!appChart.value) {
     const standardAppChart = appCharts.value.find((ac) => ac.meta.name === 'standard');
-    appChart.value = props.application.configuration?.appchart || props.source?.appChart || standardAppChart?.meta.name || appCharts.value[0]?.meta.name || '';
+    appChart.value = (
+      props.application.configuration?.appchart ||
+      props.source?.appChart ||
+      standardAppChart?.meta.name ||
+      appCharts.value[0]?.meta.name ||
+      ''
+    );
   }
-  // If no builder image is set from the source, default to the info default or the first in the catalog
+  // If no builder image is set from the source, default to the catalog's default or
+  // its first entry. `custom` is a sentinel, not an image, so it is filtered out --
+  // seeding it would stage the literal string. Empty means the server picks.
   if (!builderImage.value) {
-    const defaultImage = allBuilderImages.value.find((bi: any) => bi.default);
-    builderImage.value = defaultImage ? defaultImage.value : allBuilderImages.value[0]?.value || '';
+    const catalogImages = allBuilderImages.value.filter((bi: any) => bi.value !== 'custom');
+    const defaultImage = catalogImages.find((bi: any) => bi.default);
+
+    builderImage.value = defaultImage?.value || catalogImages[0]?.value || '';
   }
   isFetchingChartsAndImages.value = false;
   update();
@@ -673,7 +721,10 @@ onMounted(async () => {
     </template>
 
     <template v-else-if="type === APPLICATION_SOURCE_TYPE.GIT_URL">
-      <div class="spacer source">
+      <div
+        v-if="!gitConfigsForbidden"
+        class="spacer source"
+      >
         <h3>Git Config</h3>
         <ResourceDropdown
           :value="gitUrl.gitconfig"
@@ -719,11 +770,12 @@ onMounted(async () => {
       <GitPicker
         v-model:value="gitSource"
         :type="type"
-        @change="gitUpdate"
         :gitConfigs="gitConfigs"
+        :gitConfigsForbidden="gitConfigsForbidden"
         :fetchGitConfigs="fetchGitConfigs"
         :searchGitConfigs="searchGitConfigs"
         :isLoadingGitConfigs="isLoadingGitConfigs"
+        @change="gitUpdate"
       />
     </template>
 
@@ -745,7 +797,7 @@ onMounted(async () => {
             label: `${ap.meta.name} (${ap.short_description})`
           }))"
           :label="t('epinio.applications.steps.source.archive.appchart.label')"
-          :disabled="isEdit || isView"
+          :disabled="isView"
           placeholder="Select an application chart"
           :onDropdownChange="(e: CustomEvent) => { appChart = e.detail.value; update(); }"
           :fetchAllResources="fetchAppCharts"
@@ -757,6 +809,7 @@ onMounted(async () => {
           <div class="spacer source builder-image">
             <h4>Paketo Builder Image</h4>
             <ResourceDropdown
+              v-if="!builderImagesForbidden"
               :value="selectedBuilderImage"
               :options="allBuilderImages"
               label="Builder Image"
@@ -769,6 +822,8 @@ onMounted(async () => {
               style="width: 100%;"
               :value="builderImage"
               data-testid="epinio_app-source_builder-value"
+              :label="builderImageLabel"
+              :placeholder="props.info?.default_builder_image"
               :disabled="!isCustomBuilderImage"
               @text-input-change="(e: CustomEvent) => { builderImage = e.detail.value; update(); }"
             />

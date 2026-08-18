@@ -34,7 +34,9 @@ eslint.configs.recommended,
   },
   languageOptions: {
     globals: {
-      ...globals.browser
+      ...globals.browser,
+      // webpack DefinePlugin substitutes process.env.* at build time
+      process: 'readonly'
     },
     parserOptions: {
       parser: tseslint.parser,

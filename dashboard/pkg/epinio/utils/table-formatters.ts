@@ -23,6 +23,10 @@ export function makeRouterLinks(
 ): HTMLSpanElement {
   const span = document.createElement('span');
 
+  span.style.whiteSpace = 'normal';
+  span.style.overflowWrap = 'anywhere';
+  span.style.wordBreak = 'break-word';
+
   items.forEach((item, index) => {
     const a = document.createElement('a');
 

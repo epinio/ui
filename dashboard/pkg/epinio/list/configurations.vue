@@ -3,9 +3,8 @@ import { EPINIO_TYPES } from '../types';
 import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
 import { computed, onMounted, onUnmounted, ref, watchEffect, watch } from 'vue';
-import { startPolling, stopPolling } from '../utils/polling';
 import Masthead from '@shell/components/ResourceList/Masthead';
-import { makeEmptyCell, makeNameLinks, makeActionMenu, overrideTableRows } from '../utils/table-formatters';
+import { makeEmptyCell, makeNameLinks, makeActionMenu } from '../utils/table-formatters';
 import ConfigurationModal from '../components/configuration/ConfigurationModal.vue';
 import ConfigurationDeleteModal from '../components/configuration/ConfigurationDeleteModal.vue';
 import BulkDeleteModal from '../components/BulkDeleteModal.vue';
@@ -31,9 +30,6 @@ const windowWidth = ref(window.innerWidth);
 const onResize = () => { windowWidth.value = window.innerWidth; };
 const displayRows = ref<any[]>([]);
 
-const paginationMeta = computed(() => store.getters['epinio/paginationMeta'](resource));
-const currentPage = computed(() => store.getters['epinio/currentPaginationPage'](resource));
-
 const requestParams = ref<ListResourceRequestParams>({
   page: 1,
   pageSize: 10,
@@ -53,6 +49,18 @@ const onSearch = debounce(async (query: string) => {
 
 const {data: configurations, isLoading: isLoadingConfigurations, isError: isErrorConfigurations, error: configurationsError} = useConfigurations(store, requestParams);
 
+// Watch for changes to the active namespace cache and update the request params accordingly
+watchEffect(() => {
+  void store.state.activeNamespaceCacheKey;
+  const activeNamespaces = store.state.activeNamespaceCache;
+
+  if (activeNamespaces && Object.keys(activeNamespaces).length > 0) {
+    requestParams.value.namespaces = Object.keys(activeNamespaces);
+  } else {
+    requestParams.value.namespaces = undefined;
+  }
+});
+
 onMounted(async () => {
   window.addEventListener('resize', onResize);
   await Promise.all([
@@ -63,17 +71,11 @@ onMounted(async () => {
     store.dispatch('epinio/findAll', { type: EPINIO_TYPES.APP }),
     store.dispatch('epinio/findAll', { type: EPINIO_TYPES.SERVICE_INSTANCE }),
   ]);
-  // startPolling(['configurations', 'applications', 'services'], store);
 });
 
 onUnmounted(() => {
   window.removeEventListener('resize', onResize);
-  // stopPolling(['configurations', 'applications', 'services']);
 });
-
-const handleCreateClick = () => {
-  configModal.value?.openCreate();
-};
 
 // Strict RBAC: only show Create when user has configuration write (hides for view_only)
 const canCreateConfiguration = computed(() => {
@@ -98,17 +100,9 @@ watchEffect(() => {
     return;
   }
   
-  void store.state.activeNamespaceCacheKey;
-  const activeNamespaces = store.state.activeNamespaceCache;
-  // filter configurations by active namespace
-  // TODO: move to backend query once epinio supports filtering by namespace
-  const filteredConfigurations = (configurations.value.items ?? []).filter((s) => {
-    const ns = s.meta?.namespace;
-    return !activeNamespaces || Object.keys(activeNamespaces).length === 0 || activeNamespaces[ns];
-  });
   // Add custom namespace delete action to replace the built in rancher shell flow.
   // Gate by namespace write perms so view-only / app-only roles don't see Delete.
-  const rows: ResourceTableRow[] = (filteredConfigurations ?? []).map((s) => ({
+  const rows: ResourceTableRow[] = (configurations.value.items ?? []).map((s) => ({
     ...s,
     id: s.meta.name, // stable, unique per namespace
     availableActions: [{
@@ -280,7 +274,7 @@ const columns = computed(() => {
           v-if="canCreateConfiguration"
           variant="primary"
           size="large"
-          @click="handleCreateClick"
+          @click="openCreateModal"
         >
           {{ t('generic.create') }}
         </trailhand-button>

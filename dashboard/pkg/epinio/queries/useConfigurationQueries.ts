@@ -13,7 +13,7 @@ export function useConfigurations(store: any, params?: Ref<ListResourceRequestPa
     const isExtension = computed(() => !!store.getters['isSingleProduct'] === false);
 
     return useQuery({
-        queryKey: computed(() => ['configurations', cluster.value?.id, params]),
+        queryKey: computed(() => ['configurations', cluster.value?.id, params?.value]),
         queryFn: async () => {
             if (!cluster?.value) {
                 throw new Error('Cluster is not available');

@@ -30,7 +30,8 @@ const bulkDeleteModal = ref<InstanceType<typeof BulkDeleteModal> | null>(null);
 const requestParams = ref<ListResourceRequestParams>({
   page: 1,
   pageSize: 10,
-  search: ''
+  search: '',
+  namespaces: undefined,
 });
 
 const searchQuery = ref<string>('');
@@ -66,17 +67,9 @@ watchEffect(() => {
     return;
   }
   
-  void store.state.activeNamespaceCacheKey;
-  const activeNamespaces = store.state.activeNamespaceCache;
-  // filter services by active namespace
-  // TODO: move to backend query once epinio supports filtering by namespace
-  const filteredServices = (services.value.items ?? []).filter((s) => {
-    const ns = s.meta?.namespace;
-    return !activeNamespaces || Object.keys(activeNamespaces).length === 0 || activeNamespaces[ns];
-  });
   // Add custom namespace delete action to replace the built in rancher shell flow.
   // Gate by namespace write perms so view-only / app-only roles don't see Delete.
-  const rows: ResourceTableRow[] = (filteredServices ?? []).map((s) => ({
+  const rows: ResourceTableRow[] = (services.value.items ?? []).map((s) => ({
     ...s,
     id: s.meta.name, // stable, unique per namespace
     availableActions: [{
@@ -94,6 +87,18 @@ watchEffect(() => {
     canDelete: canDelete.value,
   }));
   displayRows.value = rows;
+});
+
+// Watch for changes to the active namespace cache and update the request params accordingly
+watchEffect(() => {
+  void store.state.activeNamespaceCacheKey;
+  const activeNamespaces = store.state.activeNamespaceCache;
+
+  if (activeNamespaces && Object.keys(activeNamespaces).length > 0) {
+    requestParams.value.namespaces = Object.keys(activeNamespaces);
+  } else {
+    requestParams.value.namespaces = undefined;
+  }
 });
 
 onMounted(async () => {

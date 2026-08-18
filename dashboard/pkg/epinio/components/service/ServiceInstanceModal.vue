@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, reactive, watchEffect } from 'vue';
+import { computed, ref, reactive, watchEffect, watch } from 'vue';
 import { useStore } from 'vuex';
 import { EPINIO_TYPES } from '../../types';
 import { validateKubernetesName } from '@shell/utils/validators/kubernetes-name';
@@ -9,7 +9,9 @@ import ChartValues from '../settings/ChartValues.vue';
 import { useCreateServiceInstance, useBindServiceInstance, useUnbindServiceInstance, useUpdateServiceInstance } from '../../queries/useServiceMutations';
 import { ServiceInstance } from '../../models/service/ui-types';
 import { useNamespaces } from '../../queries/useNamespaceQueries';
+import ResourceDropdown from '../application/ResourceDropdown.vue';
 import { debounce } from 'lodash';
+import { ListResourceRequestParams } from '../../models/resource/ui-types';
 
 import isEqual from 'lodash/isEqual';
 
@@ -32,7 +34,15 @@ const selectedApps = ref<string[]>([]);
 const chartValues = reactive<Record<string, any>>({});
 const validChartValues = ref<Record<string, boolean>>({});
 
-const namespaceRequestParams = ref({ page: 1, pageSize: 25, search: '' });
+const isLoadingCatalogServices = ref(false);
+const cachedCatalogServices = ref<any[]>([]);
+const fetchedCatalogServices = ref<any[]>([]);
+
+const isLoadingApplications = ref(false);
+const cachedApplications = ref<any[]>([]);
+const fetchedApplications = ref<any[]>([]);
+
+const namespaceRequestParams = ref<ListResourceRequestParams>({ page: 1, pageSize: 25, search: '' });
 const namespaceRequestOptions = ref({ enabled: false, polling: false });
 const {data: namespaces, isLoading: isLoadingNamespaces, isError: isErrorNamespaces, error: namespacesError} = useNamespaces(store, namespaceRequestParams, namespaceRequestOptions);
 
@@ -50,32 +60,25 @@ const {mutateAsync: updateService, isPending: isUpdatingService, isError: update
 // Captured separately so background list polls (which omit internal_routes) can't wipe it
 const internalRoutes = ref<string[]>([]);
 
-const fetchNamespaces = () => {
+// Watch for changes to the active namespace cache and update the request params accordingly
+watchEffect(() => {
   void store.state.activeNamespaceCacheKey;
-  const active = store.state.activeNamespaceCache;
-  const activeNamespaces = Object.keys(active).filter((ns) => active[ns]);
-    if (activeNamespaces && activeNamespaces.length) {
-    // TODO: once endpoints are updated, search based on all namespaces, not just the first
-    namespaceRequestParams.value.search = activeNamespaces[0];
-    namespaceRequestParams.value.page = 1;
-    if (activeNamespaces.length === 1 && !formNamespace.value) {
-      formNamespace.value = activeNamespaces[0];
-    }
+  const activeNamespaces = store.state.activeNamespaceCache;
+
+  if (activeNamespaces && Object.keys(activeNamespaces).length > 0) {
+    namespaceRequestParams.value.namespaces = Object.keys(activeNamespaces);
+  } else {
+    namespaceRequestParams.value.namespaces = undefined;
   }
-  namespaceRequestOptions.value.enabled = true;
-};
+});
 
 const namespaceOpts = computed(() => {
   return namespaces?.value?.items.map((ns: any) => ({ label: ns.meta.name, value: ns.meta.name })) || [];
 });
 
 // TODO: replace with tanstack queries once ready for service catalog
-const catalogServices = computed(() =>
-  store.getters['epinio/all'](EPINIO_TYPES.CATALOG_SERVICE)
-);
-
 const catalogServiceOpts = computed(() =>
-  catalogServices.value.map((cs: any) => ({
+  fetchedCatalogServices.value.map((cs: any) => ({
     label: `${cs.name} (${cs.short_description})`,
     value: cs.name,
   }))
@@ -85,17 +88,16 @@ const catalogServiceOpts = computed(() =>
 const nsAppOptions = computed(() => {
   if (!formNamespace.value) return [];
 
-  return store.getters['epinio/all'](EPINIO_TYPES.APP)
-    .filter((a: any) => a.meta.namespace === formNamespace.value)
+  return fetchedApplications.value
     .map((a: any) => ({ label: a.meta.name, value: a.meta.name }));
 });
 
 const selectedCatalogService = computed(() =>
-  catalogServices.value.find((cs: any) => cs.name === formCatalogService.value)
+  fetchedCatalogServices.value.find((cs: any) => cs.name === formCatalogService.value)
 );
 
 const showChartValues = computed(() =>
-  Object.keys(selectedCatalogService.value?.settings || {}).length !== 0
+  Object.keys(selectedCatalogService.value?.settings || {}).length !== 0 || (isEdit.value && Object.keys(chartValues).length !== 0)
 );
 
 const isEdit = computed(() => modalMode.value === 'edit');
@@ -164,7 +166,7 @@ async function openCreate(prefilledCatalogService?: string) {
   Object.keys(chartValues).forEach(k => delete chartValues[k]);
   validChartValues.value = {};
 
-  fetchNamespaces();
+  namespaceRequestOptions.value.enabled = true;
   showModal.value = true;
 }
 
@@ -190,7 +192,7 @@ function openView(row: ServiceInstance) {
 
   populateForm(row);
   
-  fetchNamespaces();
+  namespaceRequestOptions.value.enabled = true;
   showModal.value = true;
 }
 
@@ -199,7 +201,7 @@ function openEdit(row: ServiceInstance) {
 
   populateForm(row);
 
-  fetchNamespaces();
+  namespaceRequestOptions.value.enabled = true;
   showModal.value = true;
 }
 
@@ -336,6 +338,120 @@ const onNamespaceFilter = debounce((query: string) => {
   namespaceRequestParams.value.search = query;
 }, 500);
 
+const fetchCatalogServices = async () => {
+  if (cachedCatalogServices.value.length > 0) {
+    fetchedCatalogServices.value = cachedCatalogServices.value;
+    return;
+  }
+  isLoadingCatalogServices.value = true;
+  try {
+    const res = await store.dispatch('epinio/request', {
+      opt: {
+        url: `/api/v1/catalogservices`,
+        method: 'GET',
+        responseType: 'json'
+      }
+    });
+    const rawData = res.data ?? [];
+
+    // classify raw JSON into proper model instances
+    const classifiedData = await Promise.all(rawData.map((item: any) =>
+      store.dispatch('epinio/create', { type: EPINIO_TYPES.CATALOG_SERVICE, ...item })
+    ));
+    fetchedCatalogServices.value = classifiedData;
+    cachedCatalogServices.value = classifiedData;
+  } catch (error) {
+    console.error('Failed to fetch services', error);
+  } finally {
+    isLoadingCatalogServices.value = false;
+  }
+};
+
+async function searchCatalogServices(query: string) {
+  isLoadingCatalogServices.value = true;
+  try {
+    const res = await store.dispatch('epinio/request', {
+      opt: {
+        url: `/api/v1/catalogservices?search=${query}`,
+        method: 'GET',
+        responseType: 'json'
+      }
+    });
+    const rawData = res.data ?? [];
+    const classifiedData = await Promise.all(rawData.map((item: any) =>
+      store.dispatch('epinio/create', { type: EPINIO_TYPES.CATALOG_SERVICE, ...item })
+    ));
+    fetchedCatalogServices.value = classifiedData;
+  } catch {
+    fetchedCatalogServices.value = [];
+  } finally {
+    isLoadingCatalogServices.value = false;
+  }
+}
+
+async function fetchApplications() {
+  if (!formNamespace.value) return;
+
+  if (cachedApplications.value.length > 0) {
+    fetchedApplications.value = cachedApplications.value;
+    return;
+  }
+
+  isLoadingApplications.value = true;
+  try {
+    const res = await store.dispatch('epinio/request', {
+      opt: {
+        url: `/api/v1/applications?namespaces=${formNamespace.value}`,
+        method: 'GET',
+        responseType: 'json'
+      }
+    });
+    const rawData = res.data ?? [];
+    const classifiedData = await Promise.all(rawData.map((item: any) =>
+      store.dispatch('epinio/create', { type: EPINIO_TYPES.APP, ...item })
+    ));
+    fetchedApplications.value = classifiedData;
+    cachedApplications.value = classifiedData;
+  } catch (error) {
+    console.error('Failed to fetch applications', error);
+  } finally {
+    isLoadingApplications.value = false;
+  }
+}  
+
+async function searchApplications(query: string) {
+  if (!formNamespace.value) return;
+
+  isLoadingApplications.value = true;
+  try {
+    const res = await store.dispatch('epinio/request', {
+      opt: {
+        url: `/api/v1/applications?namespaces=${formNamespace.value}&search=${query}`,
+        method: 'GET',
+        responseType: 'json'
+      }
+    });
+    const rawData = res.data ?? [];
+    const classifiedData = await Promise.all(rawData.map((item: any) =>
+      store.dispatch('epinio/create', { type: EPINIO_TYPES.APP, ...item })
+    ));
+    fetchedApplications.value = classifiedData;
+  } catch {
+    fetchedApplications.value = [];
+  } finally {
+    isLoadingApplications.value = false;
+  }
+}
+
+// watch namespace changes to fetch applications for the selected namespace
+watch(formNamespace, (newNamespace) => {
+  if (newNamespace) {
+    fetchedApplications.value = [];
+    cachedApplications.value = [];
+    fetchApplications();
+  }
+}, { immediate: true });
+
 defineExpose({ openCreate, openEdit, openView });
 </script>
 
@@ -376,17 +492,18 @@ defineExpose({ openCreate, openEdit, openView });
 
         <!-- Catalog Service + Version (version only in view/edit, 3/4 + 1/4 split via 4-col grid) -->
         <trailhand-form-row :columns="(isView || isEdit) ? '4' : '1'">
-          <trailhand-dropdown
-            :style="(isView || isEdit) ? 'width: 100%; grid-column: span 3' : 'width: 100%'"
-            :options="catalogServiceOpts"
+          <ResourceDropdown
             :value="formCatalogService"
-            label="Catalog Service"
-            :required="!isView"
+            :options="catalogServiceOpts"
+            :label="'Catalog Service'"
             :disabled="isEdit || isView"
-            :filterable="true"
+            filterable
             placeholder="Select the type of service to create"
-            @dropdown-change="(e: CustomEvent) => { formCatalogService = e.detail.value; resetChartValues(); }"
-          ></trailhand-dropdown>
+            :onDropdownChange="(e: CustomEvent) => { formCatalogService = e.detail.value; resetChartValues(); }"
+            :fetchAllResources="fetchCatalogServices"
+            :searchResources="searchCatalogServices"
+            :isLoading="isLoadingCatalogServices"
+          />
           <trailhand-text-input
             v-if="isView || isEdit"
             :value="serviceModel?.catalogServiceVersion || ''"
@@ -407,17 +524,19 @@ defineExpose({ openCreate, openEdit, openView });
 
         <!-- Bind to Application -->
         <trailhand-form-row>
-          <trailhand-dropdown
-            style="width: 100%"
-            :options="nsAppOptions"
-            :values="selectedApps"
-            label="Bind to Application (Optional)"
-            :disabled="isView"
-            :multiselect="true"
-            :filterable="true"
-            placeholder="Select applications to bind"
-            @dropdown-change="(e: CustomEvent) => { selectedApps = e.detail.values; }"
-          ></trailhand-dropdown>
+        <ResourceDropdown
+          :values="selectedApps"
+          :options="nsAppOptions"
+          label="Bind to Application (Optional)"
+          :disabled="isView || !formNamespace"
+          filterable
+          multiselect
+          placeholder="Select applications to bind"
+          :onDropdownChange="(e: CustomEvent) => { selectedApps = e.detail.values; }"
+          :fetchAllResources="fetchApplications"
+          :searchResources="searchApplications"
+          :isLoading="isLoadingApplications"
+        />
         </trailhand-form-row>
 
         <!-- Chart Values (shown when the selected catalog service has configurable settings) -->

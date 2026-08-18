@@ -249,7 +249,7 @@ function addSetting() {
         </div>
       </div>
 
-      <div style="display:flex;align-items:flex-start;" v-if="props.allowDefaults">
+      <div v-if="props.allowDefaults" style="display:flex;align-items:flex-start;">
         <trailhand-dropdown
           v-if="setting.enum && setting.enum.length > 0"
           :value="setting.value"
