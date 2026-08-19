@@ -12,9 +12,9 @@ import type { AvailableIcons } from '@krumio/trailhand-ui';
 * not imported statically, since dock-state is pulled in by EpinioDock.vue,
 * which is now part of default.vue's root chrome loaded on every page. A
 * static import would drag the whole log/terminal dependency chain (xterm,
-* Shell's Select component, etc) into the app's core bundle on every page
-* load instead of only when a tab is actually opened, same as Shell's own
-* window components were always lazy-loaded before this.
+* ansi_up, etc) into the app's core bundle on every page load instead of
+* only when a tab is actually opened, same as Shell's own window components
+* were always lazy-loaded before this.
 */
 
 const COMPONENTS = {

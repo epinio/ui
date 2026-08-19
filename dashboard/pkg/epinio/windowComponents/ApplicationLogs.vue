@@ -17,10 +17,8 @@ import Socket, {
 } from '../utils/socket';
 import day from 'dayjs';
 import AnsiUp from 'ansi_up';
-import { addParams } from '@shell/utils/url';
-import { downloadFile } from '@shell/utils/download';
-import { escapeHtml, escapeRegex } from '@shell/utils/string';
-import { LOGS_TIME, LOGS_WRAP, DATE_FORMAT, TIME_FORMAT } from '@shell/store/prefs';
+import { addParams, downloadFile, escapeHtml, escapeRegex } from '../utils/browser';
+import { logPrefs, setLogWrap } from '../utils/log-prefs';
 
 import { useApplicationSocketMixin } from './ApplicationSocketMixin';
 
@@ -83,8 +81,8 @@ const containerSearch = ref<string>('');
 const loadingContainers = ref<boolean>(false);
 
 const ansiup = new AnsiUp();
-const timestamps = store.getters['prefs/get'](LOGS_TIME);
-const wrap = ref<boolean>(store.getters['prefs/get'](LOGS_WRAP));
+const timestamps = logPrefs.timestamps;
+const wrap = ref<boolean>(logPrefs.wrap);
 
 onMounted(async () => {
   await fetchContainers();
@@ -201,8 +199,8 @@ const filtered = computed(() => {
 });
 
 const timeFormatStr = computed(() => {
-  const dateFormat = escapeHtml(store.getters['prefs/get'](DATE_FORMAT));
-  const timeFormat = escapeHtml(store.getters['prefs/get'](TIME_FORMAT));
+  const dateFormat = escapeHtml(logPrefs.dateFormat);
+  const timeFormat = escapeHtml(logPrefs.timeFormat);
 
   return `${ dateFormat } ${ timeFormat }`;
 });
@@ -370,7 +368,7 @@ const follow = () => {
 };
 
 const toggleWrap = () => {
-  store.dispatch('prefs/set', { key: LOGS_WRAP, value: wrap.value });
+  setLogWrap(wrap.value);
 };
 
 const format = (time) => {
@@ -800,14 +798,6 @@ const clearContainerFilters = () => {
     </div>
   </div>
 </template>
-
-<style lang="scss">
-.epinio-app-log {
-  .v-select.inline.vs--single.vs--open .vs__selected {
-    position: inherit;
-  }
-}
-</style>
 
 <style lang="scss" scoped>
   .epinio-app-log {

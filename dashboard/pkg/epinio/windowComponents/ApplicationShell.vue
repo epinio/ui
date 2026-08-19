@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { useStore } from 'vuex';
-import { 
-  ref, 
-  onMounted, 
-  onBeforeUnmount, 
+import {
+  ref,
+  computed,
+  onMounted,
+  onBeforeUnmount,
   watch,
   PropType,
 } from 'vue';
@@ -15,12 +16,8 @@ import Socket, {
   EVENT_MESSAGE,
   EVENT_CONNECT_ERROR,
 } from '../utils/socket';
-import { allHash } from '@shell/utils/promise';
-import { addParams } from '@shell/utils/url';
-import { base64Decode, base64Encode } from '@shell/utils/crypto';
+import { allHash, addParams, base64Decode, base64Encode } from '../utils/browser';
 import { useApplicationSocketMixin } from './ApplicationSocketMixin';
-
-import Select from '@shell/components/form/Select';
 
 const store = useStore();
 const t = store.getters['i18n/t'];
@@ -50,10 +47,11 @@ const {
 
 const xterm = ref<HTMLElement | null>(null);
 const instance = ref<string>(props.initialInstance || instanceChoices.value[0]);
-const terminal = ref<object | null>(null);
-const fitAddon = ref<object | null>(null);
-const searchAddon = ref<object | null>(null);
-const webglAddon = ref<object | null>(null);
+const instanceOptions = computed(() => instanceChoices.value.map((choice: string) => ({ label: choice, value: choice })));
+const terminal = ref<any>(null);
+const fitAddon = ref<any>(null);
+const searchAddon = ref<any>(null);
+const webglAddon = ref<any>(null);
 const isOpening = ref<boolean>(false);
 const keepAliveTimer = ref<object | null>(null);
 const xtermConfig = {
@@ -64,6 +62,7 @@ const xtermConfig = {
 };
 
 let themeObserver: MutationObserver | null = null;
+let resizeObserver: ResizeObserver | null = null;
 
 // xterm reads these CSS vars once at construction and bakes them into its
 // own theme object, it doesn't react to CSS changes the way the rest of the
@@ -123,7 +122,7 @@ const setupTerminal = async () => {
   searchAddon.value = new addons.search.SearchAddon();
 
   try {
-    webglAddon.value = new addons.webgl.WebGlAddon();
+    webglAddon.value = new addons.webgl.WebglAddon();
   } catch (e: any) { // eslint-disable-line @typescript-eslint/no-unused-vars
     // Some browsers (Safari) don't support the webgl renderer, so don't use it.
     webglAddon.value = null;
@@ -138,6 +137,9 @@ const setupTerminal = async () => {
   
   terminalTemp.open(xterm.value);
 
+  resizeObserver = new ResizeObserver(() => fit());
+  resizeObserver.observe(xterm.value as HTMLElement);
+
   fit();
   flush();
 
@@ -151,7 +153,7 @@ const setupTerminal = async () => {
 
   themeObserver = new MutationObserver(() => {
     if (terminal.value) {
-      (terminal.value as any).options.theme = getTerminalTheme();
+      terminal.value.options.theme = getTerminalTheme();
     }
   });
   themeObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] });
@@ -270,6 +272,9 @@ const cleanup = () => {
   themeObserver?.disconnect();
   themeObserver = null;
 
+  resizeObserver?.disconnect();
+  resizeObserver = null;
+
   if (socket.value) {
     socket.value.disconnect();
     socket.value = null;
@@ -285,14 +290,14 @@ const cleanup = () => {
 <template>
   <div class="epinio-app-shell">
     <div class="dock-tab-toolbar">
-      <Select
+      <trailhand-dropdown
         v-if="instanceChoices.length > 1"
-        v-model:value="instance"
-        :disabled="instanceChoices.length === 1"
-        class="containerPicker auto-width pull-left"
-        :options="instanceChoices"
-        :clearable="false"
-        placement="top"
+        class="pull-left"
+        :value="instance"
+        :options="instanceOptions"
+        size="small"
+        position="top"
+        @dropdown-change="(e: CustomEvent) => instance = e.detail.value"
       />
       <div class="pull-left ml-5">
         <trailhand-button
@@ -328,19 +333,10 @@ const cleanup = () => {
           ref="xterm"
           class="shell-body"
         />
-        <resize-observer @notify="fit" />
       </div>
     </div>
   </div>
 </template>
-
-<style lang="scss">
-.epinio-app-shell {
-  .v-select.inline.vs--single.vs--open .vs__selected {
-    position: inherit;
-  }
-}
-</style>
 
 <style lang="scss" scoped>
 .epinio-app-shell {
@@ -386,16 +382,6 @@ const cleanup = () => {
 
   & > .terminal.focus {
     outline: var(--outline-width) solid var(--outline);
-  }
-}
-
-.containerPicker {
-  ::v-deep &.unlabeled-select {
-    display: inline-block;
-    min-width: 200px;
-    height: 30px;
-    min-height: 30px;
-    width: initial;
   }
 }
 
