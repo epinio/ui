@@ -1,6 +1,5 @@
-import { reactive, markRaw } from 'vue';
-import ApplicationLogs from '../windowComponents/ApplicationLogs.vue';
-import ApplicationShell from '../windowComponents/ApplicationShell.vue';
+import { reactive, markRaw, defineAsyncComponent } from 'vue';
+import type { AvailableIcons } from '@krumio/trailhand-ui';
 
 /*
 * Epinio-owned replacement for Rancher Shell's `wm` Vuex module. Holds the tabs
@@ -8,17 +7,25 @@ import ApplicationShell from '../windowComponents/ApplicationShell.vue';
 * component + props renders each one. `EpinioDock.vue` reads this to drive
 * `<trailhand-dock>`, and reflects tab-switch/tab-close events from the dock
 * back into this state.
+*
+* ApplicationLogs/ApplicationShell are loaded lazily (defineAsyncComponent),
+* not imported statically, since dock-state is pulled in by EpinioDock.vue,
+* which is now part of default.vue's root chrome loaded on every page. A
+* static import would drag the whole log/terminal dependency chain (xterm,
+* Shell's Select component, etc) into the app's core bundle on every page
+* load instead of only when a tab is actually opened, same as Shell's own
+* window components were always lazy-loaded before this.
 */
 
 const COMPONENTS = {
-  ApplicationLogs:  markRaw(ApplicationLogs),
-  ApplicationShell: markRaw(ApplicationShell),
+  ApplicationLogs:  markRaw(defineAsyncComponent(() => import('../windowComponents/ApplicationLogs.vue'))),
+  ApplicationShell: markRaw(defineAsyncComponent(() => import('../windowComponents/ApplicationShell.vue'))),
 };
 
 export interface DockTabConfig {
   id: string;
   label: string;
-  icon?: string;
+  icon?: AvailableIcons;
   component: keyof typeof COMPONENTS;
   props?: Record<string, any>;
 }
@@ -26,16 +33,34 @@ export interface DockTabConfig {
 export interface DockTabEntry {
   id: string;
   label: string;
-  icon?: string;
+  icon?: AvailableIcons;
   component: any;
   props: Record<string, any>;
 }
 
-export const dockState: { tabs: DockTabEntry[], activeTab: string | null, open: boolean } = reactive({
+const storedHeight = Number(window.localStorage.getItem('wm-height'));
+
+export const dockState: { tabs: DockTabEntry[], activeTab: string | null, open: boolean, height: number } = reactive({
   tabs:      [],
   activeTab: null,
   open:      false,
+  height:    storedHeight > 0 ? storedHeight : 300,
 });
+
+let persistHeightTimer: ReturnType<typeof setTimeout> | null = null;
+
+export function setHeight(height: number): void {
+  dockState.height = height;
+
+  // localStorage.setItem is a synchronous, blocking write. Fine once, not
+  // dozens of times a second while a resize drag is in progress.
+  if (persistHeightTimer) {
+    clearTimeout(persistHeightTimer);
+  }
+  persistHeightTimer = setTimeout(() => {
+    window.localStorage.setItem('wm-height', String(height));
+  }, 300);
+}
 
 export function openTab(tab: DockTabConfig): void {
   if (dockState.tabs.some((t) => t.id === tab.id)) {

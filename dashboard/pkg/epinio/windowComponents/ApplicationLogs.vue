@@ -22,8 +22,6 @@ import { downloadFile } from '@shell/utils/download';
 import { escapeHtml, escapeRegex } from '@shell/utils/string';
 import { LOGS_TIME, LOGS_WRAP, DATE_FORMAT, TIME_FORMAT } from '@shell/store/prefs';
 
-import Window from '@shell/components/nav/WindowManager/Window';
-
 import { useApplicationSocketMixin } from './ApplicationSocketMixin';
 
 const store = useStore();
@@ -68,7 +66,6 @@ const instance = ref<string>(props.initialInstance || instanceChoices[0]);
 const lines = ref<Array<any>>([]);
 const timerFlush = ref<object>(null);
 const isFollowing = ref<boolean>(false);
-const active = ref<boolean>(true);
 const body = ref<HTMLElement>(null);
 const isApplyingFilters = ref<boolean>(false);
 
@@ -562,12 +559,8 @@ const clearContainerFilters = () => {
 </script>
 
 <template>
-  <Window
-    :active="active"
-    :before-close="cleanup"
-    class="epinio-app-log"
-  >
-    <template #title>
+  <div class="epinio-app-log">
+    <div class="dock-tab-toolbar">
       <div class="title-inner log-action ">
         <div class="title-inner-left">
           <trailhand-dropdown
@@ -761,8 +754,8 @@ const clearContainerFilters = () => {
           </div>
         </div>
       </div>
-    </template>
-    <template #body>
+    </div>
+    <div class="dock-tab-body">
       <div
         ref="body"
         :class="{'logs-container': true, 'open': isOpen, 'closed': !isOpen, 'show-times': timestamps && filtered.length, 'wrap-lines': wrap}"
@@ -804,8 +797,8 @@ const clearContainerFilters = () => {
           </tbody>
         </table>
       </div>
-    </template>
-  </Window>
+    </div>
+  </div>
 </template>
 
 <style lang="scss">
@@ -813,14 +806,30 @@ const clearContainerFilters = () => {
   .v-select.inline.vs--single.vs--open .vs__selected {
     position: inherit;
   }
-
-  .title {
-    overflow: visible !important;
-  }
 }
 </style>
 
 <style lang="scss" scoped>
+  .epinio-app-log {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  .dock-tab-toolbar {
+    flex-shrink: 0;
+    order: 2;
+    padding: 10px;
+    border-top: 1px solid var(--border);
+  }
+
+  .dock-tab-body {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+  }
+
   .title-inner {
     display: flex;
     flex-direction: row;

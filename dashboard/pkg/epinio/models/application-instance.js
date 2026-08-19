@@ -42,7 +42,7 @@ export default class ApplicationInstanceResource extends Resource {
       openTab({
         id:        `epinio-${ this.application.id }-app-shell`,
         label:     `${ this.application.meta.name } - App Shell`,
-        icon:      'chevron-right',
+        icon:      'chevronRight',
         component: 'ApplicationShell',
         props:     {
           application:     this.application,

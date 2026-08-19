@@ -908,7 +908,7 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
       openTab({
         id:        this.appShellId,
         label:     `${ this.meta.name } - App Shell`,
-        icon:      'chevron-right',
+        icon:      'chevronRight',
         component: 'ApplicationShell',
         props:     {
           application:     this,
