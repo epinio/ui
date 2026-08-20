@@ -834,9 +834,10 @@ const clearContainerFilters = () => {
   }
 
   .logs-container {
+    box-sizing: border-box;
     height: 100%;
     overflow: auto;
-    padding: 5px;
+    padding: 5px 5px 16px;
     background-color: var(--logs-bg);
     font-family: Menlo,Consolas,monospace;
     color: var(--logs-text);
