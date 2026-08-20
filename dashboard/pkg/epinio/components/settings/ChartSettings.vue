@@ -1,23 +1,15 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-
-export interface ConfigSetting {
-  name: string;
-  type: 'string' | 'number' | 'integer' | 'bool';
-  enum?: string[];
-  minimum?: string;
-  maximum?: string;
-  value?: any;
-}
+import { ChartSetting } from '../../models/catalogservice/ui-types';
 
 const props = defineProps<{
-  modelValue: ConfigSetting[];
+  modelValue: ChartSetting[];
   disabled?: boolean;
   allowDefaults?: boolean;
 }>();
 
 const emit = defineEmits<{
-  (e: 'update:modelValue', value: ConfigSetting[]): void;
+  (e: 'update:modelValue', value: ChartSetting[]): void;
 }>();
 
 const settings = computed({
@@ -25,7 +17,7 @@ const settings = computed({
   set: (value) => emit('update:modelValue', value),
 });
 
-function updateSetting(index: number, patch: Partial<ConfigSetting>) {
+function updateSetting(index: number, patch: Partial<ChartSetting>) {
   const next = [...settings.value];
   next[index] = {
     ...next[index],

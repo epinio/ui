@@ -1,17 +1,18 @@
 <script setup lang="ts">
 import { useStore } from 'vuex'
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
+import { useCatalogServices } from '../queries/useCatalogServicesQueries';
 import Masthead from '@shell/components/ResourceList/Masthead';
 
 import { EPINIO_TYPES } from '../types'
 
-import { startPolling, stopPolling } from '../utils/polling';
-
 import CatalogServiceModal from '../components/service/CatalogServiceModal.vue';
 import CatalogServiceDeleteModal from '../components/service/CatalogServiceDeleteModal.vue';
-import EpinioCatalogServiceModel from '../models/catalogservices';
-import { overrideTableRows } from '../utils/table-formatters';
 import { debounce } from 'lodash';
+import { ListResourceRequestParams } from '../models/resource/ui-types';
+import { ResourceTableRow } from '../models/resource/ui-types';
+import { CatalogService } from '../models/catalogservice/ui-types';
+import { createEpinioRoute } from '../utils/custom-routing';
 
 const store = useStore()
 const props = defineProps<{ schema: object }>(); // eslint-disable-line @typescript-eslint/no-unused-vars
@@ -20,37 +21,25 @@ const catalogServiceModal = ref<InstanceType<typeof CatalogServiceModal> | null>
 const deleteModal = ref<InstanceType<typeof CatalogServiceDeleteModal> | null>(null);
 
 const resource: string = EPINIO_TYPES.CATALOG_SERVICE;
-const paginationMeta = computed(() => store.getters['epinio/paginationMeta'](resource));
-const currentPage = computed(() => store.getters['epinio/currentPaginationPage'](resource));
+
+const requestParams = ref<ListResourceRequestParams>({
+  page: 1,
+  pageSize: 9,
+  search: '',
+});
 
 const searchQuery = ref<string>('');
-
-const paginating = ref(false);
-
-async function goToPage(page: number) {
-  const meta = paginationMeta.value;
-
-  if (meta && (page < 1 || page > meta.totalPages)) return;
-  paginating.value = true;
-  try {
-    await store.dispatch('epinio/goToPage', { type: resource, page });
-  } finally {
-    paginating.value = false;
-  }
-}
-
-const onSearch = debounce(async (query: string) => {
-  paginating.value = true;
-  try {
-    await store.dispatch('epinio/search', { type: resource, query });
-  } finally {
-    paginating.value = false;
-  }
-}, 500);
 
 watch(searchQuery, (newQuery) => {
   onSearch(newQuery);
 });
+
+const onSearch = debounce(async (query: string) => {
+  requestParams.value.page = 1;
+  requestParams.value.search = query;
+}, 500);
+
+const {data: catalogServices, isLoading: isLoadingCatalogServices, isError: isErrorCatalogServices, error: catalogServicesError} = useCatalogServices(store, requestParams);
 
 const canEdit = computed(() => {
   const can = store.getters['epinio/can'];
@@ -61,64 +50,51 @@ const canDelete = canEdit;
 const canCreate = canEdit;
 
 onMounted(async () => {
-  paginating.value = true;
-  try {
-    await store.dispatch('epinio/me');
-    await store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.CATALOG_SERVICE });
-  } finally {
-    paginating.value = false;
-  }
-
-  startPolling(["namespaces", "applications", "catalogservices", "services"], store);
-});
-
-onUnmounted(() => {
-  stopPolling(["namespaces", "applications", "catalogservices", "services"]);
+  await store.dispatch('epinio/me');
 });
 
 const list = computed(() => {
-  const catalogList = store.getters['epinio/all'](EPINIO_TYPES.CATALOG_SERVICE)
+  if (!catalogServices.value) {
+    return [];
+  }
+  
+  // Add custom namespace delete action to replace the built in rancher shell flow.
+  // Gate by namespace write perms so view-only / app-only roles don't see Delete.
+  const rows: ResourceTableRow<CatalogService>[] = (catalogServices.value.items ?? []).map((s) => ({
+    ...s,
+    id: s.meta.name, // stable, unique per namespace
+    availableActions: [{
+      label: 'Delete',
+      action: () => openDeleteModal(s),
+      enabled: canDelete.value,
+      visible: canDelete.value,
+      danger: true,
+    }, {
+      label: 'Edit',
+      action: () => openEditModal(s),
+      enabled: canEdit.value,
+      visible: canEdit.value,
+    }],
+    canDelete: canDelete.value,
+  }));
+  return rows;
+});
 
-  // filter empty catalog services that are added during delete
-  const filteredList = catalogList.filter((service: EpinioCatalogServiceModel) => service.meta.name !== '')
+function openDeleteModal(catalogService: CatalogService) {
+  deleteModal.value?.openDelete(catalogService);
+}
 
-  const rowActions = (row: EpinioCatalogServiceModel) => {
-    const out: any[] = [];
+function openEditModal(catalogService: CatalogService) {
+  catalogServiceModal.value?.openEdit(catalogService);
+}
 
-    if (canEdit.value) {
-      out.push({
-        label: 'Edit',
-        enabled: true,
-        action: () => catalogServiceModal.value?.openEdit(row),
-
-      });
-    }
-    if (canDelete.value) {
-      out.push({
-        enabled: true,
-        label: 'Delete',
-        action: () => deleteModal.value?.openDelete(row),
-      });
-    }
-
-    return out;
-  };
-
-  const overrideProps = [
-    {
-      prop: 'availableActions',
-      value: rowActions,
-      conditionFn: () => true,
-    },
-  ];
-
-  const processedList = overrideTableRows(filteredList, overrideProps);
-
-  return processedList;
-})
-
-const showDetails = (chart: any) => {
-  store.$router.push(chart.detailLocation)
+const showDetails = (catalogService: CatalogService) => {
+  const route = createEpinioRoute('c-cluster-resource-id', {
+    cluster:   store.getters['clusterId'],
+    resource:  resource,
+    id: catalogService.meta.name,
+  });
+  store.$router.push(route);
 }
 </script>
 
@@ -150,7 +126,7 @@ const showDetails = (chart: any) => {
       />
     </div>
 
-    <div v-if="paginating" class="flex justify-center items-center h-64">
+    <div v-if="isLoadingCatalogServices" class="flex justify-center items-center h-64">
       <trailhand-loading-spinner />
     </div>
     <div v-else class="cards-container" >
@@ -158,16 +134,16 @@ const showDetails = (chart: any) => {
         v-for="service in list"
         :key="service.id"
         :card-title="service.meta.name"
-        :description="service.short_description"
-        :icon-src="service.service_icon ? service.service_icon : null"
-        :icon-name="service.service_icon ? null : 'database'"
+        :description="service.shortDescription"
+        :icon-src="service.serviceIcon ? service.serviceIcon : null"
+        :icon-name="service.serviceIcon ? null : 'database'"
         clickable
         @click="showDetails(service)"
       >
         <div slot="title" class="card-title">
           <h3>{{ service.meta.name }}</h3>
           <trailhand-action-menu
-            v-if="service.availableActions.length > 0"
+            v-if="service.availableActions && service.availableActions.length > 0"
             :actions="service.availableActions"
           />
         </div>
@@ -175,13 +151,14 @@ const showDetails = (chart: any) => {
     </div>
   </div>
   <trailhand-pagination
-    :current-page="currentPage"
-    :total-pages="paginationMeta.totalPages"
+    v-if="catalogServices && catalogServices.totalItems > 0"
+    :current-page="catalogServices.page"
+    :total-pages="catalogServices.totalPages"
     :show-info="false"
-    :start-item="(currentPage - 1) * paginationMeta.pageSize + 1"
-    :end-item="Math.min(currentPage * paginationMeta.pageSize, paginationMeta.totalItems)"
-    :total-items="paginationMeta.totalItems"
-    @page-change="(e) => goToPage(e.detail.page)"
+    :start-item="(catalogServices.page - 1) * catalogServices.pageSize + 1"
+    :end-item="Math.min(catalogServices.page * catalogServices.pageSize, catalogServices.totalItems)"
+    :total-items="catalogServices.totalItems"
+    @page-change="(e) => requestParams.page = e.detail.page"
   />
   <CatalogServiceModal ref="catalogServiceModal" />
   <CatalogServiceDeleteModal ref="deleteModal" />

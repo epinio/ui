@@ -502,6 +502,11 @@ epinio:
       chartVersion: Chart Version
       appVersion: Version
       helmChart: Helm Chart
+    errors:
+      delete: Error deleting Catalog Service, please try again.
+      create: Error creating Catalog Service, please try again.
+      update: Error updating Catalog Service, please try again.
+      save: Error saving Catalog Service, please try again.
   warnings:
     noNamespace: There are no namespaces. Please create one before proceeding
   login:

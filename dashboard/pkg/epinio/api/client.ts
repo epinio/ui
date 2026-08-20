@@ -81,5 +81,6 @@ export function createEpinioClient(cluster: EpinioClusterContext, isExtension: b
     get:    (path: string, opts?: RequestInit & { params?: object }) => request(path, { ...opts, method: 'GET' }),
     post:   (path: string, body?: unknown, opts?: RequestInit & { params?: object }) => request(path, { ...opts, method: 'POST', body: JSON.stringify(body) }),
     put:    (path: string, body?: unknown, opts?: RequestInit & { params?: object }) => request(path, { ...opts, method: 'PUT', body: JSON.stringify(body) }),
+    patch:  (path: string, body?: unknown, opts?: RequestInit & { params?: object }) => request(path, { ...opts, method: 'PATCH', body: JSON.stringify(body) }),
     delete: (path: string, body?: unknown, opts?: RequestInit & { params?: object }) => request(path, { ...opts, method: 'DELETE', body: body ? JSON.stringify(body) : undefined }),  };
 }

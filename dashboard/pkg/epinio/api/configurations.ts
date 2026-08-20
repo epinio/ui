@@ -25,19 +25,19 @@ export function configurationsApi(epinioClient: ReturnType<typeof createEpinioCl
         deleteConfiguration: async (namespace: string, configurationName: string) => {
             return await epinioClient.delete(`${namespacesBasePath}/${namespace}/configurations/${configurationName}`, { unmounted: true });
         },
-        // bulkDelete: async (
-        //     namespace: string,
-        //     names: string[],
-        //     opts: { unbind?: boolean; deleteImage?: boolean } = {}
-        // ) => {
-        //     const query = names
-        //     .map(name => `services[]=${encodeURIComponent(name)}`)
-        //     .join('&');
+        bulkDelete: async (
+            namespace: string,
+            names: string[],
+            opts: { unbind?: boolean; deleteImage?: boolean } = {}
+        ) => {
+            const query = names
+            .map(name => `configurations[]=${encodeURIComponent(name)}`)
+            .join('&');
 
-        //     return epinioClient.delete(
-        //         `${namespacesBasePath}/${namespace}/services?${query}`,
-        //         { unbind: true, ...(opts.deleteImage && { deleteImage: true }) }
-        //     );
-        // },
+            return epinioClient.delete(
+                `${namespacesBasePath}/${namespace}/configurations?${query}`,
+                { unbind: true, ...(opts.deleteImage && { deleteImage: true }) }
+            );
+        },
     };
 }

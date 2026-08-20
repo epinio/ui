@@ -4,7 +4,7 @@ import { useCluster } from "./useCluster";
 import { configurationsApi } from "../api/configurations";
 import { epinioQueryClient } from "../api/queryClient";
 import { computed } from "vue";
-import { ConfigurationCreateRequest, ConfigurationBindRequest, ConfigurationPutRequest } from "../models/configuration/ui-types";
+import { ConfigurationCreateRequest, ConfigurationBindRequest, ConfigurationPutRequest, ConfigurationResponse } from "../models/configuration/ui-types";
 import { toApiConfigurationCreateRequest, toApiConfigurationBindRequest, toApiConfigurationPutRequest } from "../models/configuration/mappers";
 
 export function useCreateConfiguration(store: any, onSuccessCallback?: () => void) {
@@ -112,3 +112,62 @@ export function useDeleteConfiguration(store: any, onSuccessCallback?: () => voi
         },
     }, epinioQueryClient);
 }   
+
+export function useBulkRemoveConfigurations(store: any, onSuccessCallback?: () => void) {
+    const { data: cluster } = useCluster(store);
+    const isExtension = computed(() => !!store.getters['isSingleProduct'] === false);
+
+  return useMutation({
+    mutationFn: async ({ items, deleteImage }: { items: ConfigurationResponse[], deleteImage: boolean }) => {
+        if (!cluster?.value) {
+                throw new Error('Cluster is not available');
+        }
+        const epinioClient = createEpinioClient(cluster.value, isExtension.value);
+        const api = configurationsApi(epinioClient);
+
+        // Delete endpoints are grouped by namespace
+        const byNamespace = items.reduce<Record<string, string[]>>((acc, item) => {
+            const ns = item.meta.namespace;
+            acc[ns] ??= [];
+            acc[ns].push(item.meta.name);
+            return acc;
+        }, {});
+
+        await Promise.all(
+            Object.entries(byNamespace).map(([namespace, names]) =>
+                api.bulkDelete(namespace, names, { unbind: true, deleteImage })
+            )
+        );
+    },
+
+    onMutate: async ({ items }: { items: ConfigurationResponse[], deleteImage: boolean }) => {
+        // Optimistically update the cache to remove the deleted items
+        epinioQueryClient.setQueryData(
+            ['configurations', cluster.value?.id],
+            (old: ConfigurationResponse[] | undefined) =>
+            old?.filter(
+                existing => !items.some(
+                removed => removed.meta.name === existing.meta.name &&
+                            removed.meta.namespace === existing.meta.namespace
+                )
+            ) ?? []
+        );
+    },
+
+    onError: (_err, _vars) => {
+        epinioQueryClient.invalidateQueries({
+            queryKey: ['configurations', cluster.value?.id]
+        });
+    },
+
+    onSuccess: (_data, { items, deleteImage }) => {
+        epinioQueryClient.invalidateQueries({
+            queryKey: ['configurations', cluster.value?.id]
+        });
+
+        if (onSuccessCallback) {
+            onSuccessCallback();
+        }
+    },
+  }, epinioQueryClient);
+}

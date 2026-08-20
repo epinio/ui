@@ -85,6 +85,7 @@ export function useUpdateServiceInstance(store: any, onSuccessCallback?: () => v
         },
         onSuccess: () => {
             epinioQueryClient.invalidateQueries({ queryKey: ['services', cluster.value?.id] });
+            epinioQueryClient.invalidateQueries({ queryKey: ['service', cluster.value?.id] });
             if (onSuccessCallback) {
                 onSuccessCallback();
             }

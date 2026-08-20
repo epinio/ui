@@ -50,8 +50,7 @@ const { mutateAsync: bulkRemove } = useBulkRemoveServiceInstances(store);
 const { mutateAsync: unbindServiceInstance } = useUnbindServiceInstance(store);
 
 const tableEl = ref<any>(null);
-const selectedRows = ref<ResourceTableRow[]>([]);
-const displayRows = ref<ResourceTableRow[]>([]);
+const selectedRows = ref<ResourceTableRow<ServiceInstance>[]>([]);
 
 const canEdit = computed(() => {
   const can = store.getters['epinio/can'];
@@ -61,15 +60,14 @@ const canEdit = computed(() => {
 const canDelete = canEdit;
 const canCreate = canEdit;
 
-watchEffect(() => {
+const displayRows = computed(() => {
   if (!services.value) {
-    displayRows.value = [];
-    return;
+    return [];
   }
   
   // Add custom namespace delete action to replace the built in rancher shell flow.
   // Gate by namespace write perms so view-only / app-only roles don't see Delete.
-  const rows: ResourceTableRow[] = (services.value.items ?? []).map((s) => ({
+  const rows: ResourceTableRow<ServiceInstance>[] = (services.value.items ?? []).map((s) => ({
     ...s,
     id: s.meta.name, // stable, unique per namespace
     availableActions: [{
@@ -86,7 +84,7 @@ watchEffect(() => {
     }],
     canDelete: canDelete.value,
   }));
-  displayRows.value = rows;
+  return rows;
 });
 
 // Watch for changes to the active namespace cache and update the request params accordingly
@@ -140,8 +138,8 @@ const handleBulkDelete = async (items: ServiceInstance[], deleteImage: boolean) 
   if (servicesToUnbind.length > 0) {
     for (const service of servicesToUnbind) {
       await Promise.all([
-      ...service.boundApps!.map((a: string) => unbindServiceInstance({ namespace: service.meta?.namespace || '', serviceName: service.meta?.name || '', request: { appName: a } })),
-    ]);
+        ...service.boundApps!.map((a: string) => unbindServiceInstance({ namespace: service.meta?.namespace || '', serviceName: service.meta?.name || '', request: { appName: a } })),
+      ]);
     }
   }
   await bulkRemove({items,  deleteImage });

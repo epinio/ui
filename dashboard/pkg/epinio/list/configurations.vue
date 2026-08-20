@@ -13,6 +13,9 @@ import { useConfigurations } from '../queries/useConfigurationQueries';
 import { ListResourceRequestParams } from '../models/resource/ui-types';
 import { ResourceTableRow } from '../models/resource/ui-types';
 import { ConfigurationResponse } from '../models/configuration/ui-types';
+import { useBulkRemoveConfigurations, useUnbindConfiguration } from '../queries/useConfigurationMutations';
+import { fetchService } from '../queries/useServiceQueries';
+import ServiceInstanceModal from '../components/service/ServiceInstanceModal.vue';
 
 const store = useStore();
 const router = useRouter();
@@ -23,6 +26,7 @@ const resource: string = EPINIO_TYPES.CONFIGURATION;
 
 const configModal = ref<InstanceType<typeof ConfigurationModal> | null>(null);
 const deleteModal = ref<InstanceType<typeof ConfigurationDeleteModal> | null>(null);
+const serviceInstanceModal = ref<InstanceType<typeof ServiceInstanceModal> | null>(null);
 const bulkDeleteModal = ref<InstanceType<typeof BulkDeleteModal> | null>(null);
 const tableEl = ref<any>(null);
 const selectedRows = ref<any[]>([]);
@@ -48,6 +52,8 @@ const onSearch = debounce(async (query: string) => {
 }, 500);
 
 const {data: configurations, isLoading: isLoadingConfigurations, isError: isErrorConfigurations, error: configurationsError} = useConfigurations(store, requestParams);
+const { mutateAsync: bulkRemove } = useBulkRemoveConfigurations(store);
+const { mutateAsync: unbindConfiguration } = useUnbindConfiguration(store);
 
 // Watch for changes to the active namespace cache and update the request params accordingly
 watchEffect(() => {
@@ -69,7 +75,6 @@ onMounted(async () => {
     // directly so they're populated on first load instead of depending on
     // another page (Applications/Services) having fetched them already.
     store.dispatch('epinio/findAll', { type: EPINIO_TYPES.APP }),
-    store.dispatch('epinio/findAll', { type: EPINIO_TYPES.SERVICE_INSTANCE }),
   ]);
 });
 
@@ -102,7 +107,7 @@ watchEffect(() => {
   
   // Add custom namespace delete action to replace the built in rancher shell flow.
   // Gate by namespace write perms so view-only / app-only roles don't see Delete.
-  const rows: ResourceTableRow[] = (configurations.value.items ?? []).map((s) => ({
+  const rows: ResourceTableRow<ConfigurationResponse>[] = (configurations.value.items ?? []).map((s) => ({
     ...s,
     id: s.meta.name, // stable, unique per namespace
     availableActions: [{
@@ -142,6 +147,18 @@ const handleSelectionChange = (event: CustomEvent) => {
   selectedRows.value = event.detail.selectedRows;
 };
 
+const handleBulkDelete = async (items: ConfigurationResponse[], deleteImage: boolean) => {
+  const configsToUnbind = items.filter((item) => item.configuration.boundApps ? item.configuration.boundApps.length > 0 : false);
+  if (configsToUnbind.length > 0) {
+    for (const config of configsToUnbind) {
+      await Promise.all([
+        ...config.configuration.boundApps!.map((a: string) => unbindConfiguration({ namespace: config.meta?.namespace || '', configName: config.meta?.name || '', appName: a })),
+      ]);
+    }
+  }
+  await bulkRemove({items,  deleteImage });
+};
+
 const handleBulkDeleteClick = () => {
   bulkDeleteModal.value?.openDelete(selectedRows.value);
 };
@@ -166,6 +183,14 @@ const setTableRef = (el: any) => {
     el.renderActions = makeActionMenu;
     el.rowSelectable = isRowSelectable;
   }
+};
+
+const openServiceModal = async (namespace: string, service: string) => {
+  if (!namespace || !service) {
+    return;
+  }
+  const serviceInstance = await fetchService(store, namespace, service);
+  serviceInstanceModal.value?.openView(serviceInstance);
 };
 
 const allColumns = [
@@ -208,11 +233,19 @@ const allColumns = [
     label: 'Service',
     width: '150px',
     sortable: false,
-    formatter: (_v: any, row: ConfigurationResponse) => makeNameLinks(
-      row.configuration?.origin ? [row.configuration.origin] : [],
-      { cluster: store.getters['clusterId'], namespace: row.meta?.namespace, resource: EPINIO_TYPES.SERVICE_INSTANCE },
-      router
-    )
+    formatter: (_v: any, row: ConfigurationResponse) => {
+      const el = document.createElement('a');
+
+      el.textContent = row.configuration.origin || '';
+      el.style.cursor = 'pointer';
+      el.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        openServiceModal(row.meta?.namespace || '', row.configuration?.origin || '');
+      });
+
+      return el;
+    }
   },
   {
     field: 'configuration.variableCount',
@@ -310,8 +343,10 @@ const columns = computed(() => {
       resource-label="configuration"
       :resource-type="resource"
       :show-unbind-notice="true"
+      :bulk-remove="handleBulkDelete"
       @settled="handleBulkDeleted"
     />
+    <ServiceInstanceModal ref="serviceInstanceModal" />
   </div>
 </template>
 

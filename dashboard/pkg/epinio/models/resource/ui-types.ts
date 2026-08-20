@@ -22,10 +22,10 @@ export interface ListResourceRequestParams {
     namespaces?: string[];
 }
 
-export interface ResourceTableAction {
+export interface ResourceTableAction<T> {
     id: string;
     label: string;
-    action: (row: any) => void;
+    action: (row: T) => void;
 }
 
 export interface ResourceTableRowMeta {
@@ -33,9 +33,7 @@ export interface ResourceTableRowMeta {
     availableActions?: ActionMenuItem[];
 }
 
-export type ResourceTableRow = {
-    [key: string]: any;
-} & ResourceTableRowMeta;
+export type ResourceTableRow<T> = T & ResourceTableRowMeta;
 
 export interface ResourceQueryOptions {
     enabled?: boolean;

@@ -1,6 +1,6 @@
 import { createEpinioClient } from "./client";
 import { ApiListResourceRequestParams } from "../models/resource/api-types";
-import { ApiListServiceInstancesResponse, ApiServiceCreateRequest, ApiServiceBindRequest, ApiServicePutRequest } from "../models/service/api-types";
+import { ApiListServiceInstancesResponse, ApiServiceCreateRequest, ApiServiceBindRequest, ApiServicePutRequest, ApiServiceInstance } from "../models/service/api-types";
 
 export function servicesApi(epinioClient: ReturnType<typeof createEpinioClient>) {
     const servicesBasePath = '/api/v1/services';
@@ -9,6 +9,9 @@ export function servicesApi(epinioClient: ReturnType<typeof createEpinioClient>)
     return {
         listServices: async (params?: ApiListResourceRequestParams): Promise<ApiListServiceInstancesResponse> => {
             return await epinioClient.get(servicesBasePath, { params });
+        },
+        getService: async (namespace: string, serviceName: string): Promise<ApiServiceInstance> => {
+            return await epinioClient.get(`${namespacesBasePath}/${namespace}/services/${serviceName}`);
         },
         createService: async (namespace: string, request: ApiServiceCreateRequest) => {
             return await epinioClient.post(`${namespacesBasePath}/${namespace}/services`, request);

@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
-import { computed, ref, onMounted, watchEffect, onUnmounted } from 'vue';
+import { computed, ref, onMounted, watchEffect, onUnmounted, watch } from 'vue';
+import { debounce } from 'lodash';
 
 import { startPolling, stopPolling } from '../utils/polling';
 import EpinioCatalogServiceModel from '../models/catalogservices';
@@ -14,6 +15,13 @@ import { makeActionMenu } from '../utils/table-formatters';
 import Masthead from '@shell/components/ResourceList/Masthead';
 import CatalogServiceModal from '../components/service/CatalogServiceModal.vue';
 import CatalogServiceDeleteModal from '../components/service/CatalogServiceDeleteModal.vue';
+import { ListResourceRequestParams } from '../models/resource/ui-types';
+import { useServices } from '../queries/useServiceQueries';
+import { CatalogService } from '../models/catalogservice/ui-types';
+import { ServiceInstance } from '../models/service/ui-types';
+import { ResourceTableRow } from '../models/resource/ui-types';
+import { makeNameLinks } from '../utils/table-formatters';
+import { useCatalogService } from '../queries/useCatalogServicesQueries';
 
 const store = useStore();
 const router = useRouter();
@@ -21,11 +29,34 @@ const t = store.getters['i18n/t'];
 
 const props = defineProps<{ value: EpinioCatalogServiceModel }>();
 
+const resource: string = EPINIO_TYPES.CATALOG_SERVICE;
 const serviceDeleteModal = ref<InstanceType<typeof ServiceDeleteModal> | null>(null);
 const serviceModal = ref<InstanceType<typeof ServiceInstanceModal> | null>(null);
 const catalogServiceModal = ref<InstanceType<typeof CatalogServiceModal> | null>(null);
 const catalogServiceDeleteModal = ref<InstanceType<typeof CatalogServiceDeleteModal> | null>(null);
-const displayRows = ref<any[]>([]);
+const tableEl = ref<any>(null);
+
+const requestParams = ref<ListResourceRequestParams>({
+  page: 1,
+  pageSize: 10,
+  search: '',
+  namespaces: undefined,
+});
+
+const searchQuery = ref<string>('');
+
+watch(searchQuery, (newQuery) => {
+  onSearch(newQuery);
+});
+
+const onSearch = debounce(async (query: string) => {
+  requestParams.value.page = 1;
+  requestParams.value.search = query;
+}, 500);
+
+const {data: catalogService, isLoading: isLoadingCatalogService, isError: isErrorCatalogService, error: catalogServiceError} = useCatalogService(store, ref(props.value.meta.name));
+// TO-DO fetch services for the catalog service
+const {data: services, isLoading: isLoadingServices, isError: isErrorServices, error: servicesError} = useServices(store, requestParams);
 
 const canEditService = computed(() => {
   const can = store.getters['epinio/can'];
@@ -43,14 +74,18 @@ const canEditCatalogService = computed(() => {
 const canDeleteCatalogService = canEditCatalogService;
 
 const availableActions = computed(() => {
-    const rowActions = (row: EpinioCatalogServiceModel) => {
+  if (!catalogService.value) {
+    return [];
+  } 
+
+  const rowActions = (row: CatalogService) => {
     const out: any[] = [];
 
     if (canCreateService.value) {
       out.push({
         label: t('epinio.services.create.label'),
         enabled: true,
-        action: () => serviceModal.value?.openCreate(row.id)
+        action: () => serviceModal.value?.openCreate(row.meta.name)
       });
     }
     if (canEditCatalogService.value) {
@@ -72,81 +107,75 @@ const availableActions = computed(() => {
     return out;
   };
 
-  return rowActions(props.value);
+  return rowActions(catalogService.value);
 });
 
+const displayRows = computed(() => {
+  if (!services.value) {
+    return [];
+  }
+  
+  const rows: ResourceTableRow<ServiceInstance>[] = (services.value.items ?? []).map((s) => ({
+    ...s,
+    id: s.meta.name, // stable, unique per namespace
+    availableActions: [{
+      label: 'Delete',
+      action: () => openServiceDeleteModal(s),
+      enabled: canDeleteService.value,
+      visible: canDeleteService.value,
+      danger: true,
+    }, {
+      label: 'Edit',
+      action: () => openServiceEditModal(s),
+      enabled: canEditService.value,
+      visible: canEditService.value,
+    }],
+    canDelete: canDeleteService.value,
+  }));
+  return rows;
+});
+
+// Watch for changes to the active namespace cache and update the request params accordingly
 watchEffect(() => {
-  const all = store.getters['epinio/all'](EPINIO_TYPES.SERVICE_INSTANCE) as any[];
+  void store.state.activeNamespaceCacheKey;
+  const activeNamespaces = store.state.activeNamespaceCache;
 
-  // Filter empty rows that are added during delete and only show services related to this catalog service
-  const filtered = all.filter((row: any) => row.id && row.catalog_service === props.value.id);
+  if (activeNamespaces && Object.keys(activeNamespaces).length > 0) {
+    requestParams.value.namespaces = Object.keys(activeNamespaces);
+  } else {
+    requestParams.value.namespaces = undefined;
+  }
+});
 
-  // Build the row action menu with RBAC gating. Inject the modal-driven
-  // Edit/Delete entries only when the user has service write permissions.
-  const rowActions = (row: EpinioServiceModel) => {
-    const out: any[] = [];
+const openServiceDeleteModal = (service: ServiceInstance) => {
+  serviceDeleteModal.value?.openDelete(service);
+};
 
-    if (canDeleteService.value) {
-      out.push({
-        action: 'removeService',
-        altAction: 'remove',
-        bulkAction: 'removeService',
-        bulkable: true,
-        enabled: row.canDelete,
-        icon: 'icon icon-trash',
-        label: 'Delete',
-        weight: -10
-      });
-    }
-    if (canEditService.value) {
-      out.push({
-        action: 'editServiceModal',
-        label: 'Edit',
-        enabled: true
-      });
-    }
-
-    return out;
-  };
-
-  const overrideProps = [
-      {
-        prop: 'availableActions',
-        value: rowActions,
-        conditionFn: () => true,
-      },
-      {
-        prop: 'removeService',
-        value: (row: EpinioServiceModel) => () => {
-          serviceDeleteModal.value?.openDelete(row);
-        },
-        conditionFn: (row: EpinioServiceModel) => canDeleteService.value && row.canDelete,
-      },
-      {
-        prop: 'editServiceModal',
-        value: (row: EpinioServiceModel) => () => {
-          serviceModal.value?.openEdit(row);
-        },
-        conditionFn: () => canEditService.value,
-      }
-    ];
-
-  const processedRows = overrideTableRows(filtered, overrideProps);
-  displayRows.value = processedRows;
-})
+const openServiceEditModal = (service: ServiceInstance) => {
+  serviceModal.value?.openEdit(service);
+};
 
 onMounted(() => {
   store.dispatch('epinio/me');
-  store.dispatch('epinio/findAll', { type: EPINIO_TYPES.APP });
-  store.dispatch('epinio/findAll', { type: EPINIO_TYPES.SERVICE_INSTANCE });
-  store.dispatch('epinio/findAll', { type: EPINIO_TYPES.NAMESPACE });
-  store.dispatch('epinio/findAll', { type: EPINIO_TYPES.CATALOG_SERVICE });
-  startPolling(['services'], store);
 });
 
-onUnmounted(() => {
-  stopPolling(['services']);
-})
+// Services without service_write/service permission on that row can't be
+// individually deleted, so they're excluded from bulk selection too.
+const isRowSelectable = (row: any) => row.canDelete;
+
+// NOTE: must be a named function declared here, not an inline arrow function
+// in the template, see feedback_vue_ref_unwrap_bug.md. Vue auto-unwraps
+// top-level refs inside template expressions, so referencing `tableEl`
+// directly in an inline template callback gives the already-unwrapped
+// (initially null) value instead of the Ref object, and `tableEl.value = el`
+// throws, silently aborting the rest of the block.
+const setTableRef = (el: any) => {
+  if (el) {
+    tableEl.value = el;
+    el.renderActions = makeActionMenu;
+    el.rowSelectable = isRowSelectable;
+  }
+};
 
 const handleNavigate = (event: CustomEvent) => {
   router.push(event.detail.url);
@@ -157,15 +186,15 @@ const columns = [
     field: 'stateDisplay',
     label: 'State',
     width: '100px',
-    formatter: (_v: any, row: any) => makeStateTag(row)
+    formatter: (_v: any, row: ServiceInstance) => makeStateTag(row)
   },
   {
     field: 'nameDisplay',
     label: 'Name',
-    formatter: (_v: any, row: any) => {
+    formatter: (_v: any, row: ServiceInstance) => {
       const el = document.createElement('a');
 
-      el.textContent = row.nameDisplay || row.meta?.name || '';
+      el.textContent = row.meta?.name || '';
       el.style.cursor = 'pointer';
       el.addEventListener('click', (e) => {
         e.preventDefault();
@@ -177,20 +206,32 @@ const columns = [
     }
   },
   {
-    field: 'catalog_service',
-    label: 'Catalog Service',
-    sortable:  false,
-    formatter: (_v: any, row: any) => makeRouterLink(row.catalog_service, row.serviceLocation, router)
+    field: 'meta.namespace',
+    label: 'Namespace'
   },
   {
-    field: 'catalog_service_version',
+    field: 'catalogService',
+    label: 'Catalog Service',
+    sortable: false,
+    formatter: (_v: any, row: ServiceInstance) => makeNameLinks(
+      [row.catalogService],
+      { cluster: store.getters['clusterId'], resource: EPINIO_TYPES.CATALOG_SERVICE },
+      router
+    )
+  },
+  {
+    field: 'catalogServiceVersion',
     label: 'Catalog Service Version'
   },
   {
     field: 'boundApps',
     label: 'Bound Applications',
-    sortable:  false,
-    formatter: (_v: any, row: any) => makeRouterLinksOrEmpty(row.applications, router)
+    sortable: false,
+    formatter: (_v: any, row: ServiceInstance) => makeNameLinks(
+      row.boundApps,
+      { cluster: store.getters['clusterId'], namespace: row.meta?.namespace, resource: EPINIO_TYPES.APP },
+      router
+    )
   },
   {
     field: 'meta.createdAt',
@@ -214,11 +255,11 @@ function handleDeleted() {
   <div id="modal-container-element">
     <Masthead
       :schema="value"
-      :resource="value.id"
-      :type-display="t('epinio.catalogService.detail.servicesTitle', { catalogService: props.value.name })"
+      :resource="resource"
+      :type-display="t('epinio.catalogService.detail.servicesTitle', { catalogService: catalogService?.meta.name })"
     >
       <template #subHeader>
-        <p class="description">{{ value.description ?? '' }}</p>
+        <p class="description">{{ catalogService?.description ?? '' }}</p>
       </template>
       <template #createButton>
         <trailhand-action-menu 
@@ -229,12 +270,17 @@ function handleDeleted() {
       </template>
     </Masthead>
     <trailhand-table
-      :ref="(el: any) => { if (el) el.renderActions = makeActionMenu; }"
+      :ref="setTableRef"
       :rows="displayRows"
       :columns="columns"
-      :searchable="true"
+      :searchable="false"
+      :server-side="true"
+      :total-items="services?.totalItems ?? 0"
+      :current-page="requestParams.page"
+      :loading="isLoadingServices"
       key-field="id"
       @navigate="handleNavigate"
+      @page-change="(e: CustomEvent) => { requestParams.page = e.detail.page; }"
     />
     <ServiceDeleteModal ref="serviceDeleteModal" />
     <ServiceInstanceModal ref="serviceModal" />
