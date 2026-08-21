@@ -1,15 +1,15 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watchEffect, watch } from 'vue';
+import { computed, onMounted, ref, watchEffect, watch } from 'vue';
 import { useStore } from 'vuex';
 import { debounce } from 'lodash';
 import { useRouter } from 'vue-router';
 import { EPINIO_TYPES, EPINIO_SERVICE_PARAM } from '../types';
 import Masthead from '@shell/components/ResourceList/Masthead';
-import { makeStateTag, makeRouterLink, makeNameLinks, makeActionMenu } from '../utils/table-formatters';
+import { makeStateTag, makeNameLinks, makeActionMenu } from '../utils/table-formatters';
 import ServiceDeleteModal from '../components/service/ServiceDeleteModal.vue';
 import ServiceInstanceModal from '../components/service/ServiceInstanceModal.vue';
 import BulkDeleteModal from '../components/BulkDeleteModal.vue';
-import { ListResourceRequestParams, ResourceTableRow } from '../models/resource/ui-types';
+import { ListResourceRequestParams, ResourceQueryOptions, ResourceTableRow } from '../models/resource/ui-types';
 import { useServices } from '../queries/useServiceQueries';
 import { useBulkRemoveServiceInstances, useUnbindServiceInstance } from '../queries/useServiceMutations';
 import { ServiceInstance } from '../models/service/ui-types';
@@ -34,6 +34,11 @@ const requestParams = ref<ListResourceRequestParams>({
   namespaces: undefined,
 });
 
+const requestOptions = ref<ResourceQueryOptions>({
+  enabled: true,
+  polling: true,
+});
+
 const searchQuery = ref<string>('');
 
 watch(searchQuery, (newQuery) => {
@@ -45,7 +50,7 @@ const onSearch = debounce(async (query: string) => {
   requestParams.value.search = query;
 }, 500);
 
-const {data: services, isLoading: isLoadingServices, isError: isErrorServices, error: servicesError} = useServices(store, requestParams);
+const {data: services, isLoading: isLoadingServices, isError: isErrorServices, error: servicesError} = useServices(store, requestParams, requestOptions);
 const { mutateAsync: bulkRemove } = useBulkRemoveServiceInstances(store);
 const { mutateAsync: unbindServiceInstance } = useUnbindServiceInstance(store);
 

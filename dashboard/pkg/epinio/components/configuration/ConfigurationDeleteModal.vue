@@ -80,9 +80,14 @@ defineExpose({ openDelete });
         No applications are bound to this configuration.
       </p>
       <Banner
+        v-if="unbindConfigurationError"
+        color="error"
+        :label="unbindConfigurationErrorData?.message || t('epinio.configurations.errors.unbind')"
+      />
+      <Banner
         v-if="deleteConfigurationError"
         color="error"
-        :label="deleteConfigurationErrorData?.message || t('epinio.configuration.errors.delete')"
+        :label="deleteConfigurationErrorData?.message || t('epinio.configurations.errors.delete')"
       />
     </div>
 

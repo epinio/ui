@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useStore } from 'vuex'
 import { ref, computed, onMounted, watch } from 'vue'
+import type { ResourceQueryOptions } from '../models/resource/ui-types';
 import { useCatalogServices } from '../queries/useCatalogServicesQueries';
 import Masthead from '@shell/components/ResourceList/Masthead';
 
@@ -28,6 +29,11 @@ const requestParams = ref<ListResourceRequestParams>({
   search: '',
 });
 
+const requestOptions = ref<ResourceQueryOptions>({
+  enabled: true,
+  polling: true,
+});
+
 const searchQuery = ref<string>('');
 
 watch(searchQuery, (newQuery) => {
@@ -39,7 +45,7 @@ const onSearch = debounce(async (query: string) => {
   requestParams.value.search = query;
 }, 500);
 
-const {data: catalogServices, isLoading: isLoadingCatalogServices, isError: isErrorCatalogServices, error: catalogServicesError} = useCatalogServices(store, requestParams);
+const {data: catalogServices, isLoading: isLoadingCatalogServices, isError: isErrorCatalogServices, error: catalogServicesError} = useCatalogServices(store, requestParams, requestOptions);
 
 const canEdit = computed(() => {
   const can = store.getters['epinio/can'];
@@ -117,6 +123,11 @@ const showDetails = (catalogService: CatalogService) => {
         <div v-else></div>
       </template>
     </Masthead>
+    <Banner
+      v-if="isErrorCatalogServices"
+      color="error"
+      :label="catalogServicesError?.message || t('epinio.catalogService.errors.fetchAll')"
+    />  
     <div  class="filter-block">
       <trailhand-text-input
         v-model="searchQuery"

@@ -466,6 +466,8 @@ epinio:
       save: Error saving Service Instance, please try again.
       delete: Error deleting Service Instance, please try again.
       unbind: Error unbinding Service Instance, please try again.
+      bind: Error binding Service Instance, please try again.
+      optionsFetch: Error fetching options for Service Instance, please try again.
   configurations:
     pairs:
       label: Config Data
@@ -483,6 +485,10 @@ epinio:
       label: Bind to Applications (optional)
       placeholderWithOptions: Applications
       placeholderNoOptions: There are no apps in this namespace
+    errors:
+      optionsFetch: Error fetching options for Configuration, please try again.
+      unbind: Error unbinding Configuration, please try again.
+      delete: Error deleting Configuration, please try again.
   serviceInstance:
     tableHeaders:
       service: Catalog Service
@@ -507,6 +513,7 @@ epinio:
       create: Error creating Catalog Service, please try again.
       update: Error updating Catalog Service, please try again.
       save: Error saving Catalog Service, please try again.
+      fetchAll: Error fetching Catalog Services, please try again.
   warnings:
     noNamespace: There are no namespaces. Please create one before proceeding
   login:

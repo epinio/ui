@@ -50,8 +50,8 @@ const {mutateAsync: createConfiguration, isPending: isCreatingConfiguration, isE
   handleSuccess('create');
   closeModal();
 });
-const {mutateAsync: bindConfiguration, isPending: isBindingConfiguration, isError: bindConfigurationError, error: bindConfigurationErrorData} = useBindConfiguration(store);
-const {mutateAsync: unbindConfiguration, isPending: isUnbindingConfiguration, isError: unbindConfigurationError, error: unbindConfigurationErrorData} = useUnbindConfiguration(store);
+const {mutateAsync: bindConfiguration, isError: bindConfigurationError } = useBindConfiguration(store);
+const {mutateAsync: unbindConfiguration, isError: unbindConfigurationError } = useUnbindConfiguration(store);
 const {mutateAsync: updateConfiguration, isPending: isUpdatingConfiguration, isError: updateConfigurationError, error: updateConfigurationErrorData} = useUpdateConfiguration(store, () => {
   handleSuccess('update');
   closeModal();
@@ -73,6 +73,7 @@ const namespaceOpts = computed(() => {
   return namespaces?.value?.items.map((ns: any) => ({ label: ns.meta.name, value: ns.meta.name })) || [];
 });
 
+// TODO: replace with tanstack query
 const nsAppOptions = computed(() => {
   if (!formNamespace.value) return [];
 
@@ -595,6 +596,11 @@ defineExpose({ openCreate, openView, openEdit });
         v-if="createConfigurationError || updateConfigurationError"
         color="error"
         :label="createConfigurationErrorData?.message || updateConfigurationErrorData?.message || t('epinio.services.errors.save')"
+      />
+      <Banner
+        v-if="isErrorNamespaces"
+        color="error"
+        :label="namespacesError?.message || t('epinio.services.errors.optionsFetch')"
       />
     </div>
 

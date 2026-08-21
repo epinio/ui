@@ -9,9 +9,10 @@ import ChartValues from '../settings/ChartValues.vue';
 import { useCreateServiceInstance, useBindServiceInstance, useUnbindServiceInstance, useUpdateServiceInstance } from '../../queries/useServiceMutations';
 import { ServiceInstance } from '../../models/service/ui-types';
 import { useNamespaces } from '../../queries/useNamespaceQueries';
+import { useCatalogServices } from '../../queries/useCatalogServicesQueries';
 import ResourceDropdown from '../application/ResourceDropdown.vue';
 import { debounce } from 'lodash';
-import { ListResourceRequestParams } from '../../models/resource/ui-types';
+import { ListResourceRequestParams, ResourceQueryOptions } from '../../models/resource/ui-types';
 
 import isEqual from 'lodash/isEqual';
 
@@ -34,24 +35,23 @@ const selectedApps = ref<string[]>([]);
 const chartValues = reactive<Record<string, any>>({});
 const validChartValues = ref<Record<string, boolean>>({});
 
-const isLoadingCatalogServices = ref(false);
-const cachedCatalogServices = ref<any[]>([]);
-const fetchedCatalogServices = ref<any[]>([]);
-
 const isLoadingApplications = ref(false);
 const cachedApplications = ref<any[]>([]);
 const fetchedApplications = ref<any[]>([]);
 
 const namespaceRequestParams = ref<ListResourceRequestParams>({ page: 1, pageSize: 25, search: '' });
-const namespaceRequestOptions = ref({ enabled: false, polling: false });
+const namespaceRequestOptions = ref<ResourceQueryOptions>({ enabled: false, polling: false });
 const {data: namespaces, isLoading: isLoadingNamespaces, isError: isErrorNamespaces, error: namespacesError} = useNamespaces(store, namespaceRequestParams, namespaceRequestOptions);
+const catalogServiceRequestParams = ref<ListResourceRequestParams>({ page: 1, pageSize: 25, search: '' });
+const catalogServiceRequestOptions = ref<ResourceQueryOptions>({ enabled: false, polling: false });
+const {data: catalogServices, isLoading: isLoadingCatalogServices, isError: isErrorCatalogServices, error: catalogServicesError} = useCatalogServices(store, catalogServiceRequestParams, catalogServiceRequestOptions);
 
 const {mutateAsync: createService, isPending: isCreatingService, isError: createServiceError, error: createServiceErrorData} = useCreateServiceInstance(store, () => {
   handleSuccess('create');
   closeModal();
 });
-const {mutateAsync: bindService, isPending: isBindingService, isError: bindServiceError, error: bindServiceErrorData} = useBindServiceInstance(store);
-const {mutateAsync: unbindService, isPending: isUnbindingService, isError: unbindServiceError, error: unbindServiceErrorData} = useUnbindServiceInstance(store);
+const {mutateAsync: bindService, isError: bindServiceError} = useBindServiceInstance(store);
+const {mutateAsync: unbindService, isError: unbindServiceError} = useUnbindServiceInstance(store);
 const {mutateAsync: updateService, isPending: isUpdatingService, isError: updateServiceError, error: updateServiceErrorData} = useUpdateServiceInstance(store, () => {
   handleSuccess('update');
   closeModal();
@@ -73,16 +73,15 @@ watchEffect(() => {
 });
 
 const namespaceOpts = computed(() => {
-  return namespaces?.value?.items.map((ns: any) => ({ label: ns.meta.name, value: ns.meta.name })) || [];
+  return namespaces?.value?.items.map((ns) => ({ label: ns.meta.name, value: ns.meta.name })) || [];
 });
 
-// TODO: replace with tanstack queries once ready for service catalog
-const catalogServiceOpts = computed(() =>
-  fetchedCatalogServices.value.map((cs: any) => ({
-    label: `${cs.name} (${cs.short_description})`,
-    value: cs.name,
-  }))
-);
+const catalogServiceOpts = computed(() => {
+  return catalogServices?.value?.items.map((cs) => ({
+    label: `${cs.meta.name} (${cs.shortDescription})`,
+    value: cs.meta.name,
+  })) || [];
+});
 
 // TODO: replace with tanstack queries once ready for applications
 const nsAppOptions = computed(() => {
@@ -93,7 +92,7 @@ const nsAppOptions = computed(() => {
 });
 
 const selectedCatalogService = computed(() =>
-  fetchedCatalogServices.value.find((cs: any) => cs.name === formCatalogService.value)
+  catalogServices?.value?.items.find((cs) => cs.meta.name === formCatalogService.value)
 );
 
 const showChartValues = computed(() =>
@@ -167,6 +166,7 @@ async function openCreate(prefilledCatalogService?: string) {
   validChartValues.value = {};
 
   namespaceRequestOptions.value.enabled = true;
+  catalogServiceRequestOptions.value.enabled = true;
   showModal.value = true;
 }
 
@@ -193,6 +193,7 @@ function openView(row: ServiceInstance) {
   populateForm(row);
   
   namespaceRequestOptions.value.enabled = true;
+  catalogServiceRequestOptions.value.enabled = true;
   showModal.value = true;
 }
 
@@ -202,6 +203,7 @@ function openEdit(row: ServiceInstance) {
   populateForm(row);
 
   namespaceRequestOptions.value.enabled = true;
+  catalogServiceRequestOptions.value.enabled = true;
   showModal.value = true;
 }
 
@@ -236,6 +238,7 @@ function closeModal() {
   serviceModel.value = null;
   showDiscardConfirm.value = false;
   namespaceRequestOptions.value.enabled = false;
+  catalogServiceRequestOptions.value.enabled = false;
   namespaceRequestParams.value.page = 1;
   namespaceRequestParams.value.search = '';
   showModal.value = false;
@@ -299,15 +302,18 @@ async function onSubmit() {
     }
 
     // Bind/unbind and refresh in the background
-    Promise.all([
-      ...newBindApps.map((a: string) => bindService({ namespace: svc.meta?.namespace || '', serviceName: serviceName || '', request: { appName: a } })),
-      ...unbindApps.map((a: string) => unbindService({ namespace: svc.meta?.namespace || '', serviceName: serviceName || '', request: { appName: a } })),
-    ]).then(() => {
-      store.dispatch('growl/success', {
-        title:   t(`epinio.growl.service.both.success.title`),
-        message: t(`epinio.growl.service.both.success.message`, { name: svc.meta?.name }),
-      });
-    })
+    if (newBindApps.length > 0 || unbindApps.length > 0) {
+      Promise.all([
+        ...newBindApps.map((a: string) => bindService({ namespace: svc.meta?.namespace || '', serviceName: serviceName || '', request: { appName: a } })),
+        ...unbindApps.map((a: string) => unbindService({ namespace: svc.meta?.namespace || '', serviceName: serviceName || '', request: { appName: a } })),
+      ]).then(() => {
+        store.dispatch('growl/success', {
+          title:   t(`epinio.growl.service.both.success.title`),
+          message: t(`epinio.growl.service.both.success.message`, { name: svc.meta?.name }),
+        });
+      })
+    }
+    
   }
 }
 
@@ -338,56 +344,10 @@ const onNamespaceFilter = debounce((query: string) => {
   namespaceRequestParams.value.search = query;
 }, 500);
 
-const fetchCatalogServices = async () => {
-  if (cachedCatalogServices.value.length > 0) {
-    fetchedCatalogServices.value = cachedCatalogServices.value;
-    return;
-  }
-  isLoadingCatalogServices.value = true;
-  try {
-    const res = await store.dispatch('epinio/request', {
-      opt: {
-        url: `/api/v1/catalogservices`,
-        method: 'GET',
-        responseType: 'json'
-      }
-    });
-    const rawData = res.data ?? [];
-
-    // classify raw JSON into proper model instances
-    const classifiedData = await Promise.all(rawData.map((item: any) =>
-      store.dispatch('epinio/create', { type: EPINIO_TYPES.CATALOG_SERVICE, ...item })
-    ));
-    fetchedCatalogServices.value = classifiedData;
-    cachedCatalogServices.value = classifiedData;
-  } catch (error) {
-    console.error('Failed to fetch services', error);
-  } finally {
-    isLoadingCatalogServices.value = false;
-  }
-};
-
-async function searchCatalogServices(query: string) {
-  isLoadingCatalogServices.value = true;
-  try {
-    const res = await store.dispatch('epinio/request', {
-      opt: {
-        url: `/api/v1/catalogservices?search=${query}`,
-        method: 'GET',
-        responseType: 'json'
-      }
-    });
-    const rawData = res.data ?? [];
-    const classifiedData = await Promise.all(rawData.map((item: any) =>
-      store.dispatch('epinio/create', { type: EPINIO_TYPES.CATALOG_SERVICE, ...item })
-    ));
-    fetchedCatalogServices.value = classifiedData;
-  } catch {
-    fetchedCatalogServices.value = [];
-  } finally {
-    isLoadingCatalogServices.value = false;
-  }
-}
+const onCatalogServiceFilter = debounce((query: string) => {
+  catalogServiceRequestParams.value.page = 1;
+  catalogServiceRequestParams.value.search = query;
+}, 500);
 
 async function fetchApplications() {
   if (!formNamespace.value) return;
@@ -492,18 +452,19 @@ defineExpose({ openCreate, openEdit, openView });
 
         <!-- Catalog Service + Version (version only in view/edit, 3/4 + 1/4 split via 4-col grid) -->
         <trailhand-form-row :columns="(isView || isEdit) ? '4' : '1'">
-          <ResourceDropdown
-            :value="formCatalogService"
+          <trailhand-dropdown
+            style="width: 100%"
             :options="catalogServiceOpts"
-            :label="'Catalog Service'"
-            :disabled="isEdit || isView"
-            filterable
+            :value="formCatalogService"
+            label="Catalog Service"
             placeholder="Select the type of service to create"
-            :onDropdownChange="(e: CustomEvent) => { formCatalogService = e.detail.value; resetChartValues(); }"
-            :fetchAllResources="fetchCatalogServices"
-            :searchResources="searchCatalogServices"
+            :disabled="isEdit || isView"
+            :required="!isView"
+            filterable
+            @dropdown-change="(e: CustomEvent) => { formCatalogService = e.detail.value; resetChartValues(); }"
+            @dropdown-filter="(e: CustomEvent<{ filter: string }>) => { onCatalogServiceFilter(e.detail.filter); }"
             :isLoading="isLoadingCatalogServices"
-          />
+          ></trailhand-dropdown>
           <trailhand-text-input
             v-if="isView || isEdit"
             :value="serviceModel?.catalogServiceVersion || ''"
@@ -546,7 +507,7 @@ defineExpose({ openCreate, openEdit, openView });
         >
           <ChartValues
             v-model:value="chartValues"
-            :chart="selectedCatalogService.settings"
+            :chart="selectedCatalogService?.settings ?? []"
             :title="t('epinio.services.chartValues.title')"
             :mode="isEdit ? 'edit' : 'create'"
             :disabled="isView"
@@ -559,6 +520,11 @@ defineExpose({ openCreate, openEdit, openView });
         v-if="createServiceError || updateServiceError"
         color="error"
         :label="createServiceErrorData?.message || updateServiceErrorData?.message || t('epinio.services.errors.save')"
+      />
+      <Banner
+        v-if="isErrorNamespaces || isErrorCatalogServices"
+        color="error"
+        :label="namespacesError?.message || catalogServicesError?.message || t('epinio.services.errors.optionsFetch')"
       />
     </div>
 

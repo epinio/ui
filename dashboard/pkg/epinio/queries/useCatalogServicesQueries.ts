@@ -4,11 +4,11 @@ import { useCluster } from "./useCluster";
 import { catalogServicesApi } from "../api/catalogservices";
 import { epinioQueryClient } from "../api/queryClient";
 import { computed, Ref } from "vue";
-import { ListResourceRequestParams } from "../models/resource/ui-types";
+import { ListResourceRequestParams, ResourceQueryOptions } from "../models/resource/ui-types";
 import { toApiListResourceRequestParams } from "../models/resource/mappers";
 import { toListCatalogServicesResponse, toCatalogService } from "../models/catalogservice/mappers";
 
-export function useCatalogServices(store: any, params?: Ref<ListResourceRequestParams>) {
+export function useCatalogServices(store: any, params: Ref<ListResourceRequestParams>, options: Ref<ResourceQueryOptions>) {
     const { data: cluster } = useCluster(store);
     const isExtension = computed(() => !!store.getters['isSingleProduct'] === false);
 
@@ -22,10 +22,10 @@ export function useCatalogServices(store: any, params?: Ref<ListResourceRequestP
             const services = await catalogServicesApi(epinioClient).listCatalogServices(params ? toApiListResourceRequestParams(params.value) : undefined);
             return toListCatalogServicesResponse(services);
         },
-        enabled: computed(() => !!cluster.value),
+        enabled: computed(() => !!cluster.value && options.value.enabled),
         placeholderData: keepPreviousData,
-        refetchInterval: 10000,
-        structuralSharing: false, // disable to ensure age updates in the ui
+        refetchInterval: options.value.polling ? 10000 : false,
+        structuralSharing: options.value.polling ? false : true, // disable to ensure age updates in the ui when polling tables
     }, epinioQueryClient);
 }
 

@@ -15,7 +15,7 @@ import { makeActionMenu } from '../utils/table-formatters';
 import Masthead from '@shell/components/ResourceList/Masthead';
 import CatalogServiceModal from '../components/service/CatalogServiceModal.vue';
 import CatalogServiceDeleteModal from '../components/service/CatalogServiceDeleteModal.vue';
-import { ListResourceRequestParams } from '../models/resource/ui-types';
+import { ListResourceRequestParams, ResourceQueryOptions } from '../models/resource/ui-types';
 import { useServices } from '../queries/useServiceQueries';
 import { CatalogService } from '../models/catalogservice/ui-types';
 import { ServiceInstance } from '../models/service/ui-types';
@@ -43,6 +43,11 @@ const requestParams = ref<ListResourceRequestParams>({
   namespaces: undefined,
 });
 
+const requestOptions = ref<ResourceQueryOptions>({
+  enabled: true,
+  polling: true,
+});
+
 const searchQuery = ref<string>('');
 
 watch(searchQuery, (newQuery) => {
@@ -55,8 +60,8 @@ const onSearch = debounce(async (query: string) => {
 }, 500);
 
 const {data: catalogService, isLoading: isLoadingCatalogService, isError: isErrorCatalogService, error: catalogServiceError} = useCatalogService(store, ref(props.value.meta.name));
-// TO-DO fetch services for the catalog service
-const {data: services, isLoading: isLoadingServices, isError: isErrorServices, error: servicesError} = useServices(store, requestParams);
+// TO-DO fetch services for the catalog service once api supports it
+const {data: services, isLoading: isLoadingServices, isError: isErrorServices, error: servicesError} = useServices(store, requestParams, requestOptions);
 
 const canEditService = computed(() => {
   const can = store.getters['epinio/can'];
@@ -269,6 +274,11 @@ function handleDeleted() {
         <div v-else></div>
       </template>
     </Masthead>
+    <Banner
+      v-if="isErrorServices || isErrorCatalogService"
+      color="error"
+      :label="servicesError?.message || catalogServiceError?.message || t('epinio.service.errors.fetchAll')"
+    />  
     <trailhand-table
       :ref="setTableRef"
       :rows="displayRows"

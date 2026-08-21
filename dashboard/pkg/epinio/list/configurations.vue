@@ -10,7 +10,7 @@ import ConfigurationDeleteModal from '../components/configuration/ConfigurationD
 import BulkDeleteModal from '../components/BulkDeleteModal.vue';
 import { debounce } from 'lodash';
 import { useConfigurations } from '../queries/useConfigurationQueries';
-import { ListResourceRequestParams } from '../models/resource/ui-types';
+import { ListResourceRequestParams, ResourceQueryOptions } from '../models/resource/ui-types';
 import { ResourceTableRow } from '../models/resource/ui-types';
 import { ConfigurationResponse } from '../models/configuration/ui-types';
 import { useBulkRemoveConfigurations, useUnbindConfiguration } from '../queries/useConfigurationMutations';
@@ -32,12 +32,16 @@ const tableEl = ref<any>(null);
 const selectedRows = ref<any[]>([]);
 const windowWidth = ref(window.innerWidth);
 const onResize = () => { windowWidth.value = window.innerWidth; };
-const displayRows = ref<any[]>([]);
 
 const requestParams = ref<ListResourceRequestParams>({
   page: 1,
   pageSize: 10,
   search: ''
+});
+
+const requestOptions = ref<ResourceQueryOptions>({
+  enabled: true,
+  polling: true,
 });
 
 const searchQuery = ref<string>('');
@@ -51,7 +55,7 @@ const onSearch = debounce(async (query: string) => {
   requestParams.value.search = query;
 }, 500);
 
-const {data: configurations, isLoading: isLoadingConfigurations, isError: isErrorConfigurations, error: configurationsError} = useConfigurations(store, requestParams);
+const {data: configurations, isLoading: isLoadingConfigurations, isError: isErrorConfigurations, error: configurationsError} = useConfigurations(store, requestParams, requestOptions);
 const { mutateAsync: bulkRemove } = useBulkRemoveConfigurations(store);
 const { mutateAsync: unbindConfiguration } = useUnbindConfiguration(store);
 
@@ -99,32 +103,31 @@ const canCreateConfiguration = computed(() => {
 const canEdit = canCreateConfiguration;
 const canDelete = canCreateConfiguration;
 
-watchEffect(() => {
+const displayRows = computed(() => {
   if (!configurations.value) {
-    displayRows.value = [];
-    return;
+    return [];
   }
   
   // Add custom namespace delete action to replace the built in rancher shell flow.
   // Gate by namespace write perms so view-only / app-only roles don't see Delete.
-  const rows: ResourceTableRow<ConfigurationResponse>[] = (configurations.value.items ?? []).map((s) => ({
-    ...s,
-    id: s.meta.name, // stable, unique per namespace
+  const rows: ResourceTableRow<ConfigurationResponse>[] = (configurations.value.items ?? []).map((c) => ({
+    ...c,
+    id: c.meta.name, // stable, unique per namespace
     availableActions: [{
       label: 'Delete',
-      action: () => openDeleteModal(s),
+      action: () => openDeleteModal(c),
       enabled: canDelete.value,
       visible: canDelete.value,
       danger: true,
     }, {
       label: 'Edit',
-      action: () => openEditModal(s),
-      enabled: canEdit.value,
-      visible: canEdit.value,
+      action: () => openEditModal(c),
+      enabled: canEdit.value && !c.configuration.origin,
+      visible: canEdit.value && !c.configuration.origin,
     }],
     canDelete: canDelete.value,
   }));
-  displayRows.value = rows;
+  return rows;
 });
 
 async function openCreateModal() {
