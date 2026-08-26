@@ -1,4 +1,5 @@
 import { ListResourceResponse } from "../resource/ui-types";
+import { ListResourceRequestParams } from "../resource/ui-types";
 
 interface ServiceInstanceMeta {
     name: string;
@@ -37,3 +38,7 @@ export interface ServicePutRequest {
     settings: Record<string, string>;
     wait: boolean;
 }
+
+export type ListServiceInstancesRequestParams = ListResourceRequestParams & {
+    catalogService?: string;
+};

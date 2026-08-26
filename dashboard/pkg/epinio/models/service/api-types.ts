@@ -1,4 +1,4 @@
-import { ApiListResourceResponse } from "../resource/api-types";
+import { ApiListResourceRequestParams, ApiListResourceResponse } from "../resource/api-types";
 
 interface ApiServiceInstanceMeta {
     name: string;
@@ -36,3 +36,7 @@ export interface ApiServicePutRequest {
     settings: Record<string, string>;
     wait: boolean;
 }
+
+export type ApiListServiceInstancesRequestParams = ApiListResourceRequestParams & {
+    catalog_service?: string;
+};

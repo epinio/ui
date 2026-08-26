@@ -11,7 +11,7 @@ interface ApiCatalogServiceHelmRepo {
     secret?: string;
 }
 
-interface ApiChartSetting {
+export interface ApiChartSetting {
     type: 'string' | 'bool' | 'number' | 'integer';
     enum?: string[];
     maximum?: number;

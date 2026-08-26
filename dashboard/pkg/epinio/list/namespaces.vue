@@ -22,7 +22,6 @@ const store = useStore() as any;
 const t = store.getters['i18n/t'];
 
 const resource: string = EPINIO_TYPES.NAMESPACE;
-const displayRows = ref<ResourceTableRow[]>([]);
 
 const namespaceModal = ref<InstanceType<typeof NamespaceModal> | null>(null);
 const namespaceDeleteModal = ref<InstanceType<typeof NamespaceDeleteModal> | null>(null);
@@ -73,15 +72,12 @@ const canDelete = computed(() => {
   return can('namespace_write') || can('namespace');
 });
 
-watchEffect(() => {
+const displayRows = computed<ResourceTableRow<Namespace>[]>(() => {
   if (!namespaces.value) {
-    displayRows.value = [];
-    return;
+    return [];
   }
-  // Add custom namespace delete action to replace the built in rancher shell flow.
-  // Gate by namespace write perms so view-only / app-only roles don't see Delete.
 
-  const rows: ResourceTableRow[] = (namespaces.value.items ?? []).map((n) => ({
+  return (namespaces.value.items ?? []).map((n) => ({
     ...n,
     id: n.meta.name, // stable, unique per namespace
     availableActions: [{
@@ -92,7 +88,6 @@ watchEffect(() => {
       danger: true,
     }]
   }));
-  displayRows.value = rows;
 });
 
 // Watch for changes to the active namespace cache and update the request params accordingly

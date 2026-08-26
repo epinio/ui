@@ -13,6 +13,7 @@ import { ListResourceRequestParams, ResourceQueryOptions, ResourceTableRow } fro
 import { useServices } from '../queries/useServiceQueries';
 import { useBulkRemoveServiceInstances, useUnbindServiceInstance } from '../queries/useServiceMutations';
 import { ServiceInstance } from '../models/service/ui-types';
+import Banner from '@components/Banner/Banner.vue';
 
 defineProps<{
   schema: object,

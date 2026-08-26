@@ -1,6 +1,6 @@
-import { ApiListServiceInstancesResponse, ApiServiceInstance, ApiServiceCreateRequest, ApiServiceBindRequest, ApiServicePutRequest } from "./api-types";
-import { ListServiceInstancesResponse, ServiceInstance, ServiceCreateRequest, ServiceBindRequest, ServicePutRequest } from "./ui-types";
-import { toPaginatedResponseMetadata } from "../resource/mappers";
+import { ApiListServiceInstancesResponse, ApiServiceInstance, ApiServiceCreateRequest, ApiServiceBindRequest, ApiServicePutRequest, ApiListServiceInstancesRequestParams } from "./api-types";
+import { ListServiceInstancesResponse, ServiceInstance, ServiceCreateRequest, ServiceBindRequest, ServicePutRequest, ListServiceInstancesRequestParams } from "./ui-types";
+import { toPaginatedResponseMetadata, toApiListResourceRequestParams } from "../resource/mappers";
 import { statusToStateDisplay } from "../resource/mappers";
 
 export function toServiceInstance(apiServiceInstance: ApiServiceInstance): ServiceInstance {
@@ -51,4 +51,12 @@ export function toApiServicePutRequest(request: ServicePutRequest): ApiServicePu
         settings: request.settings,
         wait: request.wait,
     };
+}
+
+export function toApiListServiceInstancesRequestParams(params: ListServiceInstancesRequestParams): ApiListServiceInstancesRequestParams {
+    const apiParams: ApiListServiceInstancesRequestParams = toApiListResourceRequestParams(params);
+    if (params.catalogService) {
+        apiParams.catalog_service = params.catalogService;
+    }
+    return apiParams;
 }

@@ -489,6 +489,7 @@ epinio:
       optionsFetch: Error fetching options for Configuration, please try again.
       unbind: Error unbinding Configuration, please try again.
       delete: Error deleting Configuration, please try again.
+      fetch: Error fetching Configurations, please try again.
   serviceInstance:
     tableHeaders:
       service: Catalog Service
@@ -514,6 +515,7 @@ epinio:
       update: Error updating Catalog Service, please try again.
       save: Error saving Catalog Service, please try again.
       fetchAll: Error fetching Catalog Services, please try again.
+    noServicesFound: No services found.
   warnings:
     noNamespace: There are no namespaces. Please create one before proceeding
   login:
@@ -525,6 +527,13 @@ epinio:
     pageMessage: You have unsaved changes. Are you sure you want to leave this page?
     discard: Discard Changes
     warning: You have unsaved changes.
+  appCharts:
+    errors:
+      delete: Error deleting App Chart, please try again.
+      fetch: Error fetching App Charts, please try again.
+      create: Error creating App Chart, please try again.
+      update: Error updating App Chart, please try again.
+      save: Error saving App Chart, please try again.
   growl:
     application:
       deploy:

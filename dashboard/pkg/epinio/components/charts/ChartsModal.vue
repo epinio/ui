@@ -1,15 +1,13 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import { useStore } from 'vuex';
-
-import { EPINIO_TYPES } from '../../types';
-import { epinioExceptionToErrorsArray } from '../../utils/errors';
 import { validateKubernetesName } from '@shell/utils/validators/kubernetes-name';
-import { mapSettingsFromApiResponse, mapSettingsToApiRequest, validateSettings } from '../../utils/settings';
+import { validateSettings } from '../../utils/settings';
 import Banner from '@components/Banner/Banner.vue';
-import EpinioAppChartModel from '../../models/appcharts';
 import ChartSettings from '../settings/ChartSettings.vue';
-import { ConfigSetting } from '../settings/ChartSettings.vue';
+import { ChartSetting } from '../../models/catalogservice/ui-types';
+import { useCreateAppChart, useUpdateAppChart } from '../../queries/useAppChartsMutations';
+import { AppChart, AppChartUpdateRequest, AppChartCreateRequest } from '../../models/appcharts/ui-types';
 
 import isEqual from 'lodash/isEqual';
 import sortBy from 'lodash/sortBy';
@@ -21,7 +19,7 @@ const t = store.getters['i18n/t'];
 const showModal = ref(false);
 const modalMode = ref<'create' | 'edit' | 'view'>('create');
 
-const initialValues = ref<EpinioAppChartModel | null>(null);
+const initialValues = ref<AppChart | null>(null);
 
 // Form fields (separate from the model to avoid proxy mutation issues)
 const chartName = ref('');
@@ -29,35 +27,42 @@ const chartShortDescription = ref('');
 const chartDescription = ref('');
 const helmChartUrl = ref('');
 const helmRepoUrl = ref('');
-const chartSettings = ref<ConfigSetting[]>([]);
-
-const saving = ref(false);
-const errors = ref<string[]>([]);
-const hasAssociatedApps = ref<boolean>(false);
+const chartSettings = ref<ChartSetting[]>([]);
 
 const isEdit = computed(() => modalMode.value === 'edit');
 const isView = computed(() => modalMode.value === 'view');
 
+const {mutateAsync: createAppChart, isPending: isCreatingAppChart, isError: createAppChartError, error: createAppChartErrorData} = useCreateAppChart(store, () => {
+  handleSuccess('create');
+  closeModal();
+});
+const {mutateAsync: updateAppChart, isPending: isUpdatingAppChart, isError: updateAppChartError, error: updateAppChartErrorData} = useUpdateAppChart(store, () => {
+  handleSuccess('update');
+  closeModal();
+});
+
 const isDirty = computed(() => {
-  if (!initialValues.value) {
-    return chartName.value !== '' ||
-      chartShortDescription.value !== '' ||
-      chartDescription.value !== '' ||
-      helmChartUrl.value !== '' ||
-      helmRepoUrl.value !== '' ||
-      chartSettings.value.length > 0;
-  }
+  return dirtyFields.value.name ||
+    dirtyFields.value.shortDescription ||
+    dirtyFields.value.description ||
+    dirtyFields.value.helmChart ||
+    dirtyFields.value.helmRepo ||
+    dirtyFields.value.settings;
+});
 
-  const initialSettings = mapSettingsFromApiResponse(initialValues.value);
+const dirtyFields = computed(() => {
+  const fields: Partial<
+    Record<keyof AppChartCreateRequest, boolean>
+  > = {};
 
-  const isDirty = chartName.value !== (initialValues.value!.meta.name || '') ||
-    chartShortDescription.value !== (initialValues.value!.short_description || '') ||
-    chartDescription.value !== (initialValues.value!.description || '') ||
-    helmChartUrl.value !== (initialValues.value!.helm_chart || '') ||
-    helmRepoUrl.value !== (initialValues.value!.helm_repo || '') ||
-    !isEqual(sortBy(chartSettings.value, 'name'), sortBy(initialSettings, 'name'));
+  fields.name = chartName.value !== (initialValues.value?.meta.name || '');
+  fields.shortDescription = chartShortDescription.value !== (initialValues.value?.shortDescription || '');
+  fields.description = chartDescription.value !== (initialValues.value?.description || '');
+  fields.helmChart = helmChartUrl.value !== (initialValues.value?.helmChart || '');
+  fields.helmRepo = helmRepoUrl.value !== (initialValues.value?.helmRepo || '');
+  fields.settings = !isEqual(sortBy(chartSettings.value, 'name'), sortBy(initialValues.value?.settings || [], 'name'));
 
-  return isDirty;
+  return fields;
 });
 
 const showDiscardConfirm = ref(false);
@@ -78,11 +83,10 @@ const validationPassed = computed(() => {
 const canSave = computed(() => {
   const dirty = isDirty.value;
   const valid = validationPassed.value;
-  return dirty && valid && !saving.value;
+  return dirty && valid && !isCreatingAppChart.value && !isUpdatingAppChart.value;
 });
 
 function openCreate() {
-  errors.value = [];
   modalMode.value = 'create';
   chartName.value = '';
   chartShortDescription.value = '';
@@ -93,17 +97,15 @@ function openCreate() {
   showModal.value = true;
 }
 
-function openEdit(row: EpinioAppChartModel) {
-  errors.value = [];
+function openEdit(row: AppChart) {
   modalMode.value = 'edit';
   initialValues.value = row;
-  chartName.value = row.name || row.meta?.name || '';
-  chartShortDescription.value = row.short_description || '';
+  chartName.value = row.meta?.name || '';
+  chartShortDescription.value = row.shortDescription || '';
   chartDescription.value = row.description || '';
-  helmChartUrl.value = row.helm_chart || '';
-  helmRepoUrl.value = row.helm_repo || '';
-  hasAssociatedApps.value = !!row.bound_apps;
-  chartSettings.value = mapSettingsFromApiResponse(row);
+  helmChartUrl.value = row.helmChart || '';
+  helmRepoUrl.value = row.helmRepo || '';
+  chartSettings.value = row.settings || [];
   showModal.value = true;
 }
 
@@ -133,71 +135,77 @@ function closeModal() {
   helmChartUrl.value = '';
   helmRepoUrl.value = '';
   chartSettings.value = [];
-  errors.value = [];
   showDiscardConfirm.value = false;
   showModal.value = false;
   initialValues.value = null;
-  hasAssociatedApps.value = false;
 }
+
+const buildCreateRequest = (): AppChartCreateRequest => {
+  const request: AppChartCreateRequest = {
+    name: chartName.value,
+    shortDescription: chartShortDescription.value,
+    description: chartDescription.value,
+  };
+  if (helmChartUrl.value) {
+    request.helmChart = helmChartUrl.value;
+  }
+  if (helmRepoUrl.value) {
+    request.helmRepo = helmRepoUrl.value;
+  }
+  if (chartSettings.value.length > 0) {
+    request.settings = chartSettings.value;
+  }
+  return request;
+};
+
+const buildUpdateRequest = (): AppChartUpdateRequest => {
+  const request: AppChartUpdateRequest = {};
+
+  if (dirtyFields.value.name) {
+    request.name = chartName.value;
+  }
+
+  if (dirtyFields.value.description) {
+    request.description = chartDescription.value;
+  }
+
+  if (dirtyFields.value.shortDescription) {
+    request.shortDescription = chartShortDescription.value;
+  }
+
+  if (dirtyFields.value.helmChart) {
+    request.helmChart = helmChartUrl.value;
+  }
+
+  if (dirtyFields.value.helmRepo) {
+    request.helmRepo = helmRepoUrl.value;
+  }
+
+  if (dirtyFields.value.settings) {
+    request.settings = chartSettings.value;
+  }
+
+  return request;
+};
 
 async function onSubmit() {
-  if (!validationPassed.value || !isDirty.value || saving.value) return;
+    if (!validationPassed.value || !isDirty.value || isCreatingAppChart.value || isUpdatingAppChart.value) return;
 
-  saving.value = true;
-  errors.value = [];
-
-  const { settings, values } = mapSettingsToApiRequest(chartSettings.value);
-
-  try {
     if (isEdit.value && initialValues.value) {
-      const chart = initialValues.value;
-
-      chart.description       = chartDescription.value;
-      chart.short_description = chartShortDescription.value;
-      chart.helm_chart        = helmChartUrl.value;
-      chart.helm_repo         = helmRepoUrl.value;
-      chart.settings          = settings;
-      chart.values            = values;
-
-      await chart.update();
-      store.dispatch('growl/success', {
-        title:   t('epinio.growl.appCharts.update.success.title'),
-        message: t('epinio.growl.appCharts.update.success.message', { name: chartName.value }),
-      });
-      closeModal();
-      store.dispatch('epinio/findAll', { type: EPINIO_TYPES.APP_CHARTS, opt: { force: true } }).catch(() => {});
+      const request = buildUpdateRequest();
+      await updateAppChart({ name: initialValues.value.meta.name, request });
     } else {
-      const chart = await store.dispatch('epinio/create', { type: EPINIO_TYPES.APP_CHARTS });
-
-      chart.metadata          = { name: chartName.value };
-      chart.description       = chartDescription.value;
-      chart.short_description = chartShortDescription.value;
-      chart.helm_chart        = helmChartUrl.value;
-      chart.helm_repo         = helmRepoUrl.value;
-      chart.settings          = settings;
-      chart.values            = values;
-
-      await chart.create();
-      store.dispatch('growl/success', {
-        title:   t('epinio.growl.appCharts.create.success.title'),
-        message: t('epinio.growl.appCharts.create.success.message', { name: chartName.value }),
-      });
-      closeModal();
-      store.dispatch('epinio/findAll', { type: EPINIO_TYPES.APP_CHARTS, opt: { force: true } }).catch(() => {});
+      const request = buildCreateRequest();
+      await createAppChart({ request });
     }
-  } catch (err: any) {
-    errors.value = epinioExceptionToErrorsArray(err);
-    store.dispatch('growl/error', {
-      title: isEdit.value
-        ? t('epinio.growl.appCharts.save.error.updateTitle')
-        : t('epinio.growl.appCharts.save.error.createTitle'),
-      message: t('epinio.growl.appCharts.save.error.message'),
-    });
-    console.error('Error saving chart:', err);
-  } finally {
-    saving.value = false;
-  }
 }
+
+const handleSuccess = (type: 'create' | 'update') => {
+  store.dispatch('growl/success', {
+    title:   t(`epinio.growl.appCharts.${type}.success.title`),
+    message: t(`epinio.growl.appCharts.${type}.success.message`, { name: chartName.value }),
+  });
+};
 
 defineExpose({ openCreate, openEdit });
 </script>
@@ -213,7 +221,7 @@ defineExpose({ openCreate, openEdit });
   >
     <div id="modal-container-element" class="modal-content">
       <trailhand-form-card>
-        <Banner v-if="hasAssociatedApps" color="warning" label="This chart is currently associated with one or more applications. Editing it may cause issues for future rebuilds." />
+        <Banner v-if="initialValues?.boundApps" color="warning" label="This chart is currently associated with one or more applications. Editing it may cause issues for future rebuilds." />
         <trailhand-form-row columns="2">
           <trailhand-text-input
             :value="chartName"
@@ -267,12 +275,10 @@ defineExpose({ openCreate, openEdit });
           allow-defaults
         />
       </trailhand-form-card>
-      
       <Banner
-        v-for="(err, i) in errors"
-        :key="i"
+        v-if="createAppChartError || updateAppChartError"
         color="error"
-        :label="err"
+        :label="createAppChartErrorData?.message || updateAppChartErrorData?.message || t('epinio.appCharts.errors.save')"
       />
     </div>
 
@@ -321,7 +327,7 @@ defineExpose({ openCreate, openEdit });
           :disabled="!canSave"
           @button-click="onSubmit"
         >
-          {{ saving ? (isEdit ? 'Saving...' : 'Creating...') : (isEdit ? t('generic.save') : t('generic.create')) }}
+          {{ isEdit ? (isUpdatingAppChart ? t('generic.updating') : t('generic.save')) : (isCreatingAppChart ? t('generic.creating') : t('generic.create')) }}
         </trailhand-button>
       </template>
     </div>

@@ -16,6 +16,8 @@ import { ConfigurationResponse } from '../models/configuration/ui-types';
 import { useBulkRemoveConfigurations, useUnbindConfiguration } from '../queries/useConfigurationMutations';
 import { fetchService } from '../queries/useServiceQueries';
 import ServiceInstanceModal from '../components/service/ServiceInstanceModal.vue';
+import Banner from '@components/Banner/Banner.vue';
+
 
 const store = useStore();
 const router = useRouter();
@@ -317,6 +319,11 @@ const columns = computed(() => {
         <div v-else></div>
       </template>
     </Masthead>
+    <Banner
+      v-if="isErrorConfigurations"
+      color="error"
+      :label="configurationsError?.message || t('epinio.configurations.errors.fetch')"
+    /> 
     <div class="search-container">
       <trailhand-text-input
         :value="searchQuery"

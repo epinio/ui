@@ -4,9 +4,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import type { ResourceQueryOptions } from '../models/resource/ui-types';
 import { useCatalogServices } from '../queries/useCatalogServicesQueries';
 import Masthead from '@shell/components/ResourceList/Masthead';
-
 import { EPINIO_TYPES } from '../types'
-
 import CatalogServiceModal from '../components/service/CatalogServiceModal.vue';
 import CatalogServiceDeleteModal from '../components/service/CatalogServiceDeleteModal.vue';
 import { debounce } from 'lodash';
@@ -14,6 +12,7 @@ import { ListResourceRequestParams } from '../models/resource/ui-types';
 import { ResourceTableRow } from '../models/resource/ui-types';
 import { CatalogService } from '../models/catalogservice/ui-types';
 import { createEpinioRoute } from '../utils/custom-routing';
+import Banner from '@components/Banner/Banner.vue';
 
 const store = useStore()
 const props = defineProps<{ schema: object }>(); // eslint-disable-line @typescript-eslint/no-unused-vars
@@ -137,8 +136,11 @@ const showDetails = (catalogService: CatalogService) => {
       />
     </div>
 
-    <div v-if="isLoadingCatalogServices" class="flex justify-center items-center h-64">
+    <div v-if="isLoadingCatalogServices" class="center">
       <trailhand-loading-spinner />
+    </div>
+    <div v-if="!isLoadingCatalogServices && (!list || list.length === 0)" class="center">
+      <p>{{ t('epinio.catalogService.noServicesFound') }}</p>
     </div>
     <div v-else class="cards-container" >
       <trailhand-card
@@ -195,6 +197,13 @@ const showDetails = (catalogService: CatalogService) => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.center {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
 }
 
 @media (max-width: 992px) {

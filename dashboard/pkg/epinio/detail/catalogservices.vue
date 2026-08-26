@@ -1,24 +1,22 @@
 <script setup lang="ts">
 import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
-import { computed, ref, onMounted, watchEffect, onUnmounted, watch } from 'vue';
+import { computed, ref, onMounted, watchEffect, watch } from 'vue';
 import { debounce } from 'lodash';
 
-import { startPolling, stopPolling } from '../utils/polling';
 import EpinioCatalogServiceModel from '../models/catalogservices';
 import { EPINIO_TYPES } from '../types';
-import { makeStateTag, makeRouterLink, makeRouterLinksOrEmpty, overrideTableRows } from '../utils/table-formatters';
+import { makeStateTag } from '../utils/table-formatters';
 import ServiceDeleteModal from '../components/service/ServiceDeleteModal.vue';
 import ServiceInstanceModal from '../components/service/ServiceInstanceModal.vue';
-import EpinioServiceModel from 'models/services';
 import { makeActionMenu } from '../utils/table-formatters';
 import Masthead from '@shell/components/ResourceList/Masthead';
 import CatalogServiceModal from '../components/service/CatalogServiceModal.vue';
 import CatalogServiceDeleteModal from '../components/service/CatalogServiceDeleteModal.vue';
-import { ListResourceRequestParams, ResourceQueryOptions } from '../models/resource/ui-types';
+import { ResourceQueryOptions } from '../models/resource/ui-types';
 import { useServices } from '../queries/useServiceQueries';
 import { CatalogService } from '../models/catalogservice/ui-types';
-import { ServiceInstance } from '../models/service/ui-types';
+import { ServiceInstance, ListServiceInstancesRequestParams } from '../models/service/ui-types';
 import { ResourceTableRow } from '../models/resource/ui-types';
 import { makeNameLinks } from '../utils/table-formatters';
 import { useCatalogService } from '../queries/useCatalogServicesQueries';
@@ -36,11 +34,12 @@ const catalogServiceModal = ref<InstanceType<typeof CatalogServiceModal> | null>
 const catalogServiceDeleteModal = ref<InstanceType<typeof CatalogServiceDeleteModal> | null>(null);
 const tableEl = ref<any>(null);
 
-const requestParams = ref<ListResourceRequestParams>({
+const requestParams = ref<ListServiceInstancesRequestParams>({
   page: 1,
   pageSize: 10,
   search: '',
   namespaces: undefined,
+  catalogService: props.value.meta.name,
 });
 
 const requestOptions = ref<ResourceQueryOptions>({
@@ -60,7 +59,6 @@ const onSearch = debounce(async (query: string) => {
 }, 500);
 
 const {data: catalogService, isLoading: isLoadingCatalogService, isError: isErrorCatalogService, error: catalogServiceError} = useCatalogService(store, ref(props.value.meta.name));
-// TO-DO fetch services for the catalog service once api supports it
 const {data: services, isLoading: isLoadingServices, isError: isErrorServices, error: servicesError} = useServices(store, requestParams, requestOptions);
 
 const canEditService = computed(() => {
