@@ -315,6 +315,8 @@ epinio:
             tooltip: Paketo builder image to use for staging
             default: Default Image
             custom: Custom Image
+            inputLabel: Builder Image
+            clusterDefault: Builder Image (leave blank to use the cluster default)
           appchart:
             label: Application Chart
         container_url:
@@ -323,6 +325,18 @@ epinio:
             label: Container Image
             inputLabel: Image
             tooltip: Container Image for the app workload
+        buildMode:
+          label: Build Method
+          inputLabel: Build Method
+          buildpack: Buildpack (Paketo)
+          dockerfile: Dockerfile
+        dockerfilePath:
+          label: Dockerfile Path
+          inputLabel: Dockerfile Path
+          error:
+            absolute: Absolute paths are not allowed
+            parent: Paths must not contain '..'
+            chars: "Only letters, digits, '.', '_', '-', and '/' are allowed"
         manifest:
           button: From Manifest
           tooltip: Manifests can provide app configuration from another app
@@ -389,6 +403,7 @@ epinio:
       upload:
         label: Upload
         description: Upload the source for the Application
+        missingSource: Select the folder or archive again to redeploy the source. The browser cannot re-read the files from the last deploy.
       build:
         label: Build
         description: Build the source for the Application

@@ -18,7 +18,9 @@ const epinioFactory = (): CoreStoreSpecifics => {
         searchQuery: {} as Record<string, string>,
         // Server-side namespace search results (names) for the navbar filter.
         // null means no active query -> the filter shows the full list.
-        namespaceSearch: null as string[] | null
+        namespaceSearch: null as string[] | null,
+        // Active namespaces from the top-level filter. null means no active filter -> the list shows all namespaces.
+        activeNamespaces: null as string[] | null,
       };
     },
 

@@ -13,7 +13,13 @@ import { epinioExceptionToErrorsArray } from '../utils/errors';
 import { startPolling, stopPolling } from '../utils/polling';
 import Tabs from '../components/application/Tabs.vue';
 import Banner from '@components/Banner/Banner.vue';
-import { makeStateTag, makeActionMenu, makeCommitShaCell, makeCommitAuthorCell, overrideTableRows } from '../utils/table-formatters';
+import {
+  makeStateTag,
+  makeActionMenu,
+  makeCommitShaCell,
+  makeCommitAuthorCell,
+  overrideTableRows
+} from '../utils/table-formatters';
 import ServiceInstanceModal from '../components/service/ServiceInstanceModal.vue';
 import ServiceDeleteModal from '../components/service/ServiceDeleteModal.vue';
 import EpinioServiceModel from 'models/services';
@@ -44,13 +50,37 @@ const gitDeployment = ref({
 });
 const activeDeploymentTab = ref<string | number>('overview');
 const deploymentTabs = ref([
-  { id: 'overview', label: t('epinio.applications.detail.tables.overview'), completed: false, valid: true, disabled: false },
+  {
+    id: 'overview',
+    label: t('epinio.applications.detail.tables.overview'),
+    completed: false,
+    valid: true,
+    disabled: false,
+  },
 ])
 const activeResourceTab = ref<string | number>('instances');
 const resourceTabs = ref([
-  { id: 'instances', label: t('epinio.applications.detail.tables.instances'), completed: false, valid: true, disabled: false },
-  { id: 'services', label: t('epinio.applications.detail.tables.services'), completed: false, valid: true, disabled: false },
-  { id: 'configs', label: t('epinio.applications.detail.tables.configs'), completed: false, valid: true, disabled: false }
+  {
+    id: 'instances',
+    label: t('epinio.applications.detail.tables.instances'),
+    completed: false,
+    valid: true,
+    disabled: false,
+  },
+  {
+    id: 'services',
+    label: t('epinio.applications.detail.tables.services'),
+    completed: false,
+    valid: true,
+    disabled: false,
+  },
+  {
+    id: 'configs',
+    label: t('epinio.applications.detail.tables.configs'),
+    completed: false,
+    valid: true,
+    disabled: false,
+  }
 ]);
 
 const serviceModal = ref<InstanceType<typeof ServiceInstanceModal> | null>(null);
@@ -422,9 +452,13 @@ onMounted(async () => {
   if (props.value.appSource.git) {
     await fetchRepoDetails();
     setCommitDetails();
-    deploymentTabs.value.push(
-      { id: 'gitCommits', label: t('epinio.applications.detail.tables.gitCommits'), completed: false, valid: true, disabled: false }
-    );
+    deploymentTabs.value.push({
+      id: 'gitCommits',
+      label: t('epinio.applications.detail.tables.gitCommits'),
+      completed: false,
+      valid: true,
+      disabled: false,
+    });
   }
 });
 
@@ -576,7 +610,7 @@ function handleDeleted() {
           <h1>Application: {{ value.meta.name }}</h1>
           <p>{{ value.stateDisplay }}</p>
         </div>
-        <trailhand-action-menu 
+        <trailhand-action-menu
           v-if="availableActions.length > 0"
           :actions="availableActions"
         />

@@ -1,35 +1,73 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watchEffect } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watchEffect, watch } from 'vue';
 import { useStore } from 'vuex';
-import { useRouter } from 'vue-router';
 import { debounce } from 'lodash';
+import { useRouter } from 'vue-router';
 
-import Masthead from '@shell/components/ResourceList/Masthead';
-
-import AppModal from '../../../../components/application/AppModal.vue';
-import AppDeleteModal from '../../../../components/application/AppDeleteModal.vue';
-import BulkDeleteModal from '../../../../components/BulkDeleteModal.vue';
-import ExportAppModal from '../../../../dialog/ExportAppModal.vue';
 import { EPINIO_TYPES } from '../../../../types';
 import { startPolling, stopPolling } from '../../../../utils/polling';
+import Masthead from '@shell/components/ResourceList/Masthead';
 import {
   makeActionMenu,
   makeStateTag,
   makeAppRoutesCell,
   makeNameLinks,
 } from '../../../../utils/table-formatters';
-import EpinioApplicationModel from 'models/applications';
 import { overrideTableRows } from '../../../../utils/table-formatters';
+import AppModal from '../../../../components/application/AppModal.vue';
+import AppDeleteModal from '../../../../components/application/AppDeleteModal.vue';
+import BulkDeleteModal from '../../../../components/BulkDeleteModal.vue';
+import ExportAppModal from '../../../../dialog/ExportAppModal.vue';
+import EpinioApplicationModel from 'models/applications';
 
-const store = useStore();
-const router = useRouter();
+const store = useStore() as any;
 const t = store.getters['i18n/t'];
+const router = useRouter();
 
-const resource = EPINIO_TYPES.APP;
+const resource: string = EPINIO_TYPES.APP;
 const schema = ref(store.getters['epinio/schemaFor'](resource));
+const paginationMeta = computed(() => store.getters['epinio/paginationMeta'](resource));
+const currentPage = computed(() => store.getters['epinio/currentPaginationPage'](resource));
+
+const searchQuery = ref<string>('');
+
+const paginating = ref(false);
+
+async function goToPage(page: number) {
+  const meta = paginationMeta.value;
+
+  if (meta && (page < 1 || page > meta.totalPages)) return;
+  paginating.value = true;
+  try {
+    await store.dispatch('epinio/goToPage', { type: resource, page });
+  } finally {
+    paginating.value = false;
+  }
+}
+
+const onSearch = debounce(async (query: string) => {
+  paginating.value = true;
+  try {
+    await store.dispatch('epinio/search', { type: resource, query });
+  } finally {
+    paginating.value = false;
+  }
+}, 500);
+
+watch(searchQuery, (newQuery) => {
+  onSearch(newQuery);
+});
+
 const appModal = ref<InstanceType<typeof AppModal> | null>(null);
+const deleteModal = ref<InstanceType<typeof AppDeleteModal> | null>(null);
+const bulkDeleteModal = ref<InstanceType<typeof BulkDeleteModal> | null>(null);
 const exportAppModal = ref<InstanceType<typeof ExportAppModal> | null>(null);
 const deleteAppModal = ref<InstanceType<typeof AppDeleteModal> | null>(null);
+
+const tableEl = ref<any>(null);
+const selectedRows = ref<any[]>([]);
+const displayRows = ref<any[]>([]);
+
 const canCreate = computed(() => {
   const canGetter = store.getters['epinio/can'];
   return canGetter && (
@@ -49,159 +87,38 @@ const canDelete = computed(() => {
   );
 });
 
-const bulkDeleteModal = ref<InstanceType<typeof BulkDeleteModal> | null>(null);
-// Selection is scoped per-namespace-table, matching how bulkRemove() already
-// splits requests by namespace and how the tables are grouped in this view.
-const namespaceTableRefs = ref<Record<string, any>>({});
-const namespaceSelectedRows = ref<Record<string, any[]>>({});
-let bulkDeleteNamespace = '';
+const handleCreateClick = () => {
+  appModal.value?.openCreate();
+};
 
-const pending = ref(true);
-
-// Per-namespace pagination state
-
-type PaginationMeta = { page: number; pageSize: number; totalItems: number; totalPages: number };
-
-const namespaceRows         = ref<Record<string, any[]>>({});
-const namespaceLoading      = ref<Record<string, boolean>>({});
-const namespaceMeta         = ref<Record<string, PaginationMeta | null>>({});
-const namespaceCurrentPages = ref<Record<string, number>>({});
-
-// Returns the best available rows for a namespace: namespace-specific once
-// fetched, global store rows before that (instant initial display).
-function getDisplayRows(ns: string): any[] {
-  return namespaceRows.value[ns] ?? [];
-}
-
-// silent=true → skip loading overlay (polling and background meta seeding)
-async function fetchNamespaceApps(namespace: string, page = 1, search='', silent = false) {
-  if (!silent) {
-    namespaceLoading.value = { ...namespaceLoading.value, [namespace]: true };
-    // Clear rows so stale data doesn't show if search returns empty
-    namespaceRows.value = { ...namespaceRows.value, [namespace]: [] };
-  }
-  namespaceCurrentPages.value = { ...namespaceCurrentPages.value, [namespace]: page };
-
-  try {
-    const { items, meta } = await store.dispatch('epinio/findAppsInNamespace', { namespace, page, search });
-
-    namespaceRows.value = { ...namespaceRows.value, [namespace]: items };
-    namespaceMeta.value = { ...namespaceMeta.value, [namespace]: meta };
-
-    // A delete can empty the page we are on. Step back to the new last page
-    // rather than leaving the user on a page that no longer exists.
-    if (page > 1 && meta && meta.totalPages >= 1 && page > meta.totalPages) {
-      await fetchNamespaceApps(namespace, meta.totalPages, search, silent);
+// Watch the active namespace cache key and update the active namespaces in the store
+watch(
+  () => {
+    void store.state.activeNamespaceCacheKey;
+    const active = store.state.activeNamespaceCache;
+    return active ? Object.keys(active) : null;
+  },
+  async (namespacesArray) => {
+    paginating.value = true;
+    try {
+      await store.dispatch('epinio/setActiveNamespaces', { type: resource, namespaces: namespacesArray });
+    } finally {
+      paginating.value = false;
     }
-  } finally {
-    if (!silent) {
-      namespaceLoading.value = { ...namespaceLoading.value, [namespace]: false };
-    }
-  }
-}
+  
+  },
+  { immediate: true }
+);
 
-async function handlePageChange(event: CustomEvent, namespace: string) {
-  await fetchNamespaceApps(namespace, event.detail.page);
-}
+watchEffect(async () => {
+  const all = store.getters['epinio/all'](EPINIO_TYPES.APP) as any[];
+  all.forEach((row: any) => { void row.status; void row.stateDisplay; void row.meta; void row.boundapps; });
 
-// Only render namespace groups that have apps in either source.
-const activeNamespaces = computed(() => {
-  void store.state.activeNamespaceCacheKey;
-  const active = store.state.activeNamespaceCache;
-  const namespaces = [...new Set([...Object.keys(namespaceRows.value)])].filter(ns => {
-    if (!active || Object.keys(active).length === 0) return true;
-    const isActive = active[ns];
-    return isActive;
+  // Filter empty rows that are added during delete
+  const filtered = all.filter((row) => {
+    if (!row.id) return false;
+    return true;
   });
-  return namespaces.sort();
-});
-
-// Responsive columns
-
-const windowWidth = ref(window.innerWidth);
-const onResize = () => { windowWidth.value = window.innerWidth; };
-
-const allColumns = [
-  {
-    field:     'stateDisplay',
-    label:     'State',
-    width:     '110px',
-    formatter: (_value: string, row: any) => makeStateTag(row)
-  },
-  {
-    field: 'nameDisplay',
-    label: 'Name',
-    width: '125px',
-    link:  (row: any) => {
-      try { return router.resolve(row.detailLocation).href; } catch { return '#'; }
-    }
-  },
-  { field: 'deployment.status', label: 'Status', width: '75px' },
-  {
-    field:     'route',
-    label:     'Routes',
-    width:     '180px',
-    sortable:  false,
-    formatter: (_value: any, row: any) => makeAppRoutesCell(row)
-  },
-  {
-    field:     'boundConfigs',
-    label:     'Bound Configs',
-    width:     '180px',
-    sortable:  false,
-    formatter: (_value: any, row: any) => makeNameLinks(
-      row.configuration?.configurations,
-      { cluster: store.getters['clusterId'], namespace: row.meta.namespace, resource: EPINIO_TYPES.CONFIGURATION },
-      router
-    )
-  },
-  {
-    field:     'boundServices',
-    label:     'Bound Services',
-    width:     '180px',
-    sortable:  false,
-    formatter: (_value: any, row: any) => makeNameLinks(
-      row.configuration?.services,
-      { cluster: store.getters['clusterId'], namespace: row.meta.namespace, resource: EPINIO_TYPES.SERVICE_INSTANCE },
-      router
-    )
-  },
-  { field: 'deployment.username', label: 'Last Deployed By', width: '150px' },
-  { field: 'meta.createdAt',      label: 'Age',              width: '50px', formatter: 'age' }
-];
-
-const columns = computed(() => {
-  const w = windowWidth.value;
-  const hide = new Set<string>();
-
-  if (w < 1700) hide.add('deployment.username');
-  if (w < 1500) hide.add('deployment.status');
-  if (w < 1275) { hide.add('boundConfigs'); hide.add('boundServices'); }
-  if (w < 1100) hide.add('meta.createdAt');
-  if (w < 875)  hide.add('route');
-
-  return allColumns.filter(col => !hide.has(col.field));
-});
-
-// Per-namespace search
-
-const searchQueries = ref<Record<string, string>>({});
-
-const onNamespaceSearch = debounce(async (namespace: string, query: string) => {
-  // Reset to page 1 on new search
-  await fetchNamespaceApps(namespace, 1, query, false);
-}, 300);
-
-function handleSearchInput(namespace: string, query: string) {
-  searchQueries.value[namespace] = query;
-  onNamespaceSearch(namespace, query);
-}
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function getApps(apps: any[], _namespace: string): any[] {
-  // Only inject the modal-driven Edit action when the current user actually
-  // has app write permissions; otherwise the model's filter has already
-  // removed goToEdit and we shouldn't add it back.
 
   const overrideProps = [
     {
@@ -270,326 +187,238 @@ function getApps(apps: any[], _namespace: string): any[] {
     {
       prop: 'deleteApp',
       value: (row: EpinioApplicationModel) => () => {
-        deleteAppModal.value?.openDelete(row);
+        deleteModal.value?.openDelete(row);
       },
       conditionFn: () => {
         return true;
       },
     }
-
   ];
 
-  return overrideTableRows(apps, overrideProps);
-}
+  const processedRows = overrideTableRows(filtered, overrideProps);
 
-const handleNavigate = (event: CustomEvent) => router.push(event.detail.url);
-
-const handleSelectionChange = (event: CustomEvent, ns: string) => {
-  namespaceSelectedRows.value = { ...namespaceSelectedRows.value, [ns]: event.detail.selectedRows };
-};
-
-const handleBulkDeleteClick = (ns: string) => {
-  bulkDeleteNamespace = ns;
-  bulkDeleteModal.value?.openDelete(namespaceSelectedRows.value[ns] ?? []);
-};
-
-// Fires on both success and failure. Applications render from per-namespace
-// fetches, not the generic findAll BulkDeleteModal already refreshes
-// internally, so re-fetch this namespace directly — a batch delete can
-// partially succeed even when it ultimately errors.
-const handleBulkDeleteSettled = async () => {
-  const ns = bulkDeleteNamespace;
-
-  namespaceSelectedRows.value = { ...namespaceSelectedRows.value, [ns]: [] };
-  namespaceTableRefs.value[ns]?.clearSelection();
-  await refreshNamespace(ns);
-};
-
-// NOTE: must be a named function declared here, not an inline arrow function
-// in the template — see feedback_vue_ref_unwrap_bug.md. Vue auto-unwraps
-// top-level refs inside template expressions, so referencing a ref directly
-// in an inline template callback can silently break assignment.
-const setTableRef = (ns: string, el: any) => {
-  if (el) {
-    namespaceTableRefs.value[ns] = el;
-    el.renderActions = makeActionMenu;
-  }
-};
-
-// Lifecycle
-
-// Applications are never loaded via the unpaginated findAll. They come in
-// exclusively through findAppsInNamespace (per-namespace, paginated).
-let appsPollIntervalId: number | undefined;
-const APPS_POLL_RATE_MS = 30000;
-
-// Keep namespaceRows in sync with the namespace store. Runs immediately on
-// mount (seeding all known namespaces) and re-runs whenever startPolling
-// updates the store with new namespaces, so new groups appear without a jump.
-watchEffect(() => {
-  const storeNs = (store.getters['epinio/all'](EPINIO_TYPES.NAMESPACE) as any[])
-    .map((ns: any) => ns.meta?.name)
-    .filter(Boolean) as string[];
-  const existing = namespaceRows.value;
-  const additions: Record<string, any[]> = {};
-  for (const ns of storeNs) {
-    if (!(ns in existing)) {
-      additions[ns] = [];
-    }
-  }
-  if (Object.keys(additions).length) {
-    namespaceRows.value = { ...existing, ...additions };
-  }
+  displayRows.value = [...processedRows];
 });
-
-// Re-fetch rather than splicing the row out locally: these tables paginate
-// server-side, so dropping a row without new meta leaves totalItems (and so
-// the page count) stale, and the row that should shift up from the next page
-// never arrives.
-async function handleDeleted(app: any) {
-  await refreshNamespace(app.meta.namespace);
-}
-
-// An app create can also create its namespace, so seed the group if it is new
-// (the namespace watchEffect adds it too, but only once the store catches up).
-async function handleSaved(namespace?: string) {
-  if (!namespace) {
-    return;
-  }
-
-  if (!(namespace in namespaceRows.value)) {
-    namespaceRows.value = { ...namespaceRows.value, [namespace]: [] };
-  }
-
-  await refreshNamespace(namespace);
-}
-
-function refreshNamespace(namespace: string) {
-  return fetchNamespaceApps(
-    namespace,
-    namespaceCurrentPages.value[namespace] ?? 1,
-    searchQueries.value[namespace] ?? '',
-    true,
-  );
-}
 
 onMounted(async () => {
   window.addEventListener('resize', onResize);
-
-  const [,,, grouped] = await Promise.all([
-    store.dispatch('epinio/me'),
-    store.dispatch('epinio/findAll', { type: EPINIO_TYPES.CONFIGURATION }),
-    store.dispatch('epinio/findAll', { type: EPINIO_TYPES.SERVICE_INSTANCE }),
-    store.dispatch('epinio/findGroupedApps'),
-  ]);
-
-  // ?? {} so a failed grouped fetch degrades to an empty loop rather than throwing
-  for (const [ns, nsData] of Object.entries(grouped ?? {})) {
-    const { items, meta } = nsData as { items: any[]; meta: any };
-    // spread-replace instead of direct mutation so Vue tracks the change
-    namespaceRows.value  = { ...namespaceRows.value,  [ns]: items };
-    namespaceMeta.value  = { ...namespaceMeta.value,  [ns]: meta };
+  paginating.value = true;
+  try {
+    await Promise.all([
+      store.dispatch('epinio/me'),
+      store.dispatch('epinio/findAll', { type: EPINIO_TYPES.SERVICE_INSTANCE }),
+      store.dispatch('epinio/findAll', { type: EPINIO_TYPES.CONFIGURATION }),
+      store.dispatch('epinio/findAll', { type: EPINIO_TYPES.APP }),
+    ]);
+  } finally {
+    paginating.value = false;
   }
+  startPolling(['applications', 'configurations', 'services'], store);
 
-  pending.value = false;
+  const query = store.$router.currentRoute._value.query;
 
-  startPolling(['namespaces', 'configurations', 'services'], store);
-
-  if (store.$router.currentRoute._value.query.mode === 'openModal') {
+  if (query.mode === 'openModal') {
     appModal.value?.openCreate();
   }
-
-  appsPollIntervalId = window.setInterval(async() => {
-    // Poll all known namespaces. Because we seed every namespace at mount,
-    // the first poll refreshes existing groups rather than adding new ones.
-    for (const ns of Object.keys(namespaceRows.value)) {
-      await fetchNamespaceApps(
-        ns,
-        namespaceCurrentPages.value[ns] ?? 1,
-        searchQueries.value[ns] ?? '',
-        true,
-      );
-    }
-  }, APPS_POLL_RATE_MS);
 });
 
 onUnmounted(() => {
   window.removeEventListener('resize', onResize);
-  stopPolling(['namespaces', 'configurations', 'services']);
-  if (appsPollIntervalId !== undefined) {
-    window.clearInterval(appsPollIntervalId);
+  stopPolling(['applications', 'configurations', 'services']);
+});
+
+// Services without service_write/service permission on that row can't be
+// individually deleted, so they're excluded from bulk selection too.
+const isRowSelectable = (row: any) => row.canDelete;
+
+const handleSelectionChange = (event: CustomEvent) => {
+  selectedRows.value = event.detail.selectedRows;
+};
+
+const handleBulkDeleteClick = () => {
+  bulkDeleteModal.value?.openDelete(selectedRows.value);
+};
+
+const handleBulkDeleted = () => {
+  selectedRows.value = [];
+  tableEl.value?.clearSelection();
+};
+
+// NOTE: must be a named function declared here, not an inline arrow function
+// in the template, see feedback_vue_ref_unwrap_bug.md. Vue auto-unwraps
+// top-level refs inside template expressions, so referencing `tableEl`
+// directly in an inline template callback gives the already-unwrapped
+// (initially null) value instead of the Ref object, and `tableEl.value = el`
+// throws, silently aborting the rest of the block.
+const setTableRef = (el: any) => {
+  if (el) {
+    tableEl.value = el;
+    el.renderActions = makeActionMenu;
+    el.rowSelectable = isRowSelectable;
   }
+};
+
+const handleNavigate = (event: CustomEvent) => {
+  router.push(event.detail.url);
+};
+
+const windowWidth = ref(window.innerWidth);
+const onResize = () => { windowWidth.value = window.innerWidth; };
+
+const allColumns = [
+  {
+    field:     'stateDisplay',
+    label:     'State',
+    width:     '110px',
+    formatter: (_value: string, row: any) => makeStateTag(row)
+  },
+  {
+    field: 'nameDisplay',
+    label: 'Name',
+    width: '125px',
+    formatter: (_value: any, row: any) => makeNameLinks(
+      [row.meta.name],
+      { cluster: store.getters['clusterId'], namespace: row.meta.namespace, resource: EPINIO_TYPES.APP },
+      router
+    )
+  },
+  {
+    field: 'meta.namespace',
+    label: 'Namespace',
+    width: '125px',
+  },
+  { field: 'deployment.status', label: 'Status', width: '75px' },
+  {
+    field:     'route',
+    label:     'Routes',
+    width:     '180px',
+    sortable:  false,
+    formatter: (_value: any, row: any) => makeAppRoutesCell(row)
+  },
+  {
+    field:     'boundConfigs',
+    label:     'Bound Configs',
+    width:     '180px',
+    sortable:  false,
+    formatter: (_value: any, row: any) => makeNameLinks(
+      row.configuration?.configurations,
+      { cluster: store.getters['clusterId'], namespace: row.meta.namespace, resource: EPINIO_TYPES.CONFIGURATION },
+      router
+    )
+  },
+  {
+    field:     'boundServices',
+    label:     'Bound Services',
+    width:     '180px',
+    sortable:  false,
+    formatter: (_value: any, row: any) => makeNameLinks(
+      row.configuration?.services,
+      { cluster: store.getters['clusterId'], namespace: row.meta.namespace, resource: EPINIO_TYPES.SERVICE_INSTANCE },
+      router
+    )
+  },
+  { field: 'deployment.username', label: 'Last Deployed By', width: '150px' },
+  { field: 'meta.createdAt',      label: 'Age',              width: '50px', formatter: 'age' }
+];
+
+const columns = computed(() => {
+  const w = windowWidth.value;
+  const hide = new Set<string>();
+
+  if (w < 1900) hide.add('deployment.username');
+  if (w < 1700) hide.add('deployment.status');
+  if (w < 1600) { hide.add('boundConfigs'); hide.add('boundServices'); }
+  if (w < 1150) hide.add('meta.createdAt');
+  if (w < 875)  hide.add('route');
+
+  return allColumns.filter(col => !hide.has(col.field));
 });
 </script>
 
 <template>
-  <!-- <Loading v-if="pending" /> -->
-  <div class="outlet">
+  <div id="modal-container-element">
     <Masthead
       :schema="schema"
       :resource="resource"
     >
+      <template #extraActions>
+        <trailhand-button
+          v-if="selectedRows.length"
+          variant="destructive"
+          size="large"
+          @click="handleBulkDeleteClick"
+        >
+          <trailhand-icon name="trash" />
+          Delete ({{ selectedRows.length }})
+        </trailhand-button>
+      </template>
       <template #createButton>
         <trailhand-button
           v-if="canCreate"
           variant="primary"
           size="large"
-          @click="appModal?.openCreate()"
+          @click="handleCreateClick"
         >
           {{ t('generic.create') }}
         </trailhand-button>
-        <div v-else></div>
+        <div v-else />
       </template>
     </Masthead>
-
-    <div v-if="pending" class="namespace-group">
-      <div class="namespace-group-header">
-        <h3 class="namespace-header">
-          Loading applications...
-        </h3>
-        <trailhand-text-input
-          disabled
-          placeholder="Search..."
-        ></trailhand-text-input>
-      </div>
-      <trailhand-table
-        :rows="[]"
-        :columns="columns"
-        :searchable="false"
-        :server-side="false"
-        :total-items="0"
-        :current-page="1"
-        :loading="true"
-      />
+    <div class="search-container">
+      <trailhand-text-input
+        :value="searchQuery"
+        placeholder="Search..."
+        @text-input-change="(e: CustomEvent) => searchQuery = e.detail.value"
+      ></trailhand-text-input>
     </div>
-    <div
-      v-for="ns in activeNamespaces"
-      v-else
-      :key="ns"
-      class="namespace-group"
-    >
-      <div class="namespace-group-header">
-        <h3 class="namespace-header">
-          Namespace: <span class="namespace-name">{{ ns }}</span>
-        </h3>
-        <div class="namespace-header-actions">
-          <trailhand-button
-            v-if="(namespaceSelectedRows[ns] ?? []).length"
-            variant="destructive"
-            size="medium"
-            @click="handleBulkDeleteClick(ns)"
-          >
-            <trailhand-icon name="trash" />
-            Delete ({{ (namespaceSelectedRows[ns] ?? []).length }})
-          </trailhand-button>
-          <trailhand-text-input
-            :value="searchQueries[ns] ?? ''"
-            placeholder="Search..."
-            @text-input-change="(e: CustomEvent) => handleSearchInput(ns, (e.target as HTMLInputElement).value)"
-          ></trailhand-text-input>
-        </div>
-      </div>
-
-      <!--
-        server-side becomes true once per-namespace meta arrives.
-        Until then the table shows up to 10 global rows with no pagination
-        controls (never more than one page worth). Loading overlay only
-        appears on explicit user-initiated page changes, not polling.
-      -->
-      <trailhand-table
-        :ref="(el: any) => setTableRef(ns, el)"
-        :rows="getApps(getDisplayRows(ns), ns)"
-        :selectable="canDelete"
-        :columns="columns"
-        :searchable="false"
-        :server-side="!!namespaceMeta[ns]"
-        :total-items="namespaceMeta[ns]?.totalItems ?? 0"
-        :current-page="namespaceCurrentPages[ns] ?? 1"
-        :loading="namespaceLoading[ns] ?? false"
-        @selection-change="(e: CustomEvent) => handleSelectionChange(e, ns)"
-        @navigate="handleNavigate"
-        @page-change="(e: CustomEvent) => handlePageChange(e, ns)"
-      />
-    </div>
-    <AppModal ref="appModal" @saved="handleSaved" />
+    <trailhand-table
+      :ref="setTableRef"
+      :rows="displayRows"
+      :columns="columns"
+      :searchable="false"
+      :selectable="canDelete"
+      :server-side="!!paginationMeta"
+      :total-items="paginationMeta?.totalItems ?? displayRows.length"
+      :current-page="currentPage"
+      :loading="paginating"
+      key-field="id"
+      @navigate="handleNavigate"
+      @page-change="(e: CustomEvent) => goToPage(e.detail.page)"
+      @selection-change="handleSelectionChange"
+    />
+    <AppModal ref="appModal" />
+    <AppDeleteModal ref="deleteModal" />
     <ExportAppModal ref="exportAppModal" />
-    <AppDeleteModal ref="deleteAppModal" @deleted="handleDeleted" />
     <BulkDeleteModal
       ref="bulkDeleteModal"
       resource-label="application"
       :resource-type="resource"
       :show-delete-image-option="true"
-      @settled="handleBulkDeleteSettled"
+      @settled="handleBulkDeleted"
     />
   </div>
 </template>
 
 <style lang="scss" scoped>
-.namespace-group {
-  margin-bottom: 2rem;
 
-  trailhand-table {
-    --sortable-table-row-hover-bg: var(--sortable-table-hover-bg);
-    --sortable-table-header-hover-bg: var(--sortable-table-hover-bg);
-    --sortable-table-header-sorted-bg: var(--sortable-table-hover-bg);
-    overflow-wrap: anywhere;
-  }
-
-  &:last-child {
-    margin-bottom: 0;
-  }
-}
-
-.namespace-group-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 0.5rem 0;
-  margin-bottom: 0.5rem;
-}
-
-.namespace-header-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  flex-shrink: 0;
-}
-
-.namespace-header {
-  font-size: 1.3rem;
-  font-weight: 400;
-  margin: 0;
-  padding: 0;
-  line-height: 1;
-  color: var(--body-text);
-  flex: 1;
-  min-width: 0;
-
-  .namespace-name {
-    color: var(--link);
-    font-weight: 500;
-  }
-}
-
-.namespace-search-input {
+.search-container {
   width: 100%;
-  max-width: 300px;
-  flex-shrink: 0;
-  padding: 0.5rem 1rem;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  background-color: var(--input-bg);
-  color: var(--input-text);
-  font-size: 14px;
-
-  &:focus {
-    outline: none;
-    border-color: var(--primary);
-  }
-
-  &::placeholder {
-    color: var(--input-placeholder);
-  }
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 1rem;
 }
+
+trailhand-table {
+  --sortable-table-row-hover-bg: var(--sortable-table-hover-bg);
+  --sortable-table-header-hover-bg: var(--sortable-table-hover-bg);
+  --sortable-table-header-sorted-bg: var(--sortable-table-hover-bg);
+}
+
+.modal-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  max-width: 500px;
+}
+
 </style>
