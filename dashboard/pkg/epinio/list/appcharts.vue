@@ -23,7 +23,7 @@ const resource: string = EPINIO_TYPES.APP_CHARTS;
 
 const requestParams = ref<ListResourceRequestParams>({
   page: 1,
-  pageSize: 9,
+  pageSize: 10,
   search: '',
 });
 
@@ -101,7 +101,7 @@ const columns = [
     label: 'Description'
   },
   {
-    field: 'helm_chart',
+    field: 'helmChart',
     label: 'Helm Chart'
   },
   {
@@ -146,6 +146,7 @@ const columns = [
       :ref="(el: any) => { if (el) el.renderActions = makeActionMenu; }"
       :rows="displayRows"
       :columns="columns"
+      :server-side="true"
       :searchable="false"
       :total-items="appCharts?.totalItems ?? 0"
       :current-page="requestParams.page"

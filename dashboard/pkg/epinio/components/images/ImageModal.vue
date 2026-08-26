@@ -158,15 +158,15 @@ const buildUpdateRequest = (): BuilderImageUpdateRequest => {
 };
 
 async function onSubmit() {
-    if (!validationPassed.value || !isDirty.value || isCreatingBuilderImage.value || isUpdatingBuilderImage.value) return;
+  if (!validationPassed.value || !isDirty.value || isCreatingBuilderImage.value || isUpdatingBuilderImage.value) return;
 
-    if (isEdit.value && initialValues.value) {
-      const request = buildUpdateRequest();
-      await updateBuilderImage({ name: initialValues.value.meta.name, request });
-    } else {
-      const request = buildCreateRequest();
-      await createBuilderImage({ request });
-    }
+  if (isEdit.value && initialValues.value) {
+    const request = buildUpdateRequest();
+    await updateBuilderImage({ name: initialValues.value.meta.name, request });
+  } else {
+    const request = buildCreateRequest();
+    await createBuilderImage({ request });
+  }
 }
 
 const handleSuccess = (type: 'create' | 'update') => {

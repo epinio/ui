@@ -540,7 +540,13 @@ epinio:
       fetch: Error fetching Builder Images, please try again.
       create: Error creating Builder Image, please try again.
       update: Error updating Builder Image, please try again.
-      save: Error saving Builder Image, please try again.
+      save: Error saving Builder Image, please try again.\
+  gitConfigs:
+    errors:
+      save: Error saving Git Configuration, please try again.
+      create: Error creating Git Configuration, please try again.
+      delete: Error deleting Git Configuration, please try again.
+      fetchAll: Error fetching Git Configurations, please try again.
   growl:
     application:
       deploy:

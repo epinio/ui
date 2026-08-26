@@ -97,7 +97,7 @@ const emit = defineEmits(['deleted']);
         :disabled="deleting"
         @button-click="onSubmitDelete"
       >
-        {{ deleting ? 'Deleting...' : t('generic.delete') }}
+        {{ deleting ? t('generic.deleting') : t('generic.delete') }}
       </trailhand-button>
     </div>
   </trailhand-modal>

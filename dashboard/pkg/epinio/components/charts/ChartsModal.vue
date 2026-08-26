@@ -189,15 +189,15 @@ const buildUpdateRequest = (): AppChartUpdateRequest => {
 };
 
 async function onSubmit() {
-    if (!validationPassed.value || !isDirty.value || isCreatingAppChart.value || isUpdatingAppChart.value) return;
+  if (!validationPassed.value || !isDirty.value || isCreatingAppChart.value || isUpdatingAppChart.value) return;
 
-    if (isEdit.value && initialValues.value) {
-      const request = buildUpdateRequest();
-      await updateAppChart({ name: initialValues.value.meta.name, request });
-    } else {
-      const request = buildCreateRequest();
-      await createAppChart({ request });
-    }
+  if (isEdit.value && initialValues.value) {
+    const request = buildUpdateRequest();
+    await updateAppChart({ name: initialValues.value.meta.name, request });
+  } else {
+    const request = buildCreateRequest();
+    await createAppChart({ request });
+  }
 }
 
 const handleSuccess = (type: 'create' | 'update') => {

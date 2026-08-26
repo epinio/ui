@@ -1,33 +1,48 @@
 <script setup lang="ts">
 import { EPINIO_TYPES } from '../types';
 import { useStore } from 'vuex';
-import { computed, ref, onMounted, onUnmounted, watchEffect, watch } from 'vue';
+import { computed, ref, onMounted, watch } from 'vue';
 import Masthead from '@shell/components/ResourceList/Masthead';
-import { startPolling, stopPolling } from '../utils/polling';
 import { debounce } from 'lodash';
 import { makeActionMenu } from '../utils/table-formatters';
-import { overrideTableRows } from '../utils/table-formatters';
 import GitConfigModal from '../components/gitconfigs/GitConfigModal.vue';
 import GitConfigDeleteModal from '../components/gitconfigs/GitConfigDeleteModal.vue';
-import EpinioGitConfigModel from '../models/gitconfigs';
+import { ListResourceRequestParams, ResourceQueryOptions, ResourceTableRow } from '../models/resource/ui-types';
+import { useGitConfigs } from '../queries/useGitConfigQueries';
+import { GitConfig } from '../models/gitconfig/ui-types';
 
 defineProps<{ schema: object }>(); // Keep for compatibility
 
 const store = useStore();
 
-const pending = ref(true);
-const rows = ref<any[]>([]);
-
 const gitConfigModal = ref<InstanceType<typeof GitConfigModal> | null>(null);
 const gitConfigDeleteModal = ref<InstanceType<typeof GitConfigDeleteModal> | null>(null);
 
 const resource: string = EPINIO_TYPES.GIT_CONFIG;
-const paginationMeta = computed(() => store.getters['epinio/paginationMeta'](resource));
-const currentPage = computed(() => store.getters['epinio/currentPaginationPage'](resource));
+
+const requestParams = ref<ListResourceRequestParams>({
+  page: 1,
+  pageSize: 10,
+  search: '',
+});
+
+const requestOptions = ref<ResourceQueryOptions>({
+  enabled: true,
+  polling: true,
+});
 
 const searchQuery = ref<string>('');
 
-const paginating = ref(false);
+watch(searchQuery, (newQuery) => {
+  onSearch(newQuery);
+});
+
+const onSearch = debounce(async (query: string) => {
+  requestParams.value.page = 1;
+  requestParams.value.search = query;
+}, 500);
+
+const {data: gitConfigs, isLoading: isLoadingGitConfigs, isError: isErrorGitConfigs, error: gitConfigsError} = useGitConfigs(store, requestParams, requestOptions);
 
 const canEdit = computed(() => {
   const can = store.getters['epinio/can'];
@@ -37,90 +52,33 @@ const canEdit = computed(() => {
 const canDelete = canEdit;
 const canCreate = canEdit;
 
-async function goToPage(page: number) {
-  const meta = paginationMeta.value;
+const openDeleteModal = (gitConfig: GitConfig) => {
+  gitConfigDeleteModal.value?.openDelete(gitConfig);
+};
 
-  if (meta && (page < 1 || page > meta.totalPages)) return;
-  paginating.value = true;
-  try {
-    await store.dispatch('epinio/goToPage', { type: resource, page });
-  } finally {
-    paginating.value = false;
+
+const displayRows = computed(() => {
+  if (!gitConfigs.value) {
+    return [];
   }
-}
 
-const onSearch = debounce(async (query: string) => {
-  paginating.value = true;
-  try {
-    await store.dispatch('epinio/search', { type: resource, query });
-  } finally {
-    paginating.value = false;
-  }
-}, 500);
-
-watch(searchQuery, (newQuery) => {
-  onSearch(newQuery);
-});
-
-watchEffect(() => {
-  const all = store.getters['epinio/all'](EPINIO_TYPES.GIT_CONFIG) as any[];
-
-  // Touch meta so _MERGE polling (which deletes/re-adds all properties) re-runs this effect
-  all.forEach((row: any) => { void row.meta; });
-
-  // Filter empty rows that are added during delete
-  const filtered = all.filter((row) => {
-    if (!row.id) return false;
-    else return true;
-  });
-
-  // Build the row action menu with RBAC gating. The model already gates the
-  // base actions; here we inject the modal-driven Edit/Delete entries only
-  // when the user has git config write permissions.
-  const rowActions = () => {
-    const out: any[] = [];
-
-    if (canDelete.value) {
-      out.push({
-        action: 'removeGitConfig',
-        enabled: true,
-        label: 'Delete',
-      });
-    }
-
-
-    return out;
-  };
-
-  const overrideProps = [
-    {
-      prop: 'availableActions',
-      value: rowActions,
-      conditionFn: () => true,
-    },
-    {
-      prop: 'removeGitConfig',
-      value: (row: EpinioGitConfigModel) => () => {
-        gitConfigDeleteModal.value?.openDelete(row);
-      },
-      conditionFn: () => canDelete.value,
-    },
-  ];
-
-  const processedRows = overrideTableRows(filtered, overrideProps);
-
-  rows.value = [...processedRows];
+  const rows: ResourceTableRow<GitConfig>[] = (gitConfigs.value.items ?? []).map((gc) => ({
+    ...gc,
+    id: gc.meta.name,
+    availableActions: [{
+      label: 'Delete',
+      action: () => openDeleteModal(gc),
+      enabled: canDelete.value,
+      visible: canDelete.value,
+      danger: true,
+    }],
+    canDelete: canDelete.value,
+  }));
+  return rows;
 });
 
 onMounted(async () => {
   store.dispatch('epinio/me');
-  await store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.GIT_CONFIG });
-  pending.value = false;
-  startPolling(['gitconfigs'], store);
-});
-
-onUnmounted(() => {
-  stopPolling(['gitconfigs']);
 });
 
 const columns = [
@@ -172,15 +130,15 @@ const columns = [
     </div>
     <trailhand-table
       :ref="(el: any) => { if (el) el.renderActions = makeActionMenu; }"
-      :rows="rows"
+      :rows="displayRows"
       :columns="columns"
+      :server-side="true"
       :searchable="false"
-      :server-side="!!paginationMeta"
-      :total-items="paginationMeta?.totalItems ?? rows.length"
-      :current-page="currentPage"
-      :loading="pending || paginating"
+      :total-items="gitConfigs?.totalItems ?? 0"
+      :current-page="requestParams.page"
+      :loading="isLoadingGitConfigs"
       key-field="id"
-      @page-change="(e: CustomEvent) => goToPage(e.detail.page)"
+      @page-change="(e: CustomEvent) => { requestParams.page = e.detail.page; }"
     />
   </div>
   <GitConfigModal ref="gitConfigModal" />

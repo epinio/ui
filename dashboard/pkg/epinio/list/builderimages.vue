@@ -23,7 +23,7 @@ const resource: string = EPINIO_TYPES.BUILDER_IMAGE;
 
 const requestParams = ref<ListResourceRequestParams>({
   page: 1,
-  pageSize: 9,
+  pageSize: 10,
   search: '',
 });
 
@@ -145,6 +145,7 @@ const columns = [
       :ref="(el: any) => { if (el) el.renderActions = makeActionMenu; }"
       :rows="displayRows"
       :columns="columns"
+      :server-side="true"
       :searchable="false"
       :total-items="builderImages?.totalItems ?? 0"
       :current-page="requestParams.page"

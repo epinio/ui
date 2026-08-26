@@ -1,11 +1,10 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import { useStore } from 'vuex';
-
-import { EPINIO_TYPES } from '../../types';
-import { epinioExceptionToErrorsArray } from '../../utils/errors';
 import { validateKubernetesName } from '@shell/utils/validators/kubernetes-name';
 import Banner from '@components/Banner/Banner.vue';
+import { useCreateGitConfig } from '../../queries/useGitConfigMutations';
+import { GitConfigCreateRequest } from '../../models/gitconfig/ui-types';
 
 const store = useStore() as any;
 const t = store.getters['i18n/t'];
@@ -53,17 +52,38 @@ const providerOptions = [{
   value: "gitlab_enterprise"
 }];
 
+const {mutateAsync: createGitConfig, isPending: isCreatingGitConfig, isError: createGitConfigError, error: createGitConfigErrorData} = useCreateGitConfig(store, () => {
+  handleSuccess();
+  closeModal();
+});
+
 const isDirty = computed(() => {
-    return gitConfigId.value !== '' ||
-        gitConfigUrl.value !== '' ||
-        gitConfigProvider.value !== '' ||
-        gitConfigUsername.value !== '' ||
-        gitConfigPassword.value !== '' ||
-        gitConfigCerts.value !== '' ||
-        gitConfigSkipSSL.value !== false ||
-        gitConfigGlobal.value !== false;
-    }
-);
+  return dirtyFields.value.id ||
+    dirtyFields.value.url ||
+    dirtyFields.value.provider ||
+    dirtyFields.value.username ||
+    dirtyFields.value.password ||
+    dirtyFields.value.certs ||
+    dirtyFields.value.skipssl ||
+    dirtyFields.value.global;
+});
+
+const dirtyFields = computed(() => {
+  const fields: Partial<
+    Record<keyof GitConfigCreateRequest, boolean>
+  > = {};
+
+  fields.id = gitConfigId.value !== '';
+  fields.url = gitConfigUrl.value !== '';
+  fields.provider = gitConfigProvider.value !== '';
+  fields.username = gitConfigUsername.value !== '';
+  fields.password = gitConfigPassword.value !== '';
+  fields.certs = gitConfigCerts.value !== '';
+  fields.skipssl = gitConfigSkipSSL.value !== false;
+  fields.global = gitConfigGlobal.value !== false;
+
+  return fields;
+});
 
 const showDiscardConfirm = ref(false);
 
@@ -137,41 +157,38 @@ function canonicalInstanceUrl(raw: string): string {
   }
 }
 
-async function onSubmit() {
-  if (!validationPassed.value || !isDirty.value || saving.value) return;
-
-  saving.value = true;
-  errors.value = [];
-
-  try {
-    const gitConfig = await store.dispatch('epinio/create', { type: EPINIO_TYPES.GIT_CONFIG });
-
-    gitConfig.id                = gitConfigId.value;
-    gitConfig.url               = canonicalInstanceUrl(gitConfigUrl.value);
-    gitConfig.provider          = gitConfigProvider.value;
-    gitConfig.username          = gitConfigUsername.value;
-    gitConfig.password          = gitConfigPassword.value;
-    gitConfig.certs             = gitConfigCerts.value;
-    gitConfig.skipssl           = gitConfigSkipSSL.value;
-    gitConfig.global            = gitConfigGlobal.value;
-
-    await gitConfig.create();
-    store.dispatch('growl/success', {
-        title:   t('epinio.growl.gitConfigs.create.success.title'),
-        message: t('epinio.growl.gitConfigs.create.success.message', { name: gitConfigId.value }),
-      });
-    closeModal();
-    store.dispatch('epinio/findAll', { type: EPINIO_TYPES.GIT_CONFIG, opt: { force: true } }).catch(() => {});
-  } catch (err: any) {
-    errors.value = epinioExceptionToErrorsArray(err);
-    store.dispatch('growl/error', {
-      title: t('epinio.growl.gitConfigs.save.error.createTitle'),
-      message: t('epinio.growl.gitConfigs.save.error.message'),
-    });
-    console.error('Error saving git configuration:', err);
-  } finally {
-    saving.value = false;
+const buildCreateRequest = (): GitConfigCreateRequest => {
+  const request: GitConfigCreateRequest = {
+    id: gitConfigId.value,
+    provider: gitConfigProvider.value,
+  };
+  if (gitConfigUrl.value) {
+    request.url = canonicalInstanceUrl(gitConfigUrl.value);
   }
+  if (gitConfigUsername.value) {
+    request.username = gitConfigUsername.value;
+  }
+  if (gitConfigPassword.value) {
+    request.password = gitConfigPassword.value;
+  }
+  if (gitConfigCerts.value) {
+    request.certs = gitConfigCerts.value;
+  }
+  if (gitConfigSkipSSL.value) {
+    request.skipssl = gitConfigSkipSSL.value;
+  }
+  if (gitConfigGlobal.value) {
+    request.global = gitConfigGlobal.value;
+  }
+  return request;
+};
+
+async function onSubmit() {
+  if (!validationPassed.value || !isDirty.value || isCreatingGitConfig.value) return;
+
+  const request = buildCreateRequest();
+  await createGitConfig({ request });
+
 }
 
 function handleKeepEditing() {
@@ -182,6 +199,13 @@ function handleDiscard() {
   showDiscardConfirm.value = false;
   closeModal();
 }
+
+const handleSuccess = () => {
+  store.dispatch('growl/success', {
+    title:   t(`epinio.growl.gitConfigs.create.success.title`),
+    message: t(`epinio.growl.gitConfigs.create.success.message`, { name: gitConfigId.value }),
+  });
+};
 
 defineExpose({ openCreate });
 </script>
@@ -261,10 +285,9 @@ defineExpose({ openCreate });
       </trailhand-form-card>
 
       <Banner
-        v-for="(err, i) in errors"
-        :key="i"
+        v-if="createGitConfigError"
         color="error"
-        :label="err"
+        :label="createGitConfigErrorData?.message || t('epinio.gitConfigs.errors.save')"
       />
     </div>
 
@@ -298,7 +321,7 @@ defineExpose({ openCreate });
           :disabled="!canSave"
           @button-click="onSubmit"
         >
-          Create
+          {{ (isCreatingGitConfig ? t('generic.creating') : t('generic.create')) }}
         </trailhand-button>
       </template>
       
