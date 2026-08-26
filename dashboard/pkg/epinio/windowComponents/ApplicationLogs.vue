@@ -79,6 +79,17 @@ const excludedContainers = ref<Set<string>>(new Set());
 const filterMode = ref<'include' | 'exclude'>('exclude');
 const containerSearch = ref<string>('');
 const loadingContainers = ref<boolean>(false);
+const containerFilterPopover = ref<any>(null);
+
+function setContainerFilterPopover(el: any) {
+  containerFilterPopover.value = el;
+}
+
+function closeContainerFilterPopover() {
+  if (containerFilterPopover.value) {
+    containerFilterPopover.value.open = false;
+  }
+}
 
 const ansiup = new AnsiUp();
 const timestamps = logPrefs.timestamps;
@@ -572,125 +583,134 @@ const clearContainerFilters = () => {
           />
 
           <!-- Container Filter Button -->
-          <VDropdown placement="bottom-start" :distance="6">
+          <trailhand-popover
+            placement="top"
+            escape-boundary
+            stay-open
+            class="ml-5"
+            :ref="setContainerFilterPopover"
+          >
             <trailhand-button
-              class="ml-5 container-filter-btn"
+              slot="trigger"
+              class="container-filter-btn"
               size="small"
             >
               Container Filter
             </trailhand-button>
-            <template #popper>
-              <div class="container-filter-panel">
-                <div class="filter-search">
-                  <trailhand-text-input
-                    :value="containerSearch"
-                    style="width: 100%;"
-                    size="small"
-                    type="text"
-                    placeholder="Search containers..."
-                    @text-input-change="containerSearch = $event.detail.value"
-                  />
-                </div>
+            <form
+              class="container-filter-panel"
+              @submit.prevent="applyFilters(); closeContainerFilterPopover();"
+            >
+              <div class="filter-search">
+                <trailhand-text-input
+                  :value="containerSearch"
+                  style="width: 100%;"
+                  size="small"
+                  type="text"
+                  placeholder="Search containers..."
+                  @text-input-change="containerSearch = $event.detail.value"
+                />
+              </div>
 
-                <div v-if="loadingContainers" class="text-center p-10">
-                  Loading containers...
-                </div>
-                <div v-else-if="filteredContainers.length === 0" class="text-center p-10">
-                  No containers found
-                </div>
-                <div v-else class="container-list">
-                  <div
-                    v-for="container in filteredContainers"
-                    :key="`${container.podName}-${container.name}`"
-                    class="container-item"
-                    :class="{
-                      'is-selected': isContainerSelected(container.name),
-                      'is-sidecar': isSidecar(container.name)
-                    }"
-                    @click="toggleContainer(container.name)"
-                  >
-                    <trailhand-checkbox
-                      :value="container.name"
-                      :checked="isContainerSelected(container.name)"
-                      @checkbox-change="toggleContainer(container.name)"
-                    >{{ container.name }}</trailhand-checkbox>
-                    <span v-if="isSidecar(container.name)" class="badge badge-sm bg-warning">
-                      Sidecar
-                    </span>
-                    <span v-if="container.isInitContainer" class="badge badge-sm bg-info">
-                      Init
-                    </span>
-                  </div>
-                </div>
-
-                <!-- Time-based filters -->
-                <div class="filter-section">
-                  <trailhand-text-input
-                    :value="tail"
-                    label="Tail (number of lines)"
-                    style="width: 100%;"
-                    size="small"
-                    type="number"
-                    placeholder="e.g., 100"
-                    min="1"
-                    @text-input-change="(e: CustomEvent) => tail = e.detail.value ? parseInt(e.detail.value) : null"
-                  />
-                </div>
-
-                <div class="filter-section">
-                  <trailhand-text-input
-                    :value="since"
-                    label="Since (duration)"
-                    style="width: 100%;"
-                    size="small"
-                    type="text"
-                    placeholder="e.g., 1h, 30m, 24h"
-                    :disabled="!!sinceTime"
-                    @text-input-change="(e: CustomEvent) => since = e.detail.value"
-                  />
-                  <small class="text-muted">Use this OR Since Time below</small>
-                </div>
-
-                <div class="filter-section">
-                  <trailhand-text-input
-                    :value="sinceTime"
-                    label="Since Time (absolute date)"
-                    style="width: 100%;"
-                    size="small"
-                    type="datetime-local"
-                    :disabled="!!since"
-                    @text-input-change="(e: CustomEvent) => sinceTime = e.detail.value"
-                  />
-                  <small class="text-muted">Use this OR Since above</small>
-                </div>
-
-                <div class="filter-footer">
-                  <p class="filter-instruction">
-                    {{ filterMode === 'include'
-                      ? 'Selected containers will be included in logs'
-                      : 'Selected containers will be excluded from logs' }}
-                  </p>
-                  <div class="mt-10">
-                    <trailhand-button
-                      size="small"
-                      :disabled="isApplyingFilters"
-                      @click="applyFilters"
-                    >
-                      {{ isApplyingFilters ? 'Applying...' : 'Apply Filters' }}
-                    </trailhand-button>
-                    <trailhand-button
-                      size="small"
-                      class="ml-5"
-                      :disabled="activeFilterCount === 0 && !tail && !since && !sinceTime"
-                      @click="clearContainerFilters(); clearFilters();"
-                    >
-                      Clear
-                    </trailhand-button>
-                  </div>
+              <div v-if="loadingContainers" class="text-center p-10">
+                Loading containers...
+              </div>
+              <div v-else-if="filteredContainers.length === 0" class="text-center p-10">
+                No containers found
+              </div>
+              <div v-else class="container-list">
+                <div
+                  v-for="container in filteredContainers"
+                  :key="`${container.podName}-${container.name}`"
+                  class="container-item"
+                  :class="{
+                    'is-selected': isContainerSelected(container.name),
+                    'is-sidecar': isSidecar(container.name)
+                  }"
+                  @click="toggleContainer(container.name)"
+                >
+                  <trailhand-checkbox
+                    :value="container.name"
+                    :checked="isContainerSelected(container.name)"
+                    @checkbox-change="toggleContainer(container.name)"
+                  >{{ container.name }}</trailhand-checkbox>
+                  <span v-if="isSidecar(container.name)" class="badge badge-sm bg-warning">
+                    Sidecar
+                  </span>
+                  <span v-if="container.isInitContainer" class="badge badge-sm bg-info">
+                    Init
+                  </span>
                 </div>
               </div>
-            </template>
-          </VDropdown>
+
+              <!-- Time-based filters -->
+              <div class="filter-section">
+                <trailhand-text-input
+                  :value="tail"
+                  label="Tail (number of lines)"
+                  style="width: 100%;"
+                  size="small"
+                  type="number"
+                  placeholder="e.g., 100"
+                  min="1"
+                  @text-input-change="(e: CustomEvent) => tail = e.detail.value ? parseInt(e.detail.value) : null"
+                />
+              </div>
+
+              <div class="filter-section">
+                <trailhand-text-input
+                  :value="since"
+                  label="Since (duration)"
+                  style="width: 100%;"
+                  size="small"
+                  type="text"
+                  placeholder="e.g., 1h, 30m, 24h"
+                  :disabled="!!sinceTime"
+                  @text-input-change="(e: CustomEvent) => since = e.detail.value"
+                />
+                <small class="text-muted">Use this OR Since Time below</small>
+              </div>
+
+              <div class="filter-section">
+                <trailhand-text-input
+                  :value="sinceTime"
+                  label="Since Time (absolute date)"
+                  style="width: 100%;"
+                  size="small"
+                  type="datetime-local"
+                  :disabled="!!since"
+                  @text-input-change="(e: CustomEvent) => sinceTime = e.detail.value"
+                />
+                <small class="text-muted">Use this OR Since above</small>
+              </div>
+
+              <div class="filter-footer">
+                <p class="filter-instruction">
+                  {{ filterMode === 'include'
+                    ? 'Selected containers will be included in logs'
+                    : 'Selected containers will be excluded from logs' }}
+                </p>
+                <div class="mt-10">
+                  <trailhand-button
+                    type="submit"
+                    size="small"
+                    :disabled="isApplyingFilters"
+                  >
+                    {{ isApplyingFilters ? 'Applying...' : 'Apply Filters' }}
+                  </trailhand-button>
+                  <trailhand-button
+                    type="button"
+                    size="small"
+                    class="ml-5"
+                    :disabled="activeFilterCount === 0 && !tail && !since && !sinceTime"
+                    @click="clearContainerFilters(); clearFilters(); closeContainerFilterPopover();"
+                  >
+                    Clear
+                  </trailhand-button>
+                </div>
+              </div>
+            </form>
+          </trailhand-popover>
 
           <trailhand-button
             class="ml-5"
@@ -726,20 +746,18 @@ const clearContainerFilters = () => {
             </span>
           </div>
           <div class="log-action ml-5">
-            <VDropdown placement="top-end">
-              <trailhand-button size="small">
+            <trailhand-popover placement="top">
+              <trailhand-button slot="trigger" size="small">
                 <i class="icon icon-gear" />
               </trailhand-button>
-              <template #popper>
-                <div class="filter-popup">
-                  <trailhand-checkbox
-                    :value="wrap"
-                    :checked="wrap"
-                    @checkbox-change="(e: CustomEvent<{ checked: boolean }>) => { wrap = e.detail.checked; toggleWrap() }"
-                  >{{ t('wm.containerLogs.wrap') }}</trailhand-checkbox>
-                </div>
-              </template>
-            </VDropdown>
+              <div class="filter-popup">
+                <trailhand-checkbox
+                  :value="wrap"
+                  :checked="wrap"
+                  @checkbox-change="(e: CustomEvent<{ checked: boolean }>) => { wrap = e.detail.checked; toggleWrap() }"
+                >{{ t('wm.containerLogs.wrap') }}</trailhand-checkbox>
+              </div>
+            </trailhand-popover>
           </div>
           <div class="log-action ml-5">
             <trailhand-text-input

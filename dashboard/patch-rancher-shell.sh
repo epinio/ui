@@ -108,51 +108,6 @@ fs.writeFileSync(p, s);
 console.log('Patched NamespaceFilter.vue for server-side namespace search');
 NODE
 
-# Patch default.vue so the Epinio product renders our own EpinioDock (backed by
-# the trailhand-ui dock component) instead of Rancher Shell's WindowManager.
-# Other products keep WindowManager unchanged. Idempotent.
-node <<'NODE'
-const fs = require('fs');
-const p = './node_modules/@rancher/shell/components/templates/default.vue';
-
-let s = fs.readFileSync(p, 'utf8');
-
-const importAnchor = `import WindowManager from '@shell/components/nav/WindowManager';`;
-const importNew = `import WindowManager from '@shell/components/nav/WindowManager';
-import EpinioDock from '../../../../../pkg/epinio/components/EpinioDock.vue';`;
-
-if (!s.includes('EpinioDock')) {
-  if (!s.includes(importAnchor)) {
-    throw new Error('default.vue patch: import anchor not found');
-  }
-  s = s.replace(importAnchor, importNew);
-
-  const componentsAnchor = `    WindowManager,
-    FixedBanner,`;
-  const componentsNew = `    WindowManager,
-    EpinioDock,
-    FixedBanner,`;
-
-  if (!s.includes(componentsAnchor)) {
-    throw new Error('default.vue patch: components anchor not found');
-  }
-  s = s.replace(componentsAnchor, componentsNew);
-
-  const templateAnchor = `        <WindowManager @draggable="draggable=$event" />`;
-  const templateNew = `        <EpinioDock v-if="currentProduct?.name === 'epinio'" />
-        <WindowManager v-else @draggable="draggable=$event" />`;
-
-  if (!s.includes(templateAnchor)) {
-    throw new Error('default.vue patch: template anchor not found');
-  }
-  s = s.replace(templateAnchor, templateNew);
-
-  fs.writeFileSync(p, s);
-  console.log('Patched default.vue to render EpinioDock for the Epinio product');
-}
-NODE
-
-
 # Run the yarn command the user was expecting to run.
 if [ "$context" == "dev" ]; then
   NODE_ENV=dev ./node_modules/.bin/vue-cli-service serve

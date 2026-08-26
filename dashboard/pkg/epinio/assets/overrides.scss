@@ -61,6 +61,19 @@ body.epinio-active[data-theme='dark'],
   }
 }
 
+// trailhand-dock ships its own dark palette, but gated behind
+// :host-context([data-theme='dark']) internally, which Firefox has never
+// implemented. Setting the same public vars from here (ordinary light-DOM
+// CSS, not shadow-piercing) works in every browser since custom properties
+// inherit into shadow DOM regardless of :host-context support.
+body.epinio-active[data-theme='dark'] trailhand-dock,
+[data-theme='dark'] body.epinio-active trailhand-dock {
+  --th-dock-tabs-bg: linear-gradient(180deg, #4a4b52, #27292e);
+  --th-dock-tab-active-bg: #1b1c21;
+  --th-dock-body-bg: #141419;
+  --th-dock-border: #000000;
+}
+
 // Side nav styles - only when epinio is active
 body.epinio-active {
     .side-nav {
