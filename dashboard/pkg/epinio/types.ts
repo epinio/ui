@@ -168,9 +168,12 @@ export interface EpinioApplicationResource {
       repository: string,
       branch: string,
       revision: string,
+      gitconfig?: string,
     }
   }
   stage_id: string
+  blobuid?: string
+  stagingstatus?: string
   staging: {
     builder: string
     buildMode?: string

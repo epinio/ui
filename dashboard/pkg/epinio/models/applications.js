@@ -5,6 +5,7 @@ import { identity, pickBy } from 'lodash';
 import { epiniofy } from '../store/epinio-store/actions';
 import {
   APPLICATION_ACTION_STATE,
+  APPLICATION_MANIFEST_SOURCE_TYPE,
   APPLICATION_SOURCE_TYPE,
   APPLICATION_PARTS,
   EPINIO_PRODUCT_NAME,
@@ -17,19 +18,21 @@ import { WORKLOAD_TYPES } from '@shell/config/types';
 import { NAME as EXPLORER } from '@shell/config/product/explorer';
 // See https://github.com/epinio/epinio/blob/00684bc36780a37ab90091498e5c700337015a96/pkg/api/core/v1/models/app.go#L11
 const STATES = {
-  CREATING: 'created',
-  STAGING:  'staging',
-  RUNNING:  'running',
-  ERROR:    'error',
+  CREATING:  'created',
+  STAGING:   'staging',
+  DEPLOYING: 'deploying',
+  RUNNING:   'running',
+  ERROR:     'error',
 };
 
 // These map to @shell/plugins/dashboard-store/resource-class STATES
 const STATES_MAPPED = {
-  [STATES.CREATING]: 'created',
-  [STATES.STAGING]:  'building',
-  [STATES.RUNNING]:  'running',
-  [STATES.ERROR]:    'error',
-  unknown:           'unknown',
+  [STATES.CREATING]:  'created',
+  [STATES.STAGING]:   'building',
+  [STATES.DEPLOYING]: 'deploying',
+  [STATES.RUNNING]:   'running',
+  [STATES.ERROR]:     'error',
+  unknown:            'unknown',
 };
 
 function isGitRepo(type) {
@@ -162,6 +165,12 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
         transitioning: true,
         message:       this.statusmessage
       };
+    case STATES.DEPLOYING:
+      return {
+        error:         false,
+        transitioning: true,
+        message:       this.statusmessage
+      };
     case STATES.RUNNING:
       return {
         error:         false,
@@ -187,6 +196,9 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
     const res = [];
 
     const isRunning = [STATES.RUNNING].includes(this.status);
+    const isStaging = this.status === STATES.STAGING
+      || this.status === STATES.DEPLOYING
+      || this.stagingstatus === 'active';
     const canGetter = this.$rootGetters?.['epinio/can'];
     const perms = this.$rootGetters?.['epinio/permissions']?.();
     const permsReady = !!(canGetter && perms && Object.keys(perms).length > 0);
@@ -238,7 +250,7 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
         action:  'restage',
         label:   this.t('epinio.applications.actions.restage.label'),
         icon:    'icon icon-fw icon-backup',
-        enabled: !!this.deployment?.stage_id
+        enabled: this.canRetryBuild && !isStaging,
       });
     }
     if (canRestart) {
@@ -274,6 +286,64 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
     );
 
     return this._pruneOrphanedDividers(res);
+  }
+
+  /**
+   * Rebuild/retry is allowed when source can be reused:
+   * - git origin (backend can re-clone if blob is gone)
+   * - stored blobuid (local/folder/archive upload still in S3/seaweedfs)
+   * Container images cannot be restaged.
+   */
+  get canRetryBuild() {
+    const sourceType = AppUtils.getSourceType(this.origin);
+
+    if (sourceType === APPLICATION_SOURCE_TYPE.CONTAINER_URL) {
+      return false;
+    }
+
+    const hasGit = !!(this.origin?.git?.repository || this.origin?.git?.url);
+    const hasBlob = !!this.blobuid;
+
+    return hasGit || hasBlob;
+  }
+
+  /**
+   * Normalize API origin into the shape async deploy expects, without wiping
+   * source metadata when Kind is missing from the client model.
+   */
+  get retryDeployOrigin() {
+    const origin = this.origin || {};
+    const sourceType = AppUtils.getSourceType(origin);
+
+    if (sourceType === APPLICATION_SOURCE_TYPE.CONTAINER_URL) {
+      return {
+        kind:      APPLICATION_MANIFEST_SOURCE_TYPE.CONTAINER,
+        container: origin.container,
+      };
+    }
+
+    if (origin.git?.repository || origin.git?.url) {
+      return {
+        kind: APPLICATION_MANIFEST_SOURCE_TYPE.GIT,
+        git:  {
+          repository: origin.git.repository || origin.git.url,
+          revision:   origin.git.revision,
+          branch:     origin.git.branch,
+          provider:   origin.git.provider,
+          gitconfig:  origin.git.gitconfig,
+        },
+      };
+    }
+
+    if (origin.path) {
+      return {
+        kind:    APPLICATION_MANIFEST_SOURCE_TYPE.PATH,
+        path:    origin.path,
+        archive: !!origin.archive,
+      };
+    }
+
+    return origin;
   }
 
   _pruneOrphanedDividers(actions) {
@@ -835,11 +905,40 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
       message: this.t('epinio.growl.application.restage.info.message'),
     }, { root: true });
     try {
+      if (!this.canRetryBuild) {
+        throw new Error('No reusable source available to rebuild');
+      }
+      
       const { builderImage, buildMode, dockerfilePath } = this.appSource;
-      const { stage } = await this.stage(undefined, builderImage, buildMode, dockerfilePath);
+      
+      // Never-deployed / failed first push: stage + deploy using stored blob or git.
+      // Already-deployed apps: restage only (optionally restart when running).
+      if (!this.deployment) {
+        this.buildCache = {};
+        this.clearPersistedAsyncDeploymentId();
+        // Keep existing origin so async deploy does not wipe source metadata.
+        await this.waitAsyncDeployPhase({
+          blobUid:      this.blobuid || undefined,
+          builderImage: this.staging?.builder,
+          origin:       this.retryDeployOrigin,
+        });
+        await this.forceFetch();
+        if (this.stage_id) {
+          this.showStagingLog(this.stage_id);
+        }
+      } else {
+        const { stage } = await this.stage(undefined, this.staging?.builder, buildMode, dockerfilePath);
+
+        await this.forceFetch();
+        this.showStagingLog(stage.id);
+        await this.waitForStaging(stage.id);
+
+        if (this.status === STATES.RUNNING) {
+          await this.restart();
+        }
+      }
+      
       await this.forceFetch();
-      this.showStagingLog(stage.id);
-      await this.waitForStaging(stage.id);
       this.$dispatch('growl/success', {
         title:   this.t('epinio.growl.application.restage.success.title'),
         message: this.t('epinio.growl.application.restage.success.message', { name: this.meta.name }),
@@ -848,7 +947,7 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
       console.log(e);
       this.$dispatch('growl/error', {
         title:   this.t('epinio.growl.application.restage.error.title'),
-        message: this.t('epinio.growl.application.restage.error.message'),
+        message: e?.message || this.t('epinio.growl.application.restage.error.message'),
       }, { root: true });
     }
   }
