@@ -5,7 +5,6 @@ import { servicesApi } from "../api/services";
 import { epinioQueryClient } from "../api/queryClient";
 import { computed, Ref } from "vue";
 import { ResourceQueryOptions } from "../models/resource/ui-types";
-import { toApiListResourceRequestParams } from "../models/resource/mappers";
 import { toListServiceInstancesResponse, toServiceInstance, toApiListServiceInstancesRequestParams } from "../models/service/mappers";
 import { ListServiceInstancesRequestParams } from "../models/service/ui-types";
 

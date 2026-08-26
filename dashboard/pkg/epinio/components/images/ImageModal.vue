@@ -1,12 +1,10 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import { useStore } from 'vuex';
-
-import { EPINIO_TYPES } from '../../types';
-import { epinioExceptionToErrorsArray } from '../../utils/errors';
 import { validateKubernetesName } from '@shell/utils/validators/kubernetes-name';
 import Banner from '@components/Banner/Banner.vue';
-import EpinioBuilderImageModel from '../../models/builderimages';
+import { BuilderImage, BuilderImageCreateRequest, BuilderImageUpdateRequest } from '../../models/builderimage/ui-types';
+import { useUpdateBuilderImage, useCreateBuilderImage } from '../../queries/useBuilderImagesMutations';
 
 const store = useStore() as any;
 const t = store.getters['i18n/t'];
@@ -15,7 +13,7 @@ const t = store.getters['i18n/t'];
 const showModal = ref(false);
 const modalMode = ref<'create' | 'edit' | 'view'>('create');
 
-const initialValues = ref<EpinioBuilderImageModel | null>(null);
+const initialValues = ref<BuilderImage | null>(null);
 
 // Form fields (separate from the model to avoid proxy mutation issues)
 const imageName = ref('');
@@ -25,25 +23,37 @@ const builderImage = ref('');
 
 const saving = ref(false);
 const errors = ref<string[]>([]);
-const hasAssociatedApps = ref<boolean>(false);
 
 const isEdit = computed(() => modalMode.value === 'edit');
 const isView = computed(() => modalMode.value === 'view');
 
+const {mutateAsync: createBuilderImage, isPending: isCreatingBuilderImage, isError: createBuilderImageError, error: createBuilderImageErrorData} = useCreateBuilderImage(store, () => {
+  handleSuccess('create');
+  closeModal();
+});
+const {mutateAsync: updateBuilderImage, isPending: isUpdatingBuilderImage, isError: updateBuilderImageError, error: updateBuilderImageErrorData} = useUpdateBuilderImage(store, () => {
+  handleSuccess('update');
+  closeModal();
+});
+
 const isDirty = computed(() => {
-  if (!initialValues.value) {
-    return imageName.value !== '' ||
-      imageShortDescription.value !== '' ||
-      imageDescription.value !== '' ||
-      builderImage.value !== '';
-  }
+  return dirtyFields.value.name ||
+    dirtyFields.value.shortDescription ||
+    dirtyFields.value.description ||
+    dirtyFields.value.image
+});
 
-  const isDirty = imageName.value !== (initialValues.value!.meta.name || '') ||
-    imageShortDescription.value !== (initialValues.value!.short_description || '') ||
-    imageDescription.value !== (initialValues.value!.description || '') ||
-    builderImage.value !== (initialValues.value!.image || '');
+const dirtyFields = computed(() => {
+  const fields: Partial<
+    Record<keyof BuilderImageCreateRequest, boolean>
+  > = {};
+      
+  fields.name = imageName.value !== (initialValues.value?.meta.name || '');
+  fields.shortDescription = imageShortDescription.value !== (initialValues.value?.shortDescription || '');
+  fields.description = imageDescription.value !== (initialValues.value?.description || '');
+  fields.image = builderImage.value !== (initialValues.value?.image || '');
 
-  return isDirty;
+  return fields;
 });
 
 const showDiscardConfirm = ref(false);
@@ -74,15 +84,14 @@ function openCreate() {
   showModal.value = true;
 }
 
-function openEdit(row: EpinioBuilderImageModel) {
+function openEdit(row: BuilderImage) {
   errors.value = [];
   modalMode.value = 'edit';
   initialValues.value = row;
-  imageName.value = row.name || row.meta?.name || '';
-  imageShortDescription.value = row.short_description || '';
+  imageName.value = row.meta.name || '';
+  imageShortDescription.value = row.shortDescription || '';
   imageDescription.value = row.description || '';
   builderImage.value = row.image || '';
-  hasAssociatedApps.value = !!row.bound_apps;
   showModal.value = true;
 }
 
@@ -114,59 +123,58 @@ function closeModal() {
   showDiscardConfirm.value = false;
   showModal.value = false;
   initialValues.value = null;
-  hasAssociatedApps.value = false;
 }
+
+const buildCreateRequest = (): BuilderImageCreateRequest => {
+  const request: BuilderImageCreateRequest = {
+    name: imageName.value,
+    shortDescription: imageShortDescription.value,
+    description: imageDescription.value,
+    image: builderImage.value,
+  };
+  return request;
+};
+
+const buildUpdateRequest = (): BuilderImageUpdateRequest => {
+  const request: BuilderImageUpdateRequest = {};
+
+  if (dirtyFields.value.name) {
+    request.name = imageName.value;
+  }
+
+  if (dirtyFields.value.description) {
+    request.description = imageDescription.value;
+  }
+
+  if (dirtyFields.value.shortDescription) {
+    request.shortDescription = imageShortDescription.value;
+  }
+
+  if (dirtyFields.value.image) {
+    request.image = builderImage.value;
+  }
+
+  return request;
+};
 
 async function onSubmit() {
-  if (!validationPassed.value || !isDirty.value || saving.value) return;
+    if (!validationPassed.value || !isDirty.value || isCreatingBuilderImage.value || isUpdatingBuilderImage.value) return;
 
-  saving.value = true;
-  errors.value = [];
-
-  try {
     if (isEdit.value && initialValues.value) {
-      const image = initialValues.value;
-
-      image.description       = imageDescription.value;
-      image.short_description = imageShortDescription.value;
-      image.image             = builderImage.value;
-
-      await image.update();
-      store.dispatch('growl/success', {
-        title:   t('epinio.growl.builderImages.update.success.title'),
-        message: t('epinio.growl.builderImages.update.success.message', { name: imageName.value }),
-      });
-      closeModal();
-      store.dispatch('epinio/findAll', { type: EPINIO_TYPES.BUILDER_IMAGE, opt: { force: true } }).catch(() => {});
+      const request = buildUpdateRequest();
+      await updateBuilderImage({ name: initialValues.value.meta.name, request });
     } else {
-      const image = await store.dispatch('epinio/create', { type: EPINIO_TYPES.BUILDER_IMAGE });
-
-      image.metadata          = { name: imageName.value };
-      image.description       = imageDescription.value;
-      image.short_description = imageShortDescription.value;
-      image.image             = builderImage.value;
-
-      await image.create();
-      store.dispatch('growl/success', {
-        title:   t('epinio.growl.builderImages.create.success.title'),
-        message: t('epinio.growl.builderImages.create.success.message', { name: imageName.value }),
-      });
-      closeModal();
-      store.dispatch('epinio/findAll', { type: EPINIO_TYPES.BUILDER_IMAGE, opt: { force: true } }).catch(() => {});
+      const request = buildCreateRequest();
+      await createBuilderImage({ request });
     }
-  } catch (err: any) {
-    errors.value = epinioExceptionToErrorsArray(err);
-    store.dispatch('growl/error', {
-      title: isEdit.value
-        ? t('epinio.growl.builderImages.save.error.updateTitle')
-        : t('epinio.growl.builderImages.save.error.createTitle'),
-      message: t('epinio.growl.builderImages.save.error.message'),
-    });
-    console.error('Error saving image:', err);
-  } finally {
-    saving.value = false;
-  }
 }
+
+const handleSuccess = (type: 'create' | 'update') => {
+  store.dispatch('growl/success', {
+    title:   t(`epinio.growl.builderImages.${type}.success.title`),
+    message: t(`epinio.growl.builderImages.${type}.success.message`, { name: imageName.value }),
+  });
+};
 
 defineExpose({ openCreate, openEdit });
 </script>
@@ -175,14 +183,14 @@ defineExpose({ openCreate, openEdit });
   <trailhand-modal
     :open.prop="showModal"
     :dismissible.prop="false"
-    :title="(isView || isEdit) ? initialValues.meta?.name || 'Builder Image' : 'Builder Image'"
+    :title="(isView || isEdit) ? imageName || 'Builder Image' : 'Builder Image'"
     :subtitle="(isView || isEdit) ? '' : 'Create New'"
     position="top"
     @modal-close="handleModalClose"
   >
     <div id="modal-container-element" class="modal-content">
       <trailhand-form-card>
-        <Banner v-if="hasAssociatedApps" color="warning" label="This image is currently associated with one or more applications. Editing it may cause issues for future rebuilds." />
+        <Banner v-if="initialValues?.boundApps" color="warning" label="This image is currently associated with one or more applications. Editing it may cause issues for future rebuilds." />
         <trailhand-form-row columns="2">
           <trailhand-text-input
             :value="imageName"
@@ -224,10 +232,9 @@ defineExpose({ openCreate, openEdit });
       </trailhand-form-card>
 
       <Banner
-        v-for="(err, i) in errors"
-        :key="i"
+        v-if="createBuilderImageError || updateBuilderImageError"
         color="error"
-        :label="err"
+        :label="createBuilderImageErrorData?.message || updateBuilderImageErrorData?.message || t('epinio.builderImages.errors.save')"
       />
     </div>
 
@@ -276,7 +283,7 @@ defineExpose({ openCreate, openEdit });
           :disabled="!canSave"
           @button-click="onSubmit"
         >
-          {{ saving ? (isEdit ? 'Saving...' : 'Creating...') : (isEdit ? t('generic.save') : t('generic.create')) }}
+          {{ isEdit ? (isUpdatingBuilderImage ? t('generic.updating') : t('generic.save')) : (isCreatingBuilderImage ? t('generic.creating') : t('generic.create')) }}
         </trailhand-button>
       </template>
     </div>

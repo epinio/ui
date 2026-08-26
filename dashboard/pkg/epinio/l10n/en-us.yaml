@@ -534,6 +534,13 @@ epinio:
       create: Error creating App Chart, please try again.
       update: Error updating App Chart, please try again.
       save: Error saving App Chart, please try again.
+  builderImages:
+    errors:
+      delete: Error deleting Builder Image, please try again.
+      fetch: Error fetching Builder Images, please try again.
+      create: Error creating Builder Image, please try again.
+      update: Error updating Builder Image, please try again.
+      save: Error saving Builder Image, please try again.
   growl:
     application:
       deploy:

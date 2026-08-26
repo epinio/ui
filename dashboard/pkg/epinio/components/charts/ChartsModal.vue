@@ -214,7 +214,7 @@ defineExpose({ openCreate, openEdit });
   <trailhand-modal
     :open.prop="showModal"
     :dismissible.prop="false"
-    :title="(isView || isEdit) ? chartName|| 'App Chart' : 'App Chart'"
+    :title="(isView || isEdit) ? chartName || 'App Chart' : 'App Chart'"
     :subtitle="(isView || isEdit) ? '' : 'Create New'"
     position="top"
     @modal-close="handleModalClose"
