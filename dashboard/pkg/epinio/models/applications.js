@@ -1099,6 +1099,11 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
       opt.data.deleteImage = true;
     }
 
+    // Check if deleteAppPVC flag is set on the resource
+    if (this._deletePVC) {
+      opt.data.deletePVC = true;
+    }
+
     await super.remove(opt);
   }
 
