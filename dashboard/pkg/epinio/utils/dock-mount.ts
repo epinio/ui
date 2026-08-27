@@ -1,6 +1,7 @@
 import { createApp, type App } from 'vue';
 import EpinioDock from '../components/EpinioDock.vue';
 import cleanHtmlDirective from '../directives/clean-html';
+import { dockState } from './dock-state';
 
 /*
 * Mounts EpinioDock as its own Vue app root appended directly to document.body,
@@ -56,9 +57,13 @@ export function mountDock(store: any): void {
 // Tear the dock down when the user navigates out of Epinio (onLeave), so it
 // doesn't linger over other Rancher products in extension mode. mountDock()
 // rebuilds it on re-entry.
+// The dock's state is reset to empty, so onEnter doesn't re-open the last tab from the previous cluster.
 export function unmountDock(): void {
   dockApp?.unmount();
   dockEl?.remove();
   dockApp = null;
   dockEl = null;
+  dockState.tabs = [];
+  dockState.activeTab = null;
+  dockState.open = false;
 }
