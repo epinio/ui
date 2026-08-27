@@ -8,12 +8,12 @@ import {
   APPLICATION_MANIFEST_SOURCE_TYPE,
   APPLICATION_SOURCE_TYPE,
   APPLICATION_PARTS,
-  EPINIO_PRODUCT_NAME,
   EPINIO_TYPES
 } from '../types';
 import { createEpinioRoute } from '../utils/custom-routing';
 import EpinioNamespacedResource, { bulkRemove } from './epinio-namespaced-resource';
 import { AppUtils } from '../utils/application';
+import { openTab, closeTab, closeTabsMatching } from '../utils/dock-state';
 import { WORKLOAD_TYPES } from '@shell/config/types';
 import { NAME as EXPLORER } from '@shell/config/product/explorer';
 // See https://github.com/epinio/epinio/blob/00684bc36780a37ab90091498e5c700337015a96/pkg/api/core/v1/models/app.go#L11
@@ -1004,18 +1004,17 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
         throw new Error('No running instances available');
       }
 
-      this.$dispatch('wm/open', {
+      openTab({
         id:        this.appShellId,
         label:     `${ this.meta.name } - App Shell`,
-        product:   EPINIO_PRODUCT_NAME,
-        icon:      'chevron-right',
+        icon:      'chevronRight',
         component: 'ApplicationShell',
-        attrs:     {
+        props:     {
           application:     this,
           endpoint:        this.linkFor('shell'),
           initialInstance,
         }
-      }, { root: true });
+      });
     } catch (e) {
       console.log(e);
       this.$dispatch('growl/error', {
@@ -1027,17 +1026,16 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
 
   showAppLog() {
     try {
-      this.$dispatch('wm/open', {
+      openTab({
         id:        this.appLogId,
         label:     `${ this.meta.name } - App Logs`,
-        product:   EPINIO_PRODUCT_NAME,
         icon:      'file',
         component: 'ApplicationLogs',
-        attrs:     {
+        props:     {
           application: this,
           endpoint:    this.linkFor('logs')
         }
-      }, { root: true });
+      });
     } catch (e) {
       console.log(e);
       this.$dispatch('growl/error', {
@@ -1064,18 +1062,17 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
       endpoint = endpoint.replace('/api/v1', '/wapi/v1');
       endpoint = endpoint.replace('/applications', '/staging');
 
-      this.$dispatch('wm/open', {
+      openTab({
         id:        `${ this.stagingLog }${ stageId }`,
         label:     `${ this.meta.name } - Build - ${ stageId }`,
-        product:   EPINIO_PRODUCT_NAME,
         icon:      'file',
         component: 'ApplicationLogs',
-        attrs:     {
+        props:     {
           application: this,
           endpoint,
           ansiToHtml:  true
         }
-      }, { root: true });
+      });
     } catch (e) {
       console.log(e);
       this.$dispatch('growl/error', {
@@ -1087,19 +1084,11 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
 
   closeWindows() {
     // Closes appShell & appLogs on app Remove.
-    this.$dispatch('wm/close', this.appShellId, { root: true });
-    this.$dispatch('wm/close', this.appLogId, { root: true });
+    closeTab(this.appShellId);
+    closeTab(this.appLogId);
 
     // Closes all builds logs on app Remove.
-    const allTabs = this.$rootGetters['wm/allTabs'];
-
-    if ( allTabs.length > 0 ) {
-      allTabs.forEach((e) => {
-        if (e.id.startsWith(this.stagingLog)) {
-          this.$dispatch('wm/close', e.id, { root: true });
-        }
-      });
-    }
+    closeTabsMatching(this.stagingLog);
   }
 
   async remove(opt = { data: {unmounted: true} } ) {
