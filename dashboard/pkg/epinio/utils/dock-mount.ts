@@ -18,8 +18,15 @@ import cleanHtmlDirective from '../directives/clean-html';
 * a runtime dependency on Shell's own modules.
 */
 
+// The width of the Rancher app-bar, which is 70px when showing. When the app-bar is hidden (single-product mode) the dock should be flush left at 0px.
+const APP_BAR_WIDTH = 70;
+
 let dockApp: App | null = null;
 let dockEl: HTMLElement | null = null;
+
+function dockLeftOffset(store: any): string {
+  return store.getters['isSingleProduct'] ? '0' : `${ APP_BAR_WIDTH }px`;
+}
 
 export function mountDock(store: any): void {
   if (dockApp) {
@@ -29,10 +36,11 @@ export function mountDock(store: any): void {
   dockEl = document.createElement('div');
 
   // trailhand-dock's :host is `display: block` so it can be sized by its parent, but we want it to sit on top of the page
-  // and not push the page content down, so we position it fixed to the bottom of the viewport. z-index 100 is above Shell's own chrome (z-index 1) but below any modal dialogs (z-index 200).
+  // and not push the page content down, so we position it fixed to the bottom of the viewport, offset left past the
+  // Rancher app-bar (when it's showing). z-index 100 is above Shell's own chrome (z-index 1) but below any modal dialogs (z-index 200).
   Object.assign(dockEl.style, {
     position: 'fixed',
-    left:     '0',
+    left:     dockLeftOffset(store),
     right:    '0',
     bottom:   '0',
     zIndex:   '100',
