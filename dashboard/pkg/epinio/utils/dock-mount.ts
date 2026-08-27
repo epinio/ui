@@ -52,3 +52,13 @@ export function mountDock(store: any): void {
   dockApp.directive('clean-html', cleanHtmlDirective); // ApplicationShell
   dockApp.mount(dockEl);
 }
+
+// Tear the dock down when the user navigates out of Epinio (onLeave), so it
+// doesn't linger over other Rancher products in extension mode. mountDock()
+// rebuilds it on re-entry.
+export function unmountDock(): void {
+  dockApp?.unmount();
+  dockEl?.remove();
+  dockApp = null;
+  dockEl = null;
+}

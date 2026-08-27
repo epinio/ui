@@ -9,7 +9,7 @@ import epinioRoutes from './routing/epinio-routing';
 import epinioMgmtStore from './store/epinio-mgmt-store';
 import epinioStore from './store/epinio-store';
 import { createEpinioRoute } from './utils/custom-routing';
-import { mountDock } from './utils/dock-mount';
+import { mountDock, unmountDock } from './utils/dock-mount';
 import './assets/overrides.scss';
 
 // import trailhand styles and components
@@ -53,6 +53,9 @@ const onLeave: OnNavAwayFromPackage = async(store) => {
   // - The nav path through to the same epinio cluster is fraught with danger (nav from previous cluster id to blank cluster, required to switch epinio clusters)
   await store.dispatch(`${ epinioStore.config.namespace }/unsubscribe`);
   await store.commit(`${ epinioStore.config.namespace }/reset`);
+
+  // Remove the dock (app logs/shell panel) so it doesn't linger 
+  unmountDock();
 };
 
 // Init the package
