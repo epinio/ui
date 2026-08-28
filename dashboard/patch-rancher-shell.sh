@@ -108,7 +108,6 @@ fs.writeFileSync(p, s);
 console.log('Patched NamespaceFilter.vue for server-side namespace search');
 NODE
 
-
 # Run the yarn command the user was expecting to run.
 if [ "$context" == "dev" ]; then
   NODE_ENV=dev ./node_modules/.bin/vue-cli-service serve

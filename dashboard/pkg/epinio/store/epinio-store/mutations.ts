@@ -50,6 +50,10 @@ export default {
     state.searchQuery[type] = query;
   },
 
+  setActiveNamespaces(state: any, namespaces: string[] | null) {
+    state.activeNamespaces = namespaces;
+  },
+
   setNamespaceSearch(state: any, names: string[] | null) {
     state.namespaceSearch = names;
   },

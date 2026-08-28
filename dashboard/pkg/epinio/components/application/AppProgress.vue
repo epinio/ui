@@ -21,12 +21,13 @@ const props = defineProps<{
   active: boolean,
 }>();
 
-const emit = defineEmits(['finished']);
+const emit = defineEmits(['finished', 'failed']);
 
 const store = useStore();
 const t = store.getters['i18n/t'];
 
 const running = ref(false);
+const failed = ref(false);
 const actions = ref<ApplicationAction[]>([]);
 
 const columns = [
@@ -101,6 +102,8 @@ const create = async () => {
       await action.execute({ source: props.source });
     } catch (err) {
       running.value = false;
+      failed.value = true;
+      emit('failed');
       console.error(err);
       const errDetails = err instanceof Error ? err.message : String(err);
 
@@ -212,7 +215,18 @@ const createActions = async () => {
 };
 
 watch(() => props.active, (isActive) => {
-  if (isActive && !actions.value.length) {
+  if (!isActive) {
+    return;
+  }
+
+  // A failed run leaves its actions on screen to read. Drop them once the user
+  // comes back so the retry builds a fresh pipeline instead of doing nothing.
+  if (failed.value) {
+    actions.value = [];
+    failed.value = false;
+  }
+
+  if (!actions.value.length) {
     createActions();
   }
 });
