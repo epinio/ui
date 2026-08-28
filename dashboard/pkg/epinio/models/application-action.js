@@ -119,10 +119,14 @@ export default class ApplicationActionResource extends Resource {
     const image = isContainer ? source.container.url : undefined;
     const blobUid = isContainer ? undefined : this.application.buildCache.store?.blobUid;
     const builderImage = isContainer ? undefined : source.builderImage;
+    const buildMode = isContainer ? undefined : source.buildMode;
+    const dockerfilePath = isContainer ? undefined : source.dockerfilePath;
 
     await this.application.waitAsyncBuildPhase({
       blobUid,
       builderImage,
+      buildMode,
+      dockerfilePath,
       image,
       origin: this.createDeployOrigin(source),
       isContainer
@@ -139,10 +143,14 @@ export default class ApplicationActionResource extends Resource {
 
     const blobUid = isContainer ? undefined : this.application.buildCache.store?.blobUid;
     const builderImage = isContainer ? undefined : source.builderImage;
+    const buildMode = isContainer ? undefined : source.buildMode;
+    const dockerfilePath = isContainer ? undefined : source.dockerfilePath;
 
     await this.application.waitAsyncDeployPhase({
       blobUid,
       builderImage,
+      buildMode,
+      dockerfilePath,
       image,
       origin: this.createDeployOrigin(source),
       isContainer

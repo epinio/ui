@@ -13,6 +13,7 @@ const appToDelete = ref<any>(null);
 const deleting = ref(false);
 const errors = ref<string[]>([]);
 const deleteFromRegistry = ref(false);
+const deletePVC = ref(false);
 
 function openDelete(row: any) {
   appToDelete.value = row;
@@ -23,6 +24,7 @@ function openDelete(row: any) {
 function closeDelete() {
   showModal.value = false;
   deleteFromRegistry.value = false;
+  deletePVC.value = false;
   errors.value = [];
   appToDelete.value = null;
 }
@@ -37,6 +39,10 @@ async function onSubmitDelete() {
   try {
     if (deleteFromRegistry.value) {
       appToDelete.value._deleteImage = true;
+    }
+
+    if (deletePVC.value) {
+      appToDelete.value._deletePVC = true;
     }
 
     await appToDelete.value.remove();
@@ -74,8 +80,12 @@ const emit = defineEmits(['deleted']);
         :value="deleteFromRegistry"
         :checked="deleteFromRegistry"
         @checkbox-change="(e: CustomEvent<{ checked: boolean }>) => { deleteFromRegistry = e.detail.checked; }"
-      >Also delete image from registry</trailhand-checkbox>
-      <p>When enabled, the application's container image will be removed from the registry.</p>
+      >Remove the application's container image from registry</trailhand-checkbox>
+      <trailhand-checkbox
+        :value="deletePVC"
+        :checked="deletePVC"
+        @checkbox-change="(e: CustomEvent<{ checked: boolean }>) => { deletePVC = e.detail.checked; }"
+      >Delete the application's persistent storage</trailhand-checkbox>
       <Banner
         v-for="(err, i) in errors"
         :key="i"

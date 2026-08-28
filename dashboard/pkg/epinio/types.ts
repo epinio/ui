@@ -94,9 +94,9 @@ export interface AppSourceGit {
   gitconfig?: string,
 }
 
-export interface AppSourceBuilderImage {
-  value: string,
-  default: boolean,
+export enum APPLICATION_BUILD_MODE {
+  BUILDPACK = 'buildpack',
+  DOCKERFILE = 'dockerfile',
 }
 
 /**
@@ -109,6 +109,8 @@ export interface EpinioAppSource {
   git: AppSourceGit,
   gitUrl: AppSourceGitUrl,
   builderImage?: string,
+  buildMode?: string,
+  dockerfilePath?: string,
   appChart: string,
 }
 
@@ -166,11 +168,16 @@ export interface EpinioApplicationResource {
       repository: string,
       branch: string,
       revision: string,
+      gitconfig?: string,
     }
   }
   stage_id: string
+  blobuid?: string
+  stagingstatus?: string
   staging: {
     builder: string
+    buildMode?: string
+    dockerfilePath?: string
   }
   status: string
   statusmessage: string
