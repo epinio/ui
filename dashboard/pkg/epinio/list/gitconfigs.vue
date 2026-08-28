@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { EPINIO_TYPES } from '../types';
 import { useStore } from 'vuex';
-import { computed, ref, onMounted, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import Masthead from '@shell/components/ResourceList/Masthead';
 import { debounce } from 'lodash';
 import { makeActionMenu } from '../utils/table-formatters';
@@ -10,6 +10,8 @@ import GitConfigDeleteModal from '../components/gitconfigs/GitConfigDeleteModal.
 import { ListResourceRequestParams, ResourceQueryOptions, ResourceTableRow } from '../models/resource/ui-types';
 import { useGitConfigs } from '../queries/useGitConfigQueries';
 import { GitConfig } from '../models/gitconfig/ui-types';
+import { useUser } from '../queries/useUserQueries';
+import Banner from '@components/Banner/Banner.vue';
 
 defineProps<{ schema: object }>(); // Keep for compatibility
 
@@ -19,6 +21,8 @@ const gitConfigModal = ref<InstanceType<typeof GitConfigModal> | null>(null);
 const gitConfigDeleteModal = ref<InstanceType<typeof GitConfigDeleteModal> | null>(null);
 
 const resource: string = EPINIO_TYPES.GIT_CONFIG;
+
+const { data: user, isError: isErrorUser, error: userError } = useUser(store);
 
 const requestParams = ref<ListResourceRequestParams>({
   page: 1,
@@ -45,9 +49,7 @@ const onSearch = debounce(async (query: string) => {
 const {data: gitConfigs, isLoading: isLoadingGitConfigs, isError: isErrorGitConfigs, error: gitConfigsError} = useGitConfigs(store, requestParams, requestOptions);
 
 const canEdit = computed(() => {
-  const can = store.getters['epinio/can'];
-
-  return can && (can('gitconfig_write'));
+  return user.value?.permissions?.gitconfig_write || user.value?.permissions?.gitconfig;  
 });
 const canDelete = canEdit;
 const canCreate = canEdit;
@@ -75,10 +77,6 @@ const displayRows = computed(() => {
     canDelete: canDelete.value,
   }));
   return rows;
-});
-
-onMounted(async () => {
-  store.dispatch('epinio/me');
 });
 
 const columns = [
@@ -121,6 +119,16 @@ const columns = [
         <div v-else></div>
       </template>
     </Masthead>
+    <Banner
+      v-if="isErrorUser"
+      color="error"
+      :label="userError?.message || t('epinio.user.errors.fetch')"
+    />  
+    <Banner
+      v-if="isErrorGitConfigs"
+      color="error"
+      :label="gitConfigsError?.message || t('epinio.gitconfigs.errors.fetch')"
+    />  
     <div class="search-container">
       <trailhand-text-input
         :value="searchQuery"

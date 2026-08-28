@@ -1,6 +1,7 @@
 import type { Router } from 'vue-router';
-import { ResourceTableRow } from '../models/resource/api-types';
+import { ResourceTableRow } from '../models/resource/ui-types';
 import { createEpinioRoute } from './custom-routing';
+import { App } from '../models/application/ui-types';
 
 /**
  * Returns an empty non-breaking space cell element.
@@ -220,17 +221,17 @@ export function makeRouterLink(text: string, location: any, router: Router): HTM
 /**
  * Renders an application's routes as external links (when running) or plain text.
  */
-export function makeAppRoutesCell(row: any): HTMLElement {
-  if (!row.routes?.length) return makeEmptyCell();
+export function makeAppRoutesCell(row: App): HTMLElement {
+  if (!row.configuration.routes?.length) return makeEmptyCell();
 
   const span = document.createElement('span');
 
   span.style.wordBreak = 'break-word';
 
-  row.routes.forEach((route: string, index: number) => {
+  row.configuration.routes.forEach((route: string, index: number) => {
     const url = `https://${ route }`;
 
-    if (row.state === 'running') {
+    if (row.status === 'running') {
       const a = document.createElement('a');
 
       a.href = url;
@@ -245,7 +246,7 @@ export function makeAppRoutesCell(row: any): HTMLElement {
       span.appendChild(s);
     }
 
-    if (index < row.routes.length - 1) {
+    if (index < row.configuration.routes.length - 1) {
       span.appendChild(document.createTextNode(', '));
     }
   });

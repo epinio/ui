@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { EPINIO_TYPES } from '../types';
 import { useStore } from 'vuex';
-import { computed, ref, onMounted, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useBuilderImages } from '../queries/useBuilderImagesQueries';
 import Masthead from '@shell/components/ResourceList/Masthead';
 import { debounce } from 'lodash';
@@ -10,7 +10,7 @@ import { makeActionMenu } from '../utils/table-formatters';
 import ImageDeleteModal from '../components/images/ImageDeleteModal.vue';
 import { ResourceQueryOptions, ListResourceRequestParams, ResourceTableRow } from '../models/resource/ui-types';
 import { BuilderImage } from '../models/builderimage/ui-types';
-
+import { useUser } from '../queries/useUserQueries';
 
 defineProps<{ schema: object }>(); // Keep for compatibility
 
@@ -20,6 +20,8 @@ const imageModal = ref<InstanceType<typeof ImageModal> | null>(null);
 const deleteModal = ref<InstanceType<typeof ImageDeleteModal> | null>(null);
 
 const resource: string = EPINIO_TYPES.BUILDER_IMAGE;
+
+const { data: user, isError: isErrorUser, error: userError } = useUser(store);
 
 const requestParams = ref<ListResourceRequestParams>({
   page: 1,
@@ -46,9 +48,7 @@ const onSearch = debounce(async (query: string) => {
 const {data: builderImages, isLoading: isLoadingBuilderImages, isError: isErrorBuilderImages, error: builderImagesError} = useBuilderImages(store, requestParams, requestOptions);
 
 const canEdit = computed(() => {
-  const can = store.getters['epinio/can'];
-
-  return can && (can('builderimage_write'));
+  return user.value?.permissions?.builderimage_write;
 });
 const canDelete = canEdit;
 const canCreate = canEdit;
@@ -84,10 +84,6 @@ const displayRows = computed(() => {
     canDelete: canDelete.value,
   }));
   return rows;
-});
-
-onMounted(async () => {
-  store.dispatch('epinio/me');
 });
 
 const columns = [
@@ -129,6 +125,11 @@ const columns = [
         <div v-else></div>
       </template>
     </Masthead>
+    <Banner
+      v-if="isErrorUser"
+      color="error"
+      :label="userError?.message || t('epinio.user.errors.fetch')"
+    />
     <Banner
       v-if="isErrorBuilderImages"
       color="error"

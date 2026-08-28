@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { EPINIO_TYPES } from '../types';
 import { useStore } from 'vuex';
-import { computed, ref, onMounted, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import Masthead from '@shell/components/ResourceList/Masthead';
 import { debounce } from 'lodash';
 import ChartsModal from '../components/charts/ChartsModal.vue';
@@ -11,6 +11,7 @@ import { useAppCharts } from '../queries/useAppChartsQueries';
 import { ListResourceRequestParams, ResourceQueryOptions, ResourceTableRow } from '../models/resource/ui-types';
 import { AppChart } from '../models/appcharts/ui-types';
 import Banner from '@components/Banner/Banner.vue';
+import { useUser } from '../queries/useUserQueries';
 
 defineProps<{ schema: object }>(); // Keep for compatibility
 
@@ -20,6 +21,8 @@ const chartsModal = ref<InstanceType<typeof ChartsModal> | null>(null);
 const deleteModal = ref<InstanceType<typeof ChartsDeleteModal> | null>(null);   
 
 const resource: string = EPINIO_TYPES.APP_CHARTS;
+
+const { data: user, isError: isErrorUser, error: userError } = useUser(store);
 
 const requestParams = ref<ListResourceRequestParams>({
   page: 1,
@@ -46,9 +49,7 @@ const onSearch = debounce(async (query: string) => {
 const {data: appCharts, isLoading: isLoadingAppCharts, isError: isErrorAppCharts, error: appChartsError} = useAppCharts(store, requestParams, requestOptions);
 
 const canEdit = computed(() => {
-  const can = store.getters['epinio/can'];
-
-  return can && (can('chart_write'));
+  return user.value?.permissions?.chart_write;
 });
 const canDelete = canEdit;
 const canCreate = canEdit;
@@ -85,11 +86,6 @@ const displayRows = computed(() => {
   }));
   return rows;
 });
-
-onMounted(async () => {
-  store.dispatch('epinio/me');
-});
-
 
 const columns = [
   {
@@ -130,6 +126,11 @@ const columns = [
         <div v-else />
       </template>
     </Masthead>
+    <Banner
+      v-if="isErrorUser"
+      color="error"
+      :label="userError?.message || t('epinio.user.errors.fetch')"
+    />
     <Banner
       v-if="isErrorAppCharts"
       color="error"

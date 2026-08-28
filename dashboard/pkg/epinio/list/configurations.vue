@@ -17,7 +17,7 @@ import { useBulkRemoveConfigurations, useUnbindConfiguration } from '../queries/
 import { fetchService } from '../queries/useServiceQueries';
 import ServiceInstanceModal from '../components/service/ServiceInstanceModal.vue';
 import Banner from '@components/Banner/Banner.vue';
-
+import { useUser } from '../queries/useUserQueries';
 
 const store = useStore();
 const router = useRouter();
@@ -34,6 +34,8 @@ const tableEl = ref<any>(null);
 const selectedRows = ref<any[]>([]);
 const windowWidth = ref(window.innerWidth);
 const onResize = () => { windowWidth.value = window.innerWidth; };
+
+const { data: user, isError: isErrorUser, error: userError } = useUser(store);
 
 const requestParams = ref<ListResourceRequestParams>({
   page: 1,
@@ -75,13 +77,6 @@ watchEffect(() => {
 
 onMounted(async () => {
   window.addEventListener('resize', onResize);
-  await Promise.all([
-    store.dispatch('epinio/me'),
-    // Bound Applications/Service columns cross-reference these; fetch them
-    // directly so they're populated on first load instead of depending on
-    // another page (Applications/Services) having fetched them already.
-    store.dispatch('epinio/findAll', { type: EPINIO_TYPES.APP }),
-  ]);
 });
 
 onUnmounted(() => {
@@ -90,14 +85,7 @@ onUnmounted(() => {
 
 // Strict RBAC: only show Create when user has configuration write (hides for view_only)
 const canCreateConfiguration = computed(() => {
-  const can = store.getters['epinio/can'];
-  const perms = store.getters['epinio/permissions']?.();
-
-  if (!can || !perms || Object.keys(perms).length === 0) {
-    return false;
-  }
-
-  return can('configuration_write') || can('configuration');
+  return user.value?.permissions?.configuration_write || user.value?.permissions?.configuration;
 });
 
 // Edit/Delete share the same permission as Create — anything that mutates
@@ -319,6 +307,11 @@ const columns = computed(() => {
         <div v-else></div>
       </template>
     </Masthead>
+    <Banner
+      v-if="isErrorUser"
+      color="error"
+      :label="userError?.message || t('epinio.user.errors.fetch')"
+    />  
     <Banner
       v-if="isErrorConfigurations"
       color="error"

@@ -431,6 +431,8 @@ epinio:
     wm:
       containerName: 'Instance: {label}'
       noData: There are no log entries to show.
+    errors:
+      fetch: Error fetching application, please try again.
   namespace:
     tableHeaders:
       appCount: Applications
@@ -547,6 +549,9 @@ epinio:
       create: Error creating Git Configuration, please try again.
       delete: Error deleting Git Configuration, please try again.
       fetchAll: Error fetching Git Configurations, please try again.
+  user:
+    errors:
+      fetch: Error fetching user permissions, please try again.
   growl:
     application:
       deploy:

@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { useStore } from 'vuex'
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, watch } from 'vue'
 import type { ResourceQueryOptions } from '../models/resource/ui-types';
 import { useCatalogServices } from '../queries/useCatalogServicesQueries';
+import { useUser } from '../queries/useUserQueries';
 import Masthead from '@shell/components/ResourceList/Masthead';
 import { EPINIO_TYPES } from '../types'
 import CatalogServiceModal from '../components/service/CatalogServiceModal.vue';
@@ -14,6 +15,7 @@ import { CatalogService } from '../models/catalogservice/ui-types';
 import { createEpinioRoute } from '../utils/custom-routing';
 import Banner from '@components/Banner/Banner.vue';
 
+
 const store = useStore()
 const props = defineProps<{ schema: object }>(); // eslint-disable-line @typescript-eslint/no-unused-vars
 
@@ -21,6 +23,8 @@ const catalogServiceModal = ref<InstanceType<typeof CatalogServiceModal> | null>
 const deleteModal = ref<InstanceType<typeof CatalogServiceDeleteModal> | null>(null);
 
 const resource: string = EPINIO_TYPES.CATALOG_SERVICE;
+
+const { data: user, isError: isErrorUser, error: userError } = useUser(store);
 
 const requestParams = ref<ListResourceRequestParams>({
   page: 1,
@@ -47,16 +51,11 @@ const onSearch = debounce(async (query: string) => {
 const {data: catalogServices, isLoading: isLoadingCatalogServices, isError: isErrorCatalogServices, error: catalogServicesError} = useCatalogServices(store, requestParams, requestOptions);
 
 const canEdit = computed(() => {
-  const can = store.getters['epinio/can'];
-
-  return can && (can('catalog_service_write') || can('catalog_service'));
+  return user.value?.permissions?.catalog_service_write || user.value?.permissions?.catalog_service;
 });
 const canDelete = canEdit;
 const canCreate = canEdit;
 
-onMounted(async () => {
-  await store.dispatch('epinio/me');
-});
 
 const list = computed(() => {
   if (!catalogServices.value) {
@@ -122,6 +121,11 @@ const showDetails = (catalogService: CatalogService) => {
         <div v-else></div>
       </template>
     </Masthead>
+    <Banner
+      v-if="isErrorUser"
+      color="error"
+      :label="userError?.message || t('epinio.user.errors.fetch')"
+    />  
     <Banner
       v-if="isErrorCatalogServices"
       color="error"

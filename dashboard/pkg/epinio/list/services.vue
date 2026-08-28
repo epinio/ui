@@ -14,6 +14,7 @@ import { useServices } from '../queries/useServiceQueries';
 import { useBulkRemoveServiceInstances, useUnbindServiceInstance } from '../queries/useServiceMutations';
 import { ServiceInstance } from '../models/service/ui-types';
 import Banner from '@components/Banner/Banner.vue';
+import { useUser } from '../queries/useUserQueries';
 
 defineProps<{
   schema: object,
@@ -27,6 +28,8 @@ const resource: string = EPINIO_TYPES.SERVICE_INSTANCE;
 const serviceModal = ref<InstanceType<typeof ServiceInstanceModal> | null>(null);
 const deleteModal = ref<InstanceType<typeof ServiceDeleteModal> | null>(null);
 const bulkDeleteModal = ref<InstanceType<typeof BulkDeleteModal> | null>(null);
+
+const { data: user, isError: isErrorUser, error: userError } = useUser(store);
 
 const requestParams = ref<ListResourceRequestParams>({
   page: 1,
@@ -59,9 +62,7 @@ const tableEl = ref<any>(null);
 const selectedRows = ref<ResourceTableRow<ServiceInstance>[]>([]);
 
 const canEdit = computed(() => {
-  const can = store.getters['epinio/can'];
-
-  return can && (can('service_write') || can('service'));
+  return user.value?.permissions?.service_write || user.value?.permissions?.service;
 });
 const canDelete = canEdit;
 const canCreate = canEdit;
@@ -106,12 +107,6 @@ watchEffect(() => {
 });
 
 onMounted(async () => {
-  store.dispatch('epinio/me');
-
-  // TODO: remove and fetch apps with tanstack
-  store.dispatch('epinio/findAll', { type: EPINIO_TYPES.APP });
-  store.dispatch('epinio/findAll', { type: EPINIO_TYPES.CATALOG_SERVICE });
-
   const query = store.$router.currentRoute._value.query;
 
   if (query.mode === 'openModal') {
@@ -267,6 +262,16 @@ const columns = [
         <div v-else />
       </template>
     </Masthead>
+    <Banner
+      v-if="isErrorServices"
+      color="error"
+      :label="servicesError?.message || t('epinio.service.errors.fetch')"
+    />  
+    <Banner
+      v-if="isErrorUser"
+      color="error"
+      :label="userError?.message || t('epinio.user.errors.fetch')"
+    />  
     <div class="search-container">
       <trailhand-text-input
         :value="searchQuery"
@@ -274,11 +279,6 @@ const columns = [
         @text-input-change="(e: CustomEvent) => searchQuery = e.detail.value"
       ></trailhand-text-input>
     </div>
-    <Banner
-      v-if="isErrorServices"
-      color="error"
-      :label="servicesError?.message || t('epinio.service.errors.fetch')"
-    />  
     <trailhand-table
       :ref="setTableRef"
       :rows="displayRows"

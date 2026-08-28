@@ -13,6 +13,7 @@ export interface AppChart {
     helmChart?: string;
     helmRepo?: string;
     settings?: ChartSetting[];
+    boundApps?: boolean;
 }
 
 export type ListAppChartsResponse = ListResourceResponse<AppChart>;

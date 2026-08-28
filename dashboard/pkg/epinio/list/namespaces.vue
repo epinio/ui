@@ -12,6 +12,7 @@ import NamespaceModal from '../components/namespace/NamespaceModal.vue';
 import NamespaceDeleteModal from '../components/namespace/NamespaceDeleteModal.vue';
 import Banner from '@components/Banner/Banner.vue';
 import { ResourceTableRow } from '../models/resource/ui-types';
+import { useUser } from '../queries/useUserQueries';
 
 defineProps<{
   schema: object,
@@ -25,6 +26,8 @@ const resource: string = EPINIO_TYPES.NAMESPACE;
 
 const namespaceModal = ref<InstanceType<typeof NamespaceModal> | null>(null);
 const namespaceDeleteModal = ref<InstanceType<typeof NamespaceDeleteModal> | null>(null);
+
+const { data: user, isError: isErrorUser, error: userError } = useUser(store);
 
 const searchQuery = ref<string>('');
 
@@ -48,28 +51,13 @@ const onSearch = debounce(async (query: string) => {
 // Strict RBAC: only show Create/Delete when the user has namespace write perms (admin).
 // Defined ahead of the watchEffect that consumes them to avoid a TDZ on first run.
 const canCreateNamespace = computed(() => {
-  const can = store.getters['epinio/can'];
-  const perms = store.getters['epinio/permissions']?.();
-
-  if (!can || !perms || Object.keys(perms).length === 0) {
-    return false;
-  }
-
-  // Create is cluster-scoped: gate on the global-only namespace_create.
-  return can('namespace_create');
+  return user.value?.permissions?.namespace_create;
 });
 // Per-namespace delete is namespaced (server authorizes it against the role for
 // the namespace being deleted), so it stays on the flat namespace_write and is
 // further gated per-row by row.canDelete below.
 const canDelete = computed(() => {
-  const can = store.getters['epinio/can'];
-  const perms = store.getters['epinio/permissions']?.();
-
-  if (!can || !perms || Object.keys(perms).length === 0) {
-    return false;
-  }
-
-  return can('namespace_write') || can('namespace');
+  return user.value?.permissions?.namespace_write || user.value?.permissions?.namespace;
 });
 
 const displayRows = computed<ResourceTableRow<Namespace>[]>(() => {
@@ -104,8 +92,6 @@ watchEffect(() => {
 
 
 onMounted(() => {
-  store.dispatch('epinio/me');
-
   // Opens the create namespace modal if the query is passed as query param
   if (store.$router.currentRoute._value.query.mode === 'openModal') {
     openCreateModal();
@@ -165,6 +151,16 @@ const columns = [
         <div v-else></div>
       </template>
     </Masthead>
+    <Banner
+      v-if="isErrorNamespaces"
+      color="error"
+      :label="namespacesError?.message || t('epinio.namespace.errors.fetch')"
+    />  
+    <Banner
+      v-if="isErrorUser"
+      color="error"
+      :label="userError?.message || t('epinio.user.errors.fetch')"
+    />  
     <div class="search-container">
       <trailhand-text-input
         :value="searchQuery"
@@ -172,11 +168,6 @@ const columns = [
         @text-input-change="(e: CustomEvent) => searchQuery = e.detail.value"
       ></trailhand-text-input>
     </div>
-    <Banner
-      v-if="isErrorNamespaces"
-      color="error"
-      :label="namespacesError?.message || t('epinio.namespace.errors.fetch')"
-    />  
     <trailhand-table
       :ref="(el: any) => { if (el) el.renderActions = attachActionMenu; }"
       :rows="displayRows"

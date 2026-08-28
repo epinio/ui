@@ -3,9 +3,8 @@ import { computed, onMounted, onUnmounted, ref, watchEffect, watch } from 'vue';
 import { useStore } from 'vuex';
 import { debounce } from 'lodash';
 import { useRouter } from 'vue-router';
-
+import Banner from '@components/Banner/Banner.vue';
 import { EPINIO_TYPES } from '../../../../types';
-import { startPolling, stopPolling } from '../../../../utils/polling';
 import Masthead from '@shell/components/ResourceList/Masthead';
 import {
   makeActionMenu,
@@ -13,50 +12,18 @@ import {
   makeAppRoutesCell,
   makeNameLinks,
 } from '../../../../utils/table-formatters';
-import { overrideTableRows } from '../../../../utils/table-formatters';
 import AppModal from '../../../../components/application/AppModal.vue';
 import AppDeleteModal from '../../../../components/application/AppDeleteModal.vue';
 import BulkDeleteModal from '../../../../components/BulkDeleteModal.vue';
 import ExportAppModal from '../../../../dialog/ExportAppModal.vue';
-import EpinioApplicationModel from 'models/applications';
+import { useApplications } from '../../../../queries/useApplicationQueries';
+import { App } from '../../../../models/application/ui-types';
+import { ListResourceRequestParams, ResourceQueryOptions, ResourceTableRow } from '../../../../models/resource/ui-types';
+import { useUser } from '../../../../queries/useUserQueries';
 
 const store = useStore() as any;
 const t = store.getters['i18n/t'];
 const router = useRouter();
-
-const resource: string = EPINIO_TYPES.APP;
-const schema = ref(store.getters['epinio/schemaFor'](resource));
-const paginationMeta = computed(() => store.getters['epinio/paginationMeta'](resource));
-const currentPage = computed(() => store.getters['epinio/currentPaginationPage'](resource));
-
-const searchQuery = ref<string>('');
-
-const paginating = ref(false);
-
-async function goToPage(page: number) {
-  const meta = paginationMeta.value;
-
-  if (meta && (page < 1 || page > meta.totalPages)) return;
-  paginating.value = true;
-  try {
-    await store.dispatch('epinio/goToPage', { type: resource, page });
-  } finally {
-    paginating.value = false;
-  }
-}
-
-const onSearch = debounce(async (query: string) => {
-  paginating.value = true;
-  try {
-    await store.dispatch('epinio/search', { type: resource, query });
-  } finally {
-    paginating.value = false;
-  }
-}, 500);
-
-watch(searchQuery, (newQuery) => {
-  onSearch(newQuery);
-});
 
 const appModal = ref<InstanceType<typeof AppModal> | null>(null);
 const deleteModal = ref<InstanceType<typeof AppDeleteModal> | null>(null);
@@ -64,156 +31,205 @@ const bulkDeleteModal = ref<InstanceType<typeof BulkDeleteModal> | null>(null);
 const exportAppModal = ref<InstanceType<typeof ExportAppModal> | null>(null);
 const deleteAppModal = ref<InstanceType<typeof AppDeleteModal> | null>(null);
 
+const resource: string = EPINIO_TYPES.APP;
+const schema = ref(store.getters['epinio/schemaFor'](resource));
+
+const { data: user, isError: isErrorUser, error: userError } = useUser(store);
+
+const requestParams = ref<ListResourceRequestParams>({
+  page: 1,
+  pageSize: 10,
+  search: '',
+  namespaces: []
+});
+
+const requestOptions = ref<ResourceQueryOptions>({
+  enabled: true,
+  polling: true,
+});
+
+const searchQuery = ref<string>('');
+
+watch(searchQuery, (newQuery) => {
+  onSearch(newQuery);
+});
+
+const onSearch = debounce(async (query: string) => {
+  requestParams.value.page = 1;
+  requestParams.value.search = query;
+}, 500);
+
+const {data: applications, isLoading: isLoadingApplications, isError: isErrorApplications, error: applicationsError} = useApplications(store, requestParams, requestOptions);
+
 const tableEl = ref<any>(null);
 const selectedRows = ref<any[]>([]);
-const displayRows = ref<any[]>([]);
 
 const canCreate = computed(() => {
-  const canGetter = store.getters['epinio/can'];
-  return canGetter && (
-    canGetter('app_create') || canGetter('app_write') || canGetter('app')
-  );
+  return user.value?.permissions?.app_create || user.value?.permissions?.app_write || user.value?.permissions?.app;
 });
 const canEdit = computed(() => {
-  const canGetter = store.getters['epinio/can'];
-  return canGetter && (
-    canGetter('app_update') || canGetter('app_write') || canGetter('app')
-  );
+  return user.value?.permissions?.app_update || user.value?.permissions?.app_write || user.value?.permissions?.app;
 });
 const canDelete = computed(() => {
-  const canGetter = store.getters['epinio/can'];
-  return canGetter && (
-    canGetter('app_delete') || canGetter('app_write') || canGetter('app')
-  );
+  return user.value?.permissions?.app_delete || user.value?.permissions?.app_write || user.value?.permissions?.app;
+});
+const canExport = computed(() => {
+  return user.value?.permissions?.app_export || user.value?.permissions?.app_write || user.value?.permissions?.app;
+});
+const canExec = computed(() => {
+  return user.value?.permissions?.app_exec  || user.value?.permissions?.app;
+});
+const canLogs = computed(() => {
+  return user.value?.permissions?.app_logs || user.value?.permissions?.app;
+});
+const canStage = computed(() => {
+  return user.value?.permissions?.app_stage || user.value?.permissions?.app_write || user.value?.permissions?.app;
+});
+const canRestart = computed(() => {
+  return user.value?.permissions?.app_restart || user.value?.permissions?.app_write || user.value?.permissions?.app;
 });
 
 const handleCreateClick = () => {
   appModal.value?.openCreate();
 };
 
-// Watch the active namespace cache key and update the active namespaces in the store
-watch(
-  () => {
-    void store.state.activeNamespaceCacheKey;
-    const active = store.state.activeNamespaceCache;
-    return active ? Object.keys(active) : null;
-  },
-  async (namespacesArray) => {
-    paginating.value = true;
-    try {
-      await store.dispatch('epinio/setActiveNamespaces', { type: resource, namespaces: namespacesArray });
-    } finally {
-      paginating.value = false;
-    }
+// Watch for changes to the active namespace cache and update the request params accordingly
+watchEffect(() => {
+  void store.state.activeNamespaceCacheKey;
+  const activeNamespaces = store.state.activeNamespaceCache;
+
+  if (activeNamespaces && Object.keys(activeNamespaces).length > 0) {
+    requestParams.value.namespaces = Object.keys(activeNamespaces);
+  } else {
+    requestParams.value.namespaces = undefined;
+  }
+});
+
+// watchEffect(async () => {
+//   const all = store.getters['epinio/all'](EPINIO_TYPES.APP) as any[];
+//   all.forEach((row: any) => { void row.status; void row.stateDisplay; void row.meta; void row.boundapps; });
+
+//   // Filter empty rows that are added during delete
+//   const filtered = all.filter((row) => {
+//     if (!row.id) return false;
+//     return true;
+//   });
+
+//   const overrideProps = [
+//     {
+//       prop: 'availableActions',
+//       value: (row: EpinioApplicationModel) => {
+//         const actions = [...row.availableActions];
+//         const goToEditIndex = actions.findIndex((a: any) => a.action === 'goToEdit');
+//         const exportAppIndex = actions.findIndex((a: any) => a.action === 'exportApp');
+//         const deleteAppIndex = actions.findIndex((a: any) => a.action === 'promptRemove');
+//         const newEditAction = {
+//           action: 'goToEdit',
+//           label: 'Edit',
+//           enabled: true
+//         };
+//         const newExportAction = {
+//           action: 'exportApp',
+//           label: 'Export',
+//           enabled: true
+//         };
+//         const newDeleteAction = {
+//           action: 'deleteApp',
+//           label: 'Delete',
+//           enabled: true
+//         };
+//         if (goToEditIndex !== -1 && canEdit.value) {
+//           actions.splice(goToEditIndex, 1, newEditAction);
+//         } else if (canEdit.value) {
+//           actions.push(newEditAction);
+//         } else if (goToEditIndex !== -1 && !canEdit.value) {
+//           actions.splice(goToEditIndex, 1);
+//         }
+
+//         if (exportAppIndex !== -1) {
+//           actions.splice(exportAppIndex, 1, newExportAction);
+//         }
+
+//         if (deleteAppIndex !== -1 && canEdit.value) {
+//           actions.splice(deleteAppIndex, 1, newDeleteAction);
+//         } else if (deleteAppIndex !== -1 && !canEdit.value) {
+//           actions.splice(deleteAppIndex, 1);
+//         }
+//         return actions;
+//       },
+//       conditionFn: () => {
+//         return true;
+//       },
+//     },
+//     {
+//       prop: 'goToEdit',
+//       value: (row: EpinioApplicationModel) => () => {
+//         appModal.value?.openEdit(row);
+//       },
+//       conditionFn: () => {
+//         return true;
+//       },
+//     },
+//     {
+//       prop: 'exportApp',
+//       value: (row: EpinioApplicationModel) => () => {
+//         exportAppModal.value?.openExport([row]);
+//       },
+//       conditionFn: () => {
+//         return true;
+//       },
+//     },
+//     {
+//       prop: 'deleteApp',
+//       value: (row: EpinioApplicationModel) => () => {
+//         deleteModal.value?.openDelete(row);
+//       },
+//       conditionFn: () => {
+//         return true;
+//       },
+//     }
+//   ];
+
+//   const processedRows = overrideTableRows(filtered, overrideProps);
+
+//   displayRows.value = [...processedRows];
+// });
+
+const openDeleteModal = (app: App) => {
+  deleteModal.value?.openDelete(app);
+};
+
+const openEditModal = (app: App) => {
+  appModal.value?.openEdit(app);
+};
+
+const displayRows = computed(() => {
+  if (!applications.value) {
+    return [];
+  }
   
-  },
-  { immediate: true }
-);
-
-watchEffect(async () => {
-  const all = store.getters['epinio/all'](EPINIO_TYPES.APP) as any[];
-  all.forEach((row: any) => { void row.status; void row.stateDisplay; void row.meta; void row.boundapps; });
-
-  // Filter empty rows that are added during delete
-  const filtered = all.filter((row) => {
-    if (!row.id) return false;
-    return true;
-  });
-
-  const overrideProps = [
-    {
-      prop: 'availableActions',
-      value: (row: EpinioApplicationModel) => {
-        const actions = [...row.availableActions];
-        const goToEditIndex = actions.findIndex((a: any) => a.action === 'goToEdit');
-        const exportAppIndex = actions.findIndex((a: any) => a.action === 'exportApp');
-        const deleteAppIndex = actions.findIndex((a: any) => a.action === 'promptRemove');
-        const newEditAction = {
-          action: 'goToEdit',
-          label: 'Edit',
-          enabled: true
-        };
-        const newExportAction = {
-          action: 'exportApp',
-          label: 'Export',
-          enabled: true
-        };
-        const newDeleteAction = {
-          action: 'deleteApp',
-          label: 'Delete',
-          enabled: true
-        };
-        if (goToEditIndex !== -1 && canEdit.value) {
-          actions.splice(goToEditIndex, 1, newEditAction);
-        } else if (canEdit.value) {
-          actions.push(newEditAction);
-        } else if (goToEditIndex !== -1 && !canEdit.value) {
-          actions.splice(goToEditIndex, 1);
-        }
-
-        if (exportAppIndex !== -1) {
-          actions.splice(exportAppIndex, 1, newExportAction);
-        }
-
-        if (deleteAppIndex !== -1 && canEdit.value) {
-          actions.splice(deleteAppIndex, 1, newDeleteAction);
-        } else if (deleteAppIndex !== -1 && !canEdit.value) {
-          actions.splice(deleteAppIndex, 1);
-        }
-        return actions;
-      },
-      conditionFn: () => {
-        return true;
-      },
-    },
-    {
-      prop: 'goToEdit',
-      value: (row: EpinioApplicationModel) => () => {
-        appModal.value?.openEdit(row);
-      },
-      conditionFn: () => {
-        return true;
-      },
-    },
-    {
-      prop: 'exportApp',
-      value: (row: EpinioApplicationModel) => () => {
-        exportAppModal.value?.openExport([row]);
-      },
-      conditionFn: () => {
-        return true;
-      },
-    },
-    {
-      prop: 'deleteApp',
-      value: (row: EpinioApplicationModel) => () => {
-        deleteModal.value?.openDelete(row);
-      },
-      conditionFn: () => {
-        return true;
-      },
-    }
-  ];
-
-  const processedRows = overrideTableRows(filtered, overrideProps);
-
-  displayRows.value = [...processedRows];
+  const rows: ResourceTableRow<App>[] = (applications.value.items ?? []).map((a) => ({
+    ...a,
+    id: a.meta.name, // stable, unique per namespace
+    availableActions: [{
+      label: 'Delete',
+      action: () => openDeleteModal(a),
+      enabled: canDelete.value,
+      visible: canDelete.value,
+      danger: true,
+    }, {
+      label: 'Edit',
+      action: () => openEditModal(a),
+      enabled: canEdit.value,
+      visible: canEdit.value,
+    }],
+    canDelete: canDelete.value,
+  }));
+  return rows;
 });
 
 onMounted(async () => {
   window.addEventListener('resize', onResize);
-  paginating.value = true;
-  try {
-    await Promise.all([
-      store.dispatch('epinio/me'),
-      store.dispatch('epinio/findAll', { type: EPINIO_TYPES.SERVICE_INSTANCE }),
-      store.dispatch('epinio/findAll', { type: EPINIO_TYPES.CONFIGURATION }),
-      store.dispatch('epinio/findAll', { type: EPINIO_TYPES.APP }),
-    ]);
-  } finally {
-    paginating.value = false;
-  }
-  startPolling(['applications', 'configurations', 'services'], store);
 
   const query = store.$router.currentRoute._value.query;
 
@@ -224,7 +240,6 @@ onMounted(async () => {
 
 onUnmounted(() => {
   window.removeEventListener('resize', onResize);
-  stopPolling(['applications', 'configurations', 'services']);
 });
 
 // Services without service_write/service permission on that row can't be
@@ -270,13 +285,13 @@ const allColumns = [
     field:     'stateDisplay',
     label:     'State',
     width:     '110px',
-    formatter: (_value: string, row: any) => makeStateTag(row)
+    formatter: (_value: string, row: App) => makeStateTag(row)
   },
   {
     field: 'nameDisplay',
     label: 'Name',
     width: '125px',
-    formatter: (_value: any, row: any) => makeNameLinks(
+    formatter: (_value: any, row: App) => makeNameLinks(
       [row.meta.name],
       { cluster: store.getters['clusterId'], namespace: row.meta.namespace, resource: EPINIO_TYPES.APP },
       router
@@ -293,14 +308,14 @@ const allColumns = [
     label:     'Routes',
     width:     '180px',
     sortable:  false,
-    formatter: (_value: any, row: any) => makeAppRoutesCell(row)
+    formatter: (_value: any, row: App) => makeAppRoutesCell(row)
   },
   {
     field:     'boundConfigs',
     label:     'Bound Configs',
     width:     '180px',
     sortable:  false,
-    formatter: (_value: any, row: any) => makeNameLinks(
+    formatter: (_value: any, row: App) => makeNameLinks(
       row.configuration?.configurations,
       { cluster: store.getters['clusterId'], namespace: row.meta.namespace, resource: EPINIO_TYPES.CONFIGURATION },
       router
@@ -311,7 +326,7 @@ const allColumns = [
     label:     'Bound Services',
     width:     '180px',
     sortable:  false,
-    formatter: (_value: any, row: any) => makeNameLinks(
+    formatter: (_value: any, row: App) => makeNameLinks(
       row.configuration?.services,
       { cluster: store.getters['clusterId'], namespace: row.meta.namespace, resource: EPINIO_TYPES.SERVICE_INSTANCE },
       router
@@ -364,6 +379,16 @@ const columns = computed(() => {
         <div v-else />
       </template>
     </Masthead>
+    <Banner
+      v-if="isErrorUser"
+      color="error"
+      :label="userError?.message || t('epinio.user.errors.fetch')"
+    />
+    <Banner
+      v-if="isErrorApplications"
+      color="error"
+      :label="applicationsError?.message || t('epinio.applications.errors.fetch')"
+    />  
     <div class="search-container">
       <trailhand-text-input
         :value="searchQuery"
@@ -371,21 +396,21 @@ const columns = computed(() => {
         @text-input-change="(e: CustomEvent) => searchQuery = e.detail.value"
       ></trailhand-text-input>
     </div>
-    <trailhand-table
-      :ref="setTableRef"
-      :rows="displayRows"
-      :columns="columns"
-      :searchable="false"
-      :selectable="canDelete"
-      :server-side="!!paginationMeta"
-      :total-items="paginationMeta?.totalItems ?? displayRows.length"
-      :current-page="currentPage"
-      :loading="paginating"
-      key-field="id"
-      @navigate="handleNavigate"
-      @page-change="(e: CustomEvent) => goToPage(e.detail.page)"
-      @selection-change="handleSelectionChange"
-    />
+      <trailhand-table
+        :ref="setTableRef"
+        :rows="displayRows"
+        :columns="columns"
+        :searchable="false"
+        :selectable="canDelete"
+        :server-side="true"
+        :total-items="applications?.totalItems ?? 0"
+        :current-page="requestParams.page"
+        :loading="isLoadingApplications"
+        key-field="id"
+        @navigate="handleNavigate"
+        @page-change="(e: CustomEvent) => { requestParams.page = e.detail.page; }"
+        @selection-change="handleSelectionChange"
+      />
     <AppModal ref="appModal" />
     <AppDeleteModal ref="deleteModal" />
     <ExportAppModal ref="exportAppModal" />
