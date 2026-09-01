@@ -201,6 +201,17 @@ const showBuilderImage = computed(() =>
     APPLICATION_SOURCE_TYPE.GIT_URL,
     APPLICATION_SOURCE_TYPE.GIT_HUB,
     APPLICATION_SOURCE_TYPE.GIT_LAB,
+  ].includes(type.value) &&
+  buildMode.value === APPLICATION_BUILD_MODE.BUILDPACK
+);
+
+const showBuildMode = computed(() =>
+  [
+    APPLICATION_SOURCE_TYPE.ARCHIVE,
+    APPLICATION_SOURCE_TYPE.FOLDER,
+    APPLICATION_SOURCE_TYPE.GIT_URL,
+    APPLICATION_SOURCE_TYPE.GIT_HUB,
+    APPLICATION_SOURCE_TYPE.GIT_LAB,
   ].includes(type.value)
 );
 
@@ -414,7 +425,7 @@ function validate() {
         dockerfilePathError.value = validateDockerfilePathValue(dockerfilePath.value);
         return !!archive.tarball && !!dockerfilePath.value && !dockerfilePathError.value;
       }
-      return !!archive.tarball && !!builderImage.value;
+      return !!archive.tarball && hasBuilderImage.value;
     case APPLICATION_SOURCE_TYPE.CONTAINER_URL:
       return !!container.url;
     case APPLICATION_SOURCE_TYPE.GIT_URL:
@@ -422,14 +433,14 @@ function validate() {
         dockerfilePathError.value = validateDockerfilePathValue(dockerfilePath.value);
         return !!gitUrl.url && !!gitUrl.branch && !!gitUrl.validGitUrl && !!dockerfilePath.value && !dockerfilePathError.value;
       }
-      return !!gitUrl.url && !!gitUrl.branch && !!builderImage.value && !!gitUrl.validGitUrl;
+      return !!gitUrl.url && !!gitUrl.branch && hasBuilderImage.value && !!gitUrl.validGitUrl;
     case APPLICATION_SOURCE_TYPE.GIT_HUB:
     case APPLICATION_SOURCE_TYPE.GIT_LAB:
       if (buildMode.value === APPLICATION_BUILD_MODE.DOCKERFILE) {
         dockerfilePathError.value = validateDockerfilePathValue(dockerfilePath.value);
         return !!git.usernameOrOrg && !!git.url && !!git.repo && !!git.branch && !!git.commit && !!dockerfilePath.value && !dockerfilePathError.value;
       }
-      return !!git.usernameOrOrg && !!git.url && !!git.repo && !!git.branch && !!git.commit && !!builderImage.value;
+      return !!git.usernameOrOrg && !!git.url && !!git.repo && !!git.branch && !!git.commit && hasBuilderImage.value;
   }
 }
 
