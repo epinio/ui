@@ -196,6 +196,7 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
     const res = [];
 
     const isRunning = [STATES.RUNNING].includes(this.status);
+    const isErroring = [STATES.ERROR].includes(this.status);
     const isStaging = this.status === STATES.STAGING
       || this.status === STATES.DEPLOYING
       || this.stagingstatus === 'active';
@@ -217,7 +218,7 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
     const canExport = can('app_export') || can('app_write') || can('app');
 
     const showAppShell = isRunning && canExec;
-    const showAppLog = isRunning && canLogs;
+    const showAppLog = (isRunning || isErroring) && canLogs;
     const showStagingLog = !!this.stage_id && canLogs;
 
     if (showAppShell) {
