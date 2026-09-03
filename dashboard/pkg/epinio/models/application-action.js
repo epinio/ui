@@ -95,7 +95,15 @@ export default class ApplicationActionResource extends Resource {
   }
 
   async upload({ source }) {
-    await this.application.storeArchive(source.archive.tarball);
+    const tarball = source?.archive?.tarball;
+
+    // Without this the API is handed an empty form field and answers with a
+    // "no such file" 400 that says nothing about what the user should do.
+    if (!tarball) {
+      throw new Error(this.t('epinio.applications.action.upload.missingSource'));
+    }
+
+    await this.application.storeArchive(tarball);
   }
 
   async gitFetch({ source }) {
@@ -111,10 +119,14 @@ export default class ApplicationActionResource extends Resource {
     const image = isContainer ? source.container.url : undefined;
     const blobUid = isContainer ? undefined : this.application.buildCache.store?.blobUid;
     const builderImage = isContainer ? undefined : source.builderImage;
+    const buildMode = isContainer ? undefined : source.buildMode;
+    const dockerfilePath = isContainer ? undefined : source.dockerfilePath;
 
     await this.application.waitAsyncBuildPhase({
       blobUid,
       builderImage,
+      buildMode,
+      dockerfilePath,
       image,
       origin: this.createDeployOrigin(source),
       isContainer
@@ -131,10 +143,14 @@ export default class ApplicationActionResource extends Resource {
 
     const blobUid = isContainer ? undefined : this.application.buildCache.store?.blobUid;
     const builderImage = isContainer ? undefined : source.builderImage;
+    const buildMode = isContainer ? undefined : source.buildMode;
+    const dockerfilePath = isContainer ? undefined : source.dockerfilePath;
 
     await this.application.waitAsyncDeployPhase({
       blobUid,
       builderImage,
+      buildMode,
+      dockerfilePath,
       image,
       origin: this.createDeployOrigin(source),
       isContainer

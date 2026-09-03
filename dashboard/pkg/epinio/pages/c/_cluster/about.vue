@@ -71,7 +71,7 @@ const downloads = computed(() => {
 
   const gitUrl = `https://github.com/epinio/epinio/releases/download`;
   const versionStr = version.value.displayVersion;
-  const app = appName.value.toLowerCase();
+  const app = 'epinio';
 
   return [
     createOSOption('about.os.mac', 'icon-apple', `${gitUrl}/${versionStr}/${app}-darwin-x86_64`),

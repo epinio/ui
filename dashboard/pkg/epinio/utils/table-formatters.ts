@@ -22,6 +22,10 @@ export function makeRouterLinks(
 ): HTMLSpanElement {
   const span = document.createElement('span');
 
+  span.style.whiteSpace = 'normal';
+  span.style.overflowWrap = 'anywhere';
+  span.style.wordBreak = 'break-word';
+
   items.forEach((item, index) => {
     const a = document.createElement('a');
 
@@ -257,6 +261,7 @@ export function stateToTagVariant(state: string): string {
     case 'not-ready':
     case 'uninstalled': return 'warning';
     case 'building':
+    case 'deploying':
     case 'created':
     case 'updating': return 'info';
     default: return 'default';
@@ -275,6 +280,7 @@ export function stateToIcon(state: string): string {
     case 'error':
     case 'fail': return 'error';
     case 'building': return 'tools';
+    case 'deploying': return 'info';
     case 'created': return 'gear';
     default: return '';
   }

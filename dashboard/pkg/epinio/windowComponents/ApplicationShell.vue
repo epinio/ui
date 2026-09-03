@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { useStore } from 'vuex';
-import { 
-  ref, 
-  onMounted, 
-  onBeforeUnmount, 
+import {
+  ref,
+  computed,
+  onMounted,
+  onBeforeUnmount,
   watch,
   PropType,
 } from 'vue';
@@ -14,14 +15,9 @@ import Socket, {
   EVENT_DISCONNECTED,
   EVENT_MESSAGE,
   EVENT_CONNECT_ERROR,
-} from '@shell/utils/socket';
-import { allHash } from '@shell/utils/promise';
-import { addParams } from '@shell/utils/url';
-import { base64Decode, base64Encode } from '@shell/utils/crypto';
+} from '../utils/socket';
+import { allHash, addParams, base64Decode, base64Encode } from '../utils/browser';
 import { useApplicationSocketMixin } from './ApplicationSocketMixin';
-
-import Select from '@shell/components/form/Select';
-import Window from '@shell/components/nav/WindowManager/Window';
 
 const store = useStore();
 const t = store.getters['i18n/t'];
@@ -49,13 +45,13 @@ const {
   getRootSocketUrl,
 } = useApplicationSocketMixin(props);
 
-const active = ref<boolean>(true);
 const xterm = ref<HTMLElement | null>(null);
 const instance = ref<string>(props.initialInstance || instanceChoices.value[0]);
-const terminal = ref<object | null>(null);
-const fitAddon = ref<object | null>(null);
-const searchAddon = ref<object | null>(null);
-const webglAddon = ref<object | null>(null);
+const instanceOptions = computed(() => instanceChoices.value.map((choice: string) => ({ label: choice, value: choice })));
+const terminal = ref<any>(null);
+const fitAddon = ref<any>(null);
+const searchAddon = ref<any>(null);
+const webglAddon = ref<any>(null);
 const isOpening = ref<boolean>(false);
 const keepAliveTimer = ref<object | null>(null);
 const xtermConfig = {
@@ -63,6 +59,24 @@ const xtermConfig = {
   cursorBlink:      true,
   useStyle:         true,
   fontSize:         12,
+};
+
+let themeObserver: MutationObserver | null = null;
+let resizeObserver: ResizeObserver | null = null;
+
+// xterm reads these CSS vars once at construction and bakes them into its
+// own theme object, it doesn't react to CSS changes the way the rest of the
+// UI does. Without this, switching light/dark mode leaves an open terminal
+// stuck on whatever colors it started with.
+const getTerminalTheme = () => {
+  const docStyle = getComputedStyle(document.body);
+
+  return {
+    background:          docStyle.getPropertyValue('--terminal-bg').trim(),
+    foreground:          docStyle.getPropertyValue('--terminal-text').trim(),
+    cursor:              docStyle.getPropertyValue('--terminal-cursor').trim(),
+    selectionBackground: docStyle.getPropertyValue('--terminal-selection').trim(),
+  };
 };
 
 watch(
@@ -90,7 +104,6 @@ onMounted(async () => {
 }); 
 
 const setupTerminal = async () => {
-  const docStyle = getComputedStyle(document.querySelector('body'));
   const xtermLib = await import('xterm');
 
   const addons = await allHash({
@@ -101,12 +114,7 @@ const setupTerminal = async () => {
   });
 
   const terminalTemp = new xtermLib.Terminal({
-    theme: {
-      background: docStyle.getPropertyValue('--terminal-bg').trim(),
-      foreground: docStyle.getPropertyValue('--terminal-text').trim(),
-      cursor: docStyle.getPropertyValue('--terminal-cursor').trim(),
-      selectionBackground: docStyle.getPropertyValue('--terminal-selection').trim(),
-    },
+    theme: getTerminalTheme(),
     ...xtermConfig,
   });
 
@@ -114,7 +122,7 @@ const setupTerminal = async () => {
   searchAddon.value = new addons.search.SearchAddon();
 
   try {
-    webglAddon.value = new addons.webgl.WebGlAddon();
+    webglAddon.value = new addons.webgl.WebglAddon();
   } catch (e: any) { // eslint-disable-line @typescript-eslint/no-unused-vars
     // Some browsers (Safari) don't support the webgl renderer, so don't use it.
     webglAddon.value = null;
@@ -129,6 +137,9 @@ const setupTerminal = async () => {
   
   terminalTemp.open(xterm.value);
 
+  resizeObserver = new ResizeObserver(() => fit());
+  resizeObserver.observe(xterm.value as HTMLElement);
+
   fit();
   flush();
 
@@ -139,6 +150,13 @@ const setupTerminal = async () => {
   });
 
   terminal.value = terminalTemp;
+
+  themeObserver = new MutationObserver(() => {
+    if (terminal.value) {
+      terminal.value.options.theme = getTerminalTheme();
+    }
+  });
+  themeObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] });
 };
 
 const write = (msg) => {
@@ -251,6 +269,12 @@ const fit = () => {
 };
 
 const cleanup = () => {
+  themeObserver?.disconnect();
+  themeObserver = null;
+
+  resizeObserver?.disconnect();
+  resizeObserver = null;
+
   if (socket.value) {
     socket.value.disconnect();
     socket.value = null;
@@ -264,20 +288,16 @@ const cleanup = () => {
 </script>
 
 <template>
-  <Window
-    :active="active"
-    :before-close="cleanup"
-    class="epinio-app-shell"
-  >
-    <template #title>
-      <Select
+  <div class="epinio-app-shell">
+    <div class="dock-tab-toolbar">
+      <trailhand-dropdown
         v-if="instanceChoices.length > 1"
-        v-model:value="instance"
-        :disabled="instanceChoices.length === 1"
-        class="containerPicker auto-width pull-left"
-        :options="instanceChoices"
-        :clearable="false"
-        placement="top"
+        class="pull-left"
+        :value="instance"
+        :options="instanceOptions"
+        size="small"
+        position="top"
+        @dropdown-change="(e: CustomEvent) => instance = e.detail.value"
       />
       <div class="pull-left ml-5">
         <trailhand-button
@@ -291,20 +311,20 @@ const cleanup = () => {
         <span v-if="isOpen" class="text-success">
           {{t('wm.connection.connected')}}
         </span>
-        <span 
+        <span
           v-else-if="isOpening"
           v-clean-html="t('wm.connection.connecting')"
           class="text-warning"
         />
-        <span 
+        <span
           v-else
           class="text-error"
         >
           {{t('wm.connection.disconnected')}}
         </span>
       </div>
-    </template>
-    <template #body>
+    </div>
+    <div class="dock-tab-body">
       <div
         class="shell-container"
         :class="{ open: isOpen, closed: !isOpen }"
@@ -313,21 +333,34 @@ const cleanup = () => {
           ref="xterm"
           class="shell-body"
         />
-        <resize-observer @notify="fit" />
       </div>
-    </template>
-  </Window>
+    </div>
+  </div>
 </template>
 
-<style lang="scss">
-.epinio-app-shell {
-  .v-select.inline.vs--single.vs--open .vs__selected {
-    position: inherit;
-  }
-}
-</style>
-
 <style lang="scss" scoped>
+.epinio-app-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.dock-tab-toolbar {
+  flex-shrink: 0;
+  order: 2;
+  display: flex;
+  align-items: center;
+  padding: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.dock-tab-body {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
 .text-warning {
   animation: flasher 2.5s linear infinite;
 }
@@ -349,16 +382,6 @@ const cleanup = () => {
 
   & > .terminal.focus {
     outline: var(--outline-width) solid var(--outline);
-  }
-}
-
-.containerPicker {
-  ::v-deep &.unlabeled-select {
-    display: inline-block;
-    min-width: 200px;
-    height: 30px;
-    min-height: 30px;
-    width: initial;
   }
 }
 

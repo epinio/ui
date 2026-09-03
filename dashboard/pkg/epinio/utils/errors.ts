@@ -1,5 +1,12 @@
 import { isArray } from '@shell/utils/array';
 
+// The epinio store's request action rejects with a response object carrying a
+// non-enumerable _status when the body parsed, and the raw axios error when it
+// did not, so both shapes have to be read to spot an authorization refusal.
+export function isForbidden(err: any): boolean {
+  return (err?._status ?? err?.response?.status) === 403;
+}
+
 export function epinioExceptionToErrorsArray(err: any): any {
   const formatError = (item: any) => {
     if (!item) {
