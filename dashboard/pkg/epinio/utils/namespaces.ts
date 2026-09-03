@@ -21,10 +21,12 @@ export function useNamespaces(store: any, opts: UseNamespacesOptions = {}) {
   const isLoading = ref(false);
 
   const classify = (rawData: any[]) => Promise.all(
-    rawData.map((item: any) => store.dispatch(
-      'epinio/create',
-      { type: EPINIO_TYPES.NAMESPACE, ...item }
-    ))
+    rawData.map((item: any) =>
+      store.dispatch('epinio/create', {
+        type: EPINIO_TYPES.NAMESPACE,
+        ...item
+      })
+    )
   );
 
   const load = async (url: string) => {
@@ -47,25 +49,25 @@ export function useNamespaces(store: any, opts: UseNamespacesOptions = {}) {
       return rows;
     }
 
-    return rows.filter((ns: any) => !!active[ns.meta?.name ?? ns.metadata?.name]);
+    return rows.filter(
+      (ns: any) => !!active[ns.meta?.name ?? ns.metadata?.name]
+    );
   };
 
   // Cached, so reopening a dropdown in the same form doesn't refetch
   async function fetchAll() {
     if (cached.value.length > 0) {
       namespaces.value = cached.value;
-
       return;
     }
 
     isLoading.value = true;
 
     try {
-      const rows = await load('/api/v1/namespaces');
-      const scoped = opts.scopeToActiveFilter ? inActiveFilter(rows) : rows;
+      const classifiedData = await load('/api/v1/namespaces');
 
-      namespaces.value = scoped;
-      cached.value = scoped;
+      namespaces.value = classifiedData;
+      cached.value = classifiedData;
     } catch (e) {
       if (opts.onError) {
         opts.onError(e);
@@ -81,9 +83,9 @@ export function useNamespaces(store: any, opts: UseNamespacesOptions = {}) {
     isLoading.value = true;
 
     try {
-      namespaces.value = await load(
-        `/api/v1/namespaces?search=${ encodeURIComponent(query) }`
-      );
+      const classifiedData = await load(`/api/v1/namespaces?search=${ encodeURIComponent(query) }`);
+
+      namespaces.value = classifiedData;
     } catch {
       namespaces.value = [];
     } finally {
@@ -91,24 +93,51 @@ export function useNamespaces(store: any, opts: UseNamespacesOptions = {}) {
     }
   }
 
-  // Read-only namespace fields (view/edit) only need the record's own namespace
-  // present for the label to render. Leaves the cache empty so a later create
-  // still loads the full list.
   function seed(name: string) {
     namespaces.value = name ? [{ meta: { name } }] : [];
     cached.value = [];
   }
 
-  const sorted = computed(() => sortBy(namespaces.value, (ns: any) => ns.meta?.name) as any[]);
+  const filteredNamespaces = computed(() => {
+    if (!opts.scopeToActiveFilter) {
+      return namespaces.value;
+    }
 
-  const options = computed(() => sorted.value.map((ns: any) => ({
-    label: ns.meta?.name || '',
-    value: ns.meta?.name || '',
-  })));
+    // Access the reactive store state inside the computed.
+    const active = store.state.activeNamespaceCache;
 
-  const firstName = computed(() => sorted.value[0]?.meta?.name || '');
+    if (!active || Object.keys(active).length === 0) {
+      return namespaces.value;
+    }
+
+    return inActiveFilter(namespaces.value);
+  });
+
+  const sorted = computed(() =>
+    sortBy(
+      filteredNamespaces.value,
+      (ns: any) => ns.meta?.name
+    ) as any[]
+  );
+
+  const options = computed(() =>
+    sorted.value.map((ns: any) => ({
+      label: ns.meta?.name || '',
+      value: ns.meta?.name || '',
+    }))
+  );
+
+  const firstName = computed(
+    () => sorted.value[0]?.meta?.name || ''
+  );
 
   return {
-    namespaces: sorted, options, isLoading, firstName, fetchAll, search, seed
+    namespaces: sorted,
+    options,
+    isLoading,
+    firstName,
+    fetchAll,
+    search,
+    seed
   };
 }

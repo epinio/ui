@@ -562,6 +562,13 @@ export default {
     await dispatch('findAll', { type, opt: { force: true } });
   },
 
+  setActiveNamespaces: async({ commit, dispatch }: any, { type, namespaces }: { type: string; namespaces: string[] | null }) => {
+    commit('setActiveNamespaces', namespaces);
+    commit('setPaginationPage', { type, page: 1 });
+    commit('clearAll', type);  // clear before fetch so merge starts from empty
+    await dispatch('findAll', { type, opt: { force: true } });
+  },
+
   me: async({ dispatch, commit }: any): Promise<EpinioMe> => {
     // Always fetch fresh so permissions reflect the current user (no stale cache after login switch)
     const me = await dispatch('request', { opt: { url: `/api/v1/me` } });

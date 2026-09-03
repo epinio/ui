@@ -104,17 +104,34 @@ const canCreateConfiguration = computed(() => {
 const canEdit = canCreateConfiguration;
 const canDelete = canCreateConfiguration;
 
+// Watch the active namespace cache key and update the active namespaces in the store
+watch(
+  () => {
+    void store.state.activeNamespaceCacheKey;
+    const active = store.state.activeNamespaceCache;
+    return active ? Object.keys(active) : null;
+  },
+  async (namespacesArray) => {
+    paginating.value = true;
+    try {
+      await store.dispatch('epinio/setActiveNamespaces', { type: resource, namespaces: namespacesArray });
+    } finally {
+      paginating.value = false;
+    }
+  
+  },
+  { immediate: true }
+);
+
 watchEffect(() => {
-  void store.state.activeNamespaceCacheKey;
-  const activeNamespaces = store.state.activeNamespaceCache;
   const all = store.getters['epinio/all'](EPINIO_TYPES.CONFIGURATION) as any[];
 
   all.forEach((row: any) => { void row.status; void row.stateDisplay; void row.meta; void row.configuration; });
 
-  const filtered = all.filter((row: any) => {
-    const ns = row.meta?.namespace;
-
-    return !activeNamespaces || Object.keys(activeNamespaces).length === 0 || activeNamespaces[ns];
+  // Filter empty rows that are added during delete
+  const filtered = all.filter((row) => {
+    if (!row.id) return false;
+    return true;
   });
 
   const overrides = [

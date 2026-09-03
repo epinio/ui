@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { useStore } from 'vuex';
 
 import { EPINIO_TYPES } from '../../types';
@@ -38,6 +38,10 @@ const isEdit = computed(() => modalMode.value === 'edit');
 const isCreate = computed(() => modalMode.value === 'create');
 const isEditing = computed(() => isEdit.value || isCreate.value);
 
+const isLoadingApplications = ref(false);
+const cachedApplications = ref<any[]>([]);
+const fetchedApplications = ref<any[]>([]);
+
 const {
   options:    namespaceOpts,
   isLoading:  isLoadingNamespaces,
@@ -48,12 +52,10 @@ const {
   scopeToActiveFilter: true
 });
 
-// Filter apps to those in the selected namespace, and map to dropdown options
 const nsAppOptions = computed(() => {
   if (!formNamespace.value) return [];
 
-  return store.getters['epinio/all'](EPINIO_TYPES.APP)
-    .filter((a: any) => a.meta.namespace === formNamespace.value)
+  return fetchedApplications.value
     .map((a: any) => ({ label: a.meta.name, value: a.meta.name }));
 });
 
@@ -388,6 +390,69 @@ async function onSubmit() {
   }
 }
 
+async function fetchApplications() {
+  if (!formNamespace.value) return;
+
+  if (cachedApplications.value.length > 0) {
+    fetchedApplications.value = cachedApplications.value;
+    return;
+  }
+
+  isLoadingApplications.value = true;
+  try {
+    const res = await store.dispatch('epinio/request', {
+      opt: {
+        url: `/api/v1/applications?namespaces=${formNamespace.value}`,
+        method: 'GET',
+        responseType: 'json'
+      }
+    });
+    const rawData = res.data ?? [];
+    const classifiedData = await Promise.all(rawData.map((item: any) =>
+      store.dispatch('epinio/create', { type: EPINIO_TYPES.APP, ...item })
+    ));
+    fetchedApplications.value = classifiedData;
+    cachedApplications.value = classifiedData;
+  } catch (error) {
+    console.error('Failed to fetch applications', error);
+  } finally {
+    isLoadingApplications.value = false;
+  }
+}  
+
+async function searchApplications(query: string) {
+  if (!formNamespace.value) return;
+
+  isLoadingApplications.value = true;
+  try {
+    const res = await store.dispatch('epinio/request', {
+      opt: {
+        url: `/api/v1/applications?namespaces=${formNamespace.value}&search=${query}`,
+        method: 'GET',
+        responseType: 'json'
+      }
+    });
+    const rawData = res.data ?? [];
+    const classifiedData = await Promise.all(rawData.map((item: any) =>
+      store.dispatch('epinio/create', { type: EPINIO_TYPES.APP, ...item })
+    ));
+    fetchedApplications.value = classifiedData;
+  } catch {
+    fetchedApplications.value = [];
+  } finally {
+    isLoadingApplications.value = false;
+  }
+}
+
+// watch namespace changes to fetch applications for the selected namespace
+watch(formNamespace, (newNamespace) => {
+  if (newNamespace) {
+    fetchedApplications.value = [];
+    cachedApplications.value = [];
+    fetchApplications();
+  }
+}, { immediate: true });
+
 defineExpose({ openCreate, openView, openEdit });
 </script>
 
@@ -456,16 +521,18 @@ defineExpose({ openCreate, openView, openEdit });
 
         <!-- Bind to Application -->
         <trailhand-form-row>
-          <trailhand-dropdown
-            style="width: 100%"
-            :options="nsAppOptions"
+          <ResourceDropdown
             :values="selectedApps"
+            :options="nsAppOptions"
             label="Bind to Application (Optional)"
             :disabled="isView"
-            :multiselect="true"
-            :filterable="true"
+            filterable
+            multiselect
             placeholder="Select applications to bind"
-            @dropdown-change="(e: CustomEvent) => { selectedApps = e.detail.values; }"
+            :onDropdownChange="(e: CustomEvent) => { selectedApps = e.detail.values; }"
+            :fetchAllResources="fetchApplications"
+            :searchResources="searchApplications"
+            :isLoading="isLoadingApplications"
           />
         </trailhand-form-row>
 

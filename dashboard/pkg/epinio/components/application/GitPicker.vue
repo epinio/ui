@@ -11,6 +11,7 @@ const props = defineProps<{
   value?: any;
   type: string;
   gitConfigs: any[];
+  gitConfigsForbidden?: boolean;
   fetchGitConfigs: () => Promise<void>;
   searchGitConfigs: (query: string) => Promise<void>;
   isLoadingGitConfigs: boolean;
@@ -586,7 +587,10 @@ watch(() => props.value, async(neu, old) => {
 <template>
   <div class="picker">
     <div class="row">
-      <div class="spacer source">
+      <div
+        v-if="!gitConfigsForbidden"
+        class="spacer source"
+      >
         <ResourceDropdown
           :value="gitconfig ?? ''"
           :options="gitConfigs.map((c: any) => ({ value: c.meta.name, label: c.meta.name }))"

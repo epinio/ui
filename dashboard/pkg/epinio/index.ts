@@ -9,6 +9,7 @@ import epinioRoutes from './routing/epinio-routing';
 import epinioMgmtStore from './store/epinio-mgmt-store';
 import epinioStore from './store/epinio-store';
 import { createEpinioRoute } from './utils/custom-routing';
+import { mountDock, unmountDock } from './utils/dock-mount';
 import './assets/overrides.scss';
 
 // import trailhand styles and components
@@ -30,12 +31,19 @@ console.warn = (...args: any[]) => {
 
 const isPodFromEpinio = (a: string) => epinioObjAnnotations.includes(a);
 
-const onEnter: OnNavToPackage = async({ getters, dispatch }) => {
+const onEnter: OnNavToPackage = async(store) => {
+  const { getters, dispatch } = store;
+
   await dispatch(`${ epinioMgmtStore.config.namespace }/loadManagement`);
 
   if (getters['isSingleProduct']) {
     dispatch(`${ epinioStore.config.namespace }/info`); // We can get this in the background
   }
+
+  // Mount EpinioDock (app logs/shell panel) appended to document.body rather than
+  // patching it into Shell's own root chrome, see dock-mount.ts. Guarded internally
+  // so re-entering the product on subsequent navigations is a no-op.
+  mountDock(store);
 };
 
 const onLeave: OnNavAwayFromPackage = async(store) => {
@@ -45,6 +53,9 @@ const onLeave: OnNavAwayFromPackage = async(store) => {
   // - The nav path through to the same epinio cluster is fraught with danger (nav from previous cluster id to blank cluster, required to switch epinio clusters)
   await store.dispatch(`${ epinioStore.config.namespace }/unsubscribe`);
   await store.commit(`${ epinioStore.config.namespace }/reset`);
+
+  // Remove the dock (app logs/shell panel) so it doesn't linger 
+  unmountDock();
 };
 
 // Init the package
