@@ -584,11 +584,11 @@ const clearContainerFilters = () => {
 
           <!-- Container Filter Button -->
           <trailhand-popover
+            :ref="setContainerFilterPopover"
             placement="top"
             escape-boundary
             stay-open
             class="ml-5"
-            :ref="setContainerFilterPopover"
           >
             <trailhand-button
               slot="trigger"

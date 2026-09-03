@@ -62,7 +62,6 @@ const appModal = ref<InstanceType<typeof AppModal> | null>(null);
 const deleteModal = ref<InstanceType<typeof AppDeleteModal> | null>(null);
 const bulkDeleteModal = ref<InstanceType<typeof BulkDeleteModal> | null>(null);
 const exportAppModal = ref<InstanceType<typeof ExportAppModal> | null>(null);
-const deleteAppModal = ref<InstanceType<typeof AppDeleteModal> | null>(null);
 
 const tableEl = ref<any>(null);
 const selectedRows = ref<any[]>([]);

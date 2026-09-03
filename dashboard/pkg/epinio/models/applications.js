@@ -920,7 +920,7 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
         // Keep existing origin so async deploy does not wipe source metadata.
         await this.waitAsyncDeployPhase({
           blobUid:      this.blobuid || undefined,
-          builderImage: this.staging?.builder,
+          builderImage,
           origin:       this.retryDeployOrigin,
         });
         await this.forceFetch();
@@ -928,7 +928,7 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
           this.showStagingLog(this.stage_id);
         }
       } else {
-        const { stage } = await this.stage(undefined, this.staging?.builder, buildMode, dockerfilePath);
+        const { stage } = await this.stage(undefined, builderImage, buildMode, dockerfilePath);
 
         await this.forceFetch();
         this.showStagingLog(stage.id);
