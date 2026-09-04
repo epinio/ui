@@ -11,15 +11,34 @@ export const BLANK_CLUSTER = '_';
 
 // function to watch epinio route so css overrides only apply on epinio pages
 const watchEpinioRoute = (isSingleProduct: boolean) => {
-  const observer = new MutationObserver(() => {
-    const isEpinio = isSingleProduct ? true : window.location.pathname.startsWith('/dashboard/epinio/');
+  const updateEpinioState = () => {
+    const isEpinio = isSingleProduct
+      ? true
+      : window.location.pathname.startsWith('/dashboard/epinio/');
+
     document.body.classList.toggle('epinio-active', isEpinio);
+
+    const theme = document.body.classList.contains('theme-dark')
+        ? 'dark'
+        : 'light';
+
+    if (isEpinio && (!document.documentElement.hasAttribute('data-theme') || document.documentElement.getAttribute('data-theme') !== theme)) {
+      document.documentElement.setAttribute('data-theme', theme);
+      localStorage.setItem('user-theme-preference', theme);
+    }
+  };
+
+  const observer = new MutationObserver(updateEpinioState);
+
+  observer.observe(document.body, {
+    childList: true,
+    subtree: true,
+    attributes: true,
+    attributeFilter: ['class']
   });
 
-  observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
-
-  document.body.classList.toggle('epinio-active', isSingleProduct ? true : window.location.pathname.startsWith('/dashboard/epinio/'));
-}
+  updateEpinioState();
+};
 
 export function init($plugin: any, store: any) {
   const {
