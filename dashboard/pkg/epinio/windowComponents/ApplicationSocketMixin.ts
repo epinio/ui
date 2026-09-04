@@ -2,15 +2,16 @@ import { useStore } from 'vuex';
 import { ref, computed } from 'vue';
 
 import { EPINIO_MGMT_STORE, EPINIO_PRODUCT_NAME, EPINIO_TYPES } from '../types';
+import { App } from '../models/application/ui-types';
 
-export function useApplicationSocketMixin(props: any) {
+export function useApplicationSocketMixin(props: { application: App, endpoint: string, initialInstance: string }) {
   const store = useStore();
   const socket = ref<any>(null);
   const isOpen = ref<boolean>(false);
   const backlog = ref<Array<any>>([]);
 
   const instanceChoices = computed(() => {
-    return props.application.instances.map((instance: any) => instance.id);
+    return Object.keys(props.application.deployment.replicas);
   });
 
   const getRootSocketUrl = async () => {
@@ -23,7 +24,6 @@ export function useApplicationSocketMixin(props: any) {
     let api = '';
     let prependPath = '';
 
-    console.log(store);
     if (isSingleProduct) {
       const cnsi = store.getters[`${ EPINIO_PRODUCT_NAME }/singleProductCNSI`]();
 

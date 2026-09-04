@@ -20,6 +20,9 @@ import { useApplications } from '../../../../queries/useApplicationQueries';
 import { App } from '../../../../models/application/ui-types';
 import { ListResourceRequestParams, ResourceQueryOptions, ResourceTableRow } from '../../../../models/resource/ui-types';
 import { useUser } from '../../../../queries/useUserQueries';
+import { showAppShell } from '../../../../models/application/actions/shell';
+import { showAppLog, showStagingLog } from '../../../../models/application/actions/logs';
+import { restageApp, restartApp } from '../../../../models/application/actions/restage';
 
 const store = useStore() as any;
 const t = store.getters['i18n/t'];
@@ -105,96 +108,6 @@ watchEffect(() => {
   }
 });
 
-// watchEffect(async () => {
-//   const all = store.getters['epinio/all'](EPINIO_TYPES.APP) as any[];
-//   all.forEach((row: any) => { void row.status; void row.stateDisplay; void row.meta; void row.boundapps; });
-
-//   // Filter empty rows that are added during delete
-//   const filtered = all.filter((row) => {
-//     if (!row.id) return false;
-//     return true;
-//   });
-
-//   const overrideProps = [
-//     {
-//       prop: 'availableActions',
-//       value: (row: EpinioApplicationModel) => {
-//         const actions = [...row.availableActions];
-//         const goToEditIndex = actions.findIndex((a: any) => a.action === 'goToEdit');
-//         const exportAppIndex = actions.findIndex((a: any) => a.action === 'exportApp');
-//         const deleteAppIndex = actions.findIndex((a: any) => a.action === 'promptRemove');
-//         const newEditAction = {
-//           action: 'goToEdit',
-//           label: 'Edit',
-//           enabled: true
-//         };
-//         const newExportAction = {
-//           action: 'exportApp',
-//           label: 'Export',
-//           enabled: true
-//         };
-//         const newDeleteAction = {
-//           action: 'deleteApp',
-//           label: 'Delete',
-//           enabled: true
-//         };
-//         if (goToEditIndex !== -1 && canEdit.value) {
-//           actions.splice(goToEditIndex, 1, newEditAction);
-//         } else if (canEdit.value) {
-//           actions.push(newEditAction);
-//         } else if (goToEditIndex !== -1 && !canEdit.value) {
-//           actions.splice(goToEditIndex, 1);
-//         }
-
-//         if (exportAppIndex !== -1) {
-//           actions.splice(exportAppIndex, 1, newExportAction);
-//         }
-
-//         if (deleteAppIndex !== -1 && canEdit.value) {
-//           actions.splice(deleteAppIndex, 1, newDeleteAction);
-//         } else if (deleteAppIndex !== -1 && !canEdit.value) {
-//           actions.splice(deleteAppIndex, 1);
-//         }
-//         return actions;
-//       },
-//       conditionFn: () => {
-//         return true;
-//       },
-//     },
-//     {
-//       prop: 'goToEdit',
-//       value: (row: EpinioApplicationModel) => () => {
-//         appModal.value?.openEdit(row);
-//       },
-//       conditionFn: () => {
-//         return true;
-//       },
-//     },
-//     {
-//       prop: 'exportApp',
-//       value: (row: EpinioApplicationModel) => () => {
-//         exportAppModal.value?.openExport([row]);
-//       },
-//       conditionFn: () => {
-//         return true;
-//       },
-//     },
-//     {
-//       prop: 'deleteApp',
-//       value: (row: EpinioApplicationModel) => () => {
-//         deleteModal.value?.openDelete(row);
-//       },
-//       conditionFn: () => {
-//         return true;
-//       },
-//     }
-//   ];
-
-//   const processedRows = overrideTableRows(filtered, overrideProps);
-
-//   displayRows.value = [...processedRows];
-// });
-
 const openDeleteModal = (app: App) => {
   deleteModal.value?.openDelete(app);
 };
@@ -212,16 +125,46 @@ const displayRows = computed(() => {
     ...a,
     id: a.meta.name, // stable, unique per namespace
     availableActions: [{
-      label: 'Delete',
-      action: () => openDeleteModal(a),
-      enabled: canDelete.value,
-      visible: canDelete.value,
-      danger: true,
+      label: 'App Shell',
+      action: () => showAppShell(store, a),
+      enabled: canExec.value && a.status === 'running',
+      visible: canExec.value,
+    }, {
+      label: 'App Logs',
+      action: () => showAppLog(store, a),
+      enabled: canLogs.value && (a.status === 'running' || a.status === 'error'),
+      visible: canLogs.value,
+    }, {
+      label: 'Last Build Logs',
+      action: () => showStagingLog(store, a),
+      enabled: canLogs.value && !!a.stageId,
+      visible: canLogs.value,
+    }, {
+      label: 'Export',
+      action: () => exportAppModal.value?.openExport(a),
+      enabled: canExport.value && a.status === 'running',
+      visible: canExport.value,
+    }, {
+      label: 'Restage',
+      action: () => restageApp(store, a),
+      enabled: canStage.value && a.canRetryBuild,
+      visible: canStage.value,
+    }, {
+      label: 'Restart',
+      action: () => restartApp(store, a),
+      enabled: canRestart.value && a.status === 'running',
+      visible: canRestart.value,
     }, {
       label: 'Edit',
       action: () => openEditModal(a),
       enabled: canEdit.value,
       visible: canEdit.value,
+    }, {
+      label: 'Delete',
+      action: () => openDeleteModal(a),
+      enabled: canDelete.value,
+      visible: canDelete.value,
+      danger: true,
     }],
     canDelete: canDelete.value,
   }));

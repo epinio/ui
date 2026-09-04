@@ -1,4 +1,4 @@
-import { useQuery, keepPreviousData } from "@tanstack/vue-query";
+import { useQuery, keepPreviousData, queryOptions } from "@tanstack/vue-query";
 import { createEpinioClient } from "../api/client";
 import { useCluster } from "./useCluster";
 import { applicationsApi } from "../api/applications";
@@ -28,3 +28,34 @@ export function useApplications(store: any, params: Ref<ListResourceRequestParam
         structuralSharing: options.value.polling ? false : true, // disable to ensure age updates in the ui when polling tables
     }, epinioQueryClient);
 }
+
+// function applicationPartOptions(
+//   cluster: any,
+//   isExtension: boolean,
+//   namespace: string,
+//   app: string,
+//   part: string,
+//   signal?: AbortSignal
+// ) {
+//   return queryOptions({
+//     queryKey: ['application-part', cluster?.id, namespace, app, part],
+//     queryFn: async () => {
+//       if (!cluster) {
+//         throw new Error('Cluster is not available');
+//       }
+//       const epinioClient = createEpinioClient(cluster, isExtension);
+//       return await applicationsApi(epinioClient).fetchPart(namespace, app, part, signal);
+//     },
+//     enabled: !!cluster,
+//   });
+// }
+
+// export async function fetchApplicationPart(store: any, namespace: string, app: string, part: string, signal?: AbortSignal) {
+//     const { data: cluster } = useCluster(store);
+//     const isExtension = computed(() => !!store.getters['isSingleProduct'] === false);
+
+//     const apiPart = await epinioQueryClient.fetchQuery(
+//         applicationPartOptions(cluster.value, isExtension.value, namespace, app, part, signal)
+//     );
+//     return apiPart;
+// }

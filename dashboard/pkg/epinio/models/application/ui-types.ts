@@ -58,7 +58,9 @@ export interface AppOrigin {
 }
 
 export interface AppStage {
-    builder: string;
+    builder?: string;
+    buildMode?: string;
+    dockerfilePath?: string;
 }
 
 export interface App {
@@ -70,9 +72,66 @@ export interface App {
     stageId: string;
     staging: AppStage;
     stagingStatus: string;
-    status: string;
+    status: 'created' | 'staging' | 'deploying' | 'running' | 'error';
     statusMessage: string;
     stateDisplay: string;
+    blobUid: string;
+    canRetryBuild: boolean;
 }
 
 export type ListAppsResponse = ListResourceResponse<App>;
+
+export type AppExportCancelMap = Record<string, AbortController>;
+
+export interface AppDeploymentStatus {
+    app: AppMeta;
+    error: string;
+    finishedAt: string;
+    id: string;
+    image: string;
+    routes: string[];
+    stageId: string;
+    startedAt: string;
+    status: string;
+    warnings: string[];
+}
+
+export interface AsyncDeployRequest {
+    app: AppMeta;
+    blobUid: string;
+    builderImage: string;
+    buildMode: string;
+    dockerfilePath: string;
+    image: string;
+    origin: AppOrigin;
+}
+
+export interface AppStageRequest {
+    app: AppMeta;
+    blobUid: string;
+    builderImage: string;
+    buildMode: string;
+    dockerfilePath: string;
+    image: string;
+}
+
+export interface AppStageResponse {
+    stage: {
+        id: string;
+    };
+    image: string;
+}
+
+export interface AppDeployRequest {
+    app: AppMeta;
+    image: string;
+    origin: AppOrigin;
+    stage: {
+        id: string;
+    }
+}
+
+export interface AppDeployResponse {
+    routes: string[];
+    warnings: string[];
+}

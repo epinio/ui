@@ -18,13 +18,14 @@ import Socket, {
 } from '../utils/socket';
 import { allHash, addParams, base64Decode, base64Encode } from '../utils/browser';
 import { useApplicationSocketMixin } from './ApplicationSocketMixin';
+import { App } from '../models/application/ui-types';
 
 const store = useStore();
 const t = store.getters['i18n/t'];
 
 const props = defineProps({
   application: {
-    type: Object as PropType<object>,
+    type: Object as PropType<App>,
     default: null,
   },
   endpoint: {

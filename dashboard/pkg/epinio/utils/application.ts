@@ -1,5 +1,6 @@
 import { APPLICATION_MANIFEST_SOURCE_TYPE, APPLICATION_SOURCE_TYPE, EpinioApplicationResource, EpinioAppSource, EPINIO_APP_GIT_SOURCE } from '../types';
 import { parse as parseUrl } from '@shell/utils/url';
+import { AppOrigin } from '../models/application/ui-types';
 
 interface Utils {
   getSourceType: (origin: EpinioApplicationResource['origin']) => APPLICATION_SOURCE_TYPE;
@@ -8,7 +9,7 @@ interface Utils {
   sourceFingerprint: (source?: EpinioAppSource | null) => string;
 }
 
-function getSourceType(origin: EpinioApplicationResource['origin']): APPLICATION_SOURCE_TYPE {
+function getSourceType(origin: AppOrigin): APPLICATION_SOURCE_TYPE {
   switch (origin.Kind) {
   case APPLICATION_MANIFEST_SOURCE_TYPE.PATH:
     return origin.archive ? APPLICATION_SOURCE_TYPE.ARCHIVE : APPLICATION_SOURCE_TYPE.FOLDER;

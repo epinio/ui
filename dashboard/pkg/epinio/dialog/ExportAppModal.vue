@@ -1,14 +1,11 @@
 <script setup lang="ts">
 import { useStore } from 'vuex'
-import { ref, computed } from 'vue';
-
-import JSZip from 'jszip';
-
-import { APPLICATION_PARTS } from '../types';
+import { ref } from 'vue';
 import Banner from '@components/Banner/Banner.vue';
-import { downloadFile } from '@shell/utils/download';
 import Tabs from '../components/application/Tabs.vue';
-import EpinioApplicationModel from 'models/applications';
+import { App } from '../models/application/ui-types';
+import { createManifest, exportChartAndImages } from '../models/application/actions/export';
+import { AppExportCancelMap } from '../models/application/ui-types';
 
 const store = useStore();
 const t = store.getters['i18n/t'];
@@ -20,20 +17,16 @@ const tabs = ref([
   { id: 'chartAndImages', label: 'Chart and Images', completed: false, valid: false, disabled: false },
 ]);
 const showProgressBar = ref<boolean>(false);
-const step = ref<any>(null);
-const cancelTokenSources:object = {};
-const resources = ref<Array<EpinioApplicationModel>>([]);
+const step = ref<string | null>(null);
+const cancelMap = ref<AppExportCancelMap>({});
+const appToExport = ref<App | null>(null);
+const resources = ref<Array<App>>([]);
 const exporting = ref<boolean>(false);
 const errors = ref<Array<string>>([]);
 
-const zipParts = computed(() =>
-  resources.value[0]?.applicationParts.filter(
-    (part) => part !== APPLICATION_PARTS.MANIFEST
-  ) || []
-);
-
-function openExport(newResources: Array<EpinioApplicationModel>) {
-  resources.value = newResources;
+function openExport(app: App) {
+  appToExport.value = app;
+  resources.value = [app];
   showModal.value = true;
 }
 
@@ -44,60 +37,13 @@ const exportApplicationManifest = async () => {
   let exportSucceeded = false;
 
   try {
-    const chartZip = async(files) => {
-      const zip = new JSZip();
-
-      for (const fileName in files) {
-        const extension = {
-          [APPLICATION_PARTS.VALUES]: 'yaml',
-          [APPLICATION_PARTS.CHART]:  'tar.gz',
-          [APPLICATION_PARTS.IMAGE]:  'tar',
-        };
-
-        zip.file(`${ fileName }.${ extension[fileName] }`, files[fileName]);
-      }
-
-      const contents = await zip.generateAsync({
-        type: 'blob',
-        compression: 'STORE',
-      });
-
-      await downloadFile(
-        `${ resource.meta.name }-helm-chart.zip`,
-        contents,
-        'application/zip',
-      );
-    };
-
     if (activeTab.value === 'manifest') {
-      await resource.createManifest();
+      await createManifest(store, resource);
     } else {
-      // Prefer server-side archive (one download, no client zip) when backend supports it
-      const archiveBlob = await fetchPartArchive(resource);
-      if (archiveBlob) {
-        await downloadFile(
-          `${ resource.meta.name }-helm-chart.zip`,
-          archiveBlob,
-          'application/zip',
-        );
-        await delayBeforeClose(1500);
-      } else {
-        // Fallback: fetch three parts and zip in browser (slower, especially in Rancher extension)
-        const partsData = await zipParts.value.reduce(async(acc, part) => ({
-          ...await acc,
-          [part]: await fetchPart(resource, part),
-        }), Promise.resolve({}));
-
-        if (Object.values(partsData).some((part) => !part)) {
-          throw new Error('One or more export parts could not be downloaded');
-        }
-
-        toggleStep('zip');
-
-        await chartZip(partsData);
-
-        await delayBeforeClose(1500);
-      }
+      await exportChartAndImages(store, resource, (part, isPreparing = false) => {
+        toggleStep(part, isPreparing);
+      }, cancelMap.value);
+      await delayBeforeClose(1500);
     }
 
     store.dispatch('growl/success', {
@@ -105,90 +51,42 @@ const exportApplicationManifest = async () => {
       message: t('epinio.growl.application.export.success.message', { name: resource.meta.name }),
     });
     exportSucceeded = true;
-  } catch (error) {
-    const message = error.message ?? 'Error exporting application';
-
-    errors.value.push(message);
-    disableDownload();
-    store.dispatch('growl/error', {
-      title:   t('epinio.growl.application.export.error.title'),
-      message: t('epinio.growl.application.export.error.message'),
-    });
+  } catch (e: any) {
+    if (e.name === 'AbortError') {
+      disableDownload();
+    } else {
+      errors.value.push(e.message ?? 'Error exporting application');
+      disableDownload();
+      store.dispatch('growl/error', {
+        title:   t('epinio.growl.application.export.error.title'),
+        message: t('epinio.growl.application.export.error.message'),
+      });
+    }
   } finally {
     exporting.value = false;
-    if (exportSucceeded) {
-      closeExport();
-    }
-  }
-
-
-}
-
-const getCancelToken = () => {
-  return store.$axios.CancelToken;
-}
-
-// Fetches server-side archive (one zip). Returns blob or null if backend does not support it.
-const fetchPartArchive = async (resource) => {
-  toggleStep('archive', true);
-  cancelTokenSources.archive = getCancelToken().source();
-  try {
-    const blob = await resource.fetchPart('archive', {
-      onDownloadProgress: (progressEvent) => {
-        if (progressEvent.loaded > 0) {
-          toggleStep('archive');
-        }
-      },
-      cancelToken: cancelTokenSources.archive?.token,
-    });
-    return blob;
-  } catch {
-    return null;
+    if (exportSucceeded) closeExport();
   }
 };
 
-const fetchPart = async (resource, part) => {
-  toggleStep(part, true);
-  cancelTokenSources[part] = getCancelToken().source();
-
-  return await resource.fetchPart(
-    part, {
-      onDownloadProgress: (progressEvent) => {
-        if (progressEvent.loaded > 0) {
-          toggleStep(part);
-        }
-      },
-      cancelToken: cancelTokenSources[part].token
-    }).catch((thrown) => {
-      if (!store.$axios.isCancel(thrown)) {
-        disableDownload();
-
-        // Override only messages of server errors
-        const message = thrown.message ?? t(
-          'epinio.applications.export.chartValuesImages.error', 
-          { part },
-        );
-
-        throw new Error(message);
-      }
-    }
-  );
-}
-
 const fetchCancel = () => {
-  // Cancel pending api requests, see https://axios-http.com/docs/cancellation
-  Object.keys(cancelTokenSources).forEach(
-    (part) => cancelTokenSources[part]?.cancel?.(`${ part } part: download cancelled.`)
-  );
-}
+  Object.entries(cancelMap.value).forEach(([part, controller]) => {
+    console.log(part, {
+      before: controller.signal.aborted,
+    });
+
+    controller.abort();
+
+    console.log(part, {
+      after: controller.signal.aborted,
+      reason: controller.signal.reason,
+    });
+  });
+
+  cancelMap.value = {};
+};
 
 const closeExport = () => {
-  if (activeTab.value === 'chartAndImages') {
-    fetchCancel();
-    Object.keys(cancelTokenSources).forEach((key) => {
-      delete cancelTokenSources[key];
-    });
-  }
+  fetchCancel();
   resources.value = [];
   showProgressBar.value = false;
   step.value = null;
@@ -211,11 +109,11 @@ const disableDownload = () => {
   toggleStep(null);
 }
 
-const delayBeforeClose = async (seconds) => {
+const delayBeforeClose = async (seconds: number) => {
   return await new Promise((resolve) => setTimeout(resolve, seconds));
 }
 
-const toggleStep = (part, isPreparing = false) => {
+const toggleStep = (part: string | null, isPreparing = false) => {
   step.value = part ? `${ isPreparing ? 'preparing' : 'download' }.${ part }` : null;
 }
 

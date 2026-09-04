@@ -47,6 +47,7 @@ export interface ApiAppGitRef {
     repository: string;
     revision: string;
     gitconfig?: string;
+    url?: string;
 }
 
 export interface ApiAppOrigin {
@@ -58,7 +59,9 @@ export interface ApiAppOrigin {
 }
 
 export interface ApiAppStage {
-    builder: string;
+    builder?: string;
+    buildMode?: string;
+    dockerfilePath?: string;
 }
 
 export interface ApiApp {
@@ -70,8 +73,62 @@ export interface ApiApp {
     stage_id: string;
     staging: ApiAppStage;
     stagingstatus: string;
-    status: string;
+    status: 'created' | 'staging' | 'deploying' | 'running' | 'error';
     statusmessage: string;
+    blobuid: string;
 }
 
 export type ApiListAppsResponse = ApiListResourceResponse<ApiApp>;
+
+export interface ApiAppDeploymentStatus {
+    app: ApiAppMeta;
+    error: string;
+    finishedAt: string;
+    id: string;
+    image: string;
+    routes: string[];
+    stage_id: string;
+    startedAt: string;
+    status: string;
+    warnings: string[];
+}
+
+export interface ApiAsyncDeployRequest {
+    app: ApiAppMeta;
+    blobuid: string;
+    builderimage: string;
+    buildmode: string;
+    dockerfilepath: string;
+    image: string;
+    origin: ApiAppOrigin;
+}
+
+export interface ApiAppStageRequest {
+    app: ApiAppMeta;
+    blobuid: string;
+    builderimage: string;
+    buildmode: string;
+    dockerfilepath: string;
+    image: string;
+}
+
+export interface ApiAppStageResponse {
+    stage: {
+        id: string;
+    };
+    image: string;
+}
+
+export interface ApiAppDeployRequest {
+    app: ApiAppMeta;
+    image: string;
+    origin: ApiAppOrigin;
+    stage: {
+        id: string;
+    }
+}
+
+export interface ApiAppDeployResponse {
+    routes: string[];
+    warnings: string[];
+}

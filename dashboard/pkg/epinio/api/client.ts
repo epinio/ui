@@ -38,8 +38,8 @@ function readCookie(name: string): string | undefined {
 }
 
 export function createEpinioClient(cluster: EpinioClusterContext, isExtension: boolean = false) {
-  async function request(path: string,  opts: RequestInit & { params?: object } = {}) {
-    const { params, ...fetchOpts } = opts;
+  async function request(path: string,  opts: RequestInit & { params?: object, responseType?: 'json' | 'blob' | 'text', signal?: AbortSignal } = {}) {
+    const { params, signal, ...fetchOpts } = opts;
 
     const query = params ? buildQueryString(params) : '';
 
@@ -53,6 +53,7 @@ export function createEpinioClient(cluster: EpinioClusterContext, isExtension: b
     const res = await fetch(`${isExtension ? cluster.api : `/pp/v1/direct/r/${cluster.id}`}${path}${query}`, {
       ...fetchOpts,
       credentials: 'include',
+      signal,
       headers: {
         'content-type': 'application/json',
         ...(authHeader ? { Authorization: authHeader } : {}),
@@ -65,7 +66,16 @@ export function createEpinioClient(cluster: EpinioClusterContext, isExtension: b
       window.dispatchEvent(new CustomEvent('epinio:unauthorized', { detail: { clusterId: cluster.id } }));
     }
 
-    const data = res.status === 204 ? null : await res.json().catch(() => null);
+    let data = null;
+    if (res.status !== 204) {
+      if (opts.responseType === 'blob') {
+        data = await res.blob().catch(() => null);
+      } else if (opts.responseType === 'text') {
+        data = await res.text().catch(() => null);
+      } else {
+        data = await res.json().catch(() => null);
+      }
+    }
 
     if (!res.ok) {
       const message = data?.errors?.length
@@ -78,9 +88,9 @@ export function createEpinioClient(cluster: EpinioClusterContext, isExtension: b
   }
 
   return {
-    get:    (path: string, opts?: RequestInit & { params?: object }) => request(path, { ...opts, method: 'GET' }),
-    post:   (path: string, body?: unknown, opts?: RequestInit & { params?: object }) => request(path, { ...opts, method: 'POST', body: JSON.stringify(body) }),
-    put:    (path: string, body?: unknown, opts?: RequestInit & { params?: object }) => request(path, { ...opts, method: 'PUT', body: JSON.stringify(body) }),
-    patch:  (path: string, body?: unknown, opts?: RequestInit & { params?: object }) => request(path, { ...opts, method: 'PATCH', body: JSON.stringify(body) }),
-    delete: (path: string, body?: unknown, opts?: RequestInit & { params?: object }) => request(path, { ...opts, method: 'DELETE', body: body ? JSON.stringify(body) : undefined }),  };
+    get:    (path: string, opts?: RequestInit & { params?: object, responseType?: 'json' | 'blob' | 'text', signal?: AbortSignal }) => request(path, { ...opts, method: 'GET' }),
+    post:   (path: string, body?: unknown, opts?: RequestInit & { params?: object, responseType?: 'json' | 'blob' | 'text', signal?: AbortSignal }) => request(path, { ...opts, method: 'POST', body: JSON.stringify(body) }),
+    put:    (path: string, body?: unknown, opts?: RequestInit & { params?: object, responseType?: 'json' | 'blob' | 'text', signal?: AbortSignal }) => request(path, { ...opts, method: 'PUT', body: JSON.stringify(body) }),
+    patch:  (path: string, body?: unknown, opts?: RequestInit & { params?: object, responseType?: 'json' | 'blob' | 'text', signal?: AbortSignal }) => request(path, { ...opts, method: 'PATCH', body: JSON.stringify(body) }),
+    delete: (path: string, body?: unknown, opts?: RequestInit & { params?: object, responseType?: 'json' | 'blob' | 'text', signal?: AbortSignal }) => request(path, { ...opts, method: 'DELETE', body: body ? JSON.stringify(body) : undefined }),  };
 }
