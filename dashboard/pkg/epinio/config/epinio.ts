@@ -10,16 +10,46 @@ import { initNavIcons } from '../utils/nav-icons';
 export const BLANK_CLUSTER = '_';
 
 // function to watch epinio route so css overrides only apply on epinio pages
-const watchEpinioRoute = (isSingleProduct: boolean) => {
-  const observer = new MutationObserver(() => {
-    const isEpinio = isSingleProduct ? true : window.location.pathname.startsWith('/dashboard/epinio/');
+const watchEpinioRoute = (isSingleProduct: boolean, store: any) => {
+  const updateEpinioState = () => {
+    const isEpinio = isSingleProduct
+      ? true
+      : window.location.pathname.startsWith('/dashboard/epinio/');
+
     document.body.classList.toggle('epinio-active', isEpinio);
+
+    // Standalone drives data-theme itself, from ThemeToggle.vue.
+    if (isSingleProduct) {
+      return;
+    }
+
+    // trailhand-ui only exposes its dark tokens under [data-theme='dark'], so
+    // mirror Rancher's resolved theme onto the root element. Read-only: writing
+    // prefs from here would overwrite the user's own Rancher theme setting.
+    if (isEpinio) {
+      document.documentElement.setAttribute('data-theme', store.getters['prefs/theme']);
+    } else {
+      document.documentElement.removeAttribute('data-theme');
+    }
+  };
+
+  // Rancher's brand mixin assigns body.className wholesale, dropping
+  // epinio-active, so the class has to be re-applied on every body mutation.
+  const observer = new MutationObserver(updateEpinioState);
+
+  observer.observe(document.body, {
+    childList: true,
+    subtree: true,
+    attributes: true,
+    attributeFilter: ['class']
   });
 
-  observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
+  if (!isSingleProduct) {
+    store.watch((_state: any, getters: any) => getters['prefs/theme'], updateEpinioState);
+  }
 
-  document.body.classList.toggle('epinio-active', isSingleProduct ? true : window.location.pathname.startsWith('/dashboard/epinio/'));
-}
+  updateEpinioState();
+};
 
 export function init($plugin: any, store: any) {
   const {
@@ -70,7 +100,7 @@ export function init($plugin: any, store: any) {
   // inject nav icons
   initNavIcons();
 
-  watchEpinioRoute(isEpinioSingleProduct);
+  watchEpinioRoute(isEpinioSingleProduct, store);
 
   // Internal Types
 
