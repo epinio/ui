@@ -1,5 +1,5 @@
 <script>
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, onUnmounted, computed } from 'vue';
 import { useStore } from 'vuex';
 import { ToggleSwitch } from '@shell/rancher-components/Form/ToggleSwitch';
 
@@ -11,6 +11,16 @@ export default {
     const store = useStore();
     const localStorageKey = 'user-theme-preference';
     const isDark = ref(false);
+    const isEpinioSingleProduct = process.env.rancherEnv === 'epinio';
+    let bodyObserver = null;
+
+    // Standalone owns its own theme, and everything below runs only there.
+    // Shell loads server-side prefs solely when talking to Rancher, so
+    // localStorage is the only store that survives a refresh, and the body
+    // class has to be re-applied whenever Shell resets it. As a Rancher
+    // extension none of this runs: Rancher's own preference is authoritative
+    // and config/epinio.ts mirrors it. Writing it from here overwrote the
+    // user's Rancher theme setting on login.
 
     // Apply theme
     const applyTheme = (themeName) => {
@@ -29,6 +39,22 @@ export default {
       store.dispatch('prefs/set', { key: 'theme', value: themeName });
     };
 
+    // Apply immediately, before mount, so the page doesn't flash the wrong theme
+    if (isEpinioSingleProduct) {
+      const savedTheme = localStorage.getItem(localStorageKey);
+      if (savedTheme === 'dark' || savedTheme === 'light') {
+        document.documentElement.setAttribute('data-theme', savedTheme);
+        document.body.classList.forEach(cls => {
+          if (cls.startsWith('theme-')) document.body.classList.remove(cls);
+        });
+        document.body.classList.add(`theme-${savedTheme}`);
+
+        setTimeout(() => {
+          store.dispatch('prefs/set', { key: 'theme', value: savedTheme });
+        }, 0);
+      }
+    }
+
     // Initialize theme
     const initTheme = () => {
       const savedTheme = localStorage.getItem(localStorageKey);
@@ -46,7 +72,27 @@ export default {
     };
 
     onMounted(() => {
+      if (!isEpinioSingleProduct) {
+        return;
+      }
+
       initTheme();
+      // Watch for class changes
+      bodyObserver = new MutationObserver(() => {
+        const currentTheme = isDark.value ? 'dark' : 'light';
+        if (!document.body.classList.contains(`theme-${currentTheme}`)) {
+          applyTheme(currentTheme);
+        }
+      });
+
+      bodyObserver.observe(document.body, {
+        attributes: true,
+        attributeFilter: ['class']
+      });
+    });
+
+    onUnmounted(() => {
+      if (bodyObserver) bodyObserver.disconnect();
     });
 
     // Toggle theme
@@ -59,8 +105,6 @@ export default {
         applyTheme(newTheme);
       }
     });
-
-    const isEpinioSingleProduct = process.env.rancherEnv === "epinio";
 
     return { theme, isEpinioSingleProduct };
   }

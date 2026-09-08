@@ -10,7 +10,7 @@ import { initNavIcons } from '../utils/nav-icons';
 export const BLANK_CLUSTER = '_';
 
 // function to watch epinio route so css overrides only apply on epinio pages
-const watchEpinioRoute = (isSingleProduct: boolean) => {
+const watchEpinioRoute = (isSingleProduct: boolean, store: any) => {
   const updateEpinioState = () => {
     const isEpinio = isSingleProduct
       ? true
@@ -18,16 +18,23 @@ const watchEpinioRoute = (isSingleProduct: boolean) => {
 
     document.body.classList.toggle('epinio-active', isEpinio);
 
-    const theme = document.body.classList.contains('theme-dark')
-        ? 'dark'
-        : 'light';
+    // Standalone drives data-theme itself, from ThemeToggle.vue.
+    if (isSingleProduct) {
+      return;
+    }
 
-    if (isEpinio && (!document.documentElement.hasAttribute('data-theme') || document.documentElement.getAttribute('data-theme') !== theme)) {
-      document.documentElement.setAttribute('data-theme', theme);
-      localStorage.setItem('user-theme-preference', theme);
+    // trailhand-ui only exposes its dark tokens under [data-theme='dark'], so
+    // mirror Rancher's resolved theme onto the root element. Read-only: writing
+    // prefs from here would overwrite the user's own Rancher theme setting.
+    if (isEpinio) {
+      document.documentElement.setAttribute('data-theme', store.getters['prefs/theme']);
+    } else {
+      document.documentElement.removeAttribute('data-theme');
     }
   };
 
+  // Rancher's brand mixin assigns body.className wholesale, dropping
+  // epinio-active, so the class has to be re-applied on every body mutation.
   const observer = new MutationObserver(updateEpinioState);
 
   observer.observe(document.body, {
@@ -36,6 +43,10 @@ const watchEpinioRoute = (isSingleProduct: boolean) => {
     attributes: true,
     attributeFilter: ['class']
   });
+
+  if (!isSingleProduct) {
+    store.watch((_state: any, getters: any) => getters['prefs/theme'], updateEpinioState);
+  }
 
   updateEpinioState();
 };
@@ -89,7 +100,7 @@ export function init($plugin: any, store: any) {
   // inject nav icons
   initNavIcons();
 
-  watchEpinioRoute(isEpinioSingleProduct);
+  watchEpinioRoute(isEpinioSingleProduct, store);
 
   // Internal Types
 
