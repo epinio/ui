@@ -241,7 +241,7 @@ function validate() {
   }
 }
 
-function update(source: string) {
+function update() {
   emit('change', {
     type: type.value,
     archive,
@@ -281,10 +281,10 @@ function gitUpdate({ repo, selectedAccOrOrg, branch, commit, sourceData, gitconf
     git.repo = repo;
     git.sourceData = sourceData;
     git.gitconfig = gitconfig;
-    update('gitUpdate a');
+    update();
     emit('valid', true);
   } else {
-    update('gitUpdate b');
+    update();
     emit('valid', false);
   }
 }
@@ -305,7 +305,7 @@ function urlRule() {
 function onFileSelected(file: File) {
   archive.tarball = file;
   archive.fileName = file.name;
-  update('onFileSelected');
+  update();
 }
 
 function handleArchiveFileClick() {
@@ -378,7 +378,7 @@ function onManifestFileSelected(file: string) {
     };
 
     store.$router.replace({ query: { from: EPINIO_APP_MANIFEST } });
-    update('onManifestFileSelected');
+    update();
     updateAppInfo(appInfo);
     updateConfigurations(parsed.configuration.configurations || []);
   } catch (e) {
@@ -431,7 +431,7 @@ function onFolderSelected(files: FileWithRelativePath | FileWithRelativePath[]) 
   generateZip(filesToZip).then((zip: any) => {
     archive.tarball = zip;
     archive.fileName = folderName || 'folder';
-    update('onFolderSelected');
+    update();
   });
 }
 
@@ -544,7 +544,7 @@ onMounted(async () => {
           data-testid="epinio_app-source_container"
           :label="t('epinio.applications.steps.source.container_url.url.inputLabel')"
           :required="true"
-          @text-input-change="(e: CustomEvent) => { container.url = e.detail.value; update('container_url'); }"
+          @text-input-change="(e: CustomEvent) => { container.url = e.detail.value; update(); }"
         />
       </div>
     </template>
@@ -560,7 +560,7 @@ onMounted(async () => {
           :options="gitConfigs.map((c: any) => ({ value: c.meta.name, label: c.meta.name }))"
           label="Git Config"
           :disabled="isEdit"
-          :onDropdownChange="(e: CustomEvent) => { gitUrl.gitconfig = e.detail.value; update('gitconfig'); }"
+          :onDropdownChange="(e: CustomEvent) => { gitUrl.gitconfig = e.detail.value; update(); }"
           :fetchAllResources="fetchGitConfigs"
           :searchResources="searchGitConfigs"
           :isLoading="isLoadingGitConfigs"
@@ -575,7 +575,7 @@ onMounted(async () => {
           :label="t('epinio.applications.steps.source.git_url.url.inputLabel')"
           :placeholder="'https://github.com/{user or org}/{repository}'"
           :required="true"
-          @text-input-change="(e: CustomEvent) => { gitUrl.url = e.detail.value; urlRule(); update('git_url'); }"
+          @text-input-change="(e: CustomEvent) => { gitUrl.url = e.detail.value; urlRule(); update(); }"
         />
         <p v-if="gitUrl.url && !gitUrl.validGitUrl" class="error">
           {{ t('epinio.applications.steps.source.git_url.error.label') }}
@@ -590,7 +590,7 @@ onMounted(async () => {
           :label="t('epinio.applications.steps.source.git_url.branch.inputLabel')"
           :required="true"
           :disabled="!gitUrl.validGitUrl"
-          @text-input-change="(e: CustomEvent) => { gitUrl.branch = e.detail.value; update('git_branch'); }"
+          @text-input-change="(e: CustomEvent) => { gitUrl.branch = e.detail.value; update(); }"
         />
       </div>
     </template>
