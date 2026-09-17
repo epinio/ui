@@ -13,13 +13,13 @@ const props = withDefaults(defineProps<{
   // EPINIO_TYPES value used to refresh the list after delete
   resourceType: string;
   // Function to call to delete the items. Must accept an array of items and return a Promise.
-  bulkRemove: (items: any[],  deleteImage: boolean ) => Promise<void>;
-  // Applications only: offer an "also delete image from registry" checkbox
-  showDeleteImageOption?: boolean;
+  bulkRemove: (items: any[],  deleteImage: boolean,  deletePVC: boolean ) => Promise<void>;
+  // Applications only: offer an "also delete image from registry" and "also delete persistent storage" checkbox
+  isDeletingApps?: boolean;
   // Services/Configurations: note that bound apps will be automatically unbound
   showUnbindNotice?: boolean;
 }>(), {
-  showDeleteImageOption: false,
+  isDeletingApps: false,
   showUnbindNotice:      false,
 });
 
@@ -38,6 +38,7 @@ const itemsToDelete = ref<any[]>([]);
 const deleting = ref(false);
 const errors = ref<string[]>([]);
 const deleteFromRegistry = ref(false);
+const deletePVC = ref(false);
 
 const names = computed(() => itemsToDelete.value.map((item) => item.meta?.name ?? item.name));
 const visibleNames = computed(() => names.value.slice(0, MAX_VISIBLE_NAMES));
@@ -49,6 +50,7 @@ function openDelete(items: any[]) {
   itemsToDelete.value = items;
   errors.value = [];
   deleteFromRegistry.value = false;
+  deletePVC.value = false;
   showModal.value = true;
 }
 
@@ -57,6 +59,7 @@ function closeDelete() {
   itemsToDelete.value = [];
   errors.value = [];
   deleteFromRegistry.value = false;
+  deletePVC.value = false;
 }
 
 async function onSubmitDelete() {
@@ -71,13 +74,7 @@ async function onSubmitDelete() {
   const label = count === 1 ? props.resourceLabel : resourceLabelPlural.value;
 
   try {
-    // if (props.showDeleteImageOption && deleteFromRegistry.value) {
-    //   items.forEach((item) => { item._deleteImage = true; });
-    // } else {
-    //   items.forEach((item) => { item._deleteImage = false; });
-    // }
-
-    await props.bulkRemove(items, deleteFromRegistry.value);
+    await props.bulkRemove(items, deleteFromRegistry.value, deletePVC.value);
     emit('deleted', items);
     closeDelete();
     store.dispatch('growl/success', {
@@ -120,13 +117,17 @@ defineExpose({ openDelete });
         :label="`You're deleting ${itemsToDelete.length} ${resourceLabelPlural} — that's a lot. Make sure this is what you want.`"
       />
 
-      <template v-if="showDeleteImageOption">
+      <template v-if="isDeletingApps">
         <trailhand-checkbox
           :value="deleteFromRegistry"
           :checked="deleteFromRegistry"
           @checkbox-change="(e: CustomEvent<{ checked: boolean }>) => { deleteFromRegistry = e.detail.checked; }"
-        >Also delete images from registry</trailhand-checkbox>
-        <p>When enabled, each application's container image will be removed from the registry.</p>
+        >Remove the application's container image from registry</trailhand-checkbox>
+        <trailhand-checkbox
+          :value="deletePVC"
+          :checked="deletePVC"
+          @checkbox-change="(e: CustomEvent<{ checked: boolean }>) => { deletePVC = e.detail.checked; }"
+        >Delete the application's persistent storage</trailhand-checkbox>
       </template>
 
       <p v-if="showUnbindNotice">

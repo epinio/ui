@@ -17,6 +17,7 @@ import AppDeleteModal from '../../../../components/application/AppDeleteModal.vu
 import BulkDeleteModal from '../../../../components/BulkDeleteModal.vue';
 import ExportAppModal from '../../../../dialog/ExportAppModal.vue';
 import { useApplications } from '../../../../queries/useApplicationQueries';
+import { useBulkRemoveApplications } from '../../../../queries/useApplicationMutations';
 import { App } from '../../../../models/application/ui-types';
 import { ListResourceRequestParams, ResourceQueryOptions, ResourceTableRow } from '../../../../models/resource/ui-types';
 import { useUser } from '../../../../queries/useUserQueries';
@@ -32,7 +33,6 @@ const appModal = ref<InstanceType<typeof AppModal> | null>(null);
 const deleteModal = ref<InstanceType<typeof AppDeleteModal> | null>(null);
 const bulkDeleteModal = ref<InstanceType<typeof BulkDeleteModal> | null>(null);
 const exportAppModal = ref<InstanceType<typeof ExportAppModal> | null>(null);
-const deleteAppModal = ref<InstanceType<typeof AppDeleteModal> | null>(null);
 
 const resource: string = EPINIO_TYPES.APP;
 const schema = ref(store.getters['epinio/schemaFor'](resource));
@@ -63,6 +63,7 @@ const onSearch = debounce(async (query: string) => {
 }, 500);
 
 const {data: applications, isLoading: isLoadingApplications, isError: isErrorApplications, error: applicationsError} = useApplications(store, requestParams, requestOptions);
+const { mutateAsync: bulkRemove } = useBulkRemoveApplications(store);
 
 const tableEl = ref<any>(null);
 const selectedRows = ref<any[]>([]);
@@ -195,6 +196,10 @@ const handleSelectionChange = (event: CustomEvent) => {
 
 const handleBulkDeleteClick = () => {
   bulkDeleteModal.value?.openDelete(selectedRows.value);
+};
+
+const handleBulkDelete = async (items: App[], deleteImage: boolean, deletePVC: boolean) => {
+  await bulkRemove({items, settings: {deleteImage, deletePVC, unmounted: true}});
 };
 
 const handleBulkDeleted = () => {
@@ -361,7 +366,8 @@ const columns = computed(() => {
       ref="bulkDeleteModal"
       resource-label="application"
       :resource-type="resource"
-      :show-delete-image-option="true"
+      :is-deleting-apps="true"
+      :bulk-remove="handleBulkDelete"
       @settled="handleBulkDeleted"
     />
   </div>

@@ -135,3 +135,9 @@ export interface AppDeployResponse {
     routes: string[];
     warnings: string[];
 }
+
+export interface AppDeleteRequest {
+    deleteImage?: boolean;
+    deletePVC?: boolean;
+    unmounted?: boolean;
+}

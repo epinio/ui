@@ -132,3 +132,9 @@ export interface ApiAppDeployResponse {
     routes: string[];
     warnings: string[];
 }
+
+export interface ApiAppDeleteRequest {
+    deleteImage?: boolean;
+    deletePVC?: boolean;
+    unmounted?: boolean;
+}

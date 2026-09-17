@@ -1,6 +1,6 @@
 import { createEpinioClient } from "./client";
 import { ApiListResourceRequestParams } from "../models/resource/api-types";
-import { ApiListAppsResponse, ApiAppDeploymentStatus, ApiAsyncDeployRequest, ApiAppStageRequest, ApiAppStageResponse, ApiApp, ApiAppDeployRequest, ApiAppDeployResponse } from "../models/application/api-types";
+import { ApiListAppsResponse, ApiAppDeploymentStatus, ApiAsyncDeployRequest, ApiAppStageRequest, ApiAppStageResponse, ApiApp, ApiAppDeployRequest, ApiAppDeployResponse, ApiAppDeleteRequest } from "../models/application/api-types";
     
 export function applicationsApi(epinioClient: ReturnType<typeof createEpinioClient>) {
     const appsBasePath = '/api/v1/applications';
@@ -34,6 +34,23 @@ export function applicationsApi(epinioClient: ReturnType<typeof createEpinioClie
         },
         restart: async (namespace: string, app: string) => {
             return await epinioClient.post(`${namespacesBasePath}/${namespace}/applications/${app}/restart`);
-        }
+        },
+        deleteApp: async (namespace: string, app: string, body: ApiAppDeleteRequest): Promise<void> => {
+            return await epinioClient.delete(`${namespacesBasePath}/${namespace}/applications/${app}`, body);
+        },
+        bulkDelete: async (
+            namespace: string,
+            names: string[],
+            body: ApiAppDeleteRequest
+        ) => {
+            const query = names
+            .map(name => `applications[]=${encodeURIComponent(name)}`)
+            .join('&');
+
+            return epinioClient.delete(
+                `${namespacesBasePath}/${namespace}/applications?${query}`,
+                body
+            );
+        },
     };
 }

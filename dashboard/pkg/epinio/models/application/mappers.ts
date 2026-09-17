@@ -1,5 +1,5 @@
-import { ApiApp, ApiAppConfiguration, ApiAppDeployment, ApiAppOrigin, ApiAppStage, ApiAppGitRef, ApiListAppsResponse, ApiAppDeploymentStatus, ApiAsyncDeployRequest, ApiAppStageRequest, ApiAppStageResponse, ApiAppDeployRequest, ApiAppDeployResponse } from "./api-types";
-import { App, AppConfiguration, AppDeployment, AppOrigin, AppStage, AppGitRef, ListAppsResponse, AppDeploymentStatus, AsyncDeployRequest, AppStageRequest, AppStageResponse, AppDeployRequest, AppDeployResponse } from "./ui-types";
+import { ApiApp, ApiAppConfiguration, ApiAppDeployment, ApiAppOrigin, ApiAppStage, ApiAppGitRef, ApiListAppsResponse, ApiAppDeploymentStatus, ApiAsyncDeployRequest, ApiAppStageRequest, ApiAppStageResponse, ApiAppDeployRequest, ApiAppDeployResponse, ApiAppDeleteRequest } from "./api-types";
+import { App, AppConfiguration, AppDeployment, AppOrigin, AppStage, AppGitRef, ListAppsResponse, AppDeploymentStatus, AsyncDeployRequest, AppStageRequest, AppStageResponse, AppDeployRequest, AppDeployResponse, AppDeleteRequest } from "./ui-types";
 import { statusToStateDisplay } from "../../models/resource/mappers";
 import { AppUtils } from "../../utils/application";
 import { APPLICATION_SOURCE_TYPE } from "../../types";
@@ -170,5 +170,13 @@ export function toAppDeployResponse(apiResponse: ApiAppDeployResponse): AppDeplo
     return {
         routes: apiResponse.routes,
         warnings: apiResponse.warnings,
+    };
+}
+
+export function toApiAppDeleteRequest(app: AppDeleteRequest): ApiAppDeleteRequest {
+    return {
+        deleteImage: !!app.deleteImage,
+        deletePVC: !!app.deletePVC,
+        unmounted: !!app.unmounted,
     };
 }

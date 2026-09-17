@@ -1,16 +1,16 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { useStore } from 'vuex';
-import { EPINIO_TYPES } from '../../types';
-import { epinioExceptionToErrorsArray } from '../../utils/errors';
 import Banner from '@components/Banner/Banner.vue';
+import { useDeleteApplication, useBulkRemoveApplications } from '../../queries/useApplicationMutations';
 
 const store = useStore() as any;
 const t = store.getters['i18n/t'];
 
+const {mutate: deleteApplication, isPending: isDeletingApplication, isError: deleteApplicationError, error: deleteApplicationErrorData} = useDeleteApplication(store, handleSuccess);
+
 const showModal = ref(false);
 const appToDelete = ref<any>(null);
-const deleting = ref(false);
 const errors = ref<string[]>([]);
 const deleteFromRegistry = ref(false);
 const deletePVC = ref(false);
@@ -32,36 +32,17 @@ function closeDelete() {
 async function onSubmitDelete() {
   if (!appToDelete.value) return;
 
-  deleting.value = true;
-  errors.value = [];
-  const appName = appToDelete.value.meta.name;
+    const appName = appToDelete.value.meta.name;
+    const appNamespace = appToDelete.value.meta.namespace;
+    deleteApplication({ namespace: appNamespace, app: appName, body: { deleteImage: deleteFromRegistry.value, deletePVC: deletePVC.value, unmounted: true } });
+}
 
-  try {
-    if (deleteFromRegistry.value) {
-      appToDelete.value._deleteImage = true;
-    }
-
-    if (deletePVC.value) {
-      appToDelete.value._deletePVC = true;
-    }
-
-    await appToDelete.value.remove();
-    emit('deleted', appToDelete.value);
-    closeDelete();
-    store.dispatch('growl/success', {
-      title:   t('epinio.growl.application.delete.success.title'),
-      message: t('epinio.growl.application.delete.success.message', { name: appName }),
-    });
-    store.dispatch('epinio/findAll', { type: EPINIO_TYPES.APP, opt: { force: true } });
-  } catch (e: any) {
-    errors.value = epinioExceptionToErrorsArray(e);
-    store.dispatch('growl/error', {
-      title:   t('epinio.growl.application.delete.error.title'),
-      message: t('epinio.growl.application.delete.error.message', { name: appName, error: e instanceof Error ? e.message : String(e) }),
-    });
-  } finally {
-    deleting.value = false;
-  }
+function handleSuccess() {
+  store.dispatch('growl/success', {
+    title:   t('epinio.growl.application.delete.success.title'),
+    message: t('epinio.growl.application.delete.success.message', { name: appToDelete.value?.meta.name }),
+  });
+  closeDelete();
 }
 
 defineExpose({ openDelete });
@@ -86,12 +67,11 @@ const emit = defineEmits(['deleted']);
         :checked="deletePVC"
         @checkbox-change="(e: CustomEvent<{ checked: boolean }>) => { deletePVC = e.detail.checked; }"
       >Delete the application's persistent storage</trailhand-checkbox>
-      <Banner
-        v-for="(err, i) in errors"
-        :key="i"
-        color="error"
-        :label="err"
-      />
+        <Banner
+          v-if="deleteApplicationError"
+          color="error"
+          :label="deleteApplicationErrorData?.message || t('epinio.application.errors.delete')"
+        />
     </div>
 
     <div slot="footer">
@@ -104,10 +84,10 @@ const emit = defineEmits(['deleted']);
       </trailhand-button>
       <trailhand-button
         variant="destructive"
-        :disabled="deleting"
+        :disabled="isDeletingApplication"
         @button-click="onSubmitDelete"
       >
-        {{ deleting ? t('generic.deleting') : t('generic.delete') }}
+        {{ isDeletingApplication ? t('generic.deleting') : t('generic.delete') }}
       </trailhand-button>
     </div>
   </trailhand-modal>
