@@ -5,6 +5,7 @@ import { useStore } from 'vuex';
 import { epinioExceptionToErrorsArray } from '../../utils/errors';
 import Banner from '@components/Banner/Banner.vue';
 import AppSource from './AppSource.vue';
+import AppBuildOptions from './AppBuildOptions.vue';
 import AppInfo from './AppInfo.vue';
 import AppConfiguration from './AppConfiguration.vue';
 import AppProgress from './AppProgress.vue';
@@ -46,6 +47,7 @@ const errors = ref<string[]>([]);
 const activeTab = ref<string | number>('source')
 const tabs = ref([
   { id: 'source', label: 'Source', completed: false, valid: false, disabled: false },
+  { id: 'build', label: 'Build Options', completed: false, valid: false, disabled: true },
   { id: 'details', label: 'Details', completed: false, valid: false, disabled: true },
   { id: 'bindings', label: 'Bindings', completed: false, valid: true, disabled: true },
 ])
@@ -153,7 +155,7 @@ async function openEdit(row: EpinioApplicationModel, commit?: string) {
 
   // If the app has no settings, but the chart does, populate the app's settings with
   // empty values.
-  if (!row.configuration.settings) {
+  if (!value.value.configuration.settings) {
     const chartList = await store.dispatch(
       'epinio/findAll',
       { type: EPINIO_TYPES.APP_CHARTS },
@@ -188,6 +190,7 @@ async function openEdit(row: EpinioApplicationModel, commit?: string) {
   if (!commit) loading.value = false;
 
   await nextTick();
+  
   snapshot.value = takeSnapshot();
 
   // if opened from a specific commit, update source
@@ -290,38 +293,56 @@ function updateInfo(changes: EpinioAppInfo) {
 }
 
 function updateSource(changes: EpinioAppSource) {
-  source.value = {};
   const { appChart: chartId, ...cleanChanges } = changes;
 
-  const prevChartId = appChart.selectedChart;
-  appChart.selectedChart = chartId;
   value.value.configuration ||= {};
 
-  if (chartId) {
-    set(value.value.configuration, { appchart: chartId });
-  }
+  // handle app chart changes
+  if (chartId !== undefined) {
+    const prevChartId = appChart.selectedChart;
+    const chartChanged = chartId !== prevChartId;
 
-  const chartChanged = chartId !== prevChartId;
-  if (!isEdit.value || chartChanged) {
-    value.value.configuration.settings = undefined;
+    appChart.selectedChart = chartId;
 
     if (chartId) {
-      const chart = appChart.chartsList?.find((c: any) => c.id === chartId);
+      set(value.value.configuration, { appchart: chartId });
+    }
 
-    if (chart?.settings) {
-      const customSettings = Object.keys(chart.settings).reduce((acc, key) => {
-        const fallbackValue = chart?.settings[key].type === 'bool' ? false : '';
-        acc[key] = chart?.values?.[key] || fallbackValue;
-        return acc;
-      }, {} as Record<string, any>);
+    if (!isEdit.value || chartChanged) {
+      value.value.configuration.settings = undefined;
 
-        set(value.value.configuration, { settings: customSettings });
-        set(value.value, { chart });
+      if (chartId) {
+        const chart = appChart.chartsList?.find((c: any) => c.id === chartId);
+
+        if (chart?.settings) {
+          const customSettings = Object.keys(chart.settings).reduce(
+            (acc, key) => {
+              const fallbackValue =
+                chart.settings[key].type === 'bool' ? false : '';
+
+              acc[key] = chart.values?.[key] || fallbackValue;
+
+              return acc;
+            },
+            {} as Record<string, any>
+          );
+
+          value.value.configuration.settings = customSettings;
+          set(value.value, { chart });
+        }
+      } else {
+          value.value.configuration.settings = undefined;
+          value.value.configuration.appchart = undefined;
+          value.value.chart = undefined;
+          appChart.selectedChart = undefined;
       }
     }
   }
 
-  set(source.value, cleanChanges);
+  source.value = {
+    ...source.value,
+    ...cleanChanges,
+  };
 }
 
 function updateManifestConfigurations(configs: string[]) {
@@ -447,6 +468,22 @@ defineExpose({ openCreate, openEdit });
           />
         </template>
 
+        <template #build="{ tab }">
+          <AppBuildOptions
+            :application="value"
+            :source="source"
+            :mode="modalMode"
+            :info="epinioInfo"
+            :active="activeTab === tab.id"
+            @change="updateSource"
+            @valid="(val) => {
+              if (!isEdit)tabs[1].completed = val;
+              tabs[1].valid = val;
+              tabs[2].disabled = !val;
+            }"
+          />
+        </template>
+
         <template #details="{ tab }">
           <AppInfo
             :application="value"
@@ -455,11 +492,11 @@ defineExpose({ openCreate, openEdit });
             :active="activeTab === tab.id"
             @change="updateInfo"
             @valid="(val) => {
-              if (!isEdit) tabs[1].completed = val;
-              tabs[1].valid = val;
-              tabs[2].disabled = !val;
+              if (!isEdit) tabs[2].completed = val;
+              tabs[2].valid = val;
+              tabs[3].disabled = !val;
               // also disable final tab since the third tab has no required fields
-              if (tabs[3] && !isEdit) tabs[3].disabled = !val;
+              if (tabs[4] && !isEdit) tabs[4].disabled = !val;
             }"
           />
         </template>
