@@ -7,7 +7,7 @@ export interface ApiAppMeta {
 }
 
 export interface ApiAppConfiguration {
-    appChart: string;
+    appchart: string;
     configurations: string[];
     environment: Record<string, string>;
     // ignore: string[];
@@ -137,4 +137,20 @@ export interface ApiAppDeleteRequest {
     deleteImage?: boolean;
     deletePVC?: boolean;
     unmounted?: boolean;
+}
+
+export interface ApiAppUpdateRequest {
+    appchart: string;
+    configurations: string[];
+    environment: Record<string, string>;
+    instances: number;
+    replace_env: boolean;
+    restart: boolean;
+    routes: string[];
+    settings: Record<string, string>;
+}
+
+export interface ApiAppCreateRequest {
+    configuration: ApiAppUpdateRequest;
+    name: string;
 }

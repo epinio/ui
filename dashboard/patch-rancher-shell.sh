@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # This patch script is meant to prevent Rancher Shell from looking for schemas
 # that are not yet available in the standalone application mode. Since these

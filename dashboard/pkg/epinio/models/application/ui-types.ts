@@ -141,3 +141,19 @@ export interface AppDeleteRequest {
     deletePVC?: boolean;
     unmounted?: boolean;
 }
+
+export interface AppUpdateRequest {
+    appChart: string;
+    configurations: string[];
+    environment: Record<string, string>;
+    instances: number;
+    replaceEnv: boolean;
+    restart: boolean;
+    routes: string[];
+    settings: Record<string, string>;
+}
+
+export interface AppCreateRequest {
+    configuration: AppUpdateRequest;
+    name: string;
+}

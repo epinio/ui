@@ -1,6 +1,6 @@
 <script setup lang="ts">
 
-import { ref, reactive, computed, onMounted, watch } from 'vue';
+import { ref, reactive, computed, watch } from 'vue';
 import { useStore } from 'vuex';
 import jsyaml from 'js-yaml';
 
@@ -10,8 +10,6 @@ import { sortBy } from '@shell/utils/sort';
 import { generateZip } from '@shell/utils/download';
 import {
   APPLICATION_SOURCE_TYPE,
-  APPLICATION_BUILD_MODE,
-  EpinioApplicationChartResource,
   EpinioInfo,
   EpinioAppSource,
   EPINIO_APP_MANIFEST
@@ -20,8 +18,9 @@ import { EpinioAppInfo } from '../../types';
 import { _EDIT } from '@shell/config/query-params';
 import { AppUtils } from '../../utils/application';
 import { EPINIO_TYPES } from '../../types';
-import { isForbidden } from '../../utils/errors';
-import ResourceDropdown from './ResourceDropdown.vue';
+import { useGitConfigs } from '../../queries/useGitConfigQueries';
+import { ResourceQueryOptions, ListResourceRequestParams } from '../../models/resource/ui-types';
+import debounce from 'lodash/debounce';
 
 const GIT_BASE_URL = {
   [APPLICATION_SOURCE_TYPE.GIT_HUB]: 'https://github.com',
@@ -58,61 +57,31 @@ const manifestFileInput = ref<HTMLInputElement | null>(null);
 const archiveFileInput = ref<HTMLInputElement | null>(null);
 const folderFileInput = ref<HTMLInputElement | null>(null);
 const fileDialogActive = ref(false);
-
-const isLoadingGitConfigs = ref(false);
-const gitConfigs = ref<any[]>([]);
-const cachedGitConfigs = ref<any[]>([]);
 // Set when the config read is refused, which is a valid role, not a fault.
 const gitConfigsForbidden = ref(false);
 
-const isLoadingAppCharts = ref(false);
-const appCharts = ref<any[]>([]);
-const cachedAppCharts = ref<any[]>([]);
-
-const isLoadingBuilderImages = ref(false);
-const builderImages = ref<any[]>([]);
-const cachedBuilderImages = ref<any[]>([]);
-// Set when the catalog read is refused, which is a valid role, not a fault.
-const builderImagesForbidden = ref(false);
-
-const isFetchingChartsAndImages = ref<boolean>(true);
-
-const builderImage = ref(props.source?.builderImage || '');
-const buildMode = ref(props.source?.buildMode || APPLICATION_BUILD_MODE.BUILDPACK);
-const dockerfilePath = ref(props.source?.dockerfilePath || 'Dockerfile');
-const dockerfilePathError = ref('');
-
-function validateDockerfilePathValue(value: string): string {
-  const trimmed = (value || '').trim();
-  if (!trimmed) {
-    return '';
-  }
-  if (
-    trimmed.startsWith('/') ||
-    trimmed.startsWith('\\') ||
-    /^[A-Za-z]:[\\/]/.test(trimmed) ||
-    trimmed.startsWith('\\\\')
-  ) {
-    return t('epinio.applications.steps.source.dockerfilePath.error.absolute');
-  }
-
-  const normalized = trimmed.replace(/\\/g, '/');
-  if (normalized.split('/').some((part) => part === '..')) {
-    return t('epinio.applications.steps.source.dockerfilePath.error.parent');
-  }
-
-  if (!/^[A-Za-z0-9._/-]+$/.test(normalized)) {
-    return t('epinio.applications.steps.source.dockerfilePath.error.chars');
-  }
-
-  return '';
-}
-
-function onDockerfilePathChange(value: string) {
-  dockerfilePath.value = value;
-  dockerfilePathError.value = validateDockerfilePathValue(value);
-  update();
-}
+const gitConfigRequestParams = ref<ListResourceRequestParams>({
+  page: 1,
+  pageSize: 10,
+  search: '',
+});
+const gitConfigRequestOptions = ref<ResourceQueryOptions>({
+  enabled: true,
+  polling: true,
+});
+const searchQuery = ref<string>('');
+watch(searchQuery, (newQuery) => {
+  onSearch(newQuery);
+});
+const onSearch = debounce(async (query: string) => {
+  gitConfigRequestParams.value.page = 1;
+  gitConfigRequestParams.value.search = query;
+}, 500);
+const {data: gitConfigs, isLoading: isLoadingGitConfigs, isError: isErrorGitConfigs, error: gitConfigsError} = useGitConfigs(store, gitConfigRequestParams, gitConfigRequestOptions);
+const onGitConfigFilter = debounce((query: string) => {
+  gitConfigRequestParams.value.page = 1;
+  gitConfigRequestParams .value.search = query;
+}, 500);
 
 // Reactive State
 const gitSkipTypeReset = ref(false);
@@ -146,7 +115,6 @@ const git = reactive({
   gitconfig: props.source?.git?.gitconfig || ''
 });
 
-const appChart = ref(props.application.configuration?.appchart || props.source?.appChart || '');
 const type = ref(props.source?.type || APPLICATION_SOURCE_TYPE.FOLDER);
 
 // Derived and Computed
@@ -157,59 +125,6 @@ const types = Object.values(APPLICATION_SOURCE_TYPE).map(value => ({
 
 const namespaces = computed(() => sortBy(store.getters['epinio/all'](EPINIO_TYPES.NAMESPACE), 'name', false));
 
-// Get the builder images from the store, add custom option and format for dropdown
-const allBuilderImages = computed(() => {
-  const catalogImages = sortBy(builderImages.value, 'meta.name', false).map((bi: any) => ({
-    value: bi.image,
-    label: `${bi.meta.name} (${bi.short_description})`,
-    default: bi.default
-  }))
-  const customOption = {
-    value: 'custom',
-    label: 'Custom',
-    default: false
-  }
-  return [...catalogImages, customOption];
-});
-
-const selectedBuilderImage = computed(() => {
-  return allBuilderImages.value.some(
-    (bi) => bi.value === builderImage.value
-  )
-    ? builderImage.value
-    : 'custom';
-});
-
-const isCustomBuilderImage = computed(
-  () => selectedBuilderImage.value === 'custom'
-);
-
-// An empty builder image is legal when the catalog cannot be read: the server
-// resolves its own default (request, then app CR, then default CR, then env).
-const hasBuilderImage = computed(
-  () => !!builderImage.value || builderImagesForbidden.value
-);
-
-const builderImageLabel = computed(() => builderImagesForbidden.value
-  ? t('epinio.applications.steps.source.archive.builderimage.clusterDefault')
-  : t('epinio.applications.steps.source.archive.builderimage.inputLabel'));
-
-const showBuilderImage = computed(() =>
-  [
-    APPLICATION_SOURCE_TYPE.ARCHIVE,
-    APPLICATION_SOURCE_TYPE.FOLDER,
-    APPLICATION_SOURCE_TYPE.GIT_URL,
-    APPLICATION_SOURCE_TYPE.GIT_HUB,
-    APPLICATION_SOURCE_TYPE.GIT_LAB,
-  ].includes(type.value)
-);
-
-const showDockerfilePath = computed(() => showBuildMode.value && buildMode.value === APPLICATION_BUILD_MODE.DOCKERFILE);
-
-const buildModes = [
-  { label: t('epinio.applications.steps.source.buildMode.buildpack'), value: APPLICATION_BUILD_MODE.BUILDPACK },
-  { label: t('epinio.applications.steps.source.buildMode.dockerfile'), value: APPLICATION_BUILD_MODE.DOCKERFILE },
-];
 
 const gitSource = computed(() => ({
   type: type.value,
@@ -221,165 +136,6 @@ const gitSource = computed(() => ({
 }));
 
 const valid = ref(validate());
-
-const fetchGitConfigs = async () => {
-  if (cachedGitConfigs.value.length > 0) {
-    gitConfigs.value = cachedGitConfigs.value;
-    return;
-  }
-  isLoadingGitConfigs.value = true;
-  try {
-    const res = await store.dispatch('epinio/request', {
-      opt: {
-        url: '/api/v1/gitconfigs',
-        method: 'GET',
-        responseType: 'json'
-      }
-    });
-    const rawData = res.data ?? [];
-    const classifiedData = await Promise.all(rawData.map((item: any) =>
-      store.dispatch('epinio/create', { type: EPINIO_TYPES.GIT_CONFIG, ...item })
-    ));
-    gitConfigs.value = classifiedData;
-    cachedGitConfigs.value = classifiedData;
-    gitConfigsForbidden.value = false;
-  } catch (error: any) {
-    gitConfigsForbidden.value = isForbidden(error);
-
-    if (!gitConfigsForbidden.value) {
-      console.error('Failed to fetch git configs', error);
-    }
-  } finally {
-    isLoadingGitConfigs.value = false;
-  }
-};
-
-async function searchGitConfigs(query: string) {
-  isLoadingGitConfigs.value = true;
-  try {
-    const res = await store.dispatch('epinio/request', {
-      opt: {
-        url: `/api/v1/gitconfigs?search=${query}`,
-        method: 'GET',
-        responseType: 'json'
-      }
-    });
-    const rawData = res.data ?? [];
-    const classifiedData = await Promise.all(rawData.map((item: any) =>
-      store.dispatch('epinio/create', { type: EPINIO_TYPES.GIT_CONFIG, ...item })
-    ));
-    gitConfigs.value = classifiedData;
-  } catch (error: any) {
-    gitConfigsForbidden.value = isForbidden(error);
-    gitConfigs.value = [];
-  } finally {
-    isLoadingGitConfigs.value = false;
-  }
-}
-
-const fetchAppCharts = async () => {
-  if (cachedAppCharts.value.length > 0) {
-    appCharts.value = cachedAppCharts.value;
-    return;
-  }
-  isLoadingAppCharts.value = true;
-  try {
-    const res = await store.dispatch('epinio/request', {
-      opt: {
-        url: '/api/v1/appcharts',
-        method: 'GET',
-        responseType: 'json'
-      }
-    });
-    const rawData = res.data ?? [];
-    const classifiedData = await Promise.all(rawData.map((item: any) =>
-      store.dispatch('epinio/create', { type: EPINIO_TYPES.APP_CHART, ...item })
-    ));
-    appCharts.value = classifiedData;
-    cachedAppCharts.value = classifiedData;
-  } catch (error) {
-    console.error('Failed to fetch app charts', error);
-  } finally {
-    isLoadingAppCharts.value = false;
-  }
-};
-
-async function searchAppCharts(query: string) {
-  isLoadingAppCharts.value = true;
-  try {
-    const res = await store.dispatch('epinio/request', {
-      opt: {
-        url: `/api/v1/appcharts?search=${query}`,
-        method: 'GET',
-        responseType: 'json'
-      }
-    });
-    const rawData = res.data ?? [];
-    const classifiedData = await Promise.all(rawData.map((item: any) =>
-      store.dispatch('epinio/create', { type: EPINIO_TYPES.APP_CHARTS, ...item })
-    ));
-    appCharts.value = classifiedData;
-  } catch {
-    appCharts.value = [];
-  } finally {
-    isLoadingAppCharts.value = false;
-  }
-}
-
-const fetchBuilderImages = async () => {
-  if (cachedBuilderImages.value.length > 0) {
-    builderImages.value = cachedBuilderImages.value;
-    return;
-  }
-  isLoadingBuilderImages.value = true;
-  try {
-    const res = await store.dispatch('epinio/request', {
-      opt: {
-        url: '/api/v1/builderimages',
-        method: 'GET',
-        responseType: 'json'
-      }
-    });
-    const rawData = res.data ?? [];
-    const classifiedData = await Promise.all(rawData.map((item: any) =>
-      store.dispatch('epinio/create', { type: EPINIO_TYPES.BUILDER_IMAGE, ...item })
-    ));
-    builderImages.value = classifiedData;
-    cachedBuilderImages.value = classifiedData;
-    builderImagesForbidden.value = false;
-  } catch (error: any) {
-    builderImagesForbidden.value = isForbidden(error);
-
-    if (!builderImagesForbidden.value) {
-      console.error('Failed to fetch builder images', error);
-    }
-  } finally {
-    isLoadingBuilderImages.value = false;
-  }
-};
-
-async function searchBuilderImages(query: string) {
-  isLoadingBuilderImages.value = true;
-  try {
-    const res = await store.dispatch('epinio/request', {
-      opt: {
-        url: `/api/v1/builderimages?search=${query}`,
-        method: 'GET',
-        responseType: 'json'
-      }
-    });
-    const rawData = res.data ?? [];
-    const classifiedData = await Promise.all(rawData.map((item: any) =>
-      store.dispatch('epinio/create', { type: EPINIO_TYPES.BUILDER_IMAGE, ...item })
-    ));
-    builderImages.value = classifiedData;
-  } catch (error: any) {
-    builderImagesForbidden.value = isForbidden(error);
-    builderImages.value = [];
-  } finally {
-    isLoadingBuilderImages.value = false;
-  }
-}
 
 watch(type, () => {
   if (gitSkipTypeReset.value) {
@@ -410,26 +166,14 @@ function validate() {
   switch (type.value) {
     case APPLICATION_SOURCE_TYPE.ARCHIVE:
     case APPLICATION_SOURCE_TYPE.FOLDER:
-      if (buildMode.value === APPLICATION_BUILD_MODE.DOCKERFILE) {
-        dockerfilePathError.value = validateDockerfilePathValue(dockerfilePath.value);
-        return !!archive.tarball && !!dockerfilePath.value && !dockerfilePathError.value;
-      }
-      return !!archive.tarball && !!builderImage.value;
+      return !!archive.tarball;
     case APPLICATION_SOURCE_TYPE.CONTAINER_URL:
       return !!container.url;
     case APPLICATION_SOURCE_TYPE.GIT_URL:
-      if (buildMode.value === APPLICATION_BUILD_MODE.DOCKERFILE) {
-        dockerfilePathError.value = validateDockerfilePathValue(dockerfilePath.value);
-        return !!gitUrl.url && !!gitUrl.branch && !!gitUrl.validGitUrl && !!dockerfilePath.value && !dockerfilePathError.value;
-      }
-      return !!gitUrl.url && !!gitUrl.branch && !!builderImage.value && !!gitUrl.validGitUrl;
+      return !!gitUrl.url && !!gitUrl.branch && !!gitUrl.validGitUrl;
     case APPLICATION_SOURCE_TYPE.GIT_HUB:
     case APPLICATION_SOURCE_TYPE.GIT_LAB:
-      if (buildMode.value === APPLICATION_BUILD_MODE.DOCKERFILE) {
-        dockerfilePathError.value = validateDockerfilePathValue(dockerfilePath.value);
-        return !!git.usernameOrOrg && !!git.url && !!git.repo && !!git.branch && !!git.commit && !!dockerfilePath.value && !dockerfilePathError.value;
-      }
-      return !!git.usernameOrOrg && !!git.url && !!git.repo && !!git.branch && !!git.commit && !!builderImage.value;
+      return !!git.usernameOrOrg && !!git.url && !!git.repo && !!git.branch && !!git.commit;
   }
 }
 
@@ -439,10 +183,6 @@ function update() {
     archive,
     container,
     gitUrl,
-    builderImage: builderImage.value,
-    buildMode: buildMode.value,
-    dockerfilePath: dockerfilePath.value,
-    appChart: appChart.value,
     git
   });
   valid.value = validate();
@@ -454,15 +194,6 @@ function updateAppInfo(info: EpinioAppInfo) {
 
 function updateConfigurations(configs: string[]) {
   emit('changeAppConfig', configs);
-}
-
-function handleBuilderImageDropdownChange(value: string) {
-  if (value === 'custom') {
-    builderImage.value = '';
-  } else {
-    builderImage.value = value;
-  }
-  update();
 }
 
 function gitUpdate({ repo, selectedAccOrOrg, branch, commit, sourceData, gitconfig }: any) {
@@ -640,36 +371,6 @@ function onFolderSelected(files: FileWithRelativePath | FileWithRelativePath[]) 
   });
 }
 
-onMounted(async () => {
-  // Git configs are fetched here rather than on first dropdown open so a refused
-  // read is known before the first paint. Opening it to find out hides the field
-  // under the user's cursor. Each fetch owns its loading flag, so they can race.
-  await Promise.all([fetchAppCharts(), fetchBuilderImages(), fetchGitConfigs()]);
-  // If no app chart is set from the source or application configuration
-  // default to the standard app chart.
-  if (!appChart.value) {
-    const standardAppChart = appCharts.value.find((ac) => ac.meta.name === 'standard');
-    appChart.value = (
-      props.application.configuration?.appchart ||
-      props.source?.appChart ||
-      standardAppChart?.meta.name ||
-      appCharts.value[0]?.meta.name ||
-      ''
-    );
-  }
-  // If no builder image is set from the source, default to the catalog's default or
-  // its first entry. `custom` is a sentinel, not an image, so it is filtered out --
-  // seeding it would stage the literal string. Empty means the server picks.
-  if (!builderImage.value) {
-    const catalogImages = allBuilderImages.value.filter((bi: any) => bi.value !== 'custom');
-    const defaultImage = catalogImages.find((bi: any) => bi.default);
-
-    builderImage.value = defaultImage?.value || catalogImages[0]?.value || '';
-  }
-  isFetchingChartsAndImages.value = false;
-  update();
-});
-
 </script>
 
 <template>
@@ -783,15 +484,16 @@ onMounted(async () => {
         class="spacer source"
       >
         <h3>Git Config</h3>
-        <ResourceDropdown
+        <trailhand-dropdown
+          style="width: 100%"
           :value="gitUrl.gitconfig"
-          :options="gitConfigs.map((c: any) => ({ value: c.meta.name, label: c.meta.name }))"
+          :options="(gitConfigs?.items || []).map((c: any) => ({ value: c.meta.name, label: c.meta.name }))"
           label="Git Config"
           :disabled="isEdit"
-          :onDropdownChange="(e: CustomEvent) => { gitUrl.gitconfig = e.detail.value; update(); }"
-          :fetchAllResources="fetchGitConfigs"
-          :searchResources="searchGitConfigs"
-          :isLoading="isLoadingGitConfigs"
+          @dropdown-change="(e: CustomEvent) => { gitUrl.gitconfig = e.detail.value; update(); }"
+          filterable
+          @dropdown-filter="(e: CustomEvent<{ filter: string }>) => { onGitConfigFilter(e.detail.filter); }"
+          :loading="isLoadingGitConfigs"
         />
       </div>
       <div class="spacer source">
@@ -827,98 +529,13 @@ onMounted(async () => {
       <GitPicker
         v-model:value="gitSource"
         :type="type"
-        :gitConfigs="gitConfigs"
+        :gitConfigs="gitConfigs?.items || []"
         :gitConfigsForbidden="gitConfigsForbidden"
-        :fetchGitConfigs="fetchGitConfigs"
-        :searchGitConfigs="searchGitConfigs"
+        :onGitConfigFilter="onGitConfigFilter"
         :isLoadingGitConfigs="isLoadingGitConfigs"
         @change="gitUpdate"
       />
     </template>
-
-    <div class="spacer source">
-      <h3>Advanced Settings</h3>
-
-      <div
-        v-if="isFetchingChartsAndImages"
-        class="spacer"
-      >
-        <trailhand-loading-spinner />
-      </div>
-
-      <div v-else>
-        <ResourceDropdown
-          :value="appChart"
-          :options="appCharts.map((ap: EpinioApplicationChartResource) => ({
-            value: ap.meta.name,
-            label: `${ap.meta.name} (${ap.short_description})`
-          }))"
-          :label="t('epinio.applications.steps.source.archive.appchart.label')"
-          :disabled="isView"
-          placeholder="Select an application chart"
-          :onDropdownChange="(e: CustomEvent) => { appChart = e.detail.value; update(); }"
-          :fetchAllResources="fetchAppCharts"
-          :searchResources="searchAppCharts"
-          :isLoading="isLoadingAppCharts"
-        />
-
-        <template v-if="showBuildMode">
-          <div class="spacer source">
-            <h4>{{ t('epinio.applications.steps.source.buildMode.label') }}</h4>
-            <trailhand-dropdown
-              style="width: 100%;"
-              :options="buildModes"
-              :value="buildMode"
-              data-testid="epinio_app-source_build-mode"
-              :label="t('epinio.applications.steps.source.buildMode.inputLabel')"
-              @dropdown-change="(e: CustomEvent) => { buildMode = e.detail.value; update(); }"
-            />
-          </div>
-        </template>
-
-        <template v-if="showDockerfilePath">
-          <div class="spacer source">
-            <h4>{{ t('epinio.applications.steps.source.dockerfilePath.label') }}</h4>
-            <trailhand-text-input
-              style="width: 100%;"
-              :value="dockerfilePath"
-              data-testid="epinio_app-source_dockerfile-path"
-              :label="t('epinio.applications.steps.source.dockerfilePath.inputLabel')"
-              :required="true"
-              @text-input-change="(e: CustomEvent) => { onDockerfilePathChange(e.detail.value); }"
-            />
-            <p v-if="dockerfilePathError" class="error">
-              {{ dockerfilePathError }}
-            </p>
-          </div>
-        </template>
-
-        <template v-if="showBuilderImage">
-          <div class="spacer source builder-image">
-            <h4>Paketo Builder Image</h4>
-            <ResourceDropdown
-              v-if="!builderImagesForbidden"
-              :value="selectedBuilderImage"
-              :options="allBuilderImages"
-              label="Builder Image"
-              :onDropdownChange="(e: CustomEvent) => { handleBuilderImageDropdownChange(e.detail.value) }"
-              :fetchAllResources="fetchBuilderImages"
-              :searchResources="searchBuilderImages"
-              :isLoading="isLoadingBuilderImages"
-            />
-            <trailhand-text-input
-              style="width: 100%;"
-              :value="builderImage"
-              data-testid="epinio_app-source_builder-value"
-              :label="builderImageLabel"
-              :placeholder="props.info?.default_builder_image"
-              :disabled="!isCustomBuilderImage"
-              @text-input-change="(e: CustomEvent) => { builderImage = e.detail.value; update(); }"
-            />
-          </div>
-        </template>
-      </div>
-    </div>
   </div>
 </template>
 

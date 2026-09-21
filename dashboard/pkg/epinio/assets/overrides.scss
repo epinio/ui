@@ -36,6 +36,7 @@ body.epinio-active {
 }
 
 // Dark mode variables - only when epinio is active
+body.epinio-active.theme-dark,
 body.epinio-active[data-theme='dark'],
 [data-theme='dark'] body.epinio-active {
   nav, main, .product, .rd-header-right, .spacer, .menu-spacer {
@@ -66,6 +67,7 @@ body.epinio-active[data-theme='dark'],
 // implemented. Setting the same public vars from here (ordinary light-DOM
 // CSS, not shadow-piercing) works in every browser since custom properties
 // inherit into shadow DOM regardless of :host-context support.
+body.epinio-active.theme-dark trailhand-dock,
 body.epinio-active[data-theme='dark'] trailhand-dock,
 [data-theme='dark'] body.epinio-active trailhand-dock {
   --th-dock-tabs-bg: linear-gradient(180deg, #4a4b52, #27292e);

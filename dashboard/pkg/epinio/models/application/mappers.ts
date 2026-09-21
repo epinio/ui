@@ -1,5 +1,5 @@
-import { ApiApp, ApiAppConfiguration, ApiAppDeployment, ApiAppOrigin, ApiAppStage, ApiAppGitRef, ApiListAppsResponse, ApiAppDeploymentStatus, ApiAsyncDeployRequest, ApiAppStageRequest, ApiAppStageResponse, ApiAppDeployRequest, ApiAppDeployResponse, ApiAppDeleteRequest } from "./api-types";
-import { App, AppConfiguration, AppDeployment, AppOrigin, AppStage, AppGitRef, ListAppsResponse, AppDeploymentStatus, AsyncDeployRequest, AppStageRequest, AppStageResponse, AppDeployRequest, AppDeployResponse, AppDeleteRequest } from "./ui-types";
+import { ApiApp, ApiAppConfiguration, ApiAppDeployment, ApiAppOrigin, ApiAppStage, ApiAppGitRef, ApiListAppsResponse, ApiAppDeploymentStatus, ApiAsyncDeployRequest, ApiAppStageRequest, ApiAppStageResponse, ApiAppDeployRequest, ApiAppDeployResponse, ApiAppDeleteRequest, ApiAppUpdateRequest, ApiAppCreateRequest } from "./api-types";
+import { App, AppConfiguration, AppDeployment, AppOrigin, AppStage, AppGitRef, ListAppsResponse, AppDeploymentStatus, AsyncDeployRequest, AppStageRequest, AppStageResponse, AppDeployRequest, AppDeployResponse, AppDeleteRequest, AppUpdateRequest, AppCreateRequest } from "./ui-types";
 import { statusToStateDisplay } from "../../models/resource/mappers";
 import { AppUtils } from "../../utils/application";
 import { APPLICATION_SOURCE_TYPE } from "../../types";
@@ -14,7 +14,7 @@ function toAppStage(apiStage: ApiAppStage): AppStage {
 
 function toAppConfiguration(apiConfiguration: ApiAppConfiguration): AppConfiguration {
     return {
-        appChart: apiConfiguration.appChart,
+        appChart: apiConfiguration.appchart,
         configurations: apiConfiguration.configurations,
         environment: apiConfiguration.environment,
         instances: apiConfiguration.instances,
@@ -178,5 +178,25 @@ export function toApiAppDeleteRequest(app: AppDeleteRequest): ApiAppDeleteReques
         deleteImage: !!app.deleteImage,
         deletePVC: !!app.deletePVC,
         unmounted: !!app.unmounted,
+    };
+};
+
+export function toApiAppUpdateRequest(app: AppUpdateRequest): ApiAppUpdateRequest {
+    return {
+        appchart: app.appChart,
+        configurations: app.configurations,
+        environment: app.environment,
+        instances: app.instances,
+        replace_env: app.replaceEnv,
+        restart: app.restart,
+        routes: app.routes,
+        settings: app.settings,
+    };
+}
+
+export function toApiAppCreateRequest(app: AppCreateRequest): ApiAppCreateRequest {
+    return {
+        configuration: toApiAppUpdateRequest(app.configuration),
+        name: app.name,
     };
 }
