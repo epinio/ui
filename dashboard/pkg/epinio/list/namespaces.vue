@@ -40,7 +40,7 @@ const requestParams = ref<ListResourceRequestParams>({
   pageSize: 10,
   search: ''
 });
-const requestOptions = ref<ResourceQueryOptions>({ enabled: true, polling: true });
+const requestOptions = ref<ResourceQueryOptions>({ enabled: true, polling: true, isTablePagination: true });
 const {data: namespaces, isLoading: isLoadingNamespaces, isError: isErrorNamespaces, error: namespacesError} = useNamespaces(store, requestParams, requestOptions);
 
 const onSearch = debounce(async (query: string) => {

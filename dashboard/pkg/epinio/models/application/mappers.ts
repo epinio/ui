@@ -1,5 +1,5 @@
-import { ApiApp, ApiAppConfiguration, ApiAppDeployment, ApiAppOrigin, ApiAppStage, ApiAppGitRef, ApiListAppsResponse, ApiAppDeploymentStatus, ApiAsyncDeployRequest, ApiAppStageRequest, ApiAppStageResponse, ApiAppDeployRequest, ApiAppDeployResponse, ApiAppDeleteRequest, ApiAppUpdateRequest, ApiAppCreateRequest } from "./api-types";
-import { App, AppConfiguration, AppDeployment, AppOrigin, AppStage, AppGitRef, ListAppsResponse, AppDeploymentStatus, AsyncDeployRequest, AppStageRequest, AppStageResponse, AppDeployRequest, AppDeployResponse, AppDeleteRequest, AppUpdateRequest, AppCreateRequest } from "./ui-types";
+import { ApiApp, ApiAppConfiguration, ApiAppDeployment, ApiAppOrigin, ApiAppStage, ApiAppGitRef, ApiListAppsResponse, ApiAppDeploymentStatus, ApiAsyncDeployRequest, ApiAppStageRequest, ApiAppStageResponse, ApiAppDeployRequest, ApiAppDeployResponse, ApiAppDeleteRequest, ApiAppUpdateRequest, ApiAppCreateRequest, ApiAppGitImportParams, ApiAppGitImportResponse, ApiAppDeploymentsRequest } from "./api-types";
+import { App, AppConfiguration, AppDeployment, AppOrigin, AppStage, AppGitRef, ListAppsResponse, AppDeploymentStatus, AsyncDeployRequest, AppStageRequest, AppStageResponse, AppDeployRequest, AppDeployResponse, AppDeleteRequest, AppUpdateRequest, AppCreateRequest, AppGitImportParams, AppGitImportResponse, AppDeploymentsRequest } from "./ui-types";
 import { statusToStateDisplay } from "../../models/resource/mappers";
 import { AppUtils } from "../../utils/application";
 import { APPLICATION_SOURCE_TYPE } from "../../types";
@@ -198,5 +198,32 @@ export function toApiAppCreateRequest(app: AppCreateRequest): ApiAppCreateReques
     return {
         configuration: toApiAppUpdateRequest(app.configuration),
         name: app.name,
+    };
+}
+
+export function toApiAppDeploymentsRequest(app: AppDeploymentsRequest): ApiAppDeploymentsRequest {
+    return {
+        app: app.app,
+        blobuid: app.blobUid,
+        builderimage: app.builderImage,
+        buildmode: app.buildMode,
+        dockerfilepath: app.dockerfilePath,
+        image: app.image,
+        origin: toApiAppOrigin(app.origin),
+    };
+}
+
+export function toApiAppGitImportParams(params: AppGitImportParams): ApiAppGitImportParams {
+    return {
+        giturl: params.gitUrl,
+        gitrev: params.gitRev,
+    };
+}
+
+export function toAppGitImportResponse(response: ApiAppGitImportResponse): AppGitImportResponse {
+    return {
+        blobUid: response.blobuid,
+        branch: response.branch,
+        revision: response.revision,
     };
 }

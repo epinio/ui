@@ -154,3 +154,24 @@ export interface ApiAppCreateRequest {
     configuration: ApiAppUpdateRequest;
     name: string;
 }
+
+export interface ApiAppDeploymentsRequest {
+    app: ApiAppMeta;
+    blobuid: string;
+    builderimage: string;
+    buildmode: string;
+    dockerfilepath: string;
+    image: string;
+    origin: ApiAppOrigin;
+}
+
+export interface ApiAppGitImportParams {
+    giturl: string;
+    gitrev: string;
+}
+
+export interface ApiAppGitImportResponse {
+    blobuid: string;
+    branch: string;
+    revision: string;
+}

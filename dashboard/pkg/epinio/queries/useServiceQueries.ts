@@ -23,7 +23,7 @@ export function useServices(store: any, params: Ref<ListServiceInstancesRequestP
             return toListServiceInstancesResponse(services);
         },
         enabled: computed(() => !!cluster.value && options.value.enabled),
-        placeholderData: keepPreviousData,
+        placeholderData: options.value.isTablePagination ? keepPreviousData : undefined,
         refetchInterval: options.value.polling ? 10000 : false,
         structuralSharing: options.value.polling ? false : true, // disable to ensure age updates in the ui when polling tables
     }, epinioQueryClient);
@@ -56,7 +56,6 @@ export function useService(store: any, namespace: string, serviceName: string) {
         ...serviceQueryOptions(cluster.value, isExtension.value, namespace, serviceName),
         queryKey: computed(() => ['service', cluster.value?.id, namespace, serviceName]),
         enabled: computed(() => !!cluster.value),
-        placeholderData: keepPreviousData,
         refetchInterval: 10000,
         structuralSharing: false, // disable to ensure age updates in the ui
     }, epinioQueryClient);

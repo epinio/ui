@@ -45,6 +45,7 @@ const requestParams = ref<ListServiceInstancesRequestParams>({
 const requestOptions = ref<ResourceQueryOptions>({
   enabled: true,
   polling: true,
+  isTablePagination: true,
 });
 
 const searchQuery = ref<string>('');

@@ -157,3 +157,24 @@ export interface AppCreateRequest {
     configuration: AppUpdateRequest;
     name: string;
 }
+
+export interface AppDeploymentsRequest {
+    app: AppMeta;
+    blobUid: string;
+    builderImage: string;
+    buildMode: string;
+    dockerfilePath: string;
+    image: string;
+    origin: AppOrigin;
+}
+
+export interface AppGitImportParams {
+    gitUrl: string;
+    gitRev: string;
+}
+
+export interface AppGitImportResponse {
+    blobUid: string;
+    branch: string;
+    revision: string;
+}

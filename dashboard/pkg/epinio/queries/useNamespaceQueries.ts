@@ -24,7 +24,7 @@ export function useNamespaces(store: any, params: Ref<ListResourceRequestParams>
             return namespacesResponse;
         },
         enabled: computed(() => !!cluster.value && options.value.enabled),
-        placeholderData: keepPreviousData,
+        placeholderData: options.value.isTablePagination ? keepPreviousData : undefined,
         refetchInterval: options.value.polling ? 10000 : false,
         structuralSharing: options.value.polling ? false : true, // disable to ensure age updates in the ui when polling tables
     }, epinioQueryClient);

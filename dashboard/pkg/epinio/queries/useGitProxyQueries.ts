@@ -92,7 +92,6 @@ export function useGitProxyUserType(store: any, type: Ref<'github' | 'gitlab'>, 
             return {username: username.value, userType};
         },
         enabled: computed(() => !!cluster.value && options.value.enabled),
-        placeholderData: keepPreviousData,
         refetchInterval: options.value.polling ? 10000 : false,
         structuralSharing: options.value.polling ? false : true, // disable to ensure age updates in the ui when polling tables
         retry: false
@@ -129,7 +128,6 @@ export function useGitProxyRepos(store: any, type: Ref<'github' | 'gitlab'>, git
             return null;
         },
         enabled: computed(() => !!cluster.value && options.value.enabled),
-        placeholderData: keepPreviousData,
         refetchInterval: options.value.polling ? 10000 : false,
         structuralSharing: options.value.polling ? false : true,
         retry: false
@@ -169,7 +167,6 @@ export function useGitProxyBranches(store: any, type: Ref<'github' | 'gitlab'>, 
             return null;
         },
         enabled: computed(() => !!cluster.value && options.value.enabled),
-        placeholderData: keepPreviousData,
         refetchInterval: options.value.polling ? 10000 : false,
         structuralSharing: options.value.polling ? false : true,
         retry: false
@@ -203,7 +200,6 @@ export function useGitProxyCommits(store: any, type: Ref<'github' | 'gitlab'>, g
             return null;
         },
         enabled: computed(() => !!cluster.value && options.value.enabled),
-        placeholderData: keepPreviousData,
         refetchInterval: options.value.polling ? 10000 : false,
         structuralSharing: options.value.polling ? false : true,
         retry: false

@@ -1,16 +1,14 @@
 <script lang="ts" setup>
-import { ref, watch, computed } from 'vue';
+import { ref, watch, computed, watchEffect} from 'vue';
 import { useStore } from 'vuex';
-import Loading from '@shell/components/Loading.vue';
 import Banner from '@components/Banner/Banner.vue';
 import ChartValues from '../settings/ChartValues.vue';
-import { _EDIT } from '@shell/config/query-params';
-import { validateKubernetesName } from '@shell/utils/validators/kubernetes-name';
 import { EPINIO_TYPES, EpinioAppInfo } from '../../types';
 import Application from '../../models/applications';
 import { objValuesToString } from '../../utils/settings';
-import ResourceDropdown from './ResourceDropdown.vue';
-import { useNamespaces } from '../../utils/namespaces';
+import { useNamespaces } from '../../queries/useNamespaceQueries';
+import { ListResourceRequestParams, ResourceQueryOptions } from '../../models/resource/ui-types';
+import { debounce } from 'lodash';
 
 const store = useStore();
 
@@ -31,36 +29,36 @@ const emit = defineEmits<{
 }>();
 
 // Reactive state
-const errors = ref<string[]>([]);
 const values = ref<EpinioAppInfo | undefined>(undefined);
 const validSettings = ref<boolean>(true);
 const envVariables = ref<{ key: string; value: string }[]>([]);
 const bulkFileInput = ref<HTMLInputElement | null>(null);
 const fileDialogActive = ref(false);
-const {
-  namespaces,
-  options:   namespaceNames,
-  isLoading: isLoadingNamespaces,
-  fetchAll,
-  search:    searchNamespaces,
-} = useNamespaces(store, {
-  scopeToActiveFilter: true,
-  onError:             (e) => {
-    console.error('Failed to fetch namespaces', e);
-    errors.value.push('Failed to fetch namespaces');
-  },
+
+const namespaceRequestParams = ref<ListResourceRequestParams>({ page: 1, pageSize: 25, search: '' });
+const namespaceRequestOptions = ref<ResourceQueryOptions>({ enabled: true, polling: false });
+const {data: namespaces, isLoading: isLoadingNamespaces, isError: isErrorNamespaces } = useNamespaces(store, namespaceRequestParams, namespaceRequestOptions);
+
+const namespaceOpts = computed(() => {
+  return namespaces?.value?.items.map((ns) => ({ label: ns.meta.name, value: ns.meta.name })) || [];
 });
 
-// When the navbar scope is a single namespace, pick it for the user
-const fetchNamespaces = async () => {
-  await fetchAll();
+const onNamespaceFilter = debounce((query: string) => {
+  namespaceRequestParams.value.page = 1;
+  namespaceRequestParams.value.search = query;
+}, 500);
 
-  if (namespaces.value.length === 1) {
-    handleNameNsUpdate({
-      metadata: { namespace: namespaces.value[0].meta.name }
-    });
+// Watch for changes to the active namespace cache and update the request params accordingly
+watchEffect(() => {
+  void store.state.activeNamespaceCacheKey;
+  const activeNamespaces = store.state.activeNamespaceCache;
+
+  if (activeNamespaces && Object.keys(activeNamespaces).length > 0) {
+    namespaceRequestParams.value.namespaces = Object.keys(activeNamespaces);
+  } else {
+    namespaceRequestParams.value.namespaces = undefined;
   }
-};
+});
 
 const valid = computed(() => {
   if (!values.value) {
@@ -71,14 +69,7 @@ const valid = computed(() => {
   // Namespace must be selected (not empty) and pass naming validation
   const namespaceValue = values.value.meta?.namespace || '';
   const hasNamespace = !!namespaceValue;
-  const nsErrors = validateKubernetesName(
-    namespaceValue,
-    '',
-    store.getters,
-    undefined,
-    [],
-  );
-  const validNamespace = hasNamespace && nsErrors.length === 0;
+  const validNamespace = hasNamespace;
   const validInstances = typeof Number(values.value.configuration?.instances) !== 'string' &&
     values.value.configuration?.instances >= 0;
 
@@ -90,7 +81,7 @@ const showApplicationVariables = computed(() => {
   return Object.keys(values.value?.configuration?.settings || {}).length !== 0;
 });
 
-const isEdit = computed(() => props.mode === _EDIT);
+const isEdit = computed(() => props.mode === 'edit');
 
 // Generate a default name for new applications
 const generateDefaultName = () => {
@@ -131,10 +122,10 @@ const generateDefaultName = () => {
 
 watch(() => props.active, (isActive) => {
   if (isActive) {
-    const defaultName = props.application.meta?.name || (props.mode !== _EDIT ? generateDefaultName() : '');
+    const defaultName = props.application.meta?.name || (props.mode !== 'edit' ? generateDefaultName() : '');
 
     // In create mode, don't auto-select the first namespace - require explicit selection
-    const defaultNamespace = props.mode === _EDIT
+    const defaultNamespace = props.mode === 'edit'
       ? (props.application.meta?.namespace || '')
       : (props.application.meta?.namespace || '');
 
@@ -155,7 +146,6 @@ watch(() => props.active, (isActive) => {
 
     envVariables.value = Object.entries(valuesData.configuration.environment).map(([key, value]) => ({ key, value }));
     values.value = valuesData;
-    fetchNamespaces();
     validSettings.value = {};
 
     emit('valid', valid.value);
@@ -315,21 +305,27 @@ function onBulkFileChange(event: Event) {
 </script>
 
 <template>
-  <Loading v-if="!values" />
+  <trailhand-loading-spinner v-if="!values" />
   <trailhand-form-card v-else>
     <trailhand-form-row columns="3">
-      <ResourceDropdown
-        :value="values.meta.namespace"
-        :options="namespaceNames"
-        label="Namespace"
-        :placeholder="t('epinio.applications.create.namespacePlaceholder')"
-        :disabled="isEdit"
-        required
-        :onDropdownChange="(e: CustomEvent) => handleNameNsUpdate({ metadata: { namespace: e.detail.value } })"
-        :fetchAllResources="fetchNamespaces"
-        :searchResources="searchNamespaces"
-        :isLoading="isLoadingNamespaces"
-      />
+      <div>
+        <trailhand-dropdown
+          style="width: 100%"
+          :options="namespaceOpts"
+          :value="values.meta.namespace"
+          label="Namespace"
+          placeholder="Select a namespace"
+          :disabled="isEdit"
+          required
+          filterable
+          @dropdown-change="(e: CustomEvent) => handleNameNsUpdate({ metadata: { namespace: e.detail.value } })"
+          @dropdown-filter="(e: CustomEvent<{ filter: string }>) => { onNamespaceFilter(e.detail.filter); }"
+          :isLoading="isLoadingNamespaces"
+        ></trailhand-dropdown>
+        <p v-if="isErrorNamespaces" class="error-message">
+          {{ t(`epinio.namespace.errors.fetchAll`) }}
+        </p>
+      </div>
       <trailhand-text-input
         :value="values.meta.name"
         data-testid="epinio_app-info_name"
@@ -519,5 +515,11 @@ function onBulkFileChange(event: Event) {
 
   .hidden-file-input {
     display: none;
+  }
+
+  .error-message {
+    color: var(--error);
+    font-size: 0.9em;
+    margin-top: 4px;
   }
 </style>

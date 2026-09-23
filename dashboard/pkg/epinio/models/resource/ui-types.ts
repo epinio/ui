@@ -38,4 +38,5 @@ export type ResourceTableRow<T> = T & ResourceTableRowMeta;
 export interface ResourceQueryOptions {
     enabled?: boolean;
     polling?: boolean;
+    isTablePagination?: boolean;
 }

@@ -6,8 +6,7 @@ import jsyaml from 'js-yaml';
 
 import Application from '../../models/applications';
 import GitPicker from './GitPicker.vue';
-import { sortBy } from '@shell/utils/sort';
-import { generateZip } from '@shell/utils/download';
+import { generateZip } from '../../utils/download';
 import {
   APPLICATION_SOURCE_TYPE,
   EpinioInfo,
@@ -15,9 +14,7 @@ import {
   EPINIO_APP_MANIFEST
 } from '../../types';
 import { EpinioAppInfo } from '../../types';
-import { _EDIT } from '@shell/config/query-params';
 import { AppUtils } from '../../utils/application';
-import { EPINIO_TYPES } from '../../types';
 import { useGitConfigs } from '../../queries/useGitConfigQueries';
 import { ResourceQueryOptions, ListResourceRequestParams } from '../../models/resource/ui-types';
 import debounce from 'lodash/debounce';
@@ -50,7 +47,7 @@ const emit = defineEmits<{
   (e: 'valid', valid: boolean): void;
 }>();
 
-const isEdit = computed(() => props.mode === _EDIT);
+const isEdit = computed(() => props.mode === 'edit');
 const isView = computed(() => props.mode === 'view');
 
 const manifestFileInput = ref<HTMLInputElement | null>(null);
@@ -67,20 +64,12 @@ const gitConfigRequestParams = ref<ListResourceRequestParams>({
 });
 const gitConfigRequestOptions = ref<ResourceQueryOptions>({
   enabled: true,
-  polling: true,
+  polling: false,
 });
-const searchQuery = ref<string>('');
-watch(searchQuery, (newQuery) => {
-  onSearch(newQuery);
-});
-const onSearch = debounce(async (query: string) => {
-  gitConfigRequestParams.value.page = 1;
-  gitConfigRequestParams.value.search = query;
-}, 500);
 const {data: gitConfigs, isLoading: isLoadingGitConfigs, isError: isErrorGitConfigs, error: gitConfigsError} = useGitConfigs(store, gitConfigRequestParams, gitConfigRequestOptions);
 const onGitConfigFilter = debounce((query: string) => {
   gitConfigRequestParams.value.page = 1;
-  gitConfigRequestParams .value.search = query;
+  gitConfigRequestParams.value.search = query;
 }, 500);
 
 // Reactive State
@@ -122,9 +111,6 @@ const types = Object.values(APPLICATION_SOURCE_TYPE).map(value => ({
   label: t(`epinio.applications.steps.source.${ value }.label`),
   value
 }));
-
-const namespaces = computed(() => sortBy(store.getters['epinio/all'](EPINIO_TYPES.NAMESPACE), 'name', false));
-
 
 const gitSource = computed(() => ({
   type: type.value,
@@ -266,17 +252,21 @@ function handleFromManifestClick() {
   }
 }
 
-function handleManifestFileChange(event: Event) {
+async function handleManifestFileChange(event: Event) {
   const input = event.target as HTMLInputElement;
   if (input.files && input.files[0]) {
-    onManifestFileSelected(input.files[0] as any);
+    const file = input.files[0];
+    const content = await file.text();
+    onManifestFileSelected(content);
     input.value = ''; // Clear the input so the same file can be selected again if needed
   }
 }
 
 function onManifestFileSelected(file: string) {
   try {
+    console.log('manifest file content:', file);
     const parsed: any = jsyaml.load(file);
+    console.log('parsed manifest:', parsed);
     const manifestType = AppUtils.getManifestSourceType(parsed.origin);
     gitSkipTypeReset.value = true;
     type.value = manifestType;
@@ -302,7 +292,7 @@ function onManifestFileSelected(file: string) {
     const appInfo: EpinioAppInfo = {
       meta: {
         name: parsed.name || '',
-        namespace: namespaces.value?.[0]?.name || ''
+        namespace: parsed.namespace || ''
       },
       configuration: {
         configurations: parsed.configuration?.configurations || [],
@@ -495,6 +485,9 @@ function onFolderSelected(files: FileWithRelativePath | FileWithRelativePath[]) 
           @dropdown-filter="(e: CustomEvent<{ filter: string }>) => { onGitConfigFilter(e.detail.filter); }"
           :loading="isLoadingGitConfigs"
         />
+        <p v-if="isErrorGitConfigs" class="error-message">
+          {{ t(`epinio.gitConfigs.errors.fetchAll`) }}
+        </p>
       </div>
       <div class="spacer source">
         <h3>{{ t('epinio.applications.steps.source.git_url.url.label') }}</h3>
@@ -507,7 +500,7 @@ function onFolderSelected(files: FileWithRelativePath | FileWithRelativePath[]) 
           :required="true"
           @text-input-change="(e: CustomEvent) => { gitUrl.url = e.detail.value; urlRule(); update(); }"
         />
-        <p v-if="gitUrl.url && !gitUrl.validGitUrl" class="error">
+        <p v-if="gitUrl.url && !gitUrl.validGitUrl" class="error-message">
           {{ t('epinio.applications.steps.source.git_url.error.label') }}
         </p>
       </div>
@@ -533,6 +526,7 @@ function onFolderSelected(files: FileWithRelativePath | FileWithRelativePath[]) 
         :gitConfigsForbidden="gitConfigsForbidden"
         :onGitConfigFilter="onGitConfigFilter"
         :isLoadingGitConfigs="isLoadingGitConfigs"
+        :isErrorGitConfigs="isErrorGitConfigs"
         @change="gitUpdate"
       />
     </template>
@@ -563,5 +557,10 @@ function onFolderSelected(files: FileWithRelativePath | FileWithRelativePath[]) 
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+}
+.error-message {
+  color: var(--error);
+  font-size: 0.9em;
+  margin-top: 4px;
 }
 </style>

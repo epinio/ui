@@ -17,6 +17,7 @@ const props = defineProps<{
   gitConfigsForbidden?: boolean;
   onGitConfigFilter: (query: string) => void;
   isLoadingGitConfigs: boolean;
+  isErrorGitConfigs: boolean;
 }>();
 
 const emit = defineEmits(['change']);
@@ -25,7 +26,6 @@ const store = useStore();
 const t = store.getters['i18n/t'];
 
 // State
-const hasError = reactive({ acc: false, repo: false, branch: false, commits: false });
 const selectedAccOrOrg = ref<string | null>(props.value?.selectedAccOrOrg || null);
 const selectedRepo = ref<GitProxyGitRepo | null>(props.value?.selectedRepo || null);
 const selectedRepoName = computed(() => selectedRepo.value?.name);
@@ -68,7 +68,7 @@ const gitUserRequestOptions = computed<ResourceQueryOptions>(() => ({
   polling: false,
 }));
 
-const { data: gitUser, isLoading: isGitUserLoading, isError: isGitUserError, error: gitUserError } = useGitProxyUserType(
+const { data: gitUser, isLoading: isGitUserLoading, isError: isGitUserError } = useGitProxyUserType(
   store,
   gitType,
   debouncedGitUserSearch,
@@ -86,11 +86,11 @@ const onRepoSearch = debounce(async (query: string) => {
   debouncedGitRepoSearch.value = query;
 }, 500);
 const gitRepoRequestOptions = computed<ResourceQueryOptions>(() => ({
-  enabled: gitBaseUrl.value !== null && !!gitUser.value,
+  enabled: gitBaseUrl.value !== null && !!gitUser.value?.username,
   polling: false,
 }));
 
-const { data: gitRepos, isLoading: isGitReposLoading, isError: isGitReposError, error: gitReposError } = useGitProxyRepos(
+const { data: gitRepos, isLoading: isGitReposLoading, isError: isGitReposError } = useGitProxyRepos(
   store,
   gitType,
   gitUser as Ref<{ username: string, userType: string | null }>,
@@ -113,7 +113,7 @@ const gitBranchRequestOptions = computed<ResourceQueryOptions>(() => ({
   polling: false,
 }));
 
-const { data: gitBranches, isLoading: isGitBranchesLoading, isError: isGitBranchesError, error: gitBranchesError } = useGitProxyBranches(
+const { data: gitBranches, isLoading: isGitBranchesLoading, isError: isGitBranchesError } = useGitProxyBranches(
   store,
   gitType,
   gitUser as Ref<{ username: string, userType: string | null }>,
@@ -129,7 +129,7 @@ const gitCommitRequestOptions = computed<ResourceQueryOptions>(() => ({
   polling: false,
 }));
 
-const { data: gitCommits, isLoading: isGitCommitsLoading, isError: isGitCommitsError, error: gitCommitsError } = useGitProxyCommits(
+const { data: gitCommits, isLoading: isGitCommitsLoading, isError: isGitCommitsError } = useGitProxyCommits(
   store,
   gitType,
   gitUser as Ref<{ username: string, userType: string | null }>,
@@ -206,7 +206,6 @@ const tableRows = computed(() => {
   const _sid = selectedCommitId.value;
 
   if (!gitCommits.value) return [];
-  console.log('gitCommits.value:', gitCommits.value);
   return [...gitCommits.value];
 });
 
@@ -279,6 +278,9 @@ watch(() => props.value, async(neu, old) => {
           @dropdown-filter="(e: CustomEvent<{ filter: string }>) => { onGitConfigFilter(e.detail.filter); }"
           :loading="isLoadingGitConfigs"
         />
+        <p v-if="isErrorGitConfigs" class="error-message">
+          {{ t(`epinio.gitConfigs.errors.fetchAll`) }}
+        </p>
       </div>
 
       <div
@@ -293,13 +295,17 @@ watch(() => props.value, async(neu, old) => {
           :required="true"
           @text-input-change="(e: CustomEvent) => { selectedAccOrOrg = e.detail.value; }"
         />
-        <p v-if="hasError.acc" class="error-message">
+        <p v-if="isGitUserError" class="error-message">
           {{ t(`epinio.applications.gitSource.${ type }.errors.noAccount`) }}
         </p>
       </div>
 
+      <div class="spacer" v-if="isGitUserLoading">
+        <trailhand-loading-spinner />
+      </div>
+
       <div
-        v-if="selectedAccOrOrg || (type === 'gitlab' && gitconfig)"
+        v-if="gitUser || (type === 'gitlab' && gitconfig)"
         class="spacer"
       >
         <trailhand-dropdown
@@ -325,7 +331,7 @@ watch(() => props.value, async(neu, old) => {
           }"
           @dropdown-filter="(e: CustomEvent<{ filter: string }>) => { repoQuery = e.detail.filter; }"
         />
-        <p v-if="hasError.repo" class="error-message">
+        <p v-if="isGitReposError" class="error-message">
           {{ t(`epinio.applications.gitSource.${ type }.errors.noRepo`) }}
         </p>
       </div>
@@ -357,16 +363,18 @@ watch(() => props.value, async(neu, old) => {
           }"
           @dropdown-filter="(e: CustomEvent<{ filter: string }>) => { branchQuery = e.detail.filter; }"
         />
-        <p v-if="hasError.branch" class="error-message">
+        <p v-if="isGitBranchesError" class="error-message">
           {{ t(`epinio.applications.gitSource.${ type }.errors.noBranch`) }}
         </p>
       </div>
 
       <div
-        v-if="isGitCommitsLoading"
         class="spacer"
       >
-        <trailhand-loading-spinner />
+        <trailhand-loading-spinner v-if="isGitCommitsLoading"/>
+        <p v-if="isGitCommitsError" class="error-message">
+          {{ t(`epinio.applications.gitSource.${ type }.errors.noCommits`) }}
+        </p>
       </div>
 
       <div
