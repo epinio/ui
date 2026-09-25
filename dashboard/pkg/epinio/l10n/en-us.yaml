@@ -325,7 +325,7 @@ epinio:
             clusterDefault: Builder Image (leave blank to use the cluster default)
           appchart:
             label: Application Chart
-        container_url:
+        containerUrl:
           label: Container Image
           url:
             label: Container Image
@@ -346,7 +346,7 @@ epinio:
         manifest:
           button: From Manifest
           tooltip: Manifests can provide app configuration from another app
-        git_url:
+        gitUrl:
           label: Git URL
           url:
             label: URL
@@ -561,6 +561,7 @@ epinio:
       create: Error creating Git Configuration, please try again.
       delete: Error deleting Git Configuration, please try again.
       fetchAll: Error fetching Git Configurations, please try again.
+      fetchOne: Error fetching Git Configuration, please try again.
   user:
     errors:
       fetch: Error fetching user permissions, please try again.

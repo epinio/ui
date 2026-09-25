@@ -9,6 +9,10 @@ export interface ApiAppMeta {
 export interface ApiAppConfiguration {
     appchart: string;
     configurations: string[];
+    bound_configurations: {
+        name: string;
+        type: 'custom' | 'service';
+    }[];
     environment: Record<string, string>;
     // ignore: string[];
     instances: number;

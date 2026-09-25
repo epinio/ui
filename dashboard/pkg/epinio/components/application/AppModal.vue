@@ -14,6 +14,8 @@ import { AppUtils } from '../../utils/application';
 import Tabs from './Tabs.vue';
 import { allHash } from '@shell/utils/promise';
 import EpinioApplicationModel from 'models/applications';
+import { App } from '../../models/application/ui-types';
+import { useAppForm } from '../../models/application/form/useAppForm';
 
 const store = useStore() as any;
 const t = store.getters['i18n/t'];
@@ -42,18 +44,20 @@ const originalModel = ref<any>(null);
 
 const snapshot = ref<string | null>(null);
 
+const { form, populateFormFromRow, clearForm, resetForm, state, update } = useAppForm();
+
 const saving = ref(false);
 const errors = ref<string[]>([]);
 const activeTab = ref<string | number>('source')
-const tabs = ref([
-  { id: 'source', label: 'Source', completed: false, valid: false, disabled: false },
-  { id: 'build', label: 'Build Options', completed: false, valid: false, disabled: true },
-  { id: 'details', label: 'Details', completed: false, valid: false, disabled: true },
-  { id: 'bindings', label: 'Bindings', completed: false, valid: true, disabled: true },
+const tabs = computed(() => [
+  { id: 'source', label: 'Source', completed: false, valid: state.source.valid.value, disabled: false, visible: true },
+  { id: 'build', label: 'Build Options', completed: false, valid: state.buildOptions.valid.value, disabled: !state.source.valid.value, visible: true },
+  { id: 'details', label: 'Details', completed: false, valid: state.details.valid.value, disabled: !state.buildOptions.valid.value, visible: true },
+  { id: 'bindings', label: 'Bindings', completed: false, valid: state.bindings.valid.value, disabled: !state.details.valid.value, visible: true },
+  { id: 'progress', label: 'Progress', completed: false, valid: true, disabled: !state.bindings.valid.value || !state.source.valid.value || !state.buildOptions.valid.value || !state.details.valid.value, visible: modalMode.value === 'create' || state.source.dirty.value }
 ])
 
 const isEdit = computed(() => modalMode.value === 'edit');
-const isView = computed(() => modalMode.value === 'view');
 
 const nextTab = computed(() => {
   const idx = tabs.value.findIndex(t => t.id === activeTab.value)
@@ -107,108 +111,110 @@ function takeSnapshot() {
 async function openCreate() {
   errors.value = [];
   modalMode.value = 'create';
-  loading.value = true;
+  // loading.value = true;
   showModal.value = true;  // open modal first so user sees loading state
 
-  tabs.value.push({ id: 'progress', label: 'Progress', completed: false, valid: true, disabled: true });
+  // tabs.value.push({ id: 'progress', label: 'Progress', completed: false, valid: true, disabled: true });
 
-  const hash = await allHash({
-    ns: store.dispatch('epinio/findAll', { type: EPINIO_TYPES.NAMESPACE }),
-    charts: store.dispatch('epinio/findAll', { type: EPINIO_TYPES.APP_CHARTS }),
-    // Store-warming only, and both catalogs are cluster-scoped reads a role can
-    // lack. A 403 here must not reject the hash and hang the modal on its spinner.
-    images: store.dispatch('epinio/findAll', { type: EPINIO_TYPES.BUILDER_IMAGE }).catch(() => []),
-    gitConfigs: store.dispatch('epinio/findAll', { type: EPINIO_TYPES.GIT_CONFIG }).catch(() => []),
-    info: store.dispatch('epinio/info'),
-  });
+  // const hash = await allHash({
+  //   ns: store.dispatch('epinio/findAll', { type: EPINIO_TYPES.NAMESPACE }),
+  //   charts: store.dispatch('epinio/findAll', { type: EPINIO_TYPES.APP_CHARTS }),
+  //   // Store-warming only, and both catalogs are cluster-scoped reads a role can
+  //   // lack. A 403 here must not reject the hash and hang the modal on its spinner.
+  //   images: store.dispatch('epinio/findAll', { type: EPINIO_TYPES.BUILDER_IMAGE }).catch(() => []),
+  //   gitConfigs: store.dispatch('epinio/findAll', { type: EPINIO_TYPES.GIT_CONFIG }).catch(() => []),
+  //   info: store.dispatch('epinio/info'),
+  // });
 
-  epinioInfo.value = hash.info;
-  appChart.chartsList = hash.charts;
-  originalModel.value = await store.dispatch('epinio/create', { type: EPINIO_TYPES.APP });
-  value.value = await store.dispatch('epinio/clone', { resource: originalModel.value });
+  // epinioInfo.value = hash.info;
+  // appChart.chartsList = hash.charts;
+  // originalModel.value = await store.dispatch('epinio/create', { type: EPINIO_TYPES.APP });
+  // value.value = await store.dispatch('epinio/clone', { resource: originalModel.value });
 
-  loading.value = false;
+  // loading.value = false;
 
-  await nextTick();
-  snapshot.value = takeSnapshot();
+  // await nextTick();
+  // snapshot.value = takeSnapshot();
 }
 
-async function openEdit(row: EpinioApplicationModel, commit?: string) {
+async function openEdit(row: App, commit?: string) {
   errors.value = [];
   modalMode.value = 'edit';
   loading.value = true;
   showModal.value = true;  // open modal first so user sees loading state
 
-  const hash = await allHash({
-    ns: store.dispatch('epinio/findAll', { type: EPINIO_TYPES.NAMESPACE }),
-    charts: store.dispatch('epinio/findAll', { type: EPINIO_TYPES.APP_CHARTS }),
-    images: store.dispatch('epinio/findAll', { type: EPINIO_TYPES.BUILDER_IMAGE }).catch(() => []),
-    gitConfigs: store.dispatch('epinio/findAll', { type: EPINIO_TYPES.GIT_CONFIG }).catch(() => []),
-    info: store.dispatch('epinio/info'),
-  });
+  const populatedForm = populateFormFromRow(row);
 
-  epinioInfo.value = hash.info;
-  appChart.chartsList = hash.charts;
-  appChart.selectedChart = row.configuration?.appchart;
-  originalModel.value = row;
-  value.value = await store.dispatch('epinio/clone', { resource: originalModel.value }); 
+  // const hash = await allHash({
+  //   ns: store.dispatch('epinio/findAll', { type: EPINIO_TYPES.NAMESPACE }),
+  //   charts: store.dispatch('epinio/findAll', { type: EPINIO_TYPES.APP_CHARTS }),
+  //   images: store.dispatch('epinio/findAll', { type: EPINIO_TYPES.BUILDER_IMAGE }).catch(() => []),
+  //   gitConfigs: store.dispatch('epinio/findAll', { type: EPINIO_TYPES.GIT_CONFIG }).catch(() => []),
+  //   info: store.dispatch('epinio/info'),
+  // });
+
+  // epinioInfo.value = hash.info;
+  // appChart.chartsList = hash.charts;
+  // appChart.selectedChart = row.configuration?.appchart;
+  // originalModel.value = row;
+  // value.value = await store.dispatch('epinio/clone', { resource: originalModel.value }); 
 
   // If the app has no settings, but the chart does, populate the app's settings with
   // empty values.
-  if (!value.value.configuration.settings) {
-    const chartList = await store.dispatch(
-      'epinio/findAll',
-      { type: EPINIO_TYPES.APP_CHARTS },
-    );
+  // if (!value.value.configuration.settings) {
+  //   const chartList = await store.dispatch(
+  //     'epinio/findAll',
+  //     { type: EPINIO_TYPES.APP_CHARTS },
+  //   );
 
-    const filterChart = chartList?.find(
-      (chart: any) => chart.id === row.configuration.appchart
-    );
+  //   const filterChart = chartList?.find(
+  //     (chart: any) => chart.id === row.configuration.appchart
+  //   );
 
-    if (filterChart?.settings) {
-      const customValues = Object.keys(filterChart?.settings).reduce((acc: any, key: any) => {
-        acc[key] = row.configuration.settings?.[key] || '';
-        return acc;
-      }, {});
-      value.value.configuration.settings = customValues;
-    }
-  }
+  //   if (filterChart?.settings) {
+  //     const customValues = Object.keys(filterChart?.settings).reduce((acc: any, key: any) => {
+  //       acc[key] = row.configuration.settings?.[key] || '';
+  //       return acc;
+  //     }, {});
+  //     value.value.configuration.settings = customValues;
+  //   }
+  // }
 
-  // Populate bindings
-  bindings.value = {
-    configurations: [...(row.configuration?.configurations || [])],
-    services: [...(row.configuration?.services || [])],
-  };
+  // // Populate bindings
+  // bindings.value = {
+  //   configurations: [...(row.configuration?.configurations || [])],
+  //   services: [...(row.configuration?.services || [])],
+  // };
 
-  source.value = row.appSource;
+  // source.value = row.appSource;
 
-  tabs.value.forEach(tab => {
-    if (tab.id !== 'progress') tab.disabled = false;
-    tab.valid = true;
-  });
+  // tabs.value.forEach(tab => {
+  //   if (tab.id !== 'progress') tab.disabled = false;
+  //   tab.valid = true;
+  // });
 
-  if (!commit) loading.value = false;
+  // if (!commit) loading.value = false;
 
-  await nextTick();
+  // await nextTick();
   
-  snapshot.value = takeSnapshot();
+  // snapshot.value = takeSnapshot();
 
-  // if opened from a specific commit, update source
-  if (commit) {
-    const newSource = {
-      ...source.value,
-      git: {
-        ...source.value?.git,
-        commit: commit,
-      },
-    };
-    updateSource(newSource);
-    loading.value = false;
-  }
+  // // if opened from a specific commit, update source
+  // if (commit) {
+  //   const newSource = {
+  //     ...source.value,
+  //     git: {
+  //       ...source.value?.git,
+  //       commit: commit,
+  //     },
+  //   };
+  //   updateSource(newSource);
+  //   loading.value = false;
+  // }
 }
 
 function handleModalClose() {
-  if (isDirty.value) {
+  if (state.dirty.value) {
     showDiscardConfirm.value = true;
   } else {
     closeModal();
@@ -225,6 +231,8 @@ function handleDiscard() {
 }
 
 function closeModal() {
+  clearForm();
+  showDiscardConfirm.value = false;
   // data
   value.value = null;
   originalModel.value = null;
@@ -237,7 +245,7 @@ function closeModal() {
 
   // ui state
   activeTab.value = 'source';
-  tabs.value = tabs.value.filter(t => t.id !== 'progress') // remove progress tab added during create
+  // tabs.value = tabs.value.filter(t => t.id !== 'progress') // remove progress tab added during create
   tabs.value.forEach((tab, i) => {
     tab.completed = false;
     tab.disabled = i !== 0;
@@ -245,7 +253,6 @@ function closeModal() {
   errors.value = [];
   saving.value = false;
   loading.value = true;  // reset to true so next open shows spinner while fetching
-  showDiscardConfirm.value = false;
   showModal.value = false;
   snapshot.value = null;
 
@@ -263,20 +270,20 @@ watch(() => value.value?.meta.namespace, () => {
   set(value.value.configuration, { configurations: [] });
 });
 
-watch(() => isSourceDirty.value, () => {
-  if (modalMode.value !== 'edit') {
-    return;
-  }
-  if (isSourceDirty.value) {
-    // add the progress tab if it doesn't exist (in case user goes back to source tab after completing it)
-    if (!tabs.value.find(t => t.id === 'progress')) {
-      tabs.value.push({ id: 'progress', label: 'Progress', completed: false, valid: true, disabled: true });
-    }
-  } else {
-    // remove the progress tab if source is back to original
-    tabs.value = tabs.value.filter(t => t.id !== 'progress');
-  }
-});
+// watch(() => isSourceDirty.value, () => {
+//   if (modalMode.value !== 'edit') {
+//     return;
+//   }
+//   if (isSourceDirty.value) {
+//     // add the progress tab if it doesn't exist (in case user goes back to source tab after completing it)
+//     if (!tabs.value.find(t => t.id === 'progress')) {
+//       tabs.value.push({ id: 'progress', label: 'Progress', completed: false, valid: true, disabled: true });
+//     }
+//   } else {
+//     // remove the progress tab if source is back to original
+//     tabs.value = tabs.value.filter(t => t.id !== 'progress');
+//   }
+// });
 
 function set(obj: Record<string, any>, changes: Record<string, any>) {
   Object.entries(changes).forEach(([key, val]) => {
@@ -443,78 +450,57 @@ defineExpose({ openCreate, openEdit });
   <trailhand-modal
     :open.prop="showModal"
     :dismissible="false"
-    :title="(isEdit || isView) ? value?.meta?.name : 'Application'"
-    :subtitle="(isEdit || isView) ? (value?.stateDisplay || '') : 'Create New'"
+    :title="(isEdit) ? value?.meta?.name : 'Application'"
+    :subtitle="(isEdit) ? (value?.stateDisplay || '') : 'Create New'"
     position="top"
-    @modal-close="handleModalClose"
+    @modal-close="closeModal"
   >
     <div id="modal-container-element" class="modal-content">
-      <Loading v-if="loading" />
-      <Tabs v-else v-model="activeTab" :tabs="tabs">
+      <Tabs v-model="activeTab" :tabs="tabs">
         <template #source>
           <AppSource
-            :application="value"
-            :source="source"
+            :source="form.source"
             :mode="modalMode"
-            :info="epinioInfo"
-            @change="updateSource"
-            @change-app-info="updateInfo"
-            @change-app-config="updateManifestConfigurations"
-            @valid="(val) => {
-              if (!isEdit)tabs[0].completed = val;
-              tabs[0].valid = val;
-              tabs[1].disabled = !val;
-            }"
+            :updateSource="update.source"
           />
         </template>
 
         <template #build="{ tab }">
           <AppBuildOptions
-            :application="value"
-            :source="source"
+            :buildOptions="form.buildOptions"
+            :sourceType="form.source?.type"
+            :modalOpen="showModal"
             :mode="modalMode"
-            :info="epinioInfo"
             :active="activeTab === tab.id"
-            @change="updateSource"
-            @valid="(val) => {
-              if (!isEdit)tabs[1].completed = val;
-              tabs[1].valid = val;
-              tabs[2].disabled = !val;
-            }"
+            :updateBuildOptions="update.buildOptions"
           />
         </template>
 
         <template #details="{ tab }">
           <AppInfo
-            :application="value"
-            :source="source"
+            :details="form.details"
             :mode="modalMode"
+            :source="form.source"
+            :chart="form.buildOptions.appChart"
             :active="activeTab === tab.id"
-            @change="updateInfo"
-            @valid="(val) => {
-              if (!isEdit) tabs[2].completed = val;
-              tabs[2].valid = val;
-              tabs[3].disabled = !val;
-              // also disable final tab since the third tab has no required fields
-              if (tabs[4] && !isEdit) tabs[4].disabled = !val;
-            }"
+            :updateDetails="update.details"
+            :updateChartSettings="update.chartSettings"
           />
         </template>
 
         <template #bindings>
           <AppConfiguration
-            :application="value"
-            :initial-application="originalModel"
+            :bindings="form.bindings"
+            :namespace="form.details.namespace"
             :mode="modalMode"
-            :bindings="bindings"
             :active="activeTab === 'bindings'"
-            @change="updateConfigurations"
-            @initial="captureOriginalBindings"
+            :updateBindings="update.bindings"
           />
         </template>
 
-        <template #progress="{ tab }">
+        <!-- <template #progress="{ tab }">
           <AppProgress
+            v-if="tab.visible"
             :application="value"
             :source="source"
             :bindings="bindings"
@@ -524,7 +510,7 @@ defineExpose({ openCreate, openEdit });
             @finished="handleProgressFinished"
             @failed="handleProgressFailed"
           />
-      </template>
+      </template> -->
       </Tabs>
       <Banner
         v-for="(err, i) in errors"
@@ -535,22 +521,7 @@ defineExpose({ openCreate, openEdit });
     </div>
 
     <div slot="footer">
-      <template v-if="isView">
-        <trailhand-button
-          variant="secondary"
-          class="mr-10"
-          @button-click="closeModal"
-        >
-          Close
-        </trailhand-button>
-        <trailhand-button
-          variant="primary"
-          @button-click="modalMode = 'edit'"
-        >
-          Edit Configuration
-        </trailhand-button>
-      </template>
-      <template v-else-if="showDiscardConfirm">
+      <template v-if="showDiscardConfirm">
         <span class="discard-message">You have unsaved changes.</span>
         <trailhand-button
           variant="secondary"
@@ -609,6 +580,13 @@ defineExpose({ openCreate, openEdit });
           Finish
         </trailhand-button>
       </template>
+      <trailhand-button
+        variant="secondary"
+        class="mr-10"
+        @button-click="() => { console.log('Form data:', form); }"
+      >
+        Log Form
+      </trailhand-button>
     </div>
   </trailhand-modal>
 </template>

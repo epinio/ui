@@ -1,8 +1,9 @@
 import { ApiApp, ApiAppConfiguration, ApiAppDeployment, ApiAppOrigin, ApiAppStage, ApiAppGitRef, ApiListAppsResponse, ApiAppDeploymentStatus, ApiAsyncDeployRequest, ApiAppStageRequest, ApiAppStageResponse, ApiAppDeployRequest, ApiAppDeployResponse, ApiAppDeleteRequest, ApiAppUpdateRequest, ApiAppCreateRequest, ApiAppGitImportParams, ApiAppGitImportResponse, ApiAppDeploymentsRequest } from "./api-types";
-import { App, AppConfiguration, AppDeployment, AppOrigin, AppStage, AppGitRef, ListAppsResponse, AppDeploymentStatus, AsyncDeployRequest, AppStageRequest, AppStageResponse, AppDeployRequest, AppDeployResponse, AppDeleteRequest, AppUpdateRequest, AppCreateRequest, AppGitImportParams, AppGitImportResponse, AppDeploymentsRequest } from "./ui-types";
+import { App, AppConfiguration, AppDeployment, AppOrigin, AppStage, AppGitRef, ListAppsResponse, AppDeploymentStatus, AsyncDeployRequest, AppStageRequest, AppStageResponse, AppDeployRequest, AppDeployResponse, AppDeleteRequest, AppUpdateRequest, AppCreateRequest, AppGitImportParams, AppGitImportResponse, AppDeploymentsRequest, AppFormSource, AppFormBindings, AppFormDetails, AppFormBuildOptions, AppForm } from "./ui-types";
 import { statusToStateDisplay } from "../../models/resource/mappers";
 import { AppUtils } from "../../utils/application";
-import { APPLICATION_SOURCE_TYPE } from "../../types";
+import { APPLICATION_SOURCE_TYPE, APPLICATION_BUILD_MODE } from "../../types";
+import { parse } from "../../utils/url";
 
 function toAppStage(apiStage: ApiAppStage): AppStage {
     return {
@@ -16,6 +17,7 @@ function toAppConfiguration(apiConfiguration: ApiAppConfiguration): AppConfigura
     return {
         appChart: apiConfiguration.appchart,
         configurations: apiConfiguration.configurations,
+        boundConfigurations: apiConfiguration.bound_configurations,
         environment: apiConfiguration.environment,
         instances: apiConfiguration.instances,
         routes: apiConfiguration.routes,
@@ -225,5 +227,106 @@ export function toAppGitImportResponse(response: ApiAppGitImportResponse): AppGi
         blobUid: response.blobuid,
         branch: response.branch,
         revision: response.revision,
+    };
+}
+
+// FORM MAPPERs
+function toAppFormGitData(gitData: AppGitRef): AppFormSource['github' | 'gitlab'] {
+    const url = gitData.repository;
+    const parsed = parse(url);
+
+    const parts = parsed.path.split('/');
+    return {
+        userOrOrg: parts[1],
+        branch: gitData.branch || '',
+        commit: gitData.revision,
+        repository: parts[2],
+        gitConfig: gitData.gitconfig,
+    };
+}
+
+export function toAppFormSource(origin: AppOrigin): AppFormSource {
+    const sourceType = AppUtils.getSourceType(origin);
+    switch (sourceType) {
+        case APPLICATION_SOURCE_TYPE.ARCHIVE:
+            return {
+                type: APPLICATION_SOURCE_TYPE.ARCHIVE,
+                archive: {
+                    name: origin.path || '',
+                },
+            };
+        case APPLICATION_SOURCE_TYPE.FOLDER:
+            return {
+                type: APPLICATION_SOURCE_TYPE.FOLDER,
+                folder: {
+                    name: origin.path || '',
+                },
+            };
+        case APPLICATION_SOURCE_TYPE.CONTAINER_URL:
+            return {
+                type: APPLICATION_SOURCE_TYPE.CONTAINER_URL,
+                containerUrl: {
+                    url: origin.container || '',
+                },
+            };
+        case APPLICATION_SOURCE_TYPE.GIT_URL:
+            return {
+                type: APPLICATION_SOURCE_TYPE.GIT_URL,
+                gitUrl: {
+                    gitConfig: origin.git?.gitconfig || '',
+                    url: origin.git?.repository || '',
+                    branch: origin.git?.revision || '',
+                }
+            };
+        case APPLICATION_SOURCE_TYPE.GIT_HUB:
+            return {
+                type: APPLICATION_SOURCE_TYPE.GIT_HUB,
+                github: origin.git ? toAppFormGitData(origin.git) : { userOrOrg: '', branch: '', commit: '', repository: '', gitConfig: '' },
+            };
+        case APPLICATION_SOURCE_TYPE.GIT_LAB:
+            return {
+                type: APPLICATION_SOURCE_TYPE.GIT_LAB,
+                gitlab: origin.git ? toAppFormGitData(origin.git) : { userOrOrg: '', branch: '', commit: '', repository: '', gitConfig: '' },
+            };
+        default:
+            throw new Error(`Unsupported source type: ${sourceType}`);
+    }
+}
+
+export function toAppFormBuildOptions(app: App): AppFormBuildOptions {
+    return {
+        appChart: app.configuration.appChart || '',
+        buildMode: app.staging.buildMode || APPLICATION_BUILD_MODE.BUILDPACK,
+        builderImage: app.staging.builder || '',
+        dockerfilePath: app.staging.dockerfilePath || '',
+        builderImagesForbidden: false,
+    };
+}
+
+export function toAppFormDetails(app: App): AppFormDetails {
+    return {
+        name: app.meta.name,
+        namespace: app.meta.namespace,
+        instances: app.configuration.instances,
+        routes: [...app.configuration.routes],
+        settings: {...app.configuration.settings},
+        environment: Object.entries(app.configuration.environment).map(([key, value]) => ({ key, value })),
+    }
+}
+
+export function toAppFormBindings(app: App): AppFormBindings {
+    return {
+        services: [...app.configuration.services],
+        configurations: app.configuration.boundConfigurations.filter(c => c.type === 'custom').map(c => c.name),
+        serviceConfigurations: app.configuration.boundConfigurations.filter(c => c.type === 'service').map(c => c.name),
+    };
+}
+
+export function toAppForm(app: App): AppForm {
+    return {
+        source: toAppFormSource(app.origin),
+        buildOptions: toAppFormBuildOptions(app),
+        details: toAppFormDetails(app),
+        bindings: toAppFormBindings(app),
     };
 }

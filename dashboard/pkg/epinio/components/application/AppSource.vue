@@ -1,6 +1,6 @@
 <script setup lang="ts">
 
-import { ref, reactive, computed, watch } from 'vue';
+import { ref, reactive, computed, watch, Ref } from 'vue';
 import { useStore } from 'vuex';
 import jsyaml from 'js-yaml';
 
@@ -18,6 +18,7 @@ import { AppUtils } from '../../utils/application';
 import { useGitConfigs } from '../../queries/useGitConfigQueries';
 import { ResourceQueryOptions, ListResourceRequestParams } from '../../models/resource/ui-types';
 import debounce from 'lodash/debounce';
+import { AppFormSource } from '../../models/application/ui-types';
 
 const GIT_BASE_URL = {
   [APPLICATION_SOURCE_TYPE.GIT_HUB]: 'https://github.com',
@@ -34,10 +35,9 @@ const store = useStore();
 const t = store.getters['i18n/t'];
 
 const props = defineProps<{
-  application: Application;
-  source?: EpinioAppSource;
-  info?: EpinioInfo;
+  source: AppFormSource;
   mode: string;
+  updateSource: <K extends AppFormSource['type']>(type: K, newSource?: Partial<NonNullable<AppFormSource[K]>>) => void;
 }>();
 
 const emit = defineEmits<{
@@ -48,7 +48,6 @@ const emit = defineEmits<{
 }>();
 
 const isEdit = computed(() => props.mode === 'edit');
-const isView = computed(() => props.mode === 'view');
 
 const manifestFileInput = ref<HTMLInputElement | null>(null);
 const archiveFileInput = ref<HTMLInputElement | null>(null);
@@ -59,7 +58,7 @@ const gitConfigsForbidden = ref(false);
 
 const gitConfigRequestParams = ref<ListResourceRequestParams>({
   page: 1,
-  pageSize: 10,
+  // pageSize: 10,
   search: '',
 });
 const gitConfigRequestOptions = ref<ResourceQueryOptions>({
@@ -74,35 +73,6 @@ const onGitConfigFilter = debounce((query: string) => {
 
 // Reactive State
 const gitSkipTypeReset = ref(false);
-const archive = reactive({
-  tarball: props.source?.archive?.tarball || '',
-  fileName: props.source?.type === 'folder' ? props.application?.origin?.path : props.source?.archive?.fileName || '',
-});
-
-const container = reactive({
-  url: props.source?.container?.url || ''
-});
-
-const gitUrl = reactive({
-  url: props.source?.gitUrl?.url || '',
-  branch: props.source?.gitUrl?.branch || '',
-  validGitUrl: props.source?.gitUrl?.url ? true : false,
-  gitconfig: props.source?.gitUrl?.gitconfig || ''
-});
-
-const git = reactive({
-  usernameOrOrg: props.source?.git?.usernameOrOrg || '',
-  repo: props.source?.git?.repo || '',
-  commit: props.source?.git?.commit || '',
-  branch: props.source?.git?.branch || '',
-  url: props.source?.git?.url || '',
-  sourceData: props.source?.git?.sourceData || {
-    repos: [],
-    branches: [],
-    commits: []
-  },
-  gitconfig: props.source?.git?.gitconfig || ''
-});
 
 const type = ref(props.source?.type || APPLICATION_SOURCE_TYPE.FOLDER);
 
@@ -112,122 +82,20 @@ const types = Object.values(APPLICATION_SOURCE_TYPE).map(value => ({
   value
 }));
 
-const gitSource = computed(() => ({
-  type: type.value,
-  selectedAccOrOrg: git.usernameOrOrg,
-  selectedRepo: git.repo,
-  selectedBranch: git.branch,
-  selectedCommit: { sha: git.commit },
-  gitconfig: git.gitconfig
-}));
-
-const valid = ref(validate());
-
-watch(type, () => {
-  if (gitSkipTypeReset.value) {
-    gitSkipTypeReset.value = false;
-  } else {
-    git.usernameOrOrg = '';
-    git.repo = '';
-    git.commit = '';
-    git.branch = '';
-    git.url = '';
-    git.sourceData = {
-      repos: [],
-      branches: [],
-      commits: []
-    };
-    git.gitconfig = '';
-  }
-  update();
-});
-
-// Immediate so the parent starts from the form's real validity instead of
-// assuming the tab is valid until something changes.
-watch(valid, (val) => {
-  emit('valid', val);
-}, { immediate: true });
-
-function validate() {
-  switch (type.value) {
-    case APPLICATION_SOURCE_TYPE.ARCHIVE:
-    case APPLICATION_SOURCE_TYPE.FOLDER:
-      return !!archive.tarball;
-    case APPLICATION_SOURCE_TYPE.CONTAINER_URL:
-      return !!container.url;
-    case APPLICATION_SOURCE_TYPE.GIT_URL:
-      return !!gitUrl.url && !!gitUrl.branch && !!gitUrl.validGitUrl;
-    case APPLICATION_SOURCE_TYPE.GIT_HUB:
-    case APPLICATION_SOURCE_TYPE.GIT_LAB:
-      return !!git.usernameOrOrg && !!git.url && !!git.repo && !!git.branch && !!git.commit;
-  }
-}
-
-function update() {
-  emit('change', {
-    type: type.value,
-    archive,
-    container,
-    gitUrl,
-    git
-  });
-  valid.value = validate();
-}
-
-function updateAppInfo(info: EpinioAppInfo) {
-  emit('changeAppInfo', info);
-}
-
-function updateConfigurations(configs: string[]) {
-  emit('changeAppConfig', configs);
-}
-
-function gitUpdate({ repo, selectedAccOrOrg, branch, commit, sourceData, gitconfig }: any) {
-  // GitHub always has an account/org selected; GitLab with a gitconfig lists
-  // membership projects with no account/org, so only require it outside that case.
-  const hasOwner = type.value === 'gitlab' || !!selectedAccOrOrg;
-  if (hasOwner && !!repo && !!commit && !!branch) {
-    git.usernameOrOrg = selectedAccOrOrg;
-    // GitLab projects carry their own canonical URL (web_url), which is correct
-    // for gitlab.com, enterprise instances, and the membership flow where no
-    // account/org is picked. GitHub still builds from the selected org + repo.
-    // Both providers return the repo's canonical URL on its own instance
-    // (GitLab: web_url, GitHub: html_url), which is correct for SaaS and
-    // enterprise alike. Fall back to building from the hardcoded base only if
-    // that field is missing.
-    git.url = type.value === 'gitlab'
-      ? (repo.web_url || `${GIT_BASE_URL[type.value]}/${repo.path_with_namespace}`)
-      : (repo.html_url || `${GIT_BASE_URL[type.value]}/${selectedAccOrOrg}/${repo.name}`);
-    git.commit = commit;
-    git.branch = branch;
-    git.repo = repo;
-    git.sourceData = sourceData;
-    git.gitconfig = gitconfig;
-    update();
-    emit('valid', true);
-  } else {
-    update();
-    emit('valid', false);
-  }
-}
-
-function urlRule() {
-  if (!gitUrl.url) return;
+const validGitUrl = computed(() => {
+  if (!props.source.gitUrl?.url) return false;
 
   const gitRegex = /(https?:\/\/(?:www\.|(?!www))[a-zA-Z0-9]+\.[^\s]{2,})/gm;
-  const result = gitRegex.exec(gitUrl.url);
+  const result = gitRegex.exec(props.source.gitUrl?.url || '');
 
-  if (result && gitUrl.url === result[0]) {
-    gitUrl.validGitUrl = true;
-  } else {
-    gitUrl.validGitUrl = false;
-  }
-}
+  return !!result && props.source.gitUrl?.url === result[0];
+});
 
 function onFileSelected(file: File) {
-  archive.tarball = file;
-  archive.fileName = file.name;
-  update();
+  // archive.tarball = file;
+  // archive.fileName = file.name;
+  // update();
+  props.updateSource(props.source.type, { tarball: file, name: file.name });
 }
 
 function handleArchiveFileClick() {
@@ -262,6 +130,7 @@ async function handleManifestFileChange(event: Event) {
   }
 }
 
+// TODO: UPDATE MANIFESTFILE HANDLING
 function onManifestFileSelected(file: string) {
   try {
     console.log('manifest file content:', file);
@@ -355,9 +224,7 @@ function onFolderSelected(files: FileWithRelativePath | FileWithRelativePath[]) 
   }, {} as { [key: string]: any });
 
   generateZip(filesToZip).then((zip: any) => {
-    archive.tarball = zip;
-    archive.fileName = folderName || 'folder';
-    update();
+    props.updateSource(props.source.type, { tarball: zip, name: folderName || 'folder' });
   });
 }
 
@@ -369,12 +236,12 @@ function onFolderSelected(files: FileWithRelativePath | FileWithRelativePath[]) 
       <trailhand-dropdown
         style="flex: 1"
         :options="types"
-        :value="type"
+        :value="source.type"
         label="Source Type"
         :required="true"
         placeholder="Select a source type"
         data-testid="epinio_app-source_type"
-        @dropdown-change="(e: CustomEvent) => type = e.detail.value"
+        @dropdown-change="(e: CustomEvent) => updateSource(e.detail.value)"
       ></trailhand-dropdown>
       <trailhand-button
         variant="alternate"
@@ -392,13 +259,13 @@ function onFolderSelected(files: FileWithRelativePath | FileWithRelativePath[]) 
       >
     </div>
 
-    <template v-if="type === APPLICATION_SOURCE_TYPE.ARCHIVE">
+    <template v-if="source.type === APPLICATION_SOURCE_TYPE.ARCHIVE">
       <div class="spacer source">
         <h3>{{ t('epinio.applications.steps.source.archive.file.label') }}</h3>
         <div class="button-row">
           <trailhand-text-input
             style="flex: 1"
-            :value="archive.fileName"
+            :value="source.archive?.name || ''"
             data-testid="epinio_app-source_archive_name"
             :disabled="true"
             :label="t('epinio.applications.steps.source.archive.file.inputLabel')"
@@ -423,13 +290,13 @@ function onFolderSelected(files: FileWithRelativePath | FileWithRelativePath[]) 
       </div>
     </template>
 
-    <template v-else-if="type === APPLICATION_SOURCE_TYPE.FOLDER">
+    <template v-else-if="source.type === APPLICATION_SOURCE_TYPE.FOLDER">
       <div class="spacer source">
         <h3>{{ t('epinio.applications.steps.source.folder.file.label') }}</h3>
         <div class="button-row">
           <trailhand-text-input
             style="flex: 1"
-            :value="archive.fileName"
+            :value="source.folder?.name || ''"
             data-testid="epinio_app-source_folder_name"
             :disabled="true"
             :label="t('epinio.applications.steps.source.folder.file.inputLabel')"
@@ -454,21 +321,21 @@ function onFolderSelected(files: FileWithRelativePath | FileWithRelativePath[]) 
       </div>
     </template>
 
-    <template v-else-if="type === APPLICATION_SOURCE_TYPE.CONTAINER_URL">
+    <template v-else-if="source.type === APPLICATION_SOURCE_TYPE.CONTAINER_URL">
       <div class="spacer source">
-        <h3>{{ t('epinio.applications.steps.source.container_url.url.label') }}</h3>
+        <h3>{{ t('epinio.applications.steps.source.containerUrl.url.label') }}</h3>
         <trailhand-text-input
           style="width: 100%;"
-          :value="container.url"
+          :value="source.containerUrl?.url || ''"
           data-testid="epinio_app-source_container"
-          :label="t('epinio.applications.steps.source.container_url.url.inputLabel')"
+          :label="t('epinio.applications.steps.source.containerUrl.url.inputLabel')"
           :required="true"
-          @text-input-change="(e: CustomEvent) => { container.url = e.detail.value; update(); }"
+          @text-input-change="(e: CustomEvent) => { updateSource(source.type, { url: e.detail.value }); }"
         />
       </div>
     </template>
 
-    <template v-else-if="type === APPLICATION_SOURCE_TYPE.GIT_URL">
+    <template v-else-if="source.type === APPLICATION_SOURCE_TYPE.GIT_URL">
       <div
         v-if="!gitConfigsForbidden"
         class="spacer source"
@@ -476,11 +343,11 @@ function onFolderSelected(files: FileWithRelativePath | FileWithRelativePath[]) 
         <h3>Git Config</h3>
         <trailhand-dropdown
           style="width: 100%"
-          :value="gitUrl.gitconfig"
+          :value="source.gitUrl?.gitConfig"
           :options="(gitConfigs?.items || []).map((c: any) => ({ value: c.meta.name, label: c.meta.name }))"
           label="Git Config"
           :disabled="isEdit"
-          @dropdown-change="(e: CustomEvent) => { gitUrl.gitconfig = e.detail.value; update(); }"
+          @dropdown-change="(e: CustomEvent) => { updateSource(source.type, { gitConfig: e.detail.value }); }"
           filterable
           @dropdown-filter="(e: CustomEvent<{ filter: string }>) => { onGitConfigFilter(e.detail.filter); }"
           :loading="isLoadingGitConfigs"
@@ -490,44 +357,44 @@ function onFolderSelected(files: FileWithRelativePath | FileWithRelativePath[]) 
         </p>
       </div>
       <div class="spacer source">
-        <h3>{{ t('epinio.applications.steps.source.git_url.url.label') }}</h3>
+        <h3>{{ t('epinio.applications.steps.source.gitUrl.url.label') }}</h3>
         <trailhand-text-input
           style="width: 100%;"
-          :value="gitUrl.url"
+          :value="source.gitUrl?.url"
           data-testid="epinio_app-source_git-url"
-          :label="t('epinio.applications.steps.source.git_url.url.inputLabel')"
+          :label="t('epinio.applications.steps.source.gitUrl.url.inputLabel')"
           :placeholder="'https://github.com/{user or org}/{repository}'"
           :required="true"
-          @text-input-change="(e: CustomEvent) => { gitUrl.url = e.detail.value; urlRule(); update(); }"
+          @text-input-change="(e: CustomEvent) => { updateSource(source.type, { url: e.detail.value, branch: '' }); }"
         />
-        <p v-if="gitUrl.url && !gitUrl.validGitUrl" class="error-message">
-          {{ t('epinio.applications.steps.source.git_url.error.label') }}
+        <p v-if="source.gitUrl?.url && !validGitUrl" class="error-message">
+          {{ t('epinio.applications.steps.source.gitUrl.error.label') }}
         </p>
       </div>
       <div class="spacer source">
-        <h3>{{ t('epinio.applications.steps.source.git_url.branch.label') }}</h3>
+        <h3>{{ t('epinio.applications.steps.source.gitUrl.branch.label') }}</h3>
         <trailhand-text-input
           style="width: 100%;"
-          :value="gitUrl.branch"
+          :value="source.gitUrl?.branch"
           data-testid="epinio_app-source_git-branch"
-          :label="t('epinio.applications.steps.source.git_url.branch.inputLabel')"
+          :label="t('epinio.applications.steps.source.gitUrl.branch.inputLabel')"
           :required="true"
-          :disabled="!gitUrl.validGitUrl"
-          @text-input-change="(e: CustomEvent) => { gitUrl.branch = e.detail.value; update(); }"
+          :disabled="!validGitUrl"
+          @text-input-change="(e: CustomEvent) => { updateSource(source.type, { branch: e.detail.value }); }"
         />
       </div>
     </template>
 
     <template v-else>
       <GitPicker
-        v-model:value="gitSource"
-        :type="type"
+        :gitSource="source[source.type] as AppFormSource['github'] | AppFormSource['gitlab']"
+        :type="source.type as 'github' | 'gitlab'"
         :gitConfigs="gitConfigs?.items || []"
         :gitConfigsForbidden="gitConfigsForbidden"
         :onGitConfigFilter="onGitConfigFilter"
         :isLoadingGitConfigs="isLoadingGitConfigs"
         :isErrorGitConfigs="isErrorGitConfigs"
-        @change="gitUpdate"
+        :updateSource="updateSource"
       />
     </template>
   </div>

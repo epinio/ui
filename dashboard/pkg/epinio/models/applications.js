@@ -491,13 +491,13 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
       opt.archive = { fileName: this.origin.path };
       break;
     case APPLICATION_SOURCE_TYPE.CONTAINER_URL:
-      opt.container_url = { url: this.origin.container };
+      opt.containerUrl = { url: this.origin.container };
       break;
     case APPLICATION_SOURCE_TYPE.FOLDER:
       opt.folder = { fileName: this.origin.path };
       break;
     case APPLICATION_SOURCE_TYPE.GIT_URL:
-      opt.git_url = {
+      opt.gitUrl = {
         branch: this.origin.git?.revision || '',
         url:    this.origin.git?.repository || '',
         gitconfig: this.origin.git?.gitconfig || '',
@@ -530,8 +530,8 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
       type:      source.type,
       appChart:  source.appchart,
       git:       isGitRepo(source.type) ? source[source.type] : null,
-      gitUrl:    source.git_url,
-      container: source.container_url,
+      gitUrl:    source.gitUrl,
+      container: source.containerUrl,
       archive:   source.archive,
       builderImage: source.builderImage,
       buildMode:    source.buildMode,
@@ -580,11 +580,11 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
         details: [
           {
             label: 'Url',
-            value: source.git_url?.url
+            value: source.gitUrl?.url
           }, {
             label: 'Revision',
             icon:  'icon-commit',
-            value: source.git_url?.branch
+            value: source.gitUrl?.branch
           }, appChart, builder
         ]
       };
@@ -614,7 +614,7 @@ export default class EpinioApplicationModel extends EpinioNamespacedResource {
         icon:    'icon-docker',
         details: [{
           label: 'Image',
-          value: source.container_url?.url
+          value: source.containerUrl?.url
         }, appChart
         ]
       };

@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { ref, watch, computed, watchEffect} from 'vue';
+import { ref, watch, computed, watchEffect, reactive} from 'vue';
 import { useStore } from 'vuex';
 import Banner from '@components/Banner/Banner.vue';
 import ChartValues from '../settings/ChartValues.vue';
@@ -7,8 +7,11 @@ import { EPINIO_TYPES, EpinioAppInfo } from '../../types';
 import Application from '../../models/applications';
 import { objValuesToString } from '../../utils/settings';
 import { useNamespaces } from '../../queries/useNamespaceQueries';
+import { useAppChart } from '../../queries/useAppChartsQueries';
 import { ListResourceRequestParams, ResourceQueryOptions } from '../../models/resource/ui-types';
 import { debounce } from 'lodash';
+import { AppFormDetails, AppFormSource } from '../../models/application/ui-types';
+import { ChartSetting } from '../../models/catalogservice/ui-types';
 
 const store = useStore();
 
@@ -16,10 +19,13 @@ const t = store.getters['i18n/t'];
 
 // Props
 const props = defineProps<{
-  application: Application;
+  details: AppFormDetails;
   mode: string;
-  source?: any;
+  chart?: string;
+  source: AppFormSource;
   active: boolean;
+  updateDetails: (newDetails: Partial<AppFormDetails>) => void;
+  updateChartSettings: (chartSettings: ChartSetting[]) => void;
 }>();
 
 // Emit function
@@ -34,6 +40,29 @@ const validSettings = ref<boolean>(true);
 const envVariables = ref<{ key: string; value: string }[]>([]);
 const bulkFileInput = ref<HTMLInputElement | null>(null);
 const fileDialogActive = ref(false);
+
+watch(() => props.chart, (newChart) => {
+  appChartRequestOptions.value.enabled = !!newChart;
+});
+const selectedChart = computed(() => {
+  return props.chart || '';
+});
+
+const appChartRequestOptions = ref<ResourceQueryOptions>({ enabled: false, polling: false });
+const { data: appChart, isLoading: isLoadingAppChart, isError: isErrorAppChart } = useAppChart(store, selectedChart, appChartRequestOptions);
+
+// Watch for changes to the app chart and set default settings if none exist
+watch(() => appChart.value?.meta.name, () => {
+  if (appChart.value) {
+    const defaultSettings: Record<string, string> = {};
+    const chartSettings = appChart.value.settings || [];
+    chartSettings.forEach((setting) => {
+      defaultSettings[setting.name] = props.details.settings[setting.name] ?? setting.value;
+    });
+    props.updateChartSettings(chartSettings);
+    props.updateDetails({ settings: defaultSettings });
+  }
+});
 
 const namespaceRequestParams = ref<ListResourceRequestParams>({ page: 1, pageSize: 25, search: '' });
 const namespaceRequestOptions = ref<ResourceQueryOptions>({ enabled: true, polling: false });
@@ -87,33 +116,28 @@ const isEdit = computed(() => props.mode === 'edit');
 const generateDefaultName = () => {
   try {
     // Use source prop if available (create mode), otherwise try appSource (edit mode)
-    const source = props.source || props.application.appSource;
-    if (!source) {
-      return '';
-    }
+    const source = props.source;
 
     let baseName = '';
 
     // Determine base name from source
-    if (source.git?.repo?.name) {
-      baseName = source.git.repo.name;
-    } else if (source.gitUrl?.url) {
+    if (source.type === 'github' || source.type === 'gitlab') {
+      baseName = source[source.type]?.repository || '';
+    } else if (source.type === 'gitUrl') {
       // Extract base name from git URL
-      const urlParts = source.gitUrl.url.split('/');
-      baseName = urlParts[urlParts.length - 1].replace(/\.git$/, '');
-    } else if (source.container?.url) {
+      const urlParts = source.gitUrl?.url.split('/');
+      baseName = urlParts?.length ? urlParts[urlParts.length - 1].replace(/\.git$/, '') : '';
+    } else if (source.type === 'containerUrl') {
       // Extract base name from container URL
-      const urlParts = source.container.url.split('/');
-      const imageWithTag = urlParts[urlParts.length - 1];
+      const urlParts = source.containerUrl?.url.split('/');
+      const imageWithTag = urlParts?.length ? urlParts[urlParts.length - 1] : '';
       baseName = imageWithTag.split(':')[0];
     }
     // Append random string to the end of the base name
     if (baseName) {
       const randomSuffix = Math.random().toString(36).substring(2, 8);
-      return `${baseName}-${randomSuffix}`.toLowerCase();
+      props.updateDetails({name: `${baseName}-${randomSuffix}`.toLowerCase()});
     }
-
-    return '';
   } catch (e) {
     console.log(e);
     return '';
@@ -122,7 +146,7 @@ const generateDefaultName = () => {
 
 watch(() => props.active, (isActive) => {
   if (isActive) {
-    const defaultName = props.application.meta?.name || (props.mode !== 'edit' ? generateDefaultName() : '');
+    const defaultName = props.details.name || (props.mode !== 'edit' ? generateDefaultName() : '');
 
     // In create mode, don't auto-select the first namespace - require explicit selection
     const defaultNamespace = props.mode === 'edit'
@@ -305,20 +329,19 @@ function onBulkFileChange(event: Event) {
 </script>
 
 <template>
-  <trailhand-loading-spinner v-if="!values" />
-  <trailhand-form-card v-else>
+  <trailhand-form-card>
     <trailhand-form-row columns="3">
       <div>
         <trailhand-dropdown
           style="width: 100%"
           :options="namespaceOpts"
-          :value="values.meta.namespace"
+          :value="details.namespace"
           label="Namespace"
           placeholder="Select a namespace"
           :disabled="isEdit"
           required
           filterable
-          @dropdown-change="(e: CustomEvent) => handleNameNsUpdate({ metadata: { namespace: e.detail.value } })"
+          @dropdown-change="(e: CustomEvent) => updateDetails({ namespace: e.detail.value })"
           @dropdown-filter="(e: CustomEvent<{ filter: string }>) => { onNamespaceFilter(e.detail.filter); }"
           :isLoading="isLoadingNamespaces"
         ></trailhand-dropdown>
@@ -327,38 +350,38 @@ function onBulkFileChange(event: Event) {
         </p>
       </div>
       <trailhand-text-input
-        :value="values.meta.name"
+        :value="details.name || generateDefaultName()"
         data-testid="epinio_app-info_name"
         label="Name"
         :placeholder="t('epinio.applications.create.namePlaceholder')"
         :disabled="isEdit"
         required
-        @text-input-change="(e: CustomEvent) => handleNameNsUpdate({ metadata: { name: e.detail.value } })"
+        @text-input-change="(e: CustomEvent) => updateDetails({ name: e.detail.value })"
       />
       <trailhand-text-input
-        :value="values.configuration.instances"
+        :value="details.instances"
         data-testid="epinio_app-info_instances"
         label="Instances"
         :placeholder="t('epinio.applications.create.instancesPlaceholder')"
         required
         type="number"
         min="0"
-        @text-input-change="(e: CustomEvent) => {values.configuration.instances = e.detail.value; update()}"
+        @text-input-change="(e: CustomEvent) => updateDetails({ instances: e.detail.value })"
        />
     </trailhand-form-row>
     <div>
       <h3>Routes</h3>
-      <div v-for="(route, index) in values.configuration.routes" :key="index" class="route-item">
+      <div v-for="(route, index) in details.routes" :key="index" class="route-item">
         <trailhand-text-input
           style="flex: 1;"
           :value="route"
           :placeholder="t('epinio.applications.create.routes.placeholder')"
-          @text-input-change="(e: CustomEvent) => { values.configuration.routes[index] = e.detail.value; update(); }"
+          @text-input-change="(e: CustomEvent) => { updateDetails({ routes: details.routes.map((r, i) => i === index ? e.detail.value : r) }); }"
         />
         <button
           v-if="props.mode !== 'view'"
           class="remove-link"
-          @click="() => { values.configuration.routes.splice(index, 1); update(); }"
+          @click="() => { updateDetails({ routes: details.routes.filter((_, i) => i !== index) }); }"
         >
           Remove
         </button>
@@ -366,7 +389,7 @@ function onBulkFileChange(event: Event) {
       <trailhand-button
         v-if="props.mode !== 'view'"
         variant="alternate"
-        @button-click="() => { values.configuration.routes.push(''); update(); }"
+        @button-click="() => { updateDetails({ routes: [...details.routes, ''] }); }"
       >
         Add Row
       </trailhand-button>
@@ -376,10 +399,10 @@ function onBulkFileChange(event: Event) {
         {{ t('epinio.applications.create.settingsVars.description') }}
       </Banner>
     </div>
-    <div v-if="showApplicationVariables">
+    <div v-if="appChart?.settings">
       <ChartValues
-        v-model:value="values.configuration.settings"
-        :chart="values.chart"
+        v-model:value="details.settings"
+        :chart="appChart?.settings"
         :title="t('epinio.applications.create.settingsVars.title')"
         :mode="props.mode"
         :disabled="false"
@@ -391,10 +414,10 @@ function onBulkFileChange(event: Event) {
         <h3>{{ t('epinio.applications.create.envvar.title') }}</h3>
       </div>
       <div class="env-var-data">
-        <template v-if="envVariables.length > 0 || isEdit">
+        <template v-if="details.environment.length > 0 || isEdit">
 
           <div
-            v-for="(envVar, i) in envVariables"
+            v-for="(envVar, i) in details.environment"
             :key="i"
             class="env-var-row"
           >
@@ -404,18 +427,18 @@ function onBulkFileChange(event: Event) {
               label="Key"
               required
               placeholder="e.g. foo"
-              @text-input-change="(e: CustomEvent) => updateRowKey(i, e.detail.value)"
+              @text-input-change="(e: CustomEvent) => updateDetails({ environment: details.environment.map((env, index) => index === i ? { ...env, key: e.detail.value } : env) })"
             />
             <trailhand-code-editor
               style="flex: 1;"
               :value="envVar.value"
               label="Value"
               required
-              @code-input-change="(e: CustomEvent) => updateRowValue(i, e.detail.value)"
+              @code-input-change="(e: CustomEvent) => updateDetails({ environment: details.environment.map((env, index) => index === i ? { ...env, value: e.detail.value } : env) })"
             />
             <button
               class="remove-link"
-              @click="removeRow(i)"
+              @click="updateDetails({ environment: details.environment.filter((_, index) => index !== i) })"
             >
               Remove
             </button>
@@ -426,7 +449,7 @@ function onBulkFileChange(event: Event) {
         >
           <trailhand-button
             variant="alternate"
-            @button-click="addRow"
+            @button-click="updateDetails({ environment: [...details.environment, { key: '', value: '' }] })"
           >
             Add
           </trailhand-button>

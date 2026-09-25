@@ -9,6 +9,10 @@ export interface AppMeta {
 export interface AppConfiguration {
     appChart: string;
     configurations: string[];
+    boundConfigurations: {
+        name: string;
+        type: 'custom' | 'service';
+    }[];
     environment: Record<string, string>;
     // ignore: string[];
     instances: number;
@@ -177,4 +181,70 @@ export interface AppGitImportResponse {
     blobUid: string;
     branch: string;
     revision: string;
+}
+
+// FORM ///////////////////////////////////////////////////////////////////////////
+export type AppFormSourceType = 'containerUrl' | 'archive' | 'folder' | 'gitUrl' | 'github' | 'gitlab';
+export interface AppFormSource {
+    type: AppFormSourceType;
+    containerUrl?:{
+        url: string;
+    },
+    archive?: {
+        tarball?: Blob;
+        name: string;
+    },
+    folder?: {
+        tarball?: Blob;
+        name: string;
+    },
+    gitUrl?: {
+        gitConfig?: string;
+        url: string;
+        branch: string;
+    },
+    github?: {
+        gitConfig?: string;
+        userOrOrg: string;
+        repository: string;
+        branch: string;
+        commit: string;
+    },
+    gitlab?: {
+        gitConfig?: string;
+        userOrOrg: string;
+        repository: string;
+        branch: string;
+        commit: string;
+    },
+}
+
+export interface AppFormBuildOptions {
+    appChart?: string;
+    buildMode?: string;
+    dockerfilePath?: string;
+    builderImage?: string;
+    builderImagesForbidden?: boolean;
+}
+
+export interface AppFormDetails {
+    namespace: string;
+    name: string;
+    instances: number;
+    routes: string[];
+    settings: Record<string, string>;
+    environment: { key: string; value: string }[];
+}
+
+export interface AppFormBindings {
+    services: string[];
+    configurations: string[];
+    serviceConfigurations: string[];
+}
+
+export interface AppForm {
+    source: AppFormSource;
+    buildOptions: AppFormBuildOptions;
+    details: AppFormDetails;
+    bindings: AppFormBindings;
 }
