@@ -9,7 +9,7 @@ export interface AppMeta {
 export interface AppConfiguration {
     appChart: string;
     configurations: string[];
-    boundConfigurations: {
+    boundConfigurations?: {
         name: string;
         type: 'custom' | 'service';
     }[];
@@ -18,8 +18,8 @@ export interface AppConfiguration {
     instances: number;
     // replace_env: boolean;
     routes: string[];
-    services: string[];
-    settings: Record<string, string>;
+    services?: string[];
+    settings?: Record<string, string>;
 }
 
 export interface AppPodInfo {
@@ -48,13 +48,13 @@ export interface AppDeployment {
 export interface AppGitRef {
     branch?: string;
     provider?: string;
-    repository: string;
-    revision: string;
+    repository?: string;
+    revision?: string;
     gitconfig?: string;
 }
 
 export interface AppOrigin {
-    Kind: number;
+    Kind?: number;
     archive?: boolean;
     container?: string;
     git?: AppGitRef;
@@ -181,6 +181,13 @@ export interface AppGitImportResponse {
     blobUid: string;
     branch: string;
     revision: string;
+}
+
+export interface AppManifest {
+    meta: AppMeta;
+    configuration: AppConfiguration;
+    origin: AppOrigin;
+    staging: AppStage;    
 }
 
 // FORM ///////////////////////////////////////////////////////////////////////////

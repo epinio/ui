@@ -30,10 +30,10 @@ const emit = defineEmits<{ saved: [namespace?: string] }>();
 const showModal = ref(false);
 const modalMode = ref<'create' | 'edit'>('create');
 // Model instance, used only for API calls
-const serviceModel = ref<any>(null);
+// const serviceModel = ref<any>(null);
 
 // Form fields (separate from the model to avoid proxy mutation issues)
-const loading = ref(true);
+// const loading = ref(true);
 const value = ref<any>(null);
 const source = ref<EpinioAppSource>();
 const bindings = ref<EpinioAppBindings>();
@@ -44,17 +44,18 @@ const originalModel = ref<any>(null);
 
 const snapshot = ref<string | null>(null);
 
-const { form, populateFormFromRow, clearForm, resetForm, state, update } = useAppForm();
+const { form, populateFormFromApp, clearForm, resetForm, state, update } = useAppForm(modalMode);
 
 const saving = ref(false);
 const errors = ref<string[]>([]);
 const activeTab = ref<string | number>('source')
+const isProgress = computed(() => activeTab.value === 'progress');
 const tabs = computed(() => [
-  { id: 'source', label: 'Source', completed: false, valid: state.source.valid.value, disabled: false, visible: true },
-  { id: 'build', label: 'Build Options', completed: false, valid: state.buildOptions.valid.value, disabled: !state.source.valid.value, visible: true },
-  { id: 'details', label: 'Details', completed: false, valid: state.details.valid.value, disabled: !state.buildOptions.valid.value, visible: true },
-  { id: 'bindings', label: 'Bindings', completed: false, valid: state.bindings.valid.value, disabled: !state.details.valid.value, visible: true },
-  { id: 'progress', label: 'Progress', completed: false, valid: true, disabled: !state.bindings.valid.value || !state.source.valid.value || !state.buildOptions.valid.value || !state.details.valid.value, visible: modalMode.value === 'create' || state.source.dirty.value }
+  { id: 'source', label: 'Source', completed: (state.source.dirty.value || isEdit.value) && state.source.valid.value, valid: state.source.valid.value, disabled: isEdit.value ? false : isProgress.value, visible: true },
+  { id: 'build', label: 'Build Options', completed: (state.buildOptions.dirty.value || isEdit.value) && state.buildOptions.valid.value, valid: state.buildOptions.valid.value, disabled: isEdit.value ? false : !state.source.valid.value || isProgress.value, visible: true },
+  { id: 'details', label: 'Details', completed: (state.details.dirty.value || isEdit.value) && state.details.valid.value, valid: state.details.valid.value, disabled: isEdit.value ? false : !state.buildOptions.valid.value || isProgress.value, visible: true },
+  { id: 'bindings', label: 'Bindings', completed: (state.bindings.dirty.value || isEdit.value) && state.bindings.valid.value, valid: state.bindings.valid.value, disabled: isEdit.value ? false : !state.details.valid.value || isProgress.value, visible: true },
+  { id: 'progress', label: 'Progress', completed: false, valid: true, disabled: !state.source.dirty.value && !state.valid.value, visible: modalMode.value === 'create' || state.source.dirty.value }
 ])
 
 const isEdit = computed(() => modalMode.value === 'edit');
@@ -70,9 +71,7 @@ const prevTab = computed(() => {
 })
 
 const isDirty = computed(() => {
-  if (!snapshot.value || !value.value) return false;
-  const newSnapshot = takeSnapshot();
-  return newSnapshot !== snapshot.value
+  return state.dirty.value;
 });
 
 const isSourceDirty = computed(() => {
@@ -90,22 +89,22 @@ const needsUploadedSource = computed(() => [
 
 const showDiscardConfirm = ref(false);
 
-function takeSnapshot() {
-  const simplifiedBindings = {
-    configurations: bindings.value?.configurations.map((c) => typeof c === 'string' ? c : c.meta?.name || c.name || c) || [],
-    services: bindings.value?.services.map((s) => typeof s === 'string' ? s : s.meta?.name || s.name || s) || [],
-  };
-  const simplifiedConfigutation = {
-    ...value.value?.configuration,
-    configurations: simplifiedBindings.configurations,
-  }
-  return JSON.stringify({
-    source:        AppUtils.sourceFingerprint(source.value),
-    bindings:      simplifiedBindings,
-    meta:          value.value?.meta,
-    configuration: simplifiedConfigutation,
-  });
-}
+// function takeSnapshot() {
+//   const simplifiedBindings = {
+//     configurations: bindings.value?.configurations.map((c) => typeof c === 'string' ? c : c.meta?.name || c.name || c) || [],
+//     services: bindings.value?.services.map((s) => typeof s === 'string' ? s : s.meta?.name || s.name || s) || [],
+//   };
+//   const simplifiedConfigutation = {
+//     ...value.value?.configuration,
+//     configurations: simplifiedBindings.configurations,
+//   }
+//   return JSON.stringify({
+//     source:        AppUtils.sourceFingerprint(source.value),
+//     bindings:      simplifiedBindings,
+//     meta:          value.value?.meta,
+//     configuration: simplifiedConfigutation,
+//   });
+// }
 
 
 async function openCreate() {
@@ -140,10 +139,10 @@ async function openCreate() {
 async function openEdit(row: App, commit?: string) {
   errors.value = [];
   modalMode.value = 'edit';
-  loading.value = true;
+  // loading.value = true;
   showModal.value = true;  // open modal first so user sees loading state
 
-  const populatedForm = populateFormFromRow(row);
+  populateFormFromApp(row, true);
 
   // const hash = await allHash({
   //   ns: store.dispatch('epinio/findAll', { type: EPINIO_TYPES.NAMESPACE }),
@@ -234,41 +233,41 @@ function closeModal() {
   clearForm();
   showDiscardConfirm.value = false;
   // data
-  value.value = null;
-  originalModel.value = null;
-  source.value = undefined;
-  bindings.value = undefined;
-  originalBindings.value = undefined;
-  epinioInfo.value = null;
-  appChart.chartsList = undefined;
-  appChart.selectedChart = undefined;
+  // value.value = null;
+  // originalModel.value = null;
+  // source.value = undefined;
+  // bindings.value = undefined;
+  // originalBindings.value = undefined;
+  // epinioInfo.value = null;
+  // appChart.chartsList = undefined;
+  // appChart.selectedChart = undefined;
 
   // ui state
   activeTab.value = 'source';
   // tabs.value = tabs.value.filter(t => t.id !== 'progress') // remove progress tab added during create
-  tabs.value.forEach((tab, i) => {
-    tab.completed = false;
-    tab.disabled = i !== 0;
-  });
+  // tabs.value.forEach((tab, i) => {
+  //   tab.completed = false;
+  //   tab.disabled = i !== 0;
+  // });
   errors.value = [];
   saving.value = false;
-  loading.value = true;  // reset to true so next open shows spinner while fetching
+  // loading.value = true;  // reset to true so next open shows spinner while fetching
   showModal.value = false;
-  snapshot.value = null;
+  // snapshot.value = null;
 
   // modal mode back to default
   modalMode.value = 'create';
-  serviceModel.value = null;
+  // serviceModel.value = null;
 }
 
 // when namepace changes, remove bindings
-watch(() => value.value?.meta.namespace, () => {
-  if (modalMode.value !== 'create') {
-    return;
-  }
-  bindings.value = { configurations: [], services: [] };
-  set(value.value.configuration, { configurations: [] });
-});
+// watch(() => value.value?.meta.namespace, () => {
+//   if (modalMode.value !== 'create') {
+//     return;
+//   }
+//   bindings.value = { configurations: [], services: [] };
+//   set(value.value.configuration, { configurations: [] });
+// });
 
 // watch(() => isSourceDirty.value, () => {
 //   if (modalMode.value !== 'edit') {
@@ -285,88 +284,88 @@ watch(() => value.value?.meta.namespace, () => {
 //   }
 // });
 
-function set(obj: Record<string, any>, changes: Record<string, any>) {
-  Object.entries(changes).forEach(([key, val]) => {
-    obj[key] = val;
-  });
-}
+// function set(obj: Record<string, any>, changes: Record<string, any>) {
+//   Object.entries(changes).forEach(([key, val]) => {
+//     obj[key] = val;
+//   });
+// }
 
-function updateInfo(changes: EpinioAppInfo) {
-  value.value.meta ||= {};
-  value.value.configuration ||= {};
-  set(value.value.meta, changes.meta);
-  set(value.value.configuration, { settings: appChart.settings });
-  set(value.value.configuration, changes.configuration);
-}
+// function updateInfo(changes: EpinioAppInfo) {
+//   value.value.meta ||= {};
+//   value.value.configuration ||= {};
+//   set(value.value.meta, changes.meta);
+//   set(value.value.configuration, { settings: appChart.settings });
+//   set(value.value.configuration, changes.configuration);
+// }
 
-function updateSource(changes: EpinioAppSource) {
-  const { appChart: chartId, ...cleanChanges } = changes;
+// function updateSource(changes: EpinioAppSource) {
+//   const { appChart: chartId, ...cleanChanges } = changes;
 
-  value.value.configuration ||= {};
+//   value.value.configuration ||= {};
 
-  // handle app chart changes
-  if (chartId !== undefined) {
-    const prevChartId = appChart.selectedChart;
-    const chartChanged = chartId !== prevChartId;
+//   // handle app chart changes
+//   if (chartId !== undefined) {
+//     const prevChartId = appChart.selectedChart;
+//     const chartChanged = chartId !== prevChartId;
 
-    appChart.selectedChart = chartId;
+//     appChart.selectedChart = chartId;
 
-    if (chartId) {
-      set(value.value.configuration, { appchart: chartId });
-    }
+//     if (chartId) {
+//       set(value.value.configuration, { appchart: chartId });
+//     }
 
-    if (!isEdit.value || chartChanged) {
-      value.value.configuration.settings = undefined;
+//     if (!isEdit.value || chartChanged) {
+//       value.value.configuration.settings = undefined;
 
-      if (chartId) {
-        const chart = appChart.chartsList?.find((c: any) => c.id === chartId);
+//       if (chartId) {
+//         const chart = appChart.chartsList?.find((c: any) => c.id === chartId);
 
-        if (chart?.settings) {
-          const customSettings = Object.keys(chart.settings).reduce(
-            (acc, key) => {
-              const fallbackValue =
-                chart.settings[key].type === 'bool' ? false : '';
+//         if (chart?.settings) {
+//           const customSettings = Object.keys(chart.settings).reduce(
+//             (acc, key) => {
+//               const fallbackValue =
+//                 chart.settings[key].type === 'bool' ? false : '';
 
-              acc[key] = chart.values?.[key] || fallbackValue;
+//               acc[key] = chart.values?.[key] || fallbackValue;
 
-              return acc;
-            },
-            {} as Record<string, any>
-          );
+//               return acc;
+//             },
+//             {} as Record<string, any>
+//           );
 
-          value.value.configuration.settings = customSettings;
-          set(value.value, { chart });
-        }
-      } else {
-          value.value.configuration.settings = undefined;
-          value.value.configuration.appchart = undefined;
-          value.value.chart = undefined;
-          appChart.selectedChart = undefined;
-      }
-    }
-  }
+//           value.value.configuration.settings = customSettings;
+//           set(value.value, { chart });
+//         }
+//       } else {
+//           value.value.configuration.settings = undefined;
+//           value.value.configuration.appchart = undefined;
+//           value.value.chart = undefined;
+//           appChart.selectedChart = undefined;
+//       }
+//     }
+//   }
 
-  source.value = {
-    ...source.value,
-    ...cleanChanges,
-  };
-}
+//   source.value = {
+//     ...source.value,
+//     ...cleanChanges,
+//   };
+// }
 
-function updateManifestConfigurations(configs: string[]) {
-  set(value.value.configuration, { configurations: configs });
-}
+// function updateManifestConfigurations(configs: string[]) {
+//   set(value.value.configuration, { configurations: configs });
+// }
 
-function updateConfigurations(changes: EpinioAppBindings) {
-  set(bindings.value, changes);
-  set(value.value.configuration, { configurations: changes.configurations });
-}
+// function updateConfigurations(changes: EpinioAppBindings) {
+//   set(bindings.value, changes);
+//   set(value.value.configuration, { configurations: changes.configurations });
+// }
 
 // What the bindings form found bound on open. The store's configuration and
 // service slices only hold one page of their lists, so they cannot be used as
 // the baseline for the save diff.
-function captureOriginalBindings(partial: Partial<EpinioAppBindings>) {
-  originalBindings.value = { ...originalBindings.value, ...partial } as EpinioAppBindings;
-}
+// function captureOriginalBindings(partial: Partial<EpinioAppBindings>) {
+//   originalBindings.value = { ...originalBindings.value, ...partial } as EpinioAppBindings;
+// }
 
 async function onSubmit() {
   if (saving.value) return;
@@ -432,14 +431,14 @@ function handleProgressFailed() {
 function completeTab(tabId: string | number, nextTabId: string | number) {
   const tab = tabs.value.find((t) => t.id === tabId)
   const next = tabs.value.find((t) => t.id === nextTabId)
-  if (tab && !isEdit.value)  tab.completed = true
-  if (next) next.disabled = false
+  // if (tab && !isEdit.value)  tab.completed = true
+  // if (next) next.disabled = false
   // if moving to the last tab, disable all previous tabs to prevent jumping back and forth during deploy progress
-  if (nextTabId === 'progress') {
-    tabs.value.forEach(t => {
-      if (t.id !== 'progress') t.disabled = true
-    })
-  }
+  // if (nextTabId === 'progress') {
+  //   tabs.value.forEach(t => {
+  //     if (t.id !== 'progress') t.disabled = true
+  //   })
+  // }
   activeTab.value = nextTabId
 }
 
@@ -462,6 +461,7 @@ defineExpose({ openCreate, openEdit });
             :source="form.source"
             :mode="modalMode"
             :updateSource="update.source"
+            :populateFormFromApp="populateFormFromApp"
           />
         </template>
 
@@ -498,8 +498,8 @@ defineExpose({ openCreate, openEdit });
           />
         </template>
 
-        <!-- <template #progress="{ tab }">
-          <AppProgress
+        <template #progress="{ tab }">
+          <!-- <AppProgress
             v-if="tab.visible"
             :application="value"
             :source="source"
@@ -509,8 +509,9 @@ defineExpose({ openCreate, openEdit });
             :active="activeTab === tab.id"
             @finished="handleProgressFinished"
             @failed="handleProgressFailed"
-          />
-      </template> -->
+          /> -->
+          <p>Progress Placeholder</p>
+      </template>
       </Tabs>
       <Banner
         v-for="(err, i) in errors"
@@ -583,7 +584,7 @@ defineExpose({ openCreate, openEdit });
       <trailhand-button
         variant="secondary"
         class="mr-10"
-        @button-click="() => { console.log('Form data:', form); }"
+        @button-click="() => { console.log('Form data:', form); console.log('Form state:', state); }"
       >
         Log Form
       </trailhand-button>

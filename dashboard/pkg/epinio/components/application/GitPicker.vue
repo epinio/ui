@@ -170,7 +170,7 @@ const columns = computed(() => [
       input.value = row.commitId || '';
       input.checked = row.commitId === selectedCommitId.value;
       input.style.cursor = 'pointer';
-      input.addEventListener('change', () => {console.log('commit changed:', row.commitId); props.updateSource(gitType.value, { commit: row.commitId })});
+      input.addEventListener('change', () => {props.updateSource(gitType.value, { commit: row.commitId })});
 
       return input;
     }

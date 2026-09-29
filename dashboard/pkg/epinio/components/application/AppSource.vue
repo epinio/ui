@@ -1,29 +1,20 @@
 <script setup lang="ts">
 
-import { ref, reactive, computed, watch, Ref } from 'vue';
+import { ref, computed } from 'vue';
 import { useStore } from 'vuex';
 import jsyaml from 'js-yaml';
-
-import Application from '../../models/applications';
 import GitPicker from './GitPicker.vue';
 import { generateZip } from '../../utils/download';
 import {
   APPLICATION_SOURCE_TYPE,
-  EpinioInfo,
-  EpinioAppSource,
-  EPINIO_APP_MANIFEST
 } from '../../types';
 import { EpinioAppInfo } from '../../types';
-import { AppUtils } from '../../utils/application';
 import { useGitConfigs } from '../../queries/useGitConfigQueries';
 import { ResourceQueryOptions, ListResourceRequestParams } from '../../models/resource/ui-types';
 import debounce from 'lodash/debounce';
-import { AppFormSource } from '../../models/application/ui-types';
-
-const GIT_BASE_URL = {
-  [APPLICATION_SOURCE_TYPE.GIT_HUB]: 'https://github.com',
-  [APPLICATION_SOURCE_TYPE.GIT_LAB]: 'https://gitlab.com',
-};
+import { AppFormSource, App, AppManifest } from '../../models/application/ui-types';
+import { ApiAppManifest } from '../../models/application/api-types';
+import { toAppManifest } from '../../models/application/mappers';
 
 interface FileWithRelativePath extends File {
   // For some reason TS throws this as missing at transpile time .. so recreate it
@@ -38,6 +29,7 @@ const props = defineProps<{
   source: AppFormSource;
   mode: string;
   updateSource: <K extends AppFormSource['type']>(type: K, newSource?: Partial<NonNullable<AppFormSource[K]>>) => void;
+  populateFormFromApp: (app: App | AppManifest, setInitial?: boolean) => void;
 }>();
 
 const emit = defineEmits<{
@@ -58,7 +50,7 @@ const gitConfigsForbidden = ref(false);
 
 const gitConfigRequestParams = ref<ListResourceRequestParams>({
   page: 1,
-  // pageSize: 10,
+  pageSize: 25,
   search: '',
 });
 const gitConfigRequestOptions = ref<ResourceQueryOptions>({
@@ -70,11 +62,6 @@ const onGitConfigFilter = debounce((query: string) => {
   gitConfigRequestParams.value.page = 1;
   gitConfigRequestParams.value.search = query;
 }, 500);
-
-// Reactive State
-const gitSkipTypeReset = ref(false);
-
-const type = ref(props.source?.type || APPLICATION_SOURCE_TYPE.FOLDER);
 
 // Derived and Computed
 const types = Object.values(APPLICATION_SOURCE_TYPE).map(value => ({
@@ -92,9 +79,6 @@ const validGitUrl = computed(() => {
 });
 
 function onFileSelected(file: File) {
-  // archive.tarball = file;
-  // archive.fileName = file.name;
-  // update();
   props.updateSource(props.source.type, { tarball: file, name: file.name });
 }
 
@@ -130,52 +114,12 @@ async function handleManifestFileChange(event: Event) {
   }
 }
 
-// TODO: UPDATE MANIFESTFILE HANDLING
 function onManifestFileSelected(file: string) {
   try {
-    console.log('manifest file content:', file);
-    const parsed: any = jsyaml.load(file);
-    console.log('parsed manifest:', parsed);
-    const manifestType = AppUtils.getManifestSourceType(parsed.origin);
-    gitSkipTypeReset.value = true;
-    type.value = manifestType;
-
-    switch (manifestType) {
-      case APPLICATION_SOURCE_TYPE.CONTAINER_URL:
-        container.url = parsed.origin.container;
-        break;
-      case APPLICATION_SOURCE_TYPE.GIT_URL:
-        gitUrl.url = parsed.origin.git.url;
-        gitUrl.branch = parsed.origin.git.revision;
-        break;
-      case APPLICATION_SOURCE_TYPE.GIT_HUB:
-      case APPLICATION_SOURCE_TYPE.GIT_LAB:
-        Object.assign(git, AppUtils.getGitData(parsed.origin.git));
-        break;
-    }
-
-    if (parsed.configuration) {
-      appChart.value = parsed.configuration.appchart;
-    }
-
-    const appInfo: EpinioAppInfo = {
-      meta: {
-        name: parsed.name || '',
-        namespace: parsed.namespace || ''
-      },
-      configuration: {
-        configurations: parsed.configuration?.configurations || [],
-        instances: parsed.configuration.instances ?? 1,
-        environment: parsed.configuration.environment || {},
-        settings: parsed.configuration?.settings || {},
-        routes: parsed.configuration.routes || []
-      }
-    };
-
-    store.$router.replace({ query: { from: EPINIO_APP_MANIFEST } });
-    update();
-    updateAppInfo(appInfo);
-    updateConfigurations(parsed.configuration.configurations || []);
+    const parsed: ApiAppManifest = jsyaml.load(file);
+    const manifest: AppManifest = toAppManifest(parsed);
+    if (!parsed) throw new Error('Parsed manifest is empty');
+    props.populateFormFromApp(manifest, false);
   } catch (e) {
     console.error('Failed to parse manifest:', e);
   }

@@ -176,7 +176,7 @@ export function makeActionMenu(row: any): HTMLElement {
  * Transforms epinio string action names into callable functions
  * so the action-menu web component can invoke them.
  */
-export function attachActionMenu(row: ResourceTableRow): HTMLElement {
+export function attachActionMenu(row: ResourceTableRow<any>): HTMLElement {
   ensureActionMenuCaptureListener();
 
   const id = row.id;

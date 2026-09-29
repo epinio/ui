@@ -48,14 +48,14 @@ export interface ApiAppDeployment {
 export interface ApiAppGitRef {
     branch?: string;
     provider?: string;
-    repository: string;
-    revision: string;
+    repository?: string;
+    revision?: string;
     gitconfig?: string;
     url?: string;
 }
 
 export interface ApiAppOrigin {
-    Kind: number;
+    Kind?: number;
     archive?: boolean;
     container?: string;
     git?: ApiAppGitRef;
@@ -178,4 +178,12 @@ export interface ApiAppGitImportResponse {
     blobuid: string;
     branch: string;
     revision: string;
+}
+
+export interface ApiAppManifest {
+    name: string;
+    namespace: string;
+    configuration: ApiAppConfiguration;
+    origin: ApiAppOrigin;
+    staging: ApiAppStage;    
 }

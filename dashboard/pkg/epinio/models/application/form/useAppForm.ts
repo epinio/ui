@@ -1,5 +1,5 @@
 import { ref, computed, Ref } from "vue";
-import { AppForm, App, AppFormSource, AppFormBuildOptions, AppFormDetails, AppFormBindings } from "../ui-types";
+import { AppForm, App, AppManifest, AppFormSource, AppFormBuildOptions, AppFormDetails, AppFormBindings } from "../ui-types";
 import { AppUtils } from "../../../utils/application";
 import { toAppForm } from "../mappers";
 import { APPLICATION_SOURCE_TYPE, APPLICATION_BUILD_MODE } from "../../../types";
@@ -7,7 +7,7 @@ import { ChartSetting } from "models/catalogservice/ui-types";
 
 interface UseAppFormReturn {
     form: Ref<AppForm>;
-    populateFormFromRow: (app: App) => AppForm;
+    populateFormFromApp: (app: App | AppManifest, setInitial?: boolean) => AppForm;
     clearForm: () => void;
     resetForm: () => void;
     state: {
@@ -39,7 +39,7 @@ interface UseAppFormReturn {
     };
 }
 
-export function useAppForm(): UseAppFormReturn {
+export function useAppForm(mode: Ref<'create' | 'edit'>): UseAppFormReturn {
     const form = ref<AppForm>(initEmptyForm());
     const initialForm = ref<AppForm>(initEmptyForm());
 
@@ -83,7 +83,7 @@ export function useAppForm(): UseAppFormReturn {
         switch (form.value.source.type) {
             case APPLICATION_SOURCE_TYPE.ARCHIVE:
             case APPLICATION_SOURCE_TYPE.FOLDER:
-                return !!form.value.source[form.value.source.type]?.tarball;
+                return mode.value === 'create' || (mode.value === 'edit' && isSourceDirty.value) ? !!form.value.source[form.value.source.type]?.tarball : true;
             case APPLICATION_SOURCE_TYPE.CONTAINER_URL:
                 return !!form.value.source.containerUrl?.url;
             case APPLICATION_SOURCE_TYPE.GIT_URL:
@@ -212,10 +212,12 @@ export function useAppForm(): UseAppFormReturn {
         return true;
     });
 
-    function populateFormFromRow(app: App) {
+    function populateFormFromApp(app: App | AppManifest, setInitial = false) {
         const appForm = toAppForm(app);
         form.value = appForm;
-        initialForm.value = structuredClone(appForm);
+        if (setInitial) {
+            initialForm.value = structuredClone(appForm);
+        }
 
         return form.value;
     }
@@ -269,7 +271,7 @@ export function useAppForm(): UseAppFormReturn {
 
     return {
         form,
-        populateFormFromRow,
+        populateFormFromApp,
         clearForm,
         resetForm,
         state: {

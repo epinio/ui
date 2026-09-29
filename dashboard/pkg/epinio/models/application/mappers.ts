@@ -1,8 +1,8 @@
-import { ApiApp, ApiAppConfiguration, ApiAppDeployment, ApiAppOrigin, ApiAppStage, ApiAppGitRef, ApiListAppsResponse, ApiAppDeploymentStatus, ApiAsyncDeployRequest, ApiAppStageRequest, ApiAppStageResponse, ApiAppDeployRequest, ApiAppDeployResponse, ApiAppDeleteRequest, ApiAppUpdateRequest, ApiAppCreateRequest, ApiAppGitImportParams, ApiAppGitImportResponse, ApiAppDeploymentsRequest } from "./api-types";
-import { App, AppConfiguration, AppDeployment, AppOrigin, AppStage, AppGitRef, ListAppsResponse, AppDeploymentStatus, AsyncDeployRequest, AppStageRequest, AppStageResponse, AppDeployRequest, AppDeployResponse, AppDeleteRequest, AppUpdateRequest, AppCreateRequest, AppGitImportParams, AppGitImportResponse, AppDeploymentsRequest, AppFormSource, AppFormBindings, AppFormDetails, AppFormBuildOptions, AppForm } from "./ui-types";
+import { ApiApp, ApiAppConfiguration, ApiAppDeployment, ApiAppOrigin, ApiAppStage, ApiAppGitRef, ApiListAppsResponse, ApiAppDeploymentStatus, ApiAsyncDeployRequest, ApiAppStageRequest, ApiAppStageResponse, ApiAppDeployRequest, ApiAppDeployResponse, ApiAppDeleteRequest, ApiAppUpdateRequest, ApiAppCreateRequest, ApiAppGitImportParams, ApiAppGitImportResponse, ApiAppDeploymentsRequest, ApiAppManifest } from "./api-types";
+import { App, AppConfiguration, AppDeployment, AppOrigin, AppStage, AppGitRef, ListAppsResponse, AppDeploymentStatus, AsyncDeployRequest, AppStageRequest, AppStageResponse, AppDeployRequest, AppDeployResponse, AppDeleteRequest, AppUpdateRequest, AppCreateRequest, AppGitImportParams, AppGitImportResponse, AppDeploymentsRequest, AppFormSource, AppFormBindings, AppFormDetails, AppFormBuildOptions, AppForm, AppManifest } from "./ui-types";
 import { statusToStateDisplay } from "../../models/resource/mappers";
 import { AppUtils } from "../../utils/application";
-import { APPLICATION_SOURCE_TYPE, APPLICATION_BUILD_MODE } from "../../types";
+import { APPLICATION_SOURCE_TYPE, APPLICATION_BUILD_MODE, APPLICATION_MANIFEST_SOURCE_TYPE } from "../../types";
 import { parse } from "../../utils/url";
 
 function toAppStage(apiStage: ApiAppStage): AppStage {
@@ -42,8 +42,16 @@ function toAppDeployment(apiDeployment: ApiAppDeployment): AppDeployment {
 }
 
 function toAppOrigin(apiOrigin: ApiAppOrigin): AppOrigin {
+    let Kind = apiOrigin.Kind;
+    // Determine the kind of the app origin if it's not explicitly set (for example from manifest)
+    if (!Kind) {
+        if (apiOrigin.archive || apiOrigin.path) Kind = APPLICATION_MANIFEST_SOURCE_TYPE.PATH;
+        if (apiOrigin.container) Kind = APPLICATION_MANIFEST_SOURCE_TYPE.CONTAINER;
+        if (apiOrigin.git) Kind = APPLICATION_MANIFEST_SOURCE_TYPE.GIT;
+        else Kind = APPLICATION_MANIFEST_SOURCE_TYPE.NONE;
+    }
     return {
-        Kind: apiOrigin.Kind,
+        Kind: Kind,
         archive: apiOrigin.archive,
         container: apiOrigin.container,
         git: apiOrigin.git ? toAppGitRef(apiOrigin.git) : undefined,
@@ -75,7 +83,7 @@ function toAppGitRef(apiGitRef: ApiAppGitRef): AppGitRef {
     return {
         branch: apiGitRef.branch,
         provider: apiGitRef.provider,
-        repository: apiGitRef.repository,
+        repository: apiGitRef.repository ?? apiGitRef.url,
         revision: apiGitRef.revision,
         gitconfig: apiGitRef.gitconfig,
     };
@@ -230,16 +238,29 @@ export function toAppGitImportResponse(response: ApiAppGitImportResponse): AppGi
     };
 }
 
+export function toAppManifest(apiManifest: ApiAppManifest): AppManifest {
+    return {
+        meta: {
+            name: apiManifest.name,
+            namespace: apiManifest.namespace,
+            createdAt: '',
+        },
+        configuration: toAppConfiguration(apiManifest.configuration),
+        origin: toAppOrigin(apiManifest.origin),
+        staging: toAppStage(apiManifest.staging),
+    };
+}
+
 // FORM MAPPERs
 function toAppFormGitData(gitData: AppGitRef): AppFormSource['github' | 'gitlab'] {
     const url = gitData.repository;
-    const parsed = parse(url);
+    const parsed = parse(url || '');
 
     const parts = parsed.path.split('/');
     return {
         userOrOrg: parts[1],
         branch: gitData.branch || '',
-        commit: gitData.revision,
+        commit: gitData.revision || '',
         repository: parts[2],
         gitConfig: gitData.gitconfig,
     };
@@ -293,7 +314,7 @@ export function toAppFormSource(origin: AppOrigin): AppFormSource {
     }
 }
 
-export function toAppFormBuildOptions(app: App): AppFormBuildOptions {
+export function toAppFormBuildOptions(app: App | AppManifest): AppFormBuildOptions {
     return {
         appChart: app.configuration.appChart || '',
         buildMode: app.staging.buildMode || APPLICATION_BUILD_MODE.BUILDPACK,
@@ -303,26 +324,26 @@ export function toAppFormBuildOptions(app: App): AppFormBuildOptions {
     };
 }
 
-export function toAppFormDetails(app: App): AppFormDetails {
+export function toAppFormDetails(app: App | AppManifest): AppFormDetails {
     return {
         name: app.meta.name,
         namespace: app.meta.namespace,
         instances: app.configuration.instances,
         routes: [...app.configuration.routes],
         settings: {...app.configuration.settings},
-        environment: Object.entries(app.configuration.environment).map(([key, value]) => ({ key, value })),
+        environment: [...Object.entries(app.configuration.environment).map(([key, value]) => ({ key, value }))],
     }
 }
 
-export function toAppFormBindings(app: App): AppFormBindings {
+export function toAppFormBindings(app: App | AppManifest): AppFormBindings {
     return {
-        services: [...app.configuration.services],
-        configurations: app.configuration.boundConfigurations.filter(c => c.type === 'custom').map(c => c.name),
-        serviceConfigurations: app.configuration.boundConfigurations.filter(c => c.type === 'service').map(c => c.name),
+        services: [...(app.configuration.services || [])],
+        configurations: (app.configuration.boundConfigurations || []).filter(c => c.type === 'custom').map(c => c.name),
+        serviceConfigurations: (app.configuration.boundConfigurations || []).filter(c => c.type === 'service').map(c => c.name),
     };
 }
 
-export function toAppForm(app: App): AppForm {
+export function toAppForm(app: App | AppManifest): AppForm {
     return {
         source: toAppFormSource(app.origin),
         buildOptions: toAppFormBuildOptions(app),
@@ -330,3 +351,4 @@ export function toAppForm(app: App): AppForm {
         bindings: toAppFormBindings(app),
     };
 }
+

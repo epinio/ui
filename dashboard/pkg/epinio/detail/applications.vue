@@ -56,6 +56,7 @@ const deploymentTabs = ref([
     completed: false,
     valid: true,
     disabled: false,
+    visible: true
   },
 ])
 const activeResourceTab = ref<string | number>('instances');
@@ -66,6 +67,7 @@ const resourceTabs = ref([
     completed: false,
     valid: true,
     disabled: false,
+    visible: true,
   },
   {
     id: 'services',
@@ -73,6 +75,7 @@ const resourceTabs = ref([
     completed: false,
     valid: true,
     disabled: false,
+    visible: true,
   },
   {
     id: 'configs',
@@ -80,6 +83,7 @@ const resourceTabs = ref([
     completed: false,
     valid: true,
     disabled: false,
+    visible: true,
   }
 ]);
 
@@ -458,6 +462,7 @@ onMounted(async () => {
       completed: false,
       valid: true,
       disabled: false,
+      visible: true,
     });
   }
 });

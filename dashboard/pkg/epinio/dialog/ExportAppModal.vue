@@ -13,8 +13,8 @@ const t = store.getters['i18n/t'];
 const showModal = ref(false);
 const activeTab = ref<string | number>('manifest')
 const tabs = ref([
-  { id: 'manifest', label: 'Manifest', completed: false, valid: false, disabled: false },
-  { id: 'chartAndImages', label: 'Chart and Images', completed: false, valid: false, disabled: false },
+  { id: 'manifest', label: 'Manifest', completed: false, valid: false, disabled: false, visible: true },
+  { id: 'chartAndImages', label: 'Chart and Images', completed: false, valid: false, disabled: false, visible: true },
 ]);
 const showProgressBar = ref<boolean>(false);
 const step = ref<string | null>(null);

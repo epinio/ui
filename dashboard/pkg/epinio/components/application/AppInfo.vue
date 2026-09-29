@@ -1,11 +1,8 @@
 <script lang="ts" setup>
-import { ref, watch, computed, watchEffect, reactive} from 'vue';
+import { ref, watch, computed, watchEffect} from 'vue';
 import { useStore } from 'vuex';
 import Banner from '@components/Banner/Banner.vue';
 import ChartValues from '../settings/ChartValues.vue';
-import { EPINIO_TYPES, EpinioAppInfo } from '../../types';
-import Application from '../../models/applications';
-import { objValuesToString } from '../../utils/settings';
 import { useNamespaces } from '../../queries/useNamespaceQueries';
 import { useAppChart } from '../../queries/useAppChartsQueries';
 import { ListResourceRequestParams, ResourceQueryOptions } from '../../models/resource/ui-types';
@@ -28,16 +25,7 @@ const props = defineProps<{
   updateChartSettings: (chartSettings: ChartSetting[]) => void;
 }>();
 
-// Emit function
-const emit = defineEmits<{
-  (event: 'valid', valid: boolean): void;
-  (event: 'change', data: any): void;
-}>();
-
 // Reactive state
-const values = ref<EpinioAppInfo | undefined>(undefined);
-const validSettings = ref<boolean>(true);
-const envVariables = ref<{ key: string; value: string }[]>([]);
 const bulkFileInput = ref<HTMLInputElement | null>(null);
 const fileDialogActive = ref(false);
 
@@ -89,27 +77,6 @@ watchEffect(() => {
   }
 });
 
-const valid = computed(() => {
-  if (!values.value) {
-    return false;
-  }
-  const validName = !!values.value.meta?.name;
-
-  // Namespace must be selected (not empty) and pass naming validation
-  const namespaceValue = values.value.meta?.namespace || '';
-  const hasNamespace = !!namespaceValue;
-  const validNamespace = hasNamespace;
-  const validInstances = typeof Number(values.value.configuration?.instances) !== 'string' &&
-    values.value.configuration?.instances >= 0;
-
-  return validName && validNamespace && validInstances &&
-    validSettings.value;
-});
-
-const showApplicationVariables = computed(() => {
-  return Object.keys(values.value?.configuration?.settings || {}).length !== 0;
-});
-
 const isEdit = computed(() => props.mode === 'edit');
 
 // Generate a default name for new applications
@@ -144,143 +111,20 @@ const generateDefaultName = () => {
   }
 };
 
-watch(() => props.active, (isActive) => {
-  if (isActive) {
-    const defaultName = props.details.name || (props.mode !== 'edit' ? generateDefaultName() : '');
-
-    // In create mode, don't auto-select the first namespace - require explicit selection
-    const defaultNamespace = props.mode === 'edit'
-      ? (props.application.meta?.namespace || '')
-      : (props.application.meta?.namespace || '');
-
-    const valuesData: EpinioAppInfo = {
-      meta: {
-        name: defaultName,
-        namespace: defaultNamespace
-      },
-      chart: moveBooleansToFront(props.application.chart?.settings) || {},
-      configuration: {
-        configurations: props.application.configuration?.configurations || [],
-        instances: props.application.configuration?.instances ?? 1,
-        environment: props.application.configuration?.environment || {},
-        settings: props.application.configuration?.settings || {},
-        routes: props.application.configuration?.routes || [],
-      },
-    };
-
-    envVariables.value = Object.entries(valuesData.configuration.environment).map(([key, value]) => ({ key, value }));
-    values.value = valuesData;
-    validSettings.value = {};
-
-    emit('valid', valid.value);
-
-    populateOnEdit();
-  }
-})
-
-// Methods
-const update = () => {
-  emit('change', {
-    meta: values.value?.meta,
-    configuration: {
-      ...values.value?.configuration,
-      settings: objValuesToString(values.value?.configuration.settings)
-    },
-  });
-};
-
-// Watchers
-watch(() => values.value?.configuration.instances, (newVal) => {
-  values.value.configuration.instances = Number(newVal);
-  update()
-});
-watch(() => values.value?.configuration.environment, update);
-watch(() => values.value?.configuration.settings, update, { deep: true });
-watch(() => values.value?.configuration.routes, update);
-watch(valid, (newValid) => {
-  emit('valid', newValid);
-});
-watch(envVariables, (newEnvVars) => {
-  values.value.configuration.environment = newEnvVars.reduce((acc, { key, value }) => {
-    if (key && value) {
-      acc[key] = value;
-      return acc;
-    } else {
-      return acc;
-    }
-  }, {});
-  update();
-}, { deep: true });
-
-// Handler for name and namespace updates
-function handleNameNsUpdate(updatedValue: { metadata?: { name?: string; namespace?: string } }) {
-
-  if (updatedValue?.metadata && values.value?.meta) {
-    if (updatedValue.metadata.name !== undefined) {
-      values.value.meta.name = updatedValue.metadata.name;
-    }
-    if (updatedValue.metadata.namespace !== undefined) {
-      values.value.meta.namespace = updatedValue.metadata.namespace;
-    }
-  }
-  update();
-}
-
-const populateOnEdit = async () => {
-  // We need to fetch the chart settings on edit mode.
-  if (isEdit.value || props.mode === 'view') {
-    const chartList = await store.dispatch(
-      'epinio/findAll',
-      { type: EPINIO_TYPES.APP_CHARTS },
-    );
-
-    const filterChart = chartList?.find(
-      (chart: any) => chart.id === props.application.configuration.appchart
-    );
-
-    if (filterChart?.settings) {
-      const customValues = Object.keys(filterChart?.settings).reduce((acc: any, key: any) => {
-        acc[key] = props.application.configuration.settings[key] || '';
-        return acc;
-      }, {});
-
-      values.value.configuration.settings = customValues;
-      values.value.chart = moveBooleansToFront(filterChart.settings);
-    }
-  }
-};
-
 // Allows us to move the checkbox at the top of the list so layout-wise looks better
-const moveBooleansToFront = (settingsObj: any) => {
-  if (!settingsObj) {
-    return;
+const moveBooleansToFront = (settings: ChartSetting[]) => {
+  if (!settings || !settings.length) {
+    return [];
   }
-  const entries = Object.entries(settingsObj);
 
-  entries.sort((a: any, b: any) => {
-    const aValue = a[1].type === 'bool' ? 0 : 1;
-    const bValue = b[1].type === 'bool' ? 0 : 1;
+  settings.sort((a, b) => {
+    const aValue = a.type === 'bool' ? 0 : 1;
+    const bValue = b.type === 'bool' ? 0 : 1;
 
     return aValue - bValue;
   });
 
-  return Object.fromEntries(entries);
-};
-
-const addRow = () => {
-  envVariables.value.push({ key: '', value: '' });
-};
-
-const removeRow = (index: number) => {
-  envVariables.value.splice(index, 1);
-};
-
-const updateRowKey = (index: number, newKey: string) => {
-  envVariables.value[index].key = newKey;
-};
-
-const updateRowValue = (index: number, newValue: string) => {
-  envVariables.value[index].value = newValue;
+  return settings;
 };
 
 // "Add from file", parse a KEY=VALUE file and add rows
@@ -316,10 +160,10 @@ function onBulkFileChange(event: Event) {
 
     // If there are new rows, add them to the existing config data. If the existing data is just one empty row, replace it instead.
     if (newRows.length) {
-      const existing = envVariables.value;
+      const existing = props.details.environment;
       const onlyEmptyRow = existing.length === 1 && !existing[0].key && !existing[0].value;
 
-      envVariables.value = onlyEmptyRow ? newRows : [...existing, ...newRows];
+      props.updateDetails({ environment: onlyEmptyRow ? newRows : [...existing, ...newRows] });
     }
   };
   reader.readAsText(file);
@@ -402,11 +246,10 @@ function onBulkFileChange(event: Event) {
     <div v-if="appChart?.settings">
       <ChartValues
         v-model:value="details.settings"
-        :chart="appChart?.settings"
+        :chart="moveBooleansToFront(appChart?.settings)"
         :title="t('epinio.applications.create.settingsVars.title')"
         :mode="props.mode"
         :disabled="false"
-        @valid="validSettings = $event"
       />
     </div>
     <div class="env-var-section">
@@ -427,14 +270,14 @@ function onBulkFileChange(event: Event) {
               label="Key"
               required
               placeholder="e.g. foo"
-              @text-input-change="(e: CustomEvent) => updateDetails({ environment: details.environment.map((env, index) => index === i ? { ...env, key: e.detail.value } : env) })"
+              @text-input-change="(e: CustomEvent) => updateDetails({ environment: details.environment.map((env, index) => index === i ? { ...env, key: e.detail.value } : {...env}) })"
             />
             <trailhand-code-editor
               style="flex: 1;"
               :value="envVar.value"
               label="Value"
               required
-              @code-input-change="(e: CustomEvent) => updateDetails({ environment: details.environment.map((env, index) => index === i ? { ...env, value: e.detail.value } : env) })"
+              @code-input-change="(e: CustomEvent) => updateDetails({ environment: details.environment.map((env, index) => index === i ? { ...env, value: e.detail.value } : {...env}) })"
             />
             <button
               class="remove-link"

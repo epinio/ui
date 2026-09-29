@@ -10,7 +10,7 @@ import { useBuilderImages } from '../../queries/useBuilderImagesQueries';
 import { useAppCharts } from '../../queries/useAppChartsQueries';
 import { ListResourceRequestParams, ResourceQueryOptions } from '../../models/resource/ui-types';
 import { debounce } from 'lodash';
-import { AppFormBuildOptions } from '../../models/application/ui-types';
+import { AppFormBuildOptions, AppFormDetails } from '../../models/application/ui-types';
 import { isForbidden } from '../../utils/errors';
 
 const store = useStore();
@@ -24,6 +24,7 @@ const props = defineProps<{
   active: boolean;
   modalOpen: boolean;
   updateBuildOptions: (newBuildOptions: Partial<AppFormBuildOptions>) => void;
+  updateDetails: (newDetails: Partial<AppFormDetails>) => void;
 }>();
 
 watch(() => props.modalOpen, (newVal) => {
@@ -73,6 +74,7 @@ const setDefaultBuilderImage = () => {
   defaultBuilderImageForPlaceholder.value = defaultBuilderImage;
   props.updateBuildOptions({ builderImage: defaultBuilderImage });
 };
+// Watch for changes to the app charts and builder images and set defaults accordingly
 watch(appChartsData, setDefaultAppChart);
 watch(builderImagesData, setDefaultBuilderImage);
 watch(
@@ -85,6 +87,8 @@ watch(
   }
 );
 
+// If builder images result in a forbidden error, update the build options so validation can
+// account for it
 watch(builderImagesError, (error) => {
   if (isForbidden(error)) {
     props.updateBuildOptions({ builderImagesForbidden: true });
@@ -93,7 +97,7 @@ watch(builderImagesError, (error) => {
   }
 });
 
-// format the builder images for the dropdown, adding a custom option
+// Format the builder images for the dropdown, adding a custom option
 const allBuilderImages = computed(() => {
   const catalogImages = (builderImagesData.value?.items || []).map((bi) => ({
     value: bi.image,
@@ -120,6 +124,7 @@ const isCustomBuilderImage = computed(
   () => selectedBuilderImage.value === 'custom'
 );
 
+// Validate the Dockerfile path input
 function validateDockerfilePathValue(value: string): string {
   const trimmed = (value || '').trim();
   if (!trimmed) {
