@@ -5,6 +5,7 @@ import { AppUtils } from "../../utils/application";
 import { APPLICATION_SOURCE_TYPE, APPLICATION_BUILD_MODE, APPLICATION_MANIFEST_SOURCE_TYPE } from "../../types";
 import { parse } from "../../utils/url";
 import { BuildCache } from "./actions/restage";
+import { identity, pickBy } from "lodash";
 
 function toAppStage(apiStage: ApiAppStage): AppStage {
     return {
@@ -363,21 +364,21 @@ export function toAppForm(app: App | AppManifest): AppForm {
 
 export function appFormToCreateRequest(form: AppForm): AppCreateRequest {
     return {
-        configuration: appFormToUpdateRequest(form),
+        configuration: appFormToUpdateRequest(form, true, false),
         name: form.details.name,
     };
 }
 
-export function appFormToUpdateRequest(form: AppForm): AppUpdateRequest {
+export function appFormToUpdateRequest(form: AppForm, isCreate?: boolean, canRestart?: boolean): AppUpdateRequest {
     return {
         appChart: form.buildOptions.appChart ?? '',
         configurations: form.bindings.configurations,
         environment: form.details.environment.reduce((acc, { key, value }) => ({ ...acc, [key]: value }), {}),
         instances: form.details.instances,
-        replaceEnv: false,
-        restart: true,
-        routes: form.details.routes,
-        settings: form.details.settings,
+        replaceEnv: !isCreate,
+        restart: !!canRestart,
+        routes: form.details.routes.length > 0 ? form.details.routes : null,
+        settings: pickBy(form.details.settings, identity) || null,
     };
 }
 
@@ -422,7 +423,7 @@ function appFormToAppOrigin(form: AppForm): AppOrigin {
                 Kind: APPLICATION_MANIFEST_SOURCE_TYPE.GIT,
                 git: {
                     revision: form.source[form.source.type]?.commit,
-                    repository: form.source[form.source.type]?.repository,
+                    repository: form.source[form.source.type]?.url,
                     branch: form.source[form.source.type]?.branch,
                     provider: form.source.type,
                     gitconfig: form.source[form.source.type]?.gitConfig,

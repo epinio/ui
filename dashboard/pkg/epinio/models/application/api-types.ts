@@ -150,8 +150,8 @@ export interface ApiAppUpdateRequest {
     instances: number;
     replace_env: boolean;
     restart: boolean;
-    routes: string[];
-    settings: Record<string, string>;
+    routes: string[] | null;
+    settings: Record<string, string> | null;
 }
 
 export interface ApiAppCreateRequest {

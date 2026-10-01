@@ -94,7 +94,7 @@ export function useAppPipeline(store: any) {
           const updatedApp = await updateApp({
             namespace: details.namespace,
             app:       details.name,
-            body:      appFormToUpdateRequest(form),
+            body:      appFormToUpdateRequest(form, false, app.value?.status === 'running' && !!app.value.imageUrl),
           });
           app.value = updatedApp;
         });

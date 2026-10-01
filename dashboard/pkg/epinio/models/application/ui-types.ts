@@ -153,8 +153,8 @@ export interface AppUpdateRequest {
     instances: number;
     replaceEnv: boolean;
     restart: boolean;
-    routes: string[];
-    settings: Record<string, string>;
+    routes: string[] | null;
+    settings: Record<string, string> | null;
 }
 
 export interface AppCreateRequest {

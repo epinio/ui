@@ -79,6 +79,12 @@ watchEffect(() => {
 
 const isEdit = computed(() => props.mode === 'edit');
 
+watch(() => props.active, (isActive) => {
+  if (isActive && !props.details.name) {
+    generateDefaultName();
+  }
+});
+
 // Generate a default name for new applications
 const generateDefaultName = () => {
   try {
@@ -194,7 +200,7 @@ function onBulkFileChange(event: Event) {
         </p>
       </div>
       <trailhand-text-input
-        :value="details.name || generateDefaultName()"
+        :value="details.name"
         data-testid="epinio_app-info_name"
         label="Name"
         :placeholder="t('epinio.applications.create.namePlaceholder')"
