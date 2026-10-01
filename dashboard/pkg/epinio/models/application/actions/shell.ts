@@ -4,6 +4,9 @@ import { App } from "../ui-types";
 export function showAppShell(store: any, app: App) {
     const t = store.getters['i18n/t']
     try {
+        if (!app.deployment || !app.deployment.replicas) {
+            throw new Error('No deployment replicas available');
+        }
         const initialInstance = Object.keys(app.deployment.replicas)[0];
         if (!initialInstance) {
             throw new Error('No running instances available');

@@ -2,6 +2,7 @@ import type { Router } from 'vue-router';
 import { ResourceTableRow } from '../models/resource/ui-types';
 import { createEpinioRoute } from './custom-routing';
 import { App } from '../models/application/ui-types';
+import { PipelineStep, StepState} from '../models/application/actions/useAppPipeline';
 
 /**
  * Returns an empty non-breaking space cell element.
@@ -337,15 +338,24 @@ function actionStateToTagVariant(state: string): string {
 }
 
 const runningLabels: Record<string, string> = {
-  build:              'Building',
-  deploy:             'Deploying',
-  upload:             'Uploading',
-  gitFetch:           'Fetching',
-  create:             'Creating',
-  create_namespace:   'Creating NS',
-  bind_configurations: 'Binding',
-  bind_services:      'Binding',
-  updateSource:       'Updating',
+  build:                'Building',
+  deploy:               'Deploying',
+  upload:               'Uploading',
+  gitFetch:             'Fetching',
+  create:               'Creating',
+  bindConfigurations:   'Binding',
+  updateConfigurations: 'Updating',
+  bindServices:         'Binding',
+  updateServices:       'Updating',
+  update:               'Updating',
+};
+
+const stepStates: Record<StepState, string> = {
+  running: 'Running',
+  pending: 'Pending',
+  success: 'Success',
+  fail:    'Fail',
+
 };
 
 /**
@@ -419,13 +429,13 @@ export function makeCommitAuthorCell(row: any, unknownLabel: string): HTMLElemen
 /**
  * Creates the state cell for the build progress table.
  */
-export function makeProgressStateCell(row: any): HTMLElement {
+export function makeProgressStateCell(row: PipelineStep): HTMLElement {
   const tag = document.createElement('trailhand-tag') as any;
 
   if (row.state === 'running') {
     tag.label = runningLabels[row.action] || 'Running';
   } else {
-    tag.label = row.stateDisplay || row.state || '';
+    tag.label = stepStates[row.state] || '';
   }
 
   tag.variant = actionStateToTagVariant(row.state);

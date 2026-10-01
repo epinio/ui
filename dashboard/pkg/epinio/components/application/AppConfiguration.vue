@@ -115,7 +115,7 @@ const services = computed(() => {
         :disabled="noServices"
         filterable
         multiselect
-        @dropdown-change="(e: CustomEvent) => { updateBindings({ services: e.detail.value.map((s: string) => s.replace(`${namespace}/`, '')) }); }"
+        @dropdown-change="(e: CustomEvent) => { updateBindings({ services: e.detail.values.map((s: string) => s.replace(`${namespace}/`, '')) }); }"
         @dropdown-filter="(e: CustomEvent<{ filter: string }>) => { onServicesFilter(e.detail.filter); }"
         :isLoading="isLoadingServices"
       ></trailhand-dropdown>

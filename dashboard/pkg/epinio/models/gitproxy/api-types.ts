@@ -18,6 +18,9 @@ export type ApiGitProxyGitlabUserResponse = ApiGitProxyGitlabGroupResponse[];
 export interface ApiGitProxyGitRepo {
   id: number;
   name: string;
+  path_with_namespace?: string;
+  web_url?: string;
+  html_url?: string;
   [key: string]: any;
 }
 

@@ -41,10 +41,11 @@ const originalBindings = ref<EpinioAppBindings>();
 const appChart = reactive({ chartsList: undefined as any, selectedChart: undefined });
 const epinioInfo = ref<any>(null);
 const originalModel = ref<any>(null);
+const initialApp = ref<App | null>(null);
 
 const snapshot = ref<string | null>(null);
 
-const { form, populateFormFromApp, clearForm, resetForm, state, update } = useAppForm(modalMode);
+const { form, initialForm, populateFormFromApp, clearForm, resetForm, state, update } = useAppForm(modalMode);
 
 const saving = ref(false);
 const errors = ref<string[]>([]);
@@ -55,7 +56,7 @@ const tabs = computed(() => [
   { id: 'build', label: 'Build Options', completed: (state.buildOptions.dirty.value || isEdit.value) && state.buildOptions.valid.value, valid: state.buildOptions.valid.value, disabled: isEdit.value ? false : !state.source.valid.value || isProgress.value, visible: true },
   { id: 'details', label: 'Details', completed: (state.details.dirty.value || isEdit.value) && state.details.valid.value, valid: state.details.valid.value, disabled: isEdit.value ? false : !state.buildOptions.valid.value || isProgress.value, visible: true },
   { id: 'bindings', label: 'Bindings', completed: (state.bindings.dirty.value || isEdit.value) && state.bindings.valid.value, valid: state.bindings.valid.value, disabled: isEdit.value ? false : !state.details.valid.value || isProgress.value, visible: true },
-  { id: 'progress', label: 'Progress', completed: false, valid: true, disabled: !state.source.dirty.value && !state.valid.value, visible: modalMode.value === 'create' || state.source.dirty.value }
+  { id: 'progress', label: 'Progress', completed: false, valid: true, disabled: !state.dirty.value || !state.valid.value, visible: true }
 ])
 
 const isEdit = computed(() => modalMode.value === 'edit');
@@ -141,6 +142,7 @@ async function openEdit(row: App, commit?: string) {
   modalMode.value = 'edit';
   // loading.value = true;
   showModal.value = true;  // open modal first so user sees loading state
+  initialApp.value = row;
 
   populateFormFromApp(row, true);
 
@@ -372,44 +374,52 @@ async function onSubmit() {
   saving.value = true;
   errors.value = [];
 
-  try {
-    if (isEdit.value) {
-      // Nothing is saved yet, so bail before a half-applied edit.
-      if (isSourceDirty.value && needsUploadedSource.value && !source.value?.archive?.tarball) {
-        errors.value = [t('epinio.applications.action.upload.missingSource')];
-        saving.value = false;
-
-        return;
-      }
-
-      // Always save metadata/config changes
-      await value.value.update({ restart: !!value.value.canRestartAfterConfigSave });
-      await value.value.updateConfigurations(
-        originalBindings.value?.configurations || [],
-        bindings.value?.configurations || [],
-      );
-      await value.value.updateServices(
-        originalBindings.value?.services || [],
-        bindings.value?.services || [],
-      );
-
-      if (isSourceDirty.value) {
-        // Source changed — need full redeploy pipeline
-        saving.value = false;
-        completeTab('bindings', 'progress'); // progress tab handles the rest
-      } else {
-        await value.value.forceFetch();
-        emit('saved', value.value?.meta?.namespace);
-        closeModal();
-      }
-    } else {
-      completeTab('bindings', 'progress');
-    }
-  } catch (err: any) {
-    errors.value = epinioExceptionToErrorsArray(err);
-  } finally {
-    if (!isEdit.value) saving.value = false;
+  // Guard: uploaded source required but not provided
+  if (isEdit.value && isSourceDirty.value && needsUploadedSource.value && !form.value.source.archive?.tarball) {
+    errors.value = [t('epinio.applications.action.upload.missingSource')];
+    return;
   }
+
+  completeTab('bindings', 'progress');
+
+  // try {
+  //   if (isEdit.value) {
+  //     // Nothing is saved yet, so bail before a half-applied edit.
+  //     if (isSourceDirty.value && needsUploadedSource.value && !source.value?.archive?.tarball) {
+  //       errors.value = [t('epinio.applications.action.upload.missingSource')];
+  //       saving.value = false;
+
+  //       return;
+  //     }
+
+  //     // Always save metadata/config changes
+  //     await value.value.update({ restart: !!value.value.canRestartAfterConfigSave });
+  //     await value.value.updateConfigurations(
+  //       originalBindings.value?.configurations || [],
+  //       bindings.value?.configurations || [],
+  //     );
+  //     await value.value.updateServices(
+  //       originalBindings.value?.services || [],
+  //       bindings.value?.services || [],
+  //     );
+
+  //     if (isSourceDirty.value) {
+  //       // Source changed — need full redeploy pipeline
+  //       saving.value = false;
+  //       completeTab('bindings', 'progress'); // progress tab handles the rest
+  //     } else {
+  //       await value.value.forceFetch();
+  //       emit('saved', value.value?.meta?.namespace);
+  //       closeModal();
+  //     }
+  //   } else {
+  //     completeTab('bindings', 'progress');
+  //   }
+  // } catch (err: any) {
+  //   errors.value = epinioExceptionToErrorsArray(err);
+  // } finally {
+  //   if (!isEdit.value) saving.value = false;
+  // }
 }
 
 // Creates and source redeploys run through the progress tab's pipeline, so the
@@ -499,18 +509,15 @@ defineExpose({ openCreate, openEdit });
         </template>
 
         <template #progress="{ tab }">
-          <!-- <AppProgress
-            v-if="tab.visible"
-            :application="value"
-            :source="source"
-            :bindings="bindings"
+          <AppProgress
+            :form="form"
+            :initialForm="initialForm"
+            :initialApp="initialApp"
+            :isSourceDirty="state.source.dirty.value"
+            :isBindingsDirty="state.bindings.dirty.value"
             :mode="modalMode"
-            :tab="tab"
             :active="activeTab === tab.id"
-            @finished="handleProgressFinished"
-            @failed="handleProgressFailed"
-          /> -->
-          <p>Progress Placeholder</p>
+          />
       </template>
       </Tabs>
       <Banner

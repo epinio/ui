@@ -70,7 +70,7 @@ export interface AppStage {
 export interface App {
     meta: AppMeta;
     configuration: AppConfiguration;
-    deployment: AppDeployment;
+    deployment?: AppDeployment;
     imageUrl: string;
     origin: AppOrigin;
     stageId: string;
@@ -102,21 +102,21 @@ export interface AppDeploymentStatus {
 
 export interface AsyncDeployRequest {
     app: AppMeta;
-    blobUid: string;
-    builderImage: string;
-    buildMode: string;
-    dockerfilePath: string;
-    image: string;
+    blobUid?: string;
+    builderImage?: string;
+    buildMode?: string;
+    dockerfilePath?: string;
+    image?: string;
     origin: AppOrigin;
 }
 
 export interface AppStageRequest {
     app: AppMeta;
-    blobUid: string;
-    builderImage: string;
-    buildMode: string;
-    dockerfilePath: string;
-    image: string;
+    blobUid?: string;
+    builderImage?: string;
+    buildMode?: string;
+    dockerfilePath?: string;
+    image?: string;
 }
 
 export interface AppStageResponse {
@@ -190,6 +190,10 @@ export interface AppManifest {
     staging: AppStage;    
 }
 
+export interface AppStoreArchiveResponse {
+    blobUid: string;
+}
+
 // FORM ///////////////////////////////////////////////////////////////////////////
 export type AppFormSourceType = 'containerUrl' | 'archive' | 'folder' | 'gitUrl' | 'github' | 'gitlab';
 export interface AppFormSource {
@@ -216,6 +220,7 @@ export interface AppFormSource {
         repository: string;
         branch: string;
         commit: string;
+        url: string;
     },
     gitlab?: {
         gitConfig?: string;
@@ -223,6 +228,7 @@ export interface AppFormSource {
         repository: string;
         branch: string;
         commit: string;
+        url: string;
     },
 }
 

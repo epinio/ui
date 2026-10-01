@@ -11,6 +11,9 @@ export function useApplicationSocketMixin(props: { application: App, endpoint: s
   const backlog = ref<Array<any>>([]);
 
   const instanceChoices = computed(() => {
+    if (!props.application?.deployment?.replicas) {
+      return [];
+    }
     return Object.keys(props.application.deployment.replicas);
   });
 

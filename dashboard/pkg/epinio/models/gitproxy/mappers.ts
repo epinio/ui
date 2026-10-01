@@ -34,6 +34,9 @@ export function toGitProxyGitRepo(response: ApiGitProxyGitRepo): GitProxyGitRepo
         ...response,
         id: response.id,
         name: response.name,
+        pathWithNamespace: response.path_with_namespace,
+        webUrl: response.web_url,
+        htmlUrl: response.html_url,
     };
 }
 

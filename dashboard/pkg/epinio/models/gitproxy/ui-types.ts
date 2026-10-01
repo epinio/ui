@@ -18,6 +18,9 @@ export type GitProxyGitlabUserResponse = GitProxyGitlabGroupResponse[];
 export interface GitProxyGitRepo {
   id: number;
   name: string;
+  pathWithNamespace?: string;
+  webUrl?: string;
+  htmlUrl?: string;
   [key: string]: any;
 }
 

@@ -4,16 +4,18 @@ import { useCluster } from "../../../queries/useCluster";
 import { createEpinioClient } from "../../../api/client";
 import { AppUtils } from "../../../utils/application";
 import { APPLICATION_SOURCE_TYPE, APPLICATION_MANIFEST_SOURCE_TYPE } from "../../../types";
-import { toAppDeploymentStatus, toApiAsyncDeployRequest, toApiAppStageRequest, toAppStageResponse } from "../mappers";
-import { AsyncDeployRequest, AppDeploymentStatus, AppStageRequest, AppStageResponse, AppDeployRequest } from "../ui-types";
+import { toAppDeploymentStatus, toApiAsyncDeployRequest, toApiAppStageRequest, toAppStageResponse, toApp } from "../mappers";
+import { AsyncDeployRequest, AppDeploymentStatus, AppStageRequest, AppStageResponse, AppDeployRequest, AppMeta } from "../ui-types";
 import { epinioQueryClient } from "../../../api/queryClient";
 import { showAppLog, showStagingLog } from "./logs";
 
-interface BuildCache {
-  deployMode?:              'sync' | 'async';
+export interface BuildCache {
+  deployMode?: 'sync' | 'async';
   asyncDeployDeploymentId?: string;
-  stageForSync?:            { stage: { id: string }; image: string };
-  deployment?:              AppDeploymentStatus;
+  stageForSync?: { stage: { id: string }; image: string };
+  deployment?: AppDeploymentStatus;
+  blobUid?: string;
+  appMeta?: AppMeta;
 }
 
 // localStorage helpers
@@ -184,7 +186,7 @@ async function ensureAsyncDeployStarted(
 
 async function pollDeploymentUntil(
   api: ReturnType<typeof applicationsApi>,
-  app: App,
+  // app: App,
   store: any,
   namespace: string,
   name: string,
@@ -199,8 +201,10 @@ async function pollDeploymentUntil(
     const status = await getDeploymentStatus(api, namespace, name, deploymentId);
 
     if (status?.stageId && !stagingLogShown) {
+      const fetchedApp = toApp(await api.getApp(namespace, name));
+      console.log('PollDeploymentUntil: Fetched app for staging:', fetchedApp);
+      showStagingLog(store, {...fetchedApp, stageId: status.stageId});
       stagingLogShown = true;
-      showStagingLog(store, {...app, stageId: status.stageId});
     }
 
     if (donePred(status) || status?.status === 'failed') return status;
@@ -217,7 +221,7 @@ async function pollDeploymentUntil(
 
 async function waitForDeployment(
   api: ReturnType<typeof applicationsApi>,
-  app: App,
+  // app: App,
   store: any,
   namespace: string,
   name: string,
@@ -233,7 +237,9 @@ async function waitForDeployment(
 
     if (status?.stageId && !stagingLogShown) {
       stagingLogShown = true;
-      showStagingLog(store, {...app, stageId: status.stageId});
+      const fetchedApp = toApp(await api.getApp(namespace, name));
+      console.log('WaitForDeployment: Fetched app for staging:', fetchedApp);
+      showStagingLog(store, {...fetchedApp, stageId: status.stageId});
     }
 
     if (status?.status === 'succeeded') {
@@ -280,9 +286,9 @@ async function waitForAppReadyOrError(
   }
 }
 
-async function waitAsyncBuildPhase(
+export async function waitAsyncBuildPhase(
   api: ReturnType<typeof applicationsApi>,
-  app: App,
+  // app: App,
   store: any,
   namespace: string,
   name: string,
@@ -296,9 +302,14 @@ async function waitAsyncBuildPhase(
 
   if (buildCache.deployMode === 'sync') {
     const result = await stage(api, namespace, name, request, buildCache);
+    if (!request.image) {
+      throw new Error('Image is required for sync stage');
+    }
     buildCache.stageForSync = { stage: result.stage, image: request.image };
     if (result.stage?.id) {
-      showStagingLog(store, {...app, stageId: result.stage.id});
+      const fetchedApp = toApp(await api.getApp(namespace, name));
+      console.log('WaitAsyncBuildPhase: Fetched app for staging:', fetchedApp);
+      showStagingLog(store, {...fetchedApp, stageId: result.stage.id});
       await waitForStaging(api, namespace, result.stage.id);
     }
     return;
@@ -308,7 +319,7 @@ async function waitAsyncBuildPhase(
   if (!id) return; // accepted but no id, Do not fallback to sync build to avoid duplicate stage jobs
 
   const status = await pollDeploymentUntil(
-    api, app, store, namespace, name, id,
+    api, /* app, */ store, namespace, name, id,
     (s) => ['deploying', 'succeeded', 'failed'].includes(s.status),
   );
 
@@ -319,9 +330,9 @@ async function waitAsyncBuildPhase(
   }
 }
 
-async function waitAsyncDeployPhase(
+export async function waitAsyncDeployPhase(
   api: ReturnType<typeof applicationsApi>,
-  app: App,
+  // app: App,
   store: any,
   namespace: string,
   name: string,
@@ -332,6 +343,9 @@ async function waitAsyncDeployPhase(
   await ensureAsyncDeployStarted(api, namespace, name, request, buildCache);
 
   if (buildCache.deployMode === 'sync') {
+    if (!request.image) {
+      throw new Error('Image is required for sync deploy');
+    }
     await api.deploy(namespace, name, {
       app:    request.app,
       image:  request.image,
@@ -347,7 +361,7 @@ async function waitAsyncDeployPhase(
   const id = buildCache.asyncDeployDeploymentId;
 
   if (id) {
-    await waitForDeployment(api, app, store, namespace, name, id, clusterId);
+    await waitForDeployment(api, /* app, */ store, namespace, name, id, clusterId);
     return;
   }
 
@@ -450,7 +464,7 @@ export async function restageApp(
     if (!app.deployment) {
       clearPersistedAsyncDeploymentId(namespace, name);
       await waitAsyncDeployPhase(
-        api, app, store, namespace, name,
+        api, /* app, */ store, namespace, name,
         {
           app:          app.meta,
           blobUid:      app.blobUid || '',

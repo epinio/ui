@@ -52,3 +52,21 @@ export function epinioExceptionToErrorsArray(err: any): any {
 
   return normalize(err);
 }
+
+export function extractErrorMessage(err: any): string {
+  if (typeof err === 'string') return err;
+  if (err?._status) {
+    const body = err?.message || err?.reason || err?._statusText;
+
+    if (body) return `${ err._status }: ${ body }`;
+
+    return `Request failed with status ${ err._status }`;
+  }
+  if (err?.response?.data?.message) return err.response.data.message;
+  if (err?.message) return err.message;
+  try {
+    return JSON.stringify(err);
+  } catch {
+    return 'An unknown error occurred';
+  }
+}

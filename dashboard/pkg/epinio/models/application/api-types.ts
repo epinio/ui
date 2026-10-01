@@ -71,7 +71,7 @@ export interface ApiAppStage {
 export interface ApiApp {
     meta: ApiAppMeta;
     configuration: ApiAppConfiguration;
-    deployment: ApiAppDeployment;
+    deployment?: ApiAppDeployment;
     image_url: string;
     origin: ApiAppOrigin;
     stage_id: string;
@@ -99,21 +99,21 @@ export interface ApiAppDeploymentStatus {
 
 export interface ApiAsyncDeployRequest {
     app: ApiAppMeta;
-    blobuid: string;
-    builderimage: string;
-    buildmode: string;
-    dockerfilepath: string;
-    image: string;
+    blobuid?: string;
+    builderimage?: string;
+    buildmode?: string;
+    dockerfilepath?: string;
+    image?: string;
     origin: ApiAppOrigin;
 }
 
 export interface ApiAppStageRequest {
     app: ApiAppMeta;
-    blobuid: string;
-    builderimage: string;
-    buildmode: string;
-    dockerfilepath: string;
-    image: string;
+    blobuid?: string;
+    builderimage?: string;
+    buildmode?: string;
+    dockerfilepath?: string;
+    image?: string;
 }
 
 export interface ApiAppStageResponse {
@@ -186,4 +186,8 @@ export interface ApiAppManifest {
     configuration: ApiAppConfiguration;
     origin: ApiAppOrigin;
     staging: ApiAppStage;    
+}
+
+export interface ApiAppStoreArchiveResponse {
+    blobuid: string;
 }

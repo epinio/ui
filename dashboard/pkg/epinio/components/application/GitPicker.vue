@@ -9,6 +9,12 @@ import { ResourceQueryOptions } from '../../models/resource/ui-types';
 import { GitConfig } from '../../models/gitconfig/ui-types';
 import { AppFormSource } from 'models/application/ui-types';
 import { useGitConfig } from '../../queries/useGitConfigQueries';
+import { APPLICATION_SOURCE_TYPE } from '../../types';
+
+const GIT_BASE_URL = {
+  [APPLICATION_SOURCE_TYPE.GIT_HUB]: 'https://github.com',
+  [APPLICATION_SOURCE_TYPE.GIT_LAB]: 'https://gitlab.com',
+};
 
 const props = defineProps<{
   gitSource: AppFormSource['github'] | AppFormSource['gitlab'];
@@ -287,7 +293,13 @@ const tableRows = computed(() => {
           filterable
           :loading="isGitReposLoading"
           @dropdown-change="(e: CustomEvent) => {
-            updateSource(gitType, { repository: e.detail.value, branch: '', commit: '' });
+            const repo = gitRepos?.find(r => r.name === e.detail.value);
+            if (!repo) return;
+
+            const url = gitType === 'gitlab'
+              ? (repo.webUrl || `${GIT_BASE_URL[gitType]}/${repo.pathWithNamespace}`)
+              : (repo.htmlUrl || `${GIT_BASE_URL[gitType]}/${gitSource?.userOrOrg}/${repo.name}`)
+            updateSource(gitType, { repository: repo.name, url, branch: '', commit: '' });
           }"
           @dropdown-filter="(e: CustomEvent<{ filter: string }>) => { repoQuery = e.detail.filter; }"
         />

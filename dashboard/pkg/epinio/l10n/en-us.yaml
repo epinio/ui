@@ -394,15 +394,21 @@ epinio:
       create:
         label: Create Application
         description: The Application will be created ready to deploy source to
-      bind_configurations:
-        label: Bind Configurations
-        description: Configurations will be bound to the new Application
-      updateSource:
+      update:
         label: Updating
         description: Updates the application source and settings
-      bind_services:
+      bindConfigurations:
+        label: Bind Configurations
+        description: Configurations will be bound to the new Application
+      updateConfigurations:
+        label: Updating Configurations
+        description: Updates the application's configuration bindings
+      bindServices:
         label: Bind Services
         description: Services will be bound to the new Application
+      updateServices:
+        label: Updating Services
+        description: Updates the application's service bindings
       gitFetch:
         label: Fetch
         description: Fetch the files at the git repository's branch

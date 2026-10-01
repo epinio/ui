@@ -6,6 +6,12 @@ export interface EpinioClusterContext {
   createAuthConfig: (type: EpinioAuthTypes) => any;
 }
 
+type EpinioRequestOpts = RequestInit & {
+  params?:       object;
+  responseType?: 'json' | 'blob' | 'text';
+  signal?:       AbortSignal;
+};
+
 export class EpinioApiError extends Error {
   status?: number;
   data?: any;
@@ -37,8 +43,20 @@ function readCookie(name: string): string | undefined {
   return match ? decodeURIComponent(match.split('=')[1]) : undefined;
 }
 
+function serializeBody(body: unknown): BodyInit | undefined {
+  if (body === undefined) return undefined;
+  if (body instanceof FormData) return body;
+  return JSON.stringify(body);
+}
+
+function headersFor(body: unknown, extra?: HeadersInit): HeadersInit {
+  // Let fetch set content-type automatically for FormData (includes boundary)
+  if (body instanceof FormData) return extra ?? {};
+  return { 'content-type': 'application/json', ...extra };
+}
+
 export function createEpinioClient(cluster: EpinioClusterContext, isExtension: boolean = false) {
-  async function request(path: string,  opts: RequestInit & { params?: object, responseType?: 'json' | 'blob' | 'text', signal?: AbortSignal } = {}) {
+  async function request(path: string,  opts: EpinioRequestOpts = {}) {
     const { params, signal, ...fetchOpts } = opts;
 
     const query = params ? buildQueryString(params) : '';
@@ -55,7 +73,7 @@ export function createEpinioClient(cluster: EpinioClusterContext, isExtension: b
       credentials: 'include',
       signal,
       headers: {
-        'content-type': 'application/json',
+        ...headersFor(fetchOpts.body),
         ...(authHeader ? { Authorization: authHeader } : {}),
         ...(isMutating && csrfToken ? { 'X-Api-Csrf': `${csrfToken}=` } : {}),
         ...fetchOpts.headers,
@@ -88,9 +106,10 @@ export function createEpinioClient(cluster: EpinioClusterContext, isExtension: b
   }
 
   return {
-    get:    (path: string, opts?: RequestInit & { params?: object, responseType?: 'json' | 'blob' | 'text', signal?: AbortSignal }) => request(path, { ...opts, method: 'GET' }),
-    post:   (path: string, body?: unknown, opts?: RequestInit & { params?: object, responseType?: 'json' | 'blob' | 'text', signal?: AbortSignal }) => request(path, { ...opts, method: 'POST', body: JSON.stringify(body) }),
-    put:    (path: string, body?: unknown, opts?: RequestInit & { params?: object, responseType?: 'json' | 'blob' | 'text', signal?: AbortSignal }) => request(path, { ...opts, method: 'PUT', body: JSON.stringify(body) }),
-    patch:  (path: string, body?: unknown, opts?: RequestInit & { params?: object, responseType?: 'json' | 'blob' | 'text', signal?: AbortSignal }) => request(path, { ...opts, method: 'PATCH', body: JSON.stringify(body) }),
-    delete: (path: string, body?: unknown, opts?: RequestInit & { params?: object, responseType?: 'json' | 'blob' | 'text', signal?: AbortSignal }) => request(path, { ...opts, method: 'DELETE', body: body ? JSON.stringify(body) : undefined }),  };
+    get:    (path: string, opts?: EpinioRequestOpts) => request(path, { ...opts, method: 'GET' }),
+    post:   (path: string, body?: unknown, opts?: EpinioRequestOpts) => request(path, { ...opts, method: 'POST', body: serializeBody(body) }),
+    put:    (path: string, body?: unknown, opts?: EpinioRequestOpts) => request(path, { ...opts, method: 'PUT', body: serializeBody(body) }),
+    patch:  (path: string, body?: unknown, opts?: EpinioRequestOpts) => request(path, { ...opts, method: 'PATCH', body: serializeBody(body) }),
+    delete: (path: string, body?: unknown, opts?: EpinioRequestOpts) => request(path, { ...opts, method: 'DELETE', body: serializeBody(body) }),  
+  };
 }

@@ -1,9 +1,10 @@
-import { ApiApp, ApiAppConfiguration, ApiAppDeployment, ApiAppOrigin, ApiAppStage, ApiAppGitRef, ApiListAppsResponse, ApiAppDeploymentStatus, ApiAsyncDeployRequest, ApiAppStageRequest, ApiAppStageResponse, ApiAppDeployRequest, ApiAppDeployResponse, ApiAppDeleteRequest, ApiAppUpdateRequest, ApiAppCreateRequest, ApiAppGitImportParams, ApiAppGitImportResponse, ApiAppDeploymentsRequest, ApiAppManifest } from "./api-types";
-import { App, AppConfiguration, AppDeployment, AppOrigin, AppStage, AppGitRef, ListAppsResponse, AppDeploymentStatus, AsyncDeployRequest, AppStageRequest, AppStageResponse, AppDeployRequest, AppDeployResponse, AppDeleteRequest, AppUpdateRequest, AppCreateRequest, AppGitImportParams, AppGitImportResponse, AppDeploymentsRequest, AppFormSource, AppFormBindings, AppFormDetails, AppFormBuildOptions, AppForm, AppManifest } from "./ui-types";
+import { ApiApp, ApiAppConfiguration, ApiAppDeployment, ApiAppOrigin, ApiAppStage, ApiAppGitRef, ApiListAppsResponse, ApiAppDeploymentStatus, ApiAsyncDeployRequest, ApiAppStageRequest, ApiAppStageResponse, ApiAppDeployRequest, ApiAppDeployResponse, ApiAppDeleteRequest, ApiAppUpdateRequest, ApiAppCreateRequest, ApiAppGitImportParams, ApiAppGitImportResponse, ApiAppDeploymentsRequest, ApiAppManifest, ApiAppStoreArchiveResponse } from "./api-types";
+import { App, AppConfiguration, AppDeployment, AppOrigin, AppStage, AppGitRef, ListAppsResponse, AppDeploymentStatus, AsyncDeployRequest, AppStageRequest, AppStageResponse, AppDeployRequest, AppDeployResponse, AppDeleteRequest, AppUpdateRequest, AppCreateRequest, AppGitImportParams, AppGitImportResponse, AppDeploymentsRequest, AppFormSource, AppFormBindings, AppFormDetails, AppFormBuildOptions, AppForm, AppManifest, AppStoreArchiveResponse, AppMeta } from "./ui-types";
 import { statusToStateDisplay } from "../../models/resource/mappers";
 import { AppUtils } from "../../utils/application";
 import { APPLICATION_SOURCE_TYPE, APPLICATION_BUILD_MODE, APPLICATION_MANIFEST_SOURCE_TYPE } from "../../types";
 import { parse } from "../../utils/url";
+import { BuildCache } from "./actions/restage";
 
 function toAppStage(apiStage: ApiAppStage): AppStage {
     return {
@@ -26,7 +27,8 @@ function toAppConfiguration(apiConfiguration: ApiAppConfiguration): AppConfigura
     };
 }
 
-function toAppDeployment(apiDeployment: ApiAppDeployment): AppDeployment {
+function toAppDeployment(apiDeployment: ApiAppDeployment | undefined): AppDeployment | undefined {
+    if (!apiDeployment) return undefined;
     return {
         active: apiDeployment.active,
         createdAt: apiDeployment.createdAt,
@@ -251,6 +253,12 @@ export function toAppManifest(apiManifest: ApiAppManifest): AppManifest {
     };
 }
 
+export function toAppStoreArchiveResponse(apiResponse: ApiAppStoreArchiveResponse): AppStoreArchiveResponse {
+    return {
+        blobUid: apiResponse.blobuid,
+    };
+}
+
 // FORM MAPPERs
 function toAppFormGitData(gitData: AppGitRef): AppFormSource['github' | 'gitlab'] {
     const url = gitData.repository;
@@ -263,6 +271,7 @@ function toAppFormGitData(gitData: AppGitRef): AppFormSource['github' | 'gitlab'
         commit: gitData.revision || '',
         repository: parts[2],
         gitConfig: gitData.gitconfig,
+        url: url || '',
     };
 }
 
@@ -302,12 +311,12 @@ export function toAppFormSource(origin: AppOrigin): AppFormSource {
         case APPLICATION_SOURCE_TYPE.GIT_HUB:
             return {
                 type: APPLICATION_SOURCE_TYPE.GIT_HUB,
-                github: origin.git ? toAppFormGitData(origin.git) : { userOrOrg: '', branch: '', commit: '', repository: '', gitConfig: '' },
+                github: origin.git ? toAppFormGitData(origin.git) : { userOrOrg: '', branch: '', commit: '', repository: '', gitConfig: '', url: '' },
             };
         case APPLICATION_SOURCE_TYPE.GIT_LAB:
             return {
                 type: APPLICATION_SOURCE_TYPE.GIT_LAB,
-                gitlab: origin.git ? toAppFormGitData(origin.git) : { userOrOrg: '', branch: '', commit: '', repository: '', gitConfig: '' },
+                gitlab: origin.git ? toAppFormGitData(origin.git) : { userOrOrg: '', branch: '', commit: '', repository: '', gitConfig: '', url: '' },
             };
         default:
             throw new Error(`Unsupported source type: ${sourceType}`);
@@ -351,4 +360,111 @@ export function toAppForm(app: App | AppManifest): AppForm {
         bindings: toAppFormBindings(app),
     };
 }
+
+export function appFormToCreateRequest(form: AppForm): AppCreateRequest {
+    return {
+        configuration: appFormToUpdateRequest(form),
+        name: form.details.name,
+    };
+}
+
+export function appFormToUpdateRequest(form: AppForm): AppUpdateRequest {
+    return {
+        appChart: form.buildOptions.appChart ?? '',
+        configurations: form.bindings.configurations,
+        environment: form.details.environment.reduce((acc, { key, value }) => ({ ...acc, [key]: value }), {}),
+        instances: form.details.instances,
+        replaceEnv: false,
+        restart: true,
+        routes: form.details.routes,
+        settings: form.details.settings,
+    };
+}
+
+function appFormToAppMeta(form: AppForm): AppMeta {
+    return {
+        name: form.details.name,
+        namespace: form.details.namespace,
+        createdAt: ''
+    };
+}
+
+function appFormToAppOrigin(form: AppForm): AppOrigin {
+    switch (form.source.type) {
+        case APPLICATION_SOURCE_TYPE.ARCHIVE:
+            return {
+                Kind: APPLICATION_MANIFEST_SOURCE_TYPE.PATH,
+                archive: true,
+                path: form.source.archive?.name,
+            };
+        case APPLICATION_SOURCE_TYPE.FOLDER:
+            return {
+                Kind: APPLICATION_MANIFEST_SOURCE_TYPE.PATH,
+                path: form.source.folder?.name,
+            };
+        case APPLICATION_SOURCE_TYPE.CONTAINER_URL:
+            return {
+                Kind: APPLICATION_MANIFEST_SOURCE_TYPE.CONTAINER,
+                container: form.source.containerUrl?.url,
+            };
+        case APPLICATION_SOURCE_TYPE.GIT_URL:
+            return {
+                Kind: APPLICATION_MANIFEST_SOURCE_TYPE.GIT,
+                git: {
+                    revision: form.source.gitUrl?.branch,
+                    repository: form.source.gitUrl?.url,
+                    gitconfig: form.source.gitUrl?.gitConfig,
+                },
+            };
+        case APPLICATION_SOURCE_TYPE.GIT_HUB:
+        case APPLICATION_SOURCE_TYPE.GIT_LAB:
+            return {
+                Kind: APPLICATION_MANIFEST_SOURCE_TYPE.GIT,
+                git: {
+                    revision: form.source[form.source.type]?.commit,
+                    repository: form.source[form.source.type]?.repository,
+                    branch: form.source[form.source.type]?.branch,
+                    provider: form.source.type,
+                    gitconfig: form.source[form.source.type]?.gitConfig,
+                },
+            };
+        default:
+            throw new Error(`Unsupported application source type: ${form.source.type}`);
+    }
+}
+
+export function appFormToAsyncDeployRequest(form: AppForm, cache: BuildCache): AsyncDeployRequest {
+    const isContainer = form.source.type === 'containerUrl';
+    return {
+        app: cache.appMeta || appFormToAppMeta(form),
+        blobUid: isContainer ? undefined : cache.blobUid,
+        builderImage: isContainer ? undefined : form.buildOptions.builderImage,
+        origin: appFormToAppOrigin(form),
+        buildMode: isContainer ? undefined : form.buildOptions.buildMode,
+        dockerfilePath: isContainer ? undefined : form.buildOptions.dockerfilePath,
+        image: isContainer ? form.source.containerUrl?.url : undefined,
+    };
+}
+
+export function resolveGitParams(source: AppFormSource): { url?: string; rev?: string; gitConfig?: string } {
+  switch(source.type) {
+    case APPLICATION_SOURCE_TYPE.GIT_URL:
+      return {
+        url: source.gitUrl?.url,
+        rev: source.gitUrl?.branch,
+        gitConfig: source.gitUrl?.gitConfig,
+      };
+    case APPLICATION_SOURCE_TYPE.GIT_HUB:
+    case APPLICATION_SOURCE_TYPE.GIT_LAB:
+      const gitSource = source[source.type];
+      return {
+        url: gitSource?.url,
+        rev: gitSource?.commit,
+        gitConfig: gitSource?.gitConfig,
+      };
+    default:
+      return {};
+  }
+};
+    
 

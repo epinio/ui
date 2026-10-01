@@ -7,6 +7,7 @@ import { ChartSetting } from "models/catalogservice/ui-types";
 
 interface UseAppFormReturn {
     form: Ref<AppForm>;
+    initialForm: Ref<AppForm>;
     populateFormFromApp: (app: App | AppManifest, setInitial?: boolean) => AppForm;
     clearForm: () => void;
     resetForm: () => void;
@@ -271,6 +272,7 @@ export function useAppForm(mode: Ref<'create' | 'edit'>): UseAppFormReturn {
 
     return {
         form,
+        initialForm,
         populateFormFromApp,
         clearForm,
         resetForm,

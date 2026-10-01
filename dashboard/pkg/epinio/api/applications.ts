@@ -1,6 +1,6 @@
 import { createEpinioClient } from "./client";
 import { ApiListResourceRequestParams } from "../models/resource/api-types";
-import { ApiListAppsResponse, ApiAppDeploymentStatus, ApiAsyncDeployRequest, ApiAppStageRequest, ApiAppStageResponse, ApiApp, ApiAppDeployRequest, ApiAppDeployResponse, ApiAppDeleteRequest } from "../models/application/api-types";
+import { ApiListAppsResponse, ApiAppDeploymentStatus, ApiAsyncDeployRequest, ApiAppStageRequest, ApiAppStageResponse, ApiApp, ApiAppDeployRequest, ApiAppDeployResponse, ApiAppDeleteRequest, ApiAppCreateRequest, ApiAppUpdateRequest, ApiAppStoreArchiveResponse, ApiAppGitImportResponse } from "../models/application/api-types";
     
 export function applicationsApi(epinioClient: ReturnType<typeof createEpinioClient>) {
     const appsBasePath = '/api/v1/applications';
@@ -52,5 +52,18 @@ export function applicationsApi(epinioClient: ReturnType<typeof createEpinioClie
                 body
             );
         },
+        createApp: async (namespace: string, body: ApiAppCreateRequest) => {
+            return await epinioClient.post(`${namespacesBasePath}/${namespace}/applications`, body);
+        },
+        updateApp: async (namespace: string, app: string, body: ApiAppUpdateRequest) => {
+            return await epinioClient.patch(`${namespacesBasePath}/${namespace}/applications/${app}`, body);
+        },
+        storeArchive: async (namespace: string, app: string, data: FormData, size: string): Promise<ApiAppStoreArchiveResponse> => {
+            return await epinioClient.post(`${namespacesBasePath}/${namespace}/applications/${app}/store`, data, { headers: { 'File-Size': size } });
+        },
+        importGit: async (namespace: string, app: string, data: FormData): Promise<ApiAppGitImportResponse> => {
+            return await epinioClient.post(`${namespacesBasePath}/${namespace}/applications/${app}/import-git`, data, { headers: { 'accept': 'gzip' } });
+        },
+
     };
 }

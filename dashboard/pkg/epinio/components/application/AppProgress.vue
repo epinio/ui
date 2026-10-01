@@ -1,7 +1,6 @@
 <script lang="ts" setup>
 import { ref, computed, watch, reactive } from 'vue';
 import { useStore } from 'vuex';
-
 import ApplicationAction, { APPLICATION_ACTION_TYPE } from '../../models/application-action';
 import {
   EPINIO_TYPES,
@@ -11,13 +10,16 @@ import {
   EpinioAppBindings
 } from '../../types';
 import { makeProgressStateCell } from '../../utils/table-formatters';
+import { useAppPipeline, PipelineStep } from '../../models/application/actions/useAppPipeline';
+import { App, AppForm } from '../../models/application/ui-types';
 
 const props = defineProps<{
-  application: EpinioApplication,
-  source: EpinioAppSource,
-  bindings?: EpinioAppBindings | null,
-  mode: string,
-  tab: any,
+  form: AppForm,
+  initialForm: AppForm,
+  initialApp: App | null,
+  isSourceDirty: boolean,
+  isBindingsDirty: boolean,
+  mode: 'create' | 'edit',
   active: boolean,
 }>();
 
@@ -26,30 +28,33 @@ const emit = defineEmits(['finished', 'failed']);
 const store = useStore();
 const t = store.getters['i18n/t'];
 
-const running = ref(false);
-const failed = ref(false);
+// const running = ref(false);
+// const failed = ref(false);
 const actions = ref<ApplicationAction[]>([]);
+
+const { steps, running, failed, isDone, buildCache, run } = useAppPipeline(store);
 
 const columns = [
   {
-    field: 'name',
+    field: 'label',
     label: t('epinio.applications.steps.progress.table.stage.label'),
     width: '150px',
     sortable: false,
+    formatter: (_v: any, row: PipelineStep) => t(`epinio.applications.action.${ row.action }.label`) || '',
   },
   {
     field: 'description',
     label: t('tableHeaders.description'),
     width: '450px',
     sortable: false,
-    formatter: (_v: any, row: any) => {
+    formatter: (_v: any, row: PipelineStep) => {
       const wrapper = document.createElement('span');
 
       wrapper.style.cssText = 'display:flex; flex-direction:column;';
 
       const main = document.createElement('span');
 
-      main.textContent = row.description || '';
+      main.textContent = t(`epinio.applications.action.${ row.action }.description`) || '';
       wrapper.appendChild(main);
 
       // stateMessage is set on failure — show it as secondary error text
@@ -69,172 +74,177 @@ const columns = [
     label: t('epinio.applications.steps.progress.table.status'),
     width: '150px',
     sortable: false,
-    formatter: (_v: any, row: any) => makeProgressStateCell(row),
+    formatter: (_v: any, row: PipelineStep) => makeProgressStateCell(row),
   },
 ];
 
-const actionsToRun = computed(() => actions.value.filter(action => action.run));
+// const actionsToRun = computed(() => actions.value.filter(action => action.run));
 
 // tableRows is a copy of actions that tracks state and stateMessage so any change to those properties triggers a Lit re-render
 const tableRows = computed(() => {
   // Track state and stateMessage so any change triggers a Lit re-render
   // eslint-disable-next-line @typescript-eslint/no-unused-expressions
-  actions.value.forEach((a: ApplicationAction) => { a.state; (a as any).stateMessage; }); // touch props to trigger Lit re-render
-
-  return [...actions.value];
+  // actions.value.forEach((a: ApplicationAction) => { a.state; (a as any).stateMessage; }); // touch props to trigger Lit re-render
+  steps.value.forEach((s) => { s.state; s.stateMessage; }); // touch props to trigger Lit re-render
+  console.log('tableRows computed:', tableRows.value);
+  // return [...actions.value];
+  return [...steps.value];
 });
-const fetchApp = async () => {
-  try {
-    await props.application.forceFetch();
-  } catch (err) { // eslint-disable-line @typescript-eslint/no-unused-vars
-    // silent catch
-  }
-};
 
-const create = async () => {
-  // Make each action reactive so changes to their state trigger updates in the UI
-  actions.value = actions.value.map((a: ApplicationAction) => reactive(a) as ApplicationAction);
-  running.value = true;
-  const enabledActions = [...actionsToRun.value];
+// const fetchApp = async () => {
+//   try {
+//     await props.application.forceFetch();
+//   } catch (err) { // eslint-disable-line @typescript-eslint/no-unused-vars
+//     // silent catch
+//   }
+// };
 
-  for (const action of enabledActions) {
-    try {
-      await action.execute({ source: props.source });
-    } catch (err) {
-      running.value = false;
-      failed.value = true;
-      emit('failed');
-      console.error(err);
-      const errDetails = err instanceof Error ? err.message : String(err);
+// const create = async () => {
+//   // Make each action reactive so changes to their state trigger updates in the UI
+//   actions.value = actions.value.map((a: ApplicationAction) => reactive(a) as ApplicationAction);
+//   running.value = true;
+//   const enabledActions = [...actionsToRun.value];
 
-      store.dispatch('growl/error', {
-        title: props.mode === 'edit'
-          ? t('epinio.growl.application.update.error.title')
-          : t('epinio.growl.application.deploy.error.title'),
-        message: props.mode === 'edit'
-          ? t('epinio.growl.application.update.error.message', { name: props.application.meta.name, error: errDetails })
-          : t('epinio.growl.application.deploy.error.message', { name: props.application.meta.name, error: errDetails }),
-      });
-      await fetchApp();
-      return;
-    }
-  }
+//   for (const action of enabledActions) {
+//     try {
+//       await action.execute({ source: props.source });
+//     } catch (err) {
+//       running.value = false;
+//       failed.value = true;
+//       emit('failed');
+//       console.error(err);
+//       const errDetails = err instanceof Error ? err.message : String(err);
+
+//       store.dispatch('growl/error', {
+//         title: props.mode === 'edit'
+//           ? t('epinio.growl.application.update.error.title')
+//           : t('epinio.growl.application.deploy.error.title'),
+//         message: props.mode === 'edit'
+//           ? t('epinio.growl.application.update.error.message', { name: props.application.meta.name, error: errDetails })
+//           : t('epinio.growl.application.deploy.error.message', { name: props.application.meta.name, error: errDetails }),
+//       });
+//       await fetchApp();
+//       return;
+//     }
+//   }
   
-  store.dispatch('growl/success', {
-    title: props.mode === 'edit'
-      ? t('epinio.growl.application.update.success.title')
-      : t('epinio.growl.application.deploy.success.title'),
-    message: props.mode === 'edit'
-      ? t('epinio.growl.application.update.success.message', { name: props.application.meta.name })
-      : t('epinio.growl.application.deploy.success.message', { name: props.application.meta.name }),
-  });
-  await fetchApp();
-  running.value = false;
-  emit('finished', true);
-};
+//   store.dispatch('growl/success', {
+//     title: props.mode === 'edit'
+//       ? t('epinio.growl.application.update.success.title')
+//       : t('epinio.growl.application.deploy.success.title'),
+//     message: props.mode === 'edit'
+//       ? t('epinio.growl.application.update.success.message', { name: props.application.meta.name })
+//       : t('epinio.growl.application.deploy.success.message', { name: props.application.meta.name }),
+//   });
+//   await fetchApp();
+//   running.value = false;
+//   emit('finished', true);
+// };
 
-watch(running, (neu, prev) => {
-  if (prev && !neu) {
-    props.tab.completed = true;
-  }
-});
+// const createActions = async () => {
+//   const REDEPLOY_SOURCE = props.mode === 'edit';
 
-const createActions = async () => {
-  const REDEPLOY_SOURCE = props.mode === 'edit';
+//   const coreArgs = {
+//     application: props.application,
+//     bindings: props.bindings,
+//     type: EPINIO_TYPES.APP_ACTION,
+//   };
 
-  const coreArgs = {
-    application: props.application,
-    bindings: props.bindings,
-    type: EPINIO_TYPES.APP_ACTION,
-  };
+//   if (!REDEPLOY_SOURCE) {
+//     actions.value.push(await store.dispatch('epinio/create', {
+//       action: APPLICATION_ACTION_TYPE.CREATE,
+//       index: 1,
+//       ...coreArgs
+//     }));
+//   } else {
+//     actions.value.push(await store.dispatch('epinio/create', {
+//       action: APPLICATION_ACTION_TYPE.UPDATE_SOURCE,
+//       index: 2,
+//       ...coreArgs
+//     }));
+//   }
 
-  if (!REDEPLOY_SOURCE) {
-    actions.value.push(await store.dispatch('epinio/create', {
-      action: APPLICATION_ACTION_TYPE.CREATE,
-      index: 1,
-      ...coreArgs
-    }));
-  } else {
-    actions.value.push(await store.dispatch('epinio/create', {
-      action: APPLICATION_ACTION_TYPE.UPDATE_SOURCE,
-      index: 2,
-      ...coreArgs
-    }));
-  }
+//   if (props.bindings?.configurations?.length && !REDEPLOY_SOURCE) {
+//     actions.value.push(await store.dispatch('epinio/create', {
+//       action: APPLICATION_ACTION_TYPE.BIND_CONFIGURATIONS,
+//       index: 3,
+//       ...coreArgs
+//     }));
+//   }
 
-  if (props.bindings?.configurations?.length && !REDEPLOY_SOURCE) {
-    actions.value.push(await store.dispatch('epinio/create', {
-      action: APPLICATION_ACTION_TYPE.BIND_CONFIGURATIONS,
-      index: 3,
-      ...coreArgs
-    }));
-  }
+//   if (props.bindings?.services?.length && !REDEPLOY_SOURCE) {
+//     actions.value.push(await store.dispatch('epinio/create', {
+//       action: APPLICATION_ACTION_TYPE.BIND_SERVICES,
+//       index: 4,
+//       ...coreArgs
+//     }));
+//   }
 
-  if (props.bindings?.services?.length && !REDEPLOY_SOURCE) {
-    actions.value.push(await store.dispatch('epinio/create', {
-      action: APPLICATION_ACTION_TYPE.BIND_SERVICES,
-      index: 4,
-      ...coreArgs
-    }));
-  }
+//   const srcType = props.source.type;
 
-  const srcType = props.source.type;
+//   if ([APPLICATION_SOURCE_TYPE.ARCHIVE, APPLICATION_SOURCE_TYPE.FOLDER].includes(srcType)) {
+//     actions.value.push(await store.dispatch('epinio/create', {
+//       action: APPLICATION_ACTION_TYPE.UPLOAD,
+//       index: 5,
+//       ...coreArgs
+//     }));
+//   }
 
-  if ([APPLICATION_SOURCE_TYPE.ARCHIVE, APPLICATION_SOURCE_TYPE.FOLDER].includes(srcType)) {
-    actions.value.push(await store.dispatch('epinio/create', {
-      action: APPLICATION_ACTION_TYPE.UPLOAD,
-      index: 5,
-      ...coreArgs
-    }));
-  }
+//   if ([APPLICATION_SOURCE_TYPE.GIT_URL, APPLICATION_SOURCE_TYPE.GIT_HUB, APPLICATION_SOURCE_TYPE.GIT_LAB].includes(srcType)) {
+//     actions.value.push(await store.dispatch('epinio/create', {
+//       action: APPLICATION_ACTION_TYPE.GIT_FETCH,
+//       index: srcType === APPLICATION_SOURCE_TYPE.GIT_URL ? 5 : 6,
+//       ...coreArgs
+//     }));
+//   }
 
-  if ([APPLICATION_SOURCE_TYPE.GIT_URL, APPLICATION_SOURCE_TYPE.GIT_HUB, APPLICATION_SOURCE_TYPE.GIT_LAB].includes(srcType)) {
-    actions.value.push(await store.dispatch('epinio/create', {
-      action: APPLICATION_ACTION_TYPE.GIT_FETCH,
-      index: srcType === APPLICATION_SOURCE_TYPE.GIT_URL ? 5 : 6,
-      ...coreArgs
-    }));
-  }
+//   if ([APPLICATION_SOURCE_TYPE.ARCHIVE, APPLICATION_SOURCE_TYPE.FOLDER, APPLICATION_SOURCE_TYPE.GIT_URL,
+//        APPLICATION_SOURCE_TYPE.GIT_HUB, APPLICATION_SOURCE_TYPE.GIT_LAB].includes(srcType)) {
+//     actions.value.push(await store.dispatch('epinio/create', {
+//       action: APPLICATION_ACTION_TYPE.BUILD,
+//       index: 7,
+//       ...coreArgs
+//     }));
+//   }
 
-  if ([APPLICATION_SOURCE_TYPE.ARCHIVE, APPLICATION_SOURCE_TYPE.FOLDER, APPLICATION_SOURCE_TYPE.GIT_URL,
-       APPLICATION_SOURCE_TYPE.GIT_HUB, APPLICATION_SOURCE_TYPE.GIT_LAB].includes(srcType)) {
-    actions.value.push(await store.dispatch('epinio/create', {
-      action: APPLICATION_ACTION_TYPE.BUILD,
-      index: 7,
-      ...coreArgs
-    }));
-  }
+//   actions.value.push(await store.dispatch('epinio/create', {
+//     action: APPLICATION_ACTION_TYPE.DEPLOY,
+//     index: 8,
+//     ...coreArgs
+//   }));
 
-  actions.value.push(await store.dispatch('epinio/create', {
-    action: APPLICATION_ACTION_TYPE.DEPLOY,
-    index: 8,
-    ...coreArgs
-  }));
+//   create();
+// };
 
-  create();
-};
-
-watch(() => props.active, (isActive) => {
-  if (!isActive) {
+watch(() => props.active, async (isActive) => {
+  if (!isActive || running.value || isDone.value) {
     return;
   }
 
-  // A failed run leaves its actions on screen to read. Drop them once the user
-  // comes back so the retry builds a fresh pipeline instead of doing nothing.
-  if (failed.value) {
-    actions.value = [];
-    failed.value = false;
-  }
+  await run({
+    mode: props.mode,
+    form: props.form,
+    initialForm: props.initialForm,
+    initialApp: props.initialApp,
+    isSourceDirty: props.isSourceDirty,
+    isBindingsDirty: props.isBindingsDirty,
+  })
 
-  if (!actions.value.length) {
-    createActions();
-  }
+  // // A failed run leaves its actions on screen to read. Drop them once the user
+  // // comes back so the retry builds a fresh pipeline instead of doing nothing.
+  // if (failed.value) {
+  //   actions.value = [];
+  //   failed.value = false;
+  // }
+
+  // if (!actions.value.length) {
+  //   createActions();
+  // }
 });
 </script>
 
 <template>
   <div
-    v-if="!$fetchState?.pending"
     class="progress-container"
   >
     <div class="progress">
