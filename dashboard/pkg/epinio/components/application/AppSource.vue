@@ -8,7 +8,6 @@ import { generateZip } from '../../utils/download';
 import {
   APPLICATION_SOURCE_TYPE,
 } from '../../types';
-import { EpinioAppInfo } from '../../types';
 import { useGitConfigs } from '../../queries/useGitConfigQueries';
 import { ResourceQueryOptions, ListResourceRequestParams } from '../../models/resource/ui-types';
 import debounce from 'lodash/debounce';
@@ -30,13 +29,6 @@ const props = defineProps<{
   mode: string;
   updateSource: <K extends AppFormSource['type']>(type: K, newSource?: Partial<NonNullable<AppFormSource[K]>>) => void;
   populateFormFromApp: (app: App | AppManifest, setInitial?: boolean) => void;
-}>();
-
-const emit = defineEmits<{
-  (e: 'change', payload: any): void;
-  (e: 'changeAppInfo', info: EpinioAppInfo): void;
-  (e: 'changeAppConfig', configs: string[]): void;
-  (e: 'valid', valid: boolean): void;
 }>();
 
 const isEdit = computed(() => props.mode === 'edit');

@@ -7,7 +7,7 @@ import { useNamespaces } from '../../queries/useNamespaceQueries';
 import { useAppChart } from '../../queries/useAppChartsQueries';
 import { ListResourceRequestParams, ResourceQueryOptions } from '../../models/resource/ui-types';
 import { debounce } from 'lodash';
-import { AppFormDetails, AppFormSource } from '../../models/application/ui-types';
+import { AppFormDetails, AppFormSource, AppFormBindings } from '../../models/application/ui-types';
 import { ChartSetting } from '../../models/catalogservice/ui-types';
 
 const store = useStore();
@@ -23,6 +23,7 @@ const props = defineProps<{
   active: boolean;
   updateDetails: (newDetails: Partial<AppFormDetails>) => void;
   updateChartSettings: (chartSettings: ChartSetting[]) => void;
+  updateBindings: (newBindings: Partial<AppFormBindings>) => void;
 }>();
 
 // Reactive state
@@ -191,7 +192,11 @@ function onBulkFileChange(event: Event) {
           :disabled="isEdit"
           required
           filterable
-          @dropdown-change="(e: CustomEvent) => updateDetails({ namespace: e.detail.value })"
+          @dropdown-change="(e: CustomEvent) => {
+            updateDetails({ namespace: e.detail.value });
+            // Reset the bindings when the namespace changes
+            updateBindings({ services: [], configurations: [] });
+          }"
           @dropdown-filter="(e: CustomEvent<{ filter: string }>) => { onNamespaceFilter(e.detail.filter); }"
           :isLoading="isLoadingNamespaces"
         ></trailhand-dropdown>

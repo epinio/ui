@@ -202,7 +202,6 @@ function handleBuilderImageDropdownChange(value: string) {
           :value="buildOptions.appChart"
           label="Application Chart"
           placeholder="Select an application chart"
-          :disabled="isEdit"
           required
           filterable
           @dropdown-change="(e: CustomEvent) => { updateBuildOptions({ appChart: e.detail.value }); }"
@@ -256,7 +255,6 @@ function handleBuilderImageDropdownChange(value: string) {
             :value="selectedBuilderImage"
             label="Builder Image"
             placeholder="Select a builder image"
-            :disabled="isEdit"
             required
             filterable
             @dropdown-change="(e: CustomEvent) => { handleBuilderImageDropdownChange(e.detail.value) }"

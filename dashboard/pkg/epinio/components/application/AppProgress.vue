@@ -12,15 +12,19 @@ import {
 import { makeProgressStateCell } from '../../utils/table-formatters';
 import { useAppPipeline, PipelineStep } from '../../models/application/actions/useAppPipeline';
 import { App, AppForm } from '../../models/application/ui-types';
+import { FormState } from '../../models/application/form/useAppForm';
 
 const props = defineProps<{
   form: AppForm,
   initialForm: AppForm,
   initialApp: App | null,
-  isSourceDirty: boolean,
-  isBindingsDirty: boolean,
+  formState: FormState,
   mode: 'create' | 'edit',
   active: boolean,
+  onPipelineStart: () => void,
+  onPipelineSuccess: () => void,
+  onPipelineFailure: () => void,
+  setModalToEdit: () => void,
 }>();
 
 const emit = defineEmits(['finished', 'failed']);
@@ -32,7 +36,7 @@ const t = store.getters['i18n/t'];
 // const failed = ref(false);
 const actions = ref<ApplicationAction[]>([]);
 
-const { steps, running, failed, isDone, buildCache, run } = useAppPipeline(store);
+const { steps, running, failed, isDone, hasAppBeenCreated, run } = useAppPipeline(store);
 
 const columns = [
   {
@@ -216,18 +220,20 @@ const tableRows = computed(() => {
 //   create();
 // };
 
+// Run the pipeline when the tab becomes active
 watch(() => props.active, async (isActive) => {
   if (!isActive || running.value || isDone.value) {
     return;
   }
+
+  props.onPipelineStart();
 
   await run({
     mode: props.mode,
     form: props.form,
     initialForm: props.initialForm,
     initialApp: props.initialApp,
-    isSourceDirty: props.isSourceDirty,
-    isBindingsDirty: props.isBindingsDirty,
+    state: props.formState,
   })
 
   // // A failed run leaves its actions on screen to read. Drop them once the user
@@ -240,6 +246,23 @@ watch(() => props.active, async (isActive) => {
   // if (!actions.value.length) {
   //   createActions();
   // }
+});
+
+// When the pipeline completes successfully, call the onPipelineSuccess callback
+watch(isDone, (isDone) => {
+  if (isDone && !failed.value) {
+    props.onPipelineSuccess();
+  }
+});
+
+// When the pipeline fails, call the onPipelineFailure callback
+watch(failed, (hasFailed) => {
+  if (hasFailed) {
+    props.onPipelineFailure();
+    if (hasAppBeenCreated.value) {
+      props.setModalToEdit();
+    }
+  }
 });
 </script>
 

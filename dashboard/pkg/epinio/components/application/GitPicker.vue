@@ -27,26 +27,23 @@ const props = defineProps<{
   isErrorGitConfigs: boolean;
 }>();
 
-const emit = defineEmits(['change']);
-
 const store = useStore();
 const t = store.getters['i18n/t'];
 
 const gitType = computed(() => props.type as 'github' | 'gitlab');
 const gitConfig = computed(() => props.gitSource?.gitConfig || null);
 
+// Obtain full details of the selected repository, branch, and commit for use in subsequent operations
 const selectedRepo = computed(() =>
   gitRepos.value?.find(
     repo => repo.name === props.gitSource?.repository
   ) ?? null
 );
-
 const selectedBranch = computed(() =>
   gitBranches.value?.find(
     branch => branch.name === props.gitSource?.branch
   ) ?? null
 );
-
 const selectedCommit = computed(() =>
   gitCommits.value?.find(
     commit => commit.commitId === props.gitSource?.commit
@@ -58,7 +55,6 @@ const gitConfigRequestOptions = ref<ResourceQueryOptions>({
   polling: false,
 });
 const {data: selectedGitConfig, isLoading: isLoadingGitConfig, isError: isErrorGitConfig, error: gitConfigError} = useGitConfig(store, props.gitSource?.gitConfig || '', gitConfigRequestOptions);
-
 
 const preparedRepos = computed(() =>
   (gitRepos.value || []).map((item) => ({ value: item.name, label: item.name }))
@@ -74,6 +70,7 @@ const gitConfigs = computed(() => (props.gitConfigs || []).filter((c: any) => c.
 
 const gitBaseUrl = useGitBaseUrl(gitType, selectedGitConfig); 
 
+// Git User
 const debouncedGitUserSearch = ref<string>(props.gitSource?.userOrOrg || '');
 watch(
   () => props.gitSource?.userOrOrg,
@@ -88,7 +85,6 @@ const gitUserRequestOptions = computed<ResourceQueryOptions>(() => ({
   enabled: gitBaseUrl.value !== null && debouncedGitUserSearch.value !== '',
   polling: false,
 }));
-
 const { data: gitUser, isLoading: isGitUserLoading, isError: isGitUserError } = useGitProxyUserType(
   store,
   gitType,
@@ -98,6 +94,7 @@ const { data: gitUser, isLoading: isGitUserLoading, isError: isGitUserError } = 
   gitUserRequestOptions,
 );
 
+// Git Repository
 const repoQuery = ref<string>('');
 const debouncedGitRepoSearch = ref<string>('');
 watch(repoQuery, (newQuery) => {
@@ -110,7 +107,6 @@ const gitRepoRequestOptions = computed<ResourceQueryOptions>(() => ({
   enabled: gitBaseUrl.value !== null && !!gitUser.value?.username,
   polling: false,
 }));
-
 const { data: gitRepos, isLoading: isGitReposLoading, isError: isGitReposError } = useGitProxyRepos(
   store,
   gitType,
@@ -121,6 +117,7 @@ const { data: gitRepos, isLoading: isGitReposLoading, isError: isGitReposError }
   gitRepoRequestOptions,
 );
 
+// Git Branch
 const branchQuery = ref<string>('');
 const debouncedGitBranchSearch = ref<string>('');
 watch(branchQuery, (newQuery) => {
@@ -133,7 +130,6 @@ const gitBranchRequestOptions = computed<ResourceQueryOptions>(() => ({
   enabled: gitBaseUrl.value !== null && !!gitUser.value && !!selectedRepo.value,
   polling: false,
 }));
-
 const { data: gitBranches, isLoading: isGitBranchesLoading, isError: isGitBranchesError } = useGitProxyBranches(
   store,
   gitType,
@@ -145,11 +141,11 @@ const { data: gitBranches, isLoading: isGitBranchesLoading, isError: isGitBranch
   gitBranchRequestOptions,
 );
 
+// Git Commit
 const gitCommitRequestOptions = computed<ResourceQueryOptions>(() => ({
   enabled: gitBaseUrl.value !== null && !!gitUser.value && !!selectedRepo.value && !!selectedBranch.value,
   polling: false,
 }));
-
 const { data: gitCommits, isLoading: isGitCommitsLoading, isError: isGitCommitsError } = useGitProxyCommits(
   store,
   gitType,

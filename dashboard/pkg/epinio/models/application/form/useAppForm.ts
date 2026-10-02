@@ -5,32 +5,34 @@ import { toAppForm } from "../mappers";
 import { APPLICATION_SOURCE_TYPE, APPLICATION_BUILD_MODE } from "../../../types";
 import { ChartSetting } from "models/catalogservice/ui-types";
 
+export interface FormState {
+    dirty: Ref<boolean>;
+    valid: Ref<boolean>;
+    source: {
+        dirty: Ref<boolean>;
+        valid: Ref<boolean>;
+    };
+    buildOptions: {
+        dirty: Ref<boolean>;
+        valid: Ref<boolean>;
+    };
+    details: {
+        dirty: Ref<boolean>;
+        valid: Ref<boolean>;
+    };
+    bindings: {
+        dirty: Ref<boolean>;
+        valid: Ref<boolean>;
+    };
+}
+
 interface UseAppFormReturn {
     form: Ref<AppForm>;
     initialForm: Ref<AppForm>;
     populateFormFromApp: (app: App | AppManifest, setInitial?: boolean) => AppForm;
     clearForm: () => void;
     resetForm: () => void;
-    state: {
-        dirty: Ref<boolean>;
-        valid: Ref<boolean>;
-        source: {
-            dirty: Ref<boolean>;
-            valid: Ref<boolean>;
-        };
-        buildOptions: {
-            dirty: Ref<boolean>;
-            valid: Ref<boolean>;
-        };
-        details: {
-            dirty: Ref<boolean>;
-            valid: Ref<boolean>;
-        };
-        bindings: {
-            dirty: Ref<boolean>;
-            valid: Ref<boolean>;
-        };
-    };
+    state: FormState;
     update: {
         source: <K extends AppFormSource['type']>(type: K, newSource?: Partial<NonNullable<AppFormSource[K]>>) => void;
         buildOptions: (newBuildOptions: Partial<AppFormBuildOptions>) => void;
@@ -84,7 +86,11 @@ export function useAppForm(mode: Ref<'create' | 'edit'>): UseAppFormReturn {
         switch (form.value.source.type) {
             case APPLICATION_SOURCE_TYPE.ARCHIVE:
             case APPLICATION_SOURCE_TYPE.FOLDER:
-                return mode.value === 'create' || (mode.value === 'edit' && isSourceDirty.value) ? !!form.value.source[form.value.source.type]?.tarball : true;
+                if (mode.value === 'create') {
+                    return !!form.value.source[form.value.source.type]?.tarball;
+                } else {
+                    return isSourceDirty.value ? !!form.value.source[form.value.source.type]?.tarball : !!form.value.source[form.value.source.type]?.name;
+                }
             case APPLICATION_SOURCE_TYPE.CONTAINER_URL:
                 return !!form.value.source.containerUrl?.url;
             case APPLICATION_SOURCE_TYPE.GIT_URL:

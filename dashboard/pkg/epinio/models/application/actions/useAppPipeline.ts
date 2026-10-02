@@ -8,6 +8,7 @@ import { AppForm, App, AppFormSource, AppMeta } from "../ui-types";
 import { appFormToCreateRequest, appFormToUpdateRequest, appFormToAsyncDeployRequest, resolveGitParams } from "../mappers";
 import { epinioQueryClient } from "../../../api/queryClient";
 import { useCluster } from "../../../queries/useCluster";
+import { FormState } from "../form/useAppForm";
 
 export type StepState = 'pending' | 'running' | 'success' | 'fail';
 export interface PipelineStep {
@@ -23,6 +24,7 @@ export function useAppPipeline(store: any) {
   const isDone = ref(false);
   const buildCache = ref<BuildCache>({});
   const app = ref<App | null>(null);
+  const hasAppBeenCreated = ref(false);
 
   const t = store.getters['i18n/t'];
 
@@ -50,25 +52,25 @@ export function useAppPipeline(store: any) {
   async function run(params: {
     mode: 'create' | 'edit';
     form: AppForm;
+    state: FormState;
     initialForm: AppForm;
     initialApp: App | null; // populated for edit
     // callbacks: {
     //   onStagingLog: (stageId: string) => void;
     //   onAppLog: () => void;
     // };
-    isSourceDirty: boolean;
-    isBindingsDirty: boolean;
   }) {
-    const { mode, form, initialForm, initialApp, isSourceDirty, isBindingsDirty } = params;
+    const { mode, form, initialForm, initialApp, state } = params;
     const { details, source, bindings } = form;
     const isEdit = mode === 'edit';
 
     app.value = initialApp;
-    steps.value = buildSteps(mode, form, isSourceDirty, isBindingsDirty);
+    steps.value = buildSteps(mode, form, state.source.dirty.value, state.bindings.dirty.value);
     running.value = true;
     failed.value = false;
     isDone.value = false;
     buildCache.value = {};
+    hasAppBeenCreated.value = !isEdit;
 
     if (!cluster?.value) {
       throw new Error('Cluster not found');
@@ -76,20 +78,18 @@ export function useAppPipeline(store: any) {
 
     const stepRunner = makeStepRunner(steps.value);
 
-    console.log('//// Running Application Pipeline ')
     try {
       // 1. Create or update app record
       if (!isEdit) {
-        console.log('//// Creating Application: ', form);
         await stepRunner('create', async () => {
           const createdApp = await createApp({
             namespace: details.namespace,
             body:      appFormToCreateRequest(form),
           });
           app.value = createdApp;
+          hasAppBeenCreated.value = true;
         });
       } else {
-        console.log('//// Updating Application: ', form);
         await stepRunner('update', async () => {
           const updatedApp = await updateApp({
             namespace: details.namespace,
@@ -102,15 +102,10 @@ export function useAppPipeline(store: any) {
 
       // 2. Bind configurations (create only)
       if (bindings.configurations.length && !isEdit) {
-        console.log('//// Binding Configurations: ', bindings.configurations);
         await stepRunner('bindConfigurations', () =>
           bindConfig({ namespace: details.namespace, appName: details.name, request: { names: bindings.configurations } })
         );
-      } else if (isEdit) {
-        console.log('//// Updating Configurations: ', {
-          current: [...form.bindings.configurations, ...form.bindings.serviceConfigurations],
-          initial: [...initialForm.bindings.configurations, ...initialForm.bindings.serviceConfigurations],
-        });
+      } else if (isEdit && state.bindings.dirty.value) {
         await stepRunner('updateConfigurations', async () => {
           const currentConfigs = [...form.bindings.configurations, ...form.bindings.serviceConfigurations];
           const initialConfigs = [...initialForm.bindings.configurations, ...initialForm.bindings.serviceConfigurations];
@@ -132,17 +127,12 @@ export function useAppPipeline(store: any) {
 
       // 3. Bind services (create only)
       if (bindings.services.length && !isEdit) {
-        console.log('//// Binding Services: ', bindings.services);
         await stepRunner('bindServices', () =>
           Promise.all(bindings.services.map(name =>
             bindService({ namespace: details.namespace, serviceName: name, request: { appName: details.name } })
           ))
         );
-      } else if (isEdit) {
-        console.log('//// Updating Services: ', {
-          current: bindings.services,
-          initial: initialForm.bindings.services,
-        });
+      } else if (isEdit && state.bindings.dirty.value) {
         await stepRunner('updateServices', async () => {
           const currentServices = form.bindings.services;
           const initialServices = initialForm.bindings.services;
@@ -164,11 +154,7 @@ export function useAppPipeline(store: any) {
         });
       }
 
-      if (!isEdit || isSourceDirty) {
-        console.log('//// Handling Source Changes: ', {
-          current: source,
-          initial: initialForm.source,
-        });
+      if (!isEdit || state.source.dirty.value) {
         // 4. Upload
         if (source.type === 'archive' || source.type === 'folder') {
           const tarball = source.type === 'archive' ? source.archive!.tarball : source.folder!.tarball;
@@ -182,59 +168,44 @@ export function useAppPipeline(store: any) {
 
         // 5. Git fetch
         if (source.type === 'gitUrl' || source.type === 'github' || source.type === 'gitlab') {
-          console.log('//// Fetching Git Source');
           const { url, rev, gitConfig } = resolveGitParams(source);
-          console.log('//// Resolved Git Params: ', { url, rev, gitConfig });
           await stepRunner('gitFetch', () =>
             importGit({ namespace: details.namespace, app: details.name, gitUrl: url, gitRev: rev, gitConfig })
           );
         }
 
-        if (!app.value) {
-          throw new Error('App is not available');
-        }
-
         // 6. Build
-        console.log('//// Building Application');
         const needsBuild = ['archive', 'folder', 'gitUrl', 'github', 'gitlab'].includes(source.type);
         if (needsBuild) {
           const request = appFormToAsyncDeployRequest(form, buildCache.value);
-          console.log('//// Build App Variables: ', {
-            namespace: details.namespace,
-            app: app.value,
-            request,
-            buildCache: buildCache.value,
-          });
-          await stepRunner('build', () =>
-            buildApp({
+          await stepRunner('build', () => {
+            if (!app.value) {
+              throw new Error('App is not available');
+            }
+            return buildApp({
               namespace: details.namespace,
               app: app.value,
               request,
               buildCache: buildCache.value,
-            })
-          );
+            });
+          });
         }
 
         // 7. Deploy
-        console.log('//// Deploying Application');
         const deployRequest = appFormToAsyncDeployRequest(form, buildCache.value);
-        console.log('//// Deploy App Variables: ', {
-          namespace: details.namespace,
-          app: app.value,
-          request: deployRequest,
-          buildCache: buildCache.value,
-        });
-        await stepRunner('deploy', () =>
-          deployApp({
+        await stepRunner('deploy', () => {
+          if (!app.value) {
+            throw new Error('App is not available');
+          }
+          return deployApp({
             namespace: details.namespace,
             app: app.value,
             request: deployRequest,
             buildCache: buildCache.value,
-          })
-        );
+          });
+        });
       }
 
-      console.log('//// App Deploy Done, Invalidating Queries for Applications');
       store.dispatch('growl/success', {
         title: params.mode === 'edit'
           ? t('epinio.growl.application.update.success.title')
@@ -262,7 +233,7 @@ export function useAppPipeline(store: any) {
     }
   }
 
-  return { steps, running, failed, isDone, buildCache, run };
+  return { steps, running, failed, isDone, buildCache, hasAppBeenCreated, run };
 }
 
 // Finds the step and updates its state, then runs the executor
@@ -304,14 +275,14 @@ function buildSteps(mode: 'create' | 'edit', form: AppForm, isSourceDirty: boole
   // 2. Bind/unbind configurations
   if (!isEdit && bindings.configurations.length) {
     steps.push(makeStep('bindConfigurations'));
-  } else if (isEdit) {
+  } else if (isEdit && isBindingsDirty) {
     steps.push(makeStep('updateConfigurations'));
   }
 
   // 3. Bind/unbind services
   if (!isEdit && bindings.services.length) {
     steps.push(makeStep('bindServices'));
-  } else if (isEdit) {
+  } else if (isEdit && isBindingsDirty) {
     steps.push(makeStep('updateServices'));
   }
 

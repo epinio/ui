@@ -22,7 +22,6 @@ export function useCreateApplication(store: any, onSuccessCallback?: (appMeta: A
             return toApp(await applicationsApi(epinioClient).getApp(namespace, body.name));
         },
         onSuccess: (response) => {
-            // epinioQueryClient.invalidateQueries({ queryKey: ['applications', cluster.value?.id] });
             if (onSuccessCallback) {
                 onSuccessCallback(response.meta);
             }
@@ -44,7 +43,6 @@ export function useUpdateApplication(store: any, onSuccessCallback?: (appMeta: A
             return toApp(await applicationsApi(epinioClient).getApp(namespace, app));
         },
         onSuccess: (response) => {
-            // epinioQueryClient.invalidateQueries({ queryKey: ['applications', cluster.value?.id] });
             if (onSuccessCallback) {
                 onSuccessCallback(response.meta);
             }
@@ -68,7 +66,6 @@ export function useStoreApplicationArchive(store: any, onSuccessCallback?: (blob
             return toAppStoreArchiveResponse(await applicationsApi(epinioClient).storeArchive(namespace, app, data, size));
         },
         onSuccess: (response) => {
-            // epinioQueryClient.invalidateQueries({ queryKey: ['applications', cluster.value?.id] });
             if (onSuccessCallback) {
                 onSuccessCallback(response.blobUid);
             }
@@ -91,11 +88,6 @@ export function useImportGitApplication(store: any, onSuccessCallback?: (blobUid
             if (!gitRev) {
                 throw new Error('Git revision is required');
             }
-            console.log('//// Import Git Parameters: ', {
-              gitUrl,
-              gitRev,
-              gitConfig,
-            });
             const epinioClient = createEpinioClient(cluster.value, isExtension.value);
             const data = new FormData();
             data.append('giturl', gitUrl);
@@ -103,13 +95,9 @@ export function useImportGitApplication(store: any, onSuccessCallback?: (blobUid
             if (gitConfig) {
                 data.append('gitconfig', gitConfig);
             }
-            console.log('//// Import Git FormData: ', {
-              FormData: data.get('giturl') && data.get('gitrev') ? Object.fromEntries(data.entries()) : null
-            });
             return toAppGitImportResponse(await applicationsApi(epinioClient).importGit(namespace, app, data)); 
         },
         onSuccess: (response) => {
-            // epinioQueryClient.invalidateQueries({ queryKey: ['applications', cluster.value?.id] });
             if (onSuccessCallback) {
                 onSuccessCallback(response.blobUid);
             }
@@ -127,10 +115,9 @@ export function useBuildApplication(store: any, onSuccessCallback?: () => void) 
                 throw new Error('Cluster is not available');
             }
             const epinioClient = createEpinioClient(cluster.value, isExtension.value);
-            return await waitAsyncBuildPhase(applicationsApi(epinioClient), /* app, */ store, namespace, app.meta.name, request, buildCache);
+            return await waitAsyncBuildPhase(applicationsApi(epinioClient), store, namespace, app.meta.name, request, buildCache);
         },
         onSuccess: () => {
-            // epinioQueryClient.invalidateQueries({ queryKey: ['applications', cluster.value?.id] });
             if (onSuccessCallback) {
                 onSuccessCallback();
             }
@@ -148,10 +135,9 @@ export function useDeployApplication(store: any, onSuccessCallback?: () => void)
                 throw new Error('Cluster is not available');
             }
             const epinioClient = createEpinioClient(cluster.value, isExtension.value);
-            return await waitAsyncDeployPhase(applicationsApi(epinioClient), /* app, */ store, namespace, app.meta.name, request, buildCache, cluster.value?.id);
+            return await waitAsyncDeployPhase(applicationsApi(epinioClient), store, namespace, app.meta.name, request, buildCache, cluster.value?.id);
         },
         onSuccess: () => {
-            // epinioQueryClient.invalidateQueries({ queryKey: ['applications', cluster.value?.id] });
             if (onSuccessCallback) {
                 onSuccessCallback();
             }

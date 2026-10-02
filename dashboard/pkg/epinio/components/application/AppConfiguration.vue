@@ -2,7 +2,6 @@
 
 import { ref, computed, watch } from 'vue';
 import { useStore } from 'vuex';
-import { _VIEW } from '@shell/config/query-params';
 import { ListResourceRequestParams, ResourceQueryOptions } from '../../models/resource/ui-types';
 import { useServices } from '../../queries/useServiceQueries';
 import { useConfigurations } from '../../queries/useConfigurationQueries';
