@@ -1,5 +1,5 @@
-import { ApiAppChart, ApiListAppChartsResponse, ApiAppChartCreateRequest, ApiAppChartUpdateRequest } from "./api-types";
-import { AppChart, ListAppChartsResponse, AppChartCreateRequest, AppChartUpdateRequest } from "./ui-types";
+import { ApiAppChart, ApiListAppChartsResponse, ApiAppChartCreateRequest, ApiAppChartUpdateRequest, ApiAppChartPushResponse } from "./api-types";
+import { AppChart, ListAppChartsResponse, AppChartCreateRequest, AppChartUpdateRequest, AppChartPushRequest, AppChartPushResponse } from "./ui-types";
 import { toPaginatedResponseMetadata } from "../resource/mappers";
 import { mapSettingsToApiRequest } from "../../utils/settings";
 
@@ -78,4 +78,25 @@ export function toApiAppChartUpdateRequest(
   uiRequest: AppChartUpdateRequest
 ): ApiAppChartUpdateRequest {
   return mapAppChartRequest(uiRequest);
+}
+
+export function toAppChartPushFormData(uiRequest: AppChartPushRequest): FormData {
+  const payload = new FormData();
+
+  payload.append('file', uiRequest.archive);
+  payload.append('name', uiRequest.name);
+  payload.append('description', uiRequest.description);
+  payload.append('short_description', uiRequest.shortDescription);
+
+  return payload;
+}
+
+export function toAppChartPushResponse(
+  apiResponse: ApiAppChartPushResponse
+): AppChartPushResponse {
+  return {
+    name: apiResponse.name ?? '',
+    helmChart: apiResponse.helm_chart ?? '',
+    helmRepo: apiResponse.helm_repo ?? '',
+  };
 }

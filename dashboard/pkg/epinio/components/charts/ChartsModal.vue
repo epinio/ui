@@ -6,7 +6,11 @@ import { validateSettings } from '../../utils/settings';
 import Banner from '@components/Banner/Banner.vue';
 import ChartSettings from '../settings/ChartSettings.vue';
 import { ChartSetting } from '../../models/catalogservice/ui-types';
-import { useCreateAppChart, useUpdateAppChart } from '../../queries/useAppChartsMutations';
+import {
+  useCreateAppChart,
+  useUpdateAppChart,
+  usePushAppChart,
+} from '../../queries/useAppChartsMutations';
 import { AppChart, AppChartUpdateRequest, AppChartCreateRequest } from '../../models/appcharts/ui-types';
 
 import isEqual from 'lodash/isEqual';
@@ -29,8 +33,29 @@ const helmChartUrl = ref('');
 const helmRepoUrl = ref('');
 const chartSettings = ref<ChartSetting[]>([]);
 
+// Mirrors maxChartArchiveSize on the server, so an oversized file is named here
+// instead of failing as a truncated upload.
+const MAX_ARCHIVE_BYTES = 32 * 1024 * 1024;
+
+const chartSourceTypes = [
+  { label: 'Helm URL', value: 'url' },
+  { label: 'Upload Archive', value: 'upload' },
+];
+const chartSource = ref<'url' | 'upload'>('url');
+const chartArchive = ref<File | null>(null);
+const archiveError = ref('');
+const archiveFileInput = ref<HTMLInputElement | null>(null);
+
 const isEdit = computed(() => modalMode.value === 'edit');
 const isView = computed(() => modalMode.value === 'view');
+
+// Only a create can upload. The server has no endpoint to replace the archive of
+// an existing chart, so edit and view stay on the url fields.
+const isUpload = computed(() => modalMode.value === 'create' && chartSource.value === 'upload');
+
+// Repointing a chart that applications are bound to changes what they deploy on their
+// next rebuild, with no version bump and no record. Lock the location instead.
+const isLocationLocked = computed(() => isEdit.value && !!initialValues.value?.boundApps);
 
 const {mutateAsync: createAppChart, isPending: isCreatingAppChart, isError: createAppChartError, error: createAppChartErrorData} = useCreateAppChart(store, () => {
   handleSuccess('create');
@@ -40,6 +65,10 @@ const {mutateAsync: updateAppChart, isPending: isUpdatingAppChart, isError: upda
   handleSuccess('update');
   closeModal();
 });
+const {mutateAsync: pushAppChart, isPending: isPushingAppChart, isError: pushAppChartError, error: pushAppChartErrorData} = usePushAppChart(store, () => {
+  handleSuccess('create');
+  closeModal();
+});
 
 const isDirty = computed(() => {
   return dirtyFields.value.name ||
@@ -47,7 +76,8 @@ const isDirty = computed(() => {
     dirtyFields.value.description ||
     dirtyFields.value.helmChart ||
     dirtyFields.value.helmRepo ||
-    dirtyFields.value.settings;
+    dirtyFields.value.settings ||
+    !!chartArchive.value;
 });
 
 const dirtyFields = computed(() => {
@@ -71,10 +101,15 @@ const validationPassed = computed(() => {
   if (!chartName.value) return false;
   if (!chartShortDescription.value) return false;
   if (!chartDescription.value) return false;
-  if (!helmRepoUrl.value && !helmChartUrl.value) return false;
 
-  const settingsValid = validateSettings(chartSettings.value);
-  if (!settingsValid) return false;
+  if (isUpload.value) {
+    if (!chartArchive.value || archiveError.value) return false;
+  } else {
+    if (!helmRepoUrl.value && !helmChartUrl.value) return false;
+
+    const settingsValid = validateSettings(chartSettings.value);
+    if (!settingsValid) return false;
+  }
 
   const nameErrors = validateKubernetesName(chartName.value, '', store.getters, undefined, []);
   return nameErrors.length === 0;
@@ -83,7 +118,7 @@ const validationPassed = computed(() => {
 const canSave = computed(() => {
   const dirty = isDirty.value;
   const valid = validationPassed.value;
-  return dirty && valid && !isCreatingAppChart.value && !isUpdatingAppChart.value;
+  return dirty && valid && !isCreatingAppChart.value && !isUpdatingAppChart.value && !isPushingAppChart.value;
 });
 
 function openCreate() {
@@ -94,7 +129,43 @@ function openCreate() {
   helmChartUrl.value = '';
   helmRepoUrl.value = '';
   chartSettings.value = [];
+  chartSource.value = 'url';
+  chartArchive.value = null;
+  archiveError.value = '';
   showModal.value = true;
+}
+
+function onChartSourceChange(value: 'url' | 'upload') {
+  chartSource.value = value;
+  if (value === 'upload') {
+    helmChartUrl.value = '';
+    helmRepoUrl.value = '';
+    chartSettings.value = [];
+  } else {
+    chartArchive.value = null;
+    archiveError.value = '';
+  }
+}
+
+function handleArchiveFileClick() {
+  archiveFileInput.value?.click();
+}
+
+function handleArchiveFileChange(event: Event) {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+  input.value = ''; // so the same file can be picked again after a failed push
+
+  if (!file) return;
+
+  if (file.size > MAX_ARCHIVE_BYTES) {
+    chartArchive.value = null;
+    archiveError.value = 'The chart archive is larger than the 32 MiB the server accepts.';
+    return;
+  }
+
+  chartArchive.value = file;
+  archiveError.value = '';
 }
 
 function openEdit(row: AppChart) {
@@ -106,6 +177,9 @@ function openEdit(row: AppChart) {
   helmChartUrl.value = row.helmChart || '';
   helmRepoUrl.value = row.helmRepo || '';
   chartSettings.value = row.settings || [];
+  chartSource.value = 'url';
+  chartArchive.value = null;
+  archiveError.value = '';
   showModal.value = true;
 }
 
@@ -135,6 +209,9 @@ function closeModal() {
   helmChartUrl.value = '';
   helmRepoUrl.value = '';
   chartSettings.value = [];
+  chartSource.value = 'url';
+  chartArchive.value = null;
+  archiveError.value = '';
   showDiscardConfirm.value = false;
   showModal.value = false;
   initialValues.value = null;
@@ -189,9 +266,23 @@ const buildUpdateRequest = (): AppChartUpdateRequest => {
 };
 
 async function onSubmit() {
-  if (!validationPassed.value || !isDirty.value || isCreatingAppChart.value || isUpdatingAppChart.value) return;
+  if (
+    !validationPassed.value ||
+    !isDirty.value ||
+    isCreatingAppChart.value ||
+    isUpdatingAppChart.value ||
+    isPushingAppChart.value
+  )
+    return;
 
-  if (isEdit.value && initialValues.value) {
+  if (isUpload.value && chartArchive.value) {
+    await pushAppChart({ request: {
+      name: chartName.value,
+      description: chartDescription.value,
+      shortDescription: chartShortDescription.value,
+      archive: chartArchive.value,
+    } });
+  } else if (isEdit.value && initialValues.value) {
     const request = buildUpdateRequest();
     await updateAppChart({ name: initialValues.value.meta.name, request });
   } else {
@@ -221,7 +312,13 @@ defineExpose({ openCreate, openEdit });
   >
     <div id="modal-container-element" class="modal-content">
       <trailhand-form-card>
-        <Banner v-if="initialValues?.boundApps" color="warning" label="This chart is currently associated with one or more applications. Editing it may cause issues for future rebuilds." />
+        <Banner
+          v-if="initialValues?.boundApps"
+          color="warning"
+          :label="isLocationLocked
+            ? 'One or more applications use this chart, so its location is locked. Repointing it would change what those applications deploy on their next rebuild. Description and settings can still be edited.'
+            : 'This chart is currently associated with one or more applications. Editing it may cause issues for future rebuilds.'"
+        />
         <trailhand-form-row columns="2">
           <trailhand-text-input
             :value="chartName"
@@ -250,35 +347,75 @@ defineExpose({ openCreate, openEdit });
             @text-area-change="(e: CustomEvent) => { chartDescription = e.detail.value; }"
           ></trailhand-text-area>
         </trailhand-form-row>
-        <div>
+        <trailhand-form-row v-if="!isEdit && !isView">
+          <trailhand-dropdown
+            :options="chartSourceTypes"
+            :value="chartSource"
+            label="Chart Source"
+            :required="true"
+            @dropdown-change="(e: CustomEvent) => onChartSourceChange(e.detail.value)"
+          ></trailhand-dropdown>
+        </trailhand-form-row>
+
+        <div v-if="isUpload">
+          <label style="font-size: 11px; color: var(--th-input-label);">Chart Archive <span style="color: var(--th-color-red);">*</span></label>
+          <div class="archive-row">
+            <trailhand-text-input
+              style="flex: 1"
+              :value="chartArchive?.name || ''"
+              label="Archive"
+              placeholder="A .tgz produced by 'helm package'"
+              :disabled="true"
+              :required="true"
+            ></trailhand-text-input>
+            <trailhand-button
+              variant="alternate"
+              @button-click="handleArchiveFileClick"
+            >
+              Select File
+            </trailhand-button>
+            <input
+              ref="archiveFileInput"
+              type="file"
+              class="hidden-file-input"
+              accept=".tgz,.tar.gz"
+              @change="handleArchiveFileChange"
+            >
+          </div>
+          <Banner v-if="archiveError" color="error" :label="archiveError" />
+          <Banner color="info" label="Epinio stores the archive in its own registry. Chart settings can be added afterwards by editing the chart." />
+        </div>
+
+        <div v-else>
           <label style="font-size: 11px; color: var(--th-input-label);">Helm URLs - Provide at least one of the following: <span style="color: var(--th-color-red);">*</span></label>
           <trailhand-form-row columns="2">
             <trailhand-text-input
               :value="helmChartUrl"
               label="Helm Chart URL"
               placeholder="e.g. https://example.com/charts/mychart-0.1.0.tgz"
-              :disabled="isView"
+              :disabled="isView || isLocationLocked"
               @text-input-change="(e: CustomEvent) => { helmChartUrl = e.detail.value; }"
             ></trailhand-text-input>
             <trailhand-text-input
               :value="helmRepoUrl"
               label="Helm Repo URL"
               placeholder="e.g. https://example.com/charts/index.yaml"
-              :disabled="isView"
+              :disabled="isView || isLocationLocked"
               @text-input-change="(e: CustomEvent) => { helmRepoUrl = e.detail.value; }"
             ></trailhand-text-input>
           </trailhand-form-row>
         </div>
         <ChartSettings
+          v-if="!isUpload"
           v-model="chartSettings"
           :disabled="isView"
           allow-defaults
         />
       </trailhand-form-card>
       <Banner
-        v-if="createAppChartError || updateAppChartError"
+        v-if="createAppChartError || updateAppChartError || pushAppChartError"
         color="error"
-        :label="createAppChartErrorData?.message || updateAppChartErrorData?.message || t('epinio.appCharts.errors.save')"
+        :label="createAppChartErrorData?.message || updateAppChartErrorData?.message || pushAppChartErrorData?.message || t('epinio.appCharts.errors.save')"
       />
     </div>
 
@@ -327,7 +464,7 @@ defineExpose({ openCreate, openEdit });
           :disabled="!canSave"
           @button-click="onSubmit"
         >
-          {{ isEdit ? (isUpdatingAppChart ? t('generic.updating') : t('generic.save')) : (isCreatingAppChart ? t('generic.creating') : t('generic.create')) }}
+          {{ isEdit ? (isUpdatingAppChart ? t('generic.updating') : t('generic.save')) : ((isCreatingAppChart || isPushingAppChart) ? t('generic.creating') : t('generic.create')) }}
         </trailhand-button>
       </template>
     </div>
@@ -341,6 +478,16 @@ defineExpose({ openCreate, openEdit });
   gap: 1rem;
   width: 1000px;
   min-height: 500px;
+}
+
+.archive-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.hidden-file-input {
+  display: none;
 }
 
 .discard-message {

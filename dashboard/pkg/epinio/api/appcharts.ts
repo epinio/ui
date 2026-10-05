@@ -1,7 +1,13 @@
 import { createEpinioClient } from "./client";
 import { ApiListResourceRequestParams } from "../models/resource/api-types";
-import { ApiListAppChartsResponse, ApiAppChartCreateRequest, ApiAppChartUpdateRequest, ApiAppChart } from "../models/appcharts/api-types";
-    
+import {
+  ApiListAppChartsResponse,
+  ApiAppChartCreateRequest,
+  ApiAppChartUpdateRequest,
+  ApiAppChart,
+  ApiAppChartPushResponse,
+} from "../models/appcharts/api-types";
+
 export function appChartsApi(epinioClient: ReturnType<typeof createEpinioClient>) {
     const appChartsBasePath = '/api/v1/appcharts';
 
@@ -14,6 +20,9 @@ export function appChartsApi(epinioClient: ReturnType<typeof createEpinioClient>
         },
         createAppChart: async (request: ApiAppChartCreateRequest) => {
             return await epinioClient.post(`${appChartsBasePath}`, request);
+        },
+        pushAppChart: async (data: FormData): Promise<ApiAppChartPushResponse> => {
+            return await epinioClient.post(`${appChartsBasePath}/push`, data);
         },
         updateAppChart: async (name: string, request: ApiAppChartUpdateRequest) => {
             return await epinioClient.patch(`${appChartsBasePath}/${name}`, request);

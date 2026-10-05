@@ -30,3 +30,9 @@ export interface ApiAppChartCreateRequest {
 }
 
 export type ApiAppChartUpdateRequest = Partial<ApiAppChartCreateRequest>;
+
+export interface ApiAppChartPushResponse {
+    name?: string;
+    helm_chart?: string;
+    helm_repo?: string;
+}
