@@ -68,7 +68,7 @@ const { data: user, isError: isErrorUser, error: userError } = useUser(store);
 // Fetch application details
 const appRequestOptions = ref<ResourceQueryOptions>({
   enabled: true,
-  polling: false,
+  polling: true,
   isTablePagination: false,
 });
 const { data: application, isLoading: isApplicationLoading, isError: isApplicationError, error: applicationError, refetch: refetchApplication } = useApplication(store, route.params.namespace as string, route.params.id as string, appRequestOptions);
@@ -509,10 +509,10 @@ const instanceCpu = computed(() => {
 });
 
 // When the application data is loaded set the initial desired instances
+const desiredInstances = ref<number>(application?.value?.deployment?.desiredReplicas ?? 0);
 watch(application, (newApp) => {
   desiredInstances.value = newApp?.deployment?.desiredReplicas ?? 0;
 });
-const desiredInstances = ref<number>(application?.value?.deployment?.desiredReplicas ?? 0);
 
 // Watch for changes in the desired instances and trigger the update handler
 watch(desiredInstances, (newValue) => {

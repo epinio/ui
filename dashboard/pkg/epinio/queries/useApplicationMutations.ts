@@ -22,6 +22,7 @@ export function useCreateApplication(store: any, onSuccessCallback?: (appMeta: A
             return toApp(await applicationsApi(epinioClient).getApp(namespace, body.name));
         },
         onSuccess: (response) => {
+            epinioQueryClient.invalidateQueries({ queryKey: ['applications', cluster.value?.id]})
             if (onSuccessCallback) {
                 onSuccessCallback(response.meta);
             }
@@ -43,6 +44,8 @@ export function useUpdateApplication(store: any, onSuccessCallback?: (appMeta: A
             return toApp(await applicationsApi(epinioClient).getApp(namespace, app));
         },
         onSuccess: (response) => {
+            epinioQueryClient.invalidateQueries({ queryKey: ['applications', cluster.value?.id]})
+            epinioQueryClient.invalidateQueries({ queryKey: ['application', cluster.value?.id, response.meta.namespace, response.meta.name] });
             if (onSuccessCallback) {
                 onSuccessCallback(response.meta);
             }
