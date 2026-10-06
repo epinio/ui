@@ -1,6 +1,6 @@
 import { createEpinioClient } from "./client";
 import { ApiListResourceRequestParams } from "../models/resource/api-types";
-import { ApiConfigurationCreateRequest, ApiListConfigurationsResponse, ApiConfigurationBindRequest, ApiConfigurationPutRequest } from "../models/configuration/api-types";
+import { ApiConfigurationCreateRequest, ApiListConfigurationsResponse, ApiConfigurationBindRequest, ApiConfigurationPutRequest, ApiConfigurationResponse } from "../models/configuration/api-types";
 
 export function configurationsApi(epinioClient: ReturnType<typeof createEpinioClient>) {
     const configurationsBasePath = '/api/v1/configurations';
@@ -12,6 +12,9 @@ export function configurationsApi(epinioClient: ReturnType<typeof createEpinioCl
         },
         listNamespacedConfigurations: async (namespace: string, params?: ApiListResourceRequestParams): Promise<ApiListConfigurationsResponse> => {
             return await epinioClient.get(`${namespacesBasePath}/${namespace}/configurations`, { params });
+        },
+        getConfiguration: async (namespace: string, configName: string): Promise<ApiConfigurationResponse> => {
+            return await epinioClient.get(`${namespacesBasePath}/${namespace}/configurations/${configName}`);
         },
         createConfiguration: async (namespace: string, request: ApiConfigurationCreateRequest) => {
             return await epinioClient.post(`${namespacesBasePath}/${namespace}/configurations`, request);

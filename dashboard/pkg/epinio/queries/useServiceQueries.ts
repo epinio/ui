@@ -63,7 +63,8 @@ function serviceQueryOptions(
         throw new Error('Cluster is not available');
       }
       const epinioClient = createEpinioClient(cluster, isExtension);
-      return await servicesApi(epinioClient).getService(namespace, serviceName);
+      const apiService = await servicesApi(epinioClient).getService(namespace, serviceName);
+      return toServiceInstance  (apiService);
     },
     enabled: !!cluster,
   });
@@ -86,8 +87,8 @@ export async function fetchService(store: any, namespace: string, serviceName: s
     const { data: cluster } = useCluster(store);
     const isExtension = computed(() => !!store.getters['isSingleProduct'] === false);
 
-    const apiService = await epinioQueryClient.fetchQuery(
+    const service = await epinioQueryClient.fetchQuery(
         serviceQueryOptions(cluster.value, isExtension.value, namespace, serviceName)
     );
-    return toServiceInstance(apiService);
+    return service;
 }

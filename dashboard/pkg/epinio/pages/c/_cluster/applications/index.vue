@@ -24,6 +24,10 @@ import { useUser } from '../../../../queries/useUserQueries';
 import { showAppShell } from '../../../../models/application/actions/shell';
 import { showAppLog, showStagingLog } from '../../../../models/application/actions/logs';
 import { restageApp, restartApp } from '../../../../models/application/actions/restage';
+import ServiceInstanceModal from '../../../../components/service/ServiceInstanceModal.vue';
+import ConfigurationModal from '../../../../components/configuration/ConfigurationModal.vue';
+import { fetchConfiguration } from '../../../../queries/useConfigurationQueries';
+import { fetchService } from '../../../../queries/useServiceQueries';
 
 const store = useStore() as any;
 const t = store.getters['i18n/t'];
@@ -33,6 +37,8 @@ const appModal = ref<InstanceType<typeof AppModal> | null>(null);
 const deleteModal = ref<InstanceType<typeof AppDeleteModal> | null>(null);
 const bulkDeleteModal = ref<InstanceType<typeof BulkDeleteModal> | null>(null);
 const exportAppModal = ref<InstanceType<typeof ExportAppModal> | null>(null);
+const serviceModal = ref<InstanceType<typeof ServiceInstanceModal> | null>(null);
+const configModal = ref<InstanceType<typeof ConfigurationModal> | null>(null);
 
 const resource: string = EPINIO_TYPES.APP;
 const schema = ref(store.getters['epinio/schemaFor'](resource));
@@ -187,6 +193,22 @@ onUnmounted(() => {
   window.removeEventListener('resize', onResize);
 });
 
+const openServiceModal = async (namespace: string, service: string) => {
+  if (!namespace || !service) {
+    return;
+  }
+  const serviceInstance = await fetchService(store, namespace, service);
+  serviceModal.value?.openView(serviceInstance);
+};
+
+const openConfigurationModal = async (namespace: string, configName: string) => {
+  if (!namespace || !configName) {
+    return;
+  }
+  const configuration = await fetchConfiguration(store, namespace, configName);
+  configModal.value?.openView(configuration);
+};
+
 // Services without service_write/service permission on that row can't be
 // individually deleted, so they're excluded from bulk selection too.
 const isRowSelectable = (row: any) => row.canDelete;
@@ -264,22 +286,76 @@ const allColumns = [
     label:     'Bound Configs',
     width:     '180px',
     sortable:  false,
-    formatter: (_value: any, row: App) => makeNameLinks(
-      row.configuration?.configurations,
-      { cluster: store.getters['clusterId'], namespace: row.meta.namespace, resource: EPINIO_TYPES.CONFIGURATION },
-      router
-    )
+    formatter: (_value: any, row: App) => {
+      const configs = row.configuration.configurations;
+      const span = document.createElement('span');
+
+      span.style.whiteSpace = 'normal';
+      span.style.overflowWrap = 'anywhere';
+      span.style.wordBreak = 'break-word';
+
+      configs.forEach((config, index) => {
+        const a = document.createElement('a');
+
+        try {
+          a.href = '#';
+        } catch {
+          a.href = '#';
+        }
+
+        a.addEventListener('click', (e) => {
+          e.preventDefault();
+          openConfigurationModal(row.meta.namespace, config);
+        });
+
+        a.textContent = config;
+        span.appendChild(a);
+
+        if (index < configs.length - 1) {
+          span.appendChild(document.createTextNode(', '));
+        }
+      });
+
+      return span;
+    }
   },
   {
     field:     'boundServices',
     label:     'Bound Services',
     width:     '180px',
     sortable:  false,
-    formatter: (_value: any, row: App) => makeNameLinks(
-      row.configuration?.services,
-      { cluster: store.getters['clusterId'], namespace: row.meta.namespace, resource: EPINIO_TYPES.SERVICE_INSTANCE },
-      router
-    )
+    formatter: (_value: any, row: App) => {
+      const services = row.configuration.services || [];
+      const span = document.createElement('span');
+
+      span.style.whiteSpace = 'normal';
+      span.style.overflowWrap = 'anywhere';
+      span.style.wordBreak = 'break-word';
+
+      services.forEach((service, index) => {
+        const a = document.createElement('a');
+
+        try {
+          a.href = '#';
+        } catch {
+          a.href = '#';
+        }
+
+        a.addEventListener('click', (e) => {
+          e.preventDefault();
+          openServiceModal(row.meta.namespace, service);
+        });
+
+        a.textContent = service;
+        span.appendChild(a);
+
+        if (index < services.length - 1) {
+          span.appendChild(document.createTextNode(', '));
+        }
+      });
+
+      return span;
+    }
   },
   { field: 'deployment.username', label: 'Last Deployed By', width: '150px' },
   { field: 'meta.createdAt',      label: 'Age',              width: '50px', formatter: 'age' }
@@ -371,6 +447,8 @@ const columns = computed(() => {
       :bulk-remove="handleBulkDelete"
       @settled="handleBulkDeleted"
     />
+    <ConfigurationModal ref="configModal" />
+    <ServiceInstanceModal ref="serviceModal" />
   </div>
 </template>
 
