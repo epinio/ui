@@ -12,7 +12,8 @@ export default tseslint.config(
     '**/dist-pkg/**',
     '**/.yarn/**',
     '**/babel.config.js',
-    '**/vue.config.js'
+    '**/vue.config.js',
+    '**/jest.config.js'
   ],
 },
 eslint.configs.recommended,

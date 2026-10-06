@@ -39,3 +39,25 @@ jobs:
       - name: Run linters
         run: yarn lint
         working-directory: dashboard
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22.x'
+
+      - name: Install yarn
+        run: npm install -g yarn
+        working-directory: dashboard
+
+      - name: Install packages
+        run: yarn install
+        working-directory: dashboard
+
+      - name: Run unit tests
+        run: yarn test
+        working-directory: dashboard

@@ -41,7 +41,8 @@
     "serve-pkgs": "./patch-rancher-shell.sh serve-pkgs",
     "publish-pkgs": "./node_modules/@rancher/shell/scripts/extension/publish",
     "lint": "./node_modules/.bin/eslint --max-warnings 0 --ext .js,.ts,.vue .",
-    "parse-tag-name": "./node_modules/@rancher/shell/scripts/extension/parse-tag-name"
+    "parse-tag-name": "./node_modules/@rancher/shell/scripts/extension/parse-tag-name",
+    "test": "./node_modules/.bin/jest"
   },
   "devDependencies": {
     "@babel/eslint-parser": "^7.22.5",
@@ -51,7 +52,13 @@
     "@types/vue": "^1.0.31",
     "@vue/eslint-config-standard": "5.1.2",
     "@vue/eslint-config-typescript": "^11.0.3",
-    "globals": "^16.2.0"
+    "@vue/test-utils": "2.4.6",
+    "@vue/vue3-jest": "27.0.0",
+    "babel-plugin-istanbul": "6.1.1",
+    "globals": "^16.2.0",
+    "jest": "27.5.1",
+    "jest-environment-jsdom": "27.5.1",
+    "ts-jest": "27.1.5"
   },
   "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e"
 }

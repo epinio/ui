@@ -1,5 +1,5 @@
 import type { Router } from 'vue-router';
-import { createEpinioRoute } from './custom-routing';
+import { createEpinioRoute } from '../custom-routing';
 
 /**
  * Returns an empty non-breaking space cell element.
