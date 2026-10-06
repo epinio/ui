@@ -288,6 +288,7 @@ export function stateToTagVariant(state: string): string {
     case 'building':
     case 'deploying':
     case 'created':
+    case 'staging':
     case 'updating': return 'info';
     default: return 'default';
   }
@@ -305,6 +306,7 @@ export function stateToIcon(state: string): string {
     case 'error':
     case 'fail': return 'error';
     case 'building': return 'tools';
+    case 'staging':
     case 'deploying': return 'info';
     case 'created': return 'gear';
     default: return '';
@@ -378,9 +380,9 @@ export function makeCommitShaCell(row: any, deployedCommitId?: string, deployedT
   div.appendChild(a);
 
   if (deployedCommitId && row.commitId === deployedCommitId) {
-    const icon = document.createElement('i');
+    const icon = document.createElement('trailhand-icon') as any;
 
-    icon.className = 'icon icon-fw icon-commit';
+    icon.name = 'codeBranch';
     if (deployedTitle) icon.title = deployedTitle;
     div.appendChild(icon);
   }

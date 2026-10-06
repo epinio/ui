@@ -10,6 +10,9 @@ export function configurationsApi(epinioClient: ReturnType<typeof createEpinioCl
         listConfigurations: async (params?: ApiListResourceRequestParams): Promise<ApiListConfigurationsResponse> => {
             return await epinioClient.get(configurationsBasePath, { params });
         },
+        listNamespacedConfigurations: async (namespace: string, params?: ApiListResourceRequestParams): Promise<ApiListConfigurationsResponse> => {
+            return await epinioClient.get(`${namespacesBasePath}/${namespace}/configurations`, { params });
+        },
         createConfiguration: async (namespace: string, request: ApiConfigurationCreateRequest) => {
             return await epinioClient.post(`${namespacesBasePath}/${namespace}/configurations`, request);
         },

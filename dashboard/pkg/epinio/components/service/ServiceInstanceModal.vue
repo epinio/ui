@@ -94,7 +94,7 @@ const nsAppOptions = computed(() => {
   if (!formNamespace.value) return [];
 
   return applications?.value?.items
-    .map((a: any) => ({ label: a.meta.name, value: a.meta.name }));
+    .map((a: any) => ({ label: a.meta.name, value: a.meta.name })) || [];
 });
 
 const selectedCatalogService = computed(() =>

@@ -88,7 +88,11 @@ async function openEdit(row: App, commit?: string) {
   modalMode.value = 'edit';
   showModal.value = true;
   initialApp.value = row;
-  populateFormFromApp(row, true);
+  const form = populateFormFromApp(row, true);
+
+  if (commit) {
+    update.source(form.source.type, { commit });
+  }
 }
 
 function handleModalClose() {

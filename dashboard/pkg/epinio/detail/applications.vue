@@ -1,16 +1,11 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch, watchEffect } from 'vue';
+import { ref, computed, watch, Ref } from 'vue';
 import { useStore } from 'vuex';
 import day from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
-
-import Application from '../models/applications';
-import { GitUtils } from '@shell/utils/git';
-import { isArray } from '@shell/utils/array';
+import { useRouter } from 'vue-router';
 import { formatSi } from '@shell/utils/units';
 import { EPINIO_TYPES } from '../types';
-import { epinioExceptionToErrorsArray } from '../utils/errors';
-import { startPolling, stopPolling } from '../utils/polling';
 import Tabs from '../components/application/Tabs.vue';
 import Banner from '@components/Banner/Banner.vue';
 import {
@@ -18,38 +13,77 @@ import {
   makeActionMenu,
   makeCommitShaCell,
   makeCommitAuthorCell,
-  overrideTableRows
 } from '../utils/table-formatters';
 import ServiceInstanceModal from '../components/service/ServiceInstanceModal.vue';
 import ServiceDeleteModal from '../components/service/ServiceDeleteModal.vue';
-import EpinioServiceModel from 'models/services';
 import ConfigurationModal from '../components/configuration/ConfigurationModal.vue';
 import ConfigurationDeleteModal from '../components/configuration/ConfigurationDeleteModal.vue';
 import AppModal from '../components/application/AppModal.vue';
 import ExportAppModal from '../dialog/ExportAppModal.vue';
 import AppDeleteModal from '../components/application/AppDeleteModal.vue';
+import { useApplication } from '../queries/useApplicationQueries';
+import { toInstanceStats, toAppSourceDetails, toAppForm } from '../models/application/mappers';
+import { ListResourceRequestParams, ResourceQueryOptions, ResourceTableRow } from '../models/resource/ui-types';
+import { ServiceInstance } from '../models/service/ui-types';
+import { ConfigurationResponse } from '../models/configuration/ui-types';
+import { AppUpdateRequest } from '../models/application/ui-types';
+import { GitProxyGitRepo, GitProxyGitBranch, GitProxyGitCommit } from '../models/gitproxy/ui-types';
+import { debounce } from 'lodash';
+import { useNamespacedServices } from '../queries/useServiceQueries';
+import { useNamespacedConfigurations } from '../queries/useConfigurationQueries';
+import { useUser } from '../queries/useUserQueries';
+import { App, AppForm, AppPodInfo } from '../models/application/ui-types';
+import { showAppShell } from '../models/application/actions/shell';
+import { showAppLog, showStagingLog } from '../models/application/actions/logs';
+import { restageApp, restartApp } from '../models/application/actions/restage';
+import { makeNameLinks, makeEmptyCell } from '../utils/table-formatters';
+import { useUpdateApplication } from '../queries/useApplicationMutations';
+import { useGitConfig } from '../queries/useGitConfigQueries';
+import { useGitBaseUrl, useGitProxyUserType, useGitProxyRepos, useGitProxyBranches, useGitProxyCommits } from '../queries/useGitProxyQueries';
+import { useRoute } from 'vue-router';
 
 day.extend(relativeTime);
 
-const props = defineProps<{
-  value: Application;
-  initialValue: Application;
-  mode: string;
-}>();
-
 const store = useStore();
-
+const router = useRouter();
+const route = useRoute();
 const t = store.getters['i18n/t'];
 
-const scalingInFlight = ref(false);
-const debouncePending = ref(false);
-const gitSource = ref<any>(null);
-const gitDeployment = ref({
-  deployedCommit: { short: '', long: '' },
-  commits: null as any
+// Application modals
+const appModal = ref<InstanceType<typeof AppModal> | null>(null);
+const exportAppModal = ref<InstanceType<typeof ExportAppModal> | null>(null);
+const appDeleteModal = ref<InstanceType<typeof AppDeleteModal> | null>(null);
+
+// Service modals
+const serviceModal = ref<InstanceType<typeof ServiceInstanceModal> | null>(null);
+const serviceDeleteModal = ref<InstanceType<typeof ServiceDeleteModal> | null>(null);
+
+// Configuration modals
+const configModal = ref<InstanceType<typeof ConfigurationModal> | null>(null);
+const configDeleteModal = ref<InstanceType<typeof ConfigurationDeleteModal> | null>(null);
+
+// Fetch user for permissions
+const { data: user, isError: isErrorUser, error: userError } = useUser(store);
+
+// Fetch application details
+const appRequestOptions = ref<ResourceQueryOptions>({
+  enabled: true,
+  polling: false,
+  isTablePagination: false,
 });
+const { data: application, isLoading: isApplicationLoading, isError: isApplicationError, error: applicationError, refetch: refetchApplication } = useApplication(store, route.params.namespace as string, route.params.id as string, appRequestOptions);
+
+// Convert app to form data for easy access
+const appFormData = computed<AppForm | null>(() => {
+  if (!application.value) {
+    return null;
+  }
+  return toAppForm(application.value);
+});
+
+// Tab configuration
 const activeDeploymentTab = ref<string | number>('overview');
-const deploymentTabs = ref([
+const deploymentTabs = computed(() => [
   {
     id: 'overview',
     label: t('epinio.applications.detail.tables.overview'),
@@ -58,6 +92,14 @@ const deploymentTabs = ref([
     disabled: false,
     visible: true
   },
+  {
+    id: 'gitCommits',
+    label: t('epinio.applications.detail.tables.gitCommits'),
+    completed: false,
+    valid: true,
+    disabled: false,
+    visible: !!application.value?.origin.git?.revision,
+  }
 ])
 const activeResourceTab = ref<string | number>('instances');
 const resourceTabs = ref([
@@ -87,55 +129,128 @@ const resourceTabs = ref([
   }
 ]);
 
-const serviceModal = ref<InstanceType<typeof ServiceInstanceModal> | null>(null);
-const serviceDeleteModal = ref<InstanceType<typeof ServiceDeleteModal> | null>(null);
-const serviceRows = ref<any[]>([]);
+// Fetch services for table
+const servicesRequestParams = ref<ListResourceRequestParams>({
+  page: 1,
+  pageSize: 10,
+  search: '',
+  app: route.params.id as string,
+});
+const requestOptions = ref<ResourceQueryOptions>({
+  enabled: true,
+  polling: true,
+  isTablePagination: true,
+});
+const servicesSearchQuery = ref<string>('');
+watch(servicesSearchQuery, (newQuery) => {
+  onServicesSearch(newQuery);
+});
+const onServicesSearch = debounce(async (query: string) => {
+  servicesRequestParams.value.page = 1;
+  servicesRequestParams.value.search = query;
+}, 500);
+const {data: services, isLoading: isLoadingServices, isError: isErrorServices, error: servicesError} = useNamespacedServices(store, route.params.namespace as string, servicesRequestParams, requestOptions);
 
-const configModal = ref<InstanceType<typeof ConfigurationModal> | null>(null);
-const configDeleteModal = ref<InstanceType<typeof ConfigurationDeleteModal> | null>(null);
-const configRows = ref<any[]>([]);
+// Fetch configurations for table
+const configurationsRequestParams = ref<ListResourceRequestParams>({
+  page: 1,
+  pageSize: 10,
+  search: '',
+  app: route.params.id as string,
+});
+const configurationsSearchQuery = ref<string>('');
+watch(configurationsSearchQuery, (newQuery) => {
+  onConfigurationsSearch(newQuery);
+});
+const onConfigurationsSearch = debounce(async (query: string) => {
+  configurationsRequestParams.value.page = 1;
+  configurationsRequestParams.value.search = query;
+}, 500);
+const {data: configurations, isLoading: isLoadingConfigurations, isError: isErrorConfigurations, error: configurationsError} = useNamespacedConfigurations(store, route.params.namespace as string, configurationsRequestParams, requestOptions);
 
-const appModal = ref<InstanceType<typeof AppModal> | null>(null);
-const exportAppModal = ref<InstanceType<typeof ExportAppModal> | null>(null);
-const appDeleteModal = ref<InstanceType<typeof AppDeleteModal> | null>(null);
+// Update app mutation for increasing/decreasing instances
+const { mutateAsync: updateApp, isPending: isUpdatingApp } = useUpdateApplication(store, () => refetchApplication());
 
-const availableActions = computed(() => {
-  const actions = props.value.availableActions.filter((action) => action.action !== 'showConfiguration') || [];
-
-  return actions.map((action) => {
-    if (action.action === 'goToEdit') {
-      return {
-        ...action,
-        label: 'Edit',
-        action: () => appModal.value?.openEdit(props.value),
-        disabled: !canEdit.value,
-        visible: canEdit.value
-      };
-    }
-
-    if (action.action === 'exportApp') {
-      return {
-        ...action,
-        action: () => exportAppModal.value?.openExport([props.value])
-      };
-    }
-
-    if (action.action === 'promptRemove') {
-      return {
-        ...action,
-        action: () => appDeleteModal.value?.openDelete(props.value),
-        disabled: !canEdit.value,
-        visible: canEdit.value
-      };
-    }
-
-    return {
-      ...action,
-      action: () => props.value[action.action]?.(),
-    };
-  });
+// Permissions for various app actions
+const canEditApp = computed(() => {
+  return user.value?.permissions?.app_update || user.value?.permissions?.app_write || user.value?.permissions?.app;
+});
+const canDeleteApp = computed(() => {
+  return user.value?.permissions?.app_delete || user.value?.permissions?.app_write || user.value?.permissions?.app;
+});
+const canExportApp = computed(() => {
+  return user.value?.permissions?.app_export || user.value?.permissions?.app_write || user.value?.permissions?.app;
+});
+const canExecApp = computed(() => {
+  return user.value?.permissions?.app_exec  || user.value?.permissions?.app;
+});
+const canLogsApp = computed(() => {
+  return user.value?.permissions?.app_logs || user.value?.permissions?.app;
+});
+const canStageApp = computed(() => {
+  return user.value?.permissions?.app_stage || user.value?.permissions?.app_write || user.value?.permissions?.app;
+});
+const canRestartApp = computed(() => {
+  return user.value?.permissions?.app_restart || user.value?.permissions?.app_write || user.value?.permissions?.app;
+});
+const canScaleApp = computed(() => {
+  return user.value?.permissions?.app_scale || user.value?.permissions?.app_write || user.value?.permissions?.app;
 });
 
+// Application actions for display in the top right action menu
+const openEditAppModal = (app: App) => {
+  appModal.value?.openEdit(app);
+};
+const openDeleteAppModal = (app: App) => {
+  appDeleteModal.value?.openDelete(app);
+};
+const appAvailableActions = computed(() => {
+  if (!application.value) return [];
+  return [{
+    label: 'App Shell',
+    action: () => showAppShell(store, application.value),
+    enabled: canExecApp.value && application.value.status === 'running',
+    visible: canExecApp.value,
+  }, {
+    label: 'App Logs',
+    action: () => showAppLog(store, application.value),
+    enabled: canLogsApp.value && (application.value.status === 'running' || application.value.status === 'error'),
+    visible: canLogsApp.value,
+  }, {
+    label: 'Last Build Logs',
+    action: () => showStagingLog(store, application.value),
+    enabled: canLogsApp.value && !!application.value.stageId,
+    visible: canLogsApp.value,
+  }, {
+    label: 'Export',
+    action: () => exportAppModal.value?.openExport(application.value),
+    enabled: canExportApp.value && application.value.status === 'running',
+    visible: canExportApp.value,
+  }, {
+    label: 'Restage',
+    action: () => restageApp(store, application.value),
+    enabled: canStageApp.value && application.value.canRetryBuild,
+    visible: canStageApp.value,
+  }, {
+    label: 'Restart',
+    action: () => restartApp(store, application.value),
+    enabled: canRestartApp.value && application.value.status === 'running',
+    visible: canRestartApp.value,
+  }, {
+    label: 'Edit',
+    action: () => openEditAppModal(application.value),
+    enabled: canEditApp.value,
+    visible: canEditApp.value,
+  }, {
+    label: 'Delete',
+    action: () => openDeleteAppModal(application.value),
+    enabled: canDeleteApp.value,
+    visible: canDeleteApp.value,
+    danger: true,
+  }];
+});
+
+// Columns for the instances table
 const instanceColumns = [
   {
     field: 'stateDisplay',
@@ -146,9 +261,9 @@ const instanceColumns = [
   {
     field: 'name',
     label: 'Name',
-    formatter: (_v: any, row: any) => {
+    formatter: (_v: any, row: AppPodInfo) => {
       const nameText = document.createElement('p');
-      nameText.textContent = row.nameDisplay || row.meta?.name || '';
+      nameText.textContent = row.name;
       nameText.style.whiteSpace = 'normal';
       nameText.style.wordBreak = 'break-word';
       return nameText;
@@ -157,12 +272,12 @@ const instanceColumns = [
   {
     field: 'millicpus',
     label: 'Mill CPUs',
-    formatter: (value: unknown, row: { metricsOk?: boolean }) => formatMetricValue(value, row)
+    formatter: (value: unknown, row: AppPodInfo) => formatMetricValue(value, row)
   },
   {
     field: 'memoryBytes',
     label: 'RAM',
-    formatter: (value: unknown, row: { metricsOk?: boolean }) => {
+    formatter: (value: unknown, row: AppPodInfo) => {
       if (row.metricsOk === false) {
         return t('epinio.intro.metrics.notAvailableShort');
       }
@@ -181,23 +296,55 @@ const instanceColumns = [
   }
 ];
 
+const instanceRows = computed(() => {
+  if (!application.value?.deployment?.replicas) {
+    return [];
+  }
+
+  return (Object.values(application.value.deployment.replicas)).map((i) => ({
+    ...i,
+    status: i.ready ? 'ready' : 'not-ready',
+    stateDisplay: i.ready ? 'Ready' : 'Not Ready'
+  }));
+});
+
+// Columns for the services table
 const serviceColumns = [
   {
     field: 'stateDisplay',
     label: 'State',
     width: '100px',
-    formatter: (_v: any, row: any) => makeStateTag(row)
+    formatter: (_v: any, row: ServiceInstance) => makeStateTag(row)
   },
   {
     field: 'nameDisplay',
-    label: 'Name'
+    label: 'Name',
+    formatter: (_v: any, row: ServiceInstance) => {
+      const el = document.createElement('a');
+
+      el.textContent = row.meta?.name || '';
+      el.style.cursor = 'pointer';
+      el.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        serviceModal.value?.openView(row);
+      });
+
+      return el;
+    }
   },
   {
-    field: 'catalog_service',
-    label: 'Catalog Service'
+    field: 'catalogService',
+    label: 'Catalog Service',
+    sortable: false,
+    formatter: (_v: any, row: ServiceInstance) => makeNameLinks(
+      [row.catalogService],
+      { cluster: store.getters['clusterId'], resource: EPINIO_TYPES.CATALOG_SERVICE },
+      router
+    )
   },
   {
-    field: 'catalog_service_version',
+    field: 'catalogServiceVersion',
     label: 'Catalog Service Version'
   },
   {
@@ -207,55 +354,135 @@ const serviceColumns = [
   }
 ];
 
-const configColumns = [
+// Service actions and display logic
+const canEditService = computed(() => {
+  return user.value?.permissions?.service_write || user.value?.permissions?.service;
+});
+const canDeleteService = canEditService;
+const openDeleteServiceModal = (service: ServiceInstance) => {
+  serviceDeleteModal.value?.openDelete(service);
+};
+const openEditServiceModal = (service: ServiceInstance) => {
+  serviceModal.value?.openEdit(service);
+};
+const displayServiceRows = computed(() => {
+  if (!services.value) {
+    return [];
+  }
+  
+  // Add custom namespace delete action to replace the built in rancher shell flow.
+  // Gate by namespace write perms so view-only / app-only roles don't see Delete.
+  const rows: ResourceTableRow<ServiceInstance>[] = (services.value.items ?? []).map((s) => ({
+    ...s,
+    id: s.meta.name, // stable, unique per namespace
+    availableActions: [{
+      label: 'Delete',
+      action: () => openDeleteServiceModal(s),
+      enabled: canDeleteService.value,
+      visible: canDeleteService.value,
+      danger: true,
+    }, {
+      label: 'Edit',
+      action: () => openEditServiceModal(s),
+      enabled: canEditService.value,
+      visible: canEditService.value,
+    }],
+    canDelete: canDeleteService.value,
+  }));
+  return rows;
+});
+
+// Columns for the configurations table
+const configurationColumns = [
   {
     field: 'nameDisplay',
-    label: 'Name'
+    label: 'Name',
+    width: '200px',
+    formatter: (_v: any, row: ConfigurationResponse) => {
+      const el = document.createElement('a');
+
+      el.textContent = row.meta?.name || '';
+      el.style.cursor = 'pointer';
+      el.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        configModal.value?.openView(row);
+      });
+
+      return el;
+    }
   },
   {
-    field: 'variableCount',
-    label: 'No. of Variables'
+    field: 'configuration.origin',
+    label: 'Service',
+    width: '150px',
+    sortable: false,
+  },
+  {
+    field: 'configuration.variableCount',
+    label: 'No. of Variables',
+    width: '150px'
   },
   {
     field: 'configuration.user',
-    label: 'Created By'
+    label: 'Created By',
+    width: '150px',
+    formatter: (_v: any, row: ConfigurationResponse) => row.configuration?.user || makeEmptyCell()
   },
   {
     field: 'meta.createdAt',
     label: 'Age',
+    width: '50px',
     formatter: 'age'
   }
 ];
 
-const canEdit = computed(() => {
-  const canGetter = store.getters['epinio/can'];
-  return canGetter && (
-    canGetter('app_update') || canGetter('app_write') || canGetter('app')
-  );
+// Configuration actions and display logic
+const canEditConfiguration = computed(() => {
+  return user.value?.permissions?.service_write || user.value?.permissions?.service;
 });
-const canScale = computed(() => {
-  const canGetter = store.getters['epinio/can'];
-  return canGetter && (
-    canGetter('app_scale') || canGetter('app_write') || canGetter('app')
-  );
+const canDeleteConfiguration = canEditConfiguration;
+const openDeleteConfigurationModal = (configuration: ConfigurationResponse) => {
+  configDeleteModal.value?.openDelete(configuration);
+};
+const openEditConfigurationModal = (configuration: ConfigurationResponse) => {
+  configModal.value?.openEdit(configuration);
+};
+const displayConfigurationRows = computed(() => {
+  if (!configurations.value) {
+    return [];
+  }
+  
+  // Add custom namespace delete action to replace the built in rancher shell flow.
+  // Gate by namespace write perms so view-only / app-only roles don't see Delete.
+  const rows: ResourceTableRow<ConfigurationResponse>[] = (configurations.value.items ?? []).map((c) => ({
+    ...c,
+    id: c.meta.name, // stable, unique per namespace
+    availableActions: [{
+      label: 'Delete',
+      action: () => openDeleteConfigurationModal(c),
+      enabled: canDeleteConfiguration.value,
+      visible: canDeleteConfiguration.value,
+      danger: true,
+    }, {
+      label: 'Edit',
+      action: () => openEditConfigurationModal(c),
+      enabled: canEditConfiguration.value && !c.configuration.origin,
+      visible: canEditConfiguration.value && !c.configuration.origin,
+    }],
+    canDelete: canDeleteConfiguration.value,
+  }));
+  return rows;
 });
 
-// Bound resources on this page have their own scope: the services table
-// requires service write perms, the configurations table requires config
-// write perms — independent of app perms.
-const canEditService = computed(() => {
-  const canGetter = store.getters['epinio/can'];
-  return canGetter && (canGetter('service_write') || canGetter('service'));
-});
-const canEditConfig = computed(() => {
-  const canGetter = store.getters['epinio/can'];
-  return canGetter && (canGetter('configuration_write') || canGetter('configuration'));
-});
-
+// Data handling for instance metrics
 const showMetricsUnavailable = computed(() => {
-  return props.value.instances.length > 0 && !props.value.metricsOk;
+  const replicas = application.value?.deployment?.replicas ?? {};
+  const hasReplicas = Object.keys(replicas).length > 0;
+  const allReplicasMetricsOk = hasReplicas ? 
+    Object.values(replicas).every((r) => r.metricsOk) : false;
+  return !allReplicasMetricsOk;
 });
-
 function formatMetricValue(value: unknown, row: { metricsOk?: boolean }) {
   if (row.metricsOk === false) {
     return t('epinio.intro.metrics.notAvailableShort');
@@ -263,331 +490,256 @@ function formatMetricValue(value: unknown, row: { metricsOk?: boolean }) {
 
   return value;
 }
+const instanceMemory = computed(() => {
+    const stats = toInstanceStats(Object.values(application.value?.deployment?.replicas ?? {}), 'memoryBytes');
+    const opts = {
+      suffix:      'iB',
+      firstSuffix: 'B',
+      increment:   1024,
+    };
 
+    return {
+      min: formatSi(stats.min, opts),
+      max: formatSi(stats.max, opts),
+      avg: formatSi(stats.avg, opts),
+    };;
+});
+const instanceCpu = computed(() => {
+  return toInstanceStats(Object.values(application.value?.deployment?.replicas ?? {}), 'millicpus');
+});
 
-const boundConfigurations = ref<any[]>([]);
-const boundServices = ref<any[]>([]);
+// When the application data is loaded set the initial desired instances
+watch(application, (newApp) => {
+  desiredInstances.value = newApp?.deployment?.desiredReplicas ?? 0;
+});
+const desiredInstances = ref<number>(application?.value?.deployment?.desiredReplicas ?? 0);
 
-const BOUND_POLL_RATE_MS = 30000;
-let boundPollId: number | undefined;
+// Watch for changes in the desired instances and trigger the update handler
+watch(desiredInstances, (newValue) => {
+  onInstancesChange(newValue);
+});
 
-// Fetch each binding by name off the app record. The configuration and service
-// store slices hold one page of their lists, so anything past page 1 was missing
-// from these tables.
-async function fetchBound() {
-  const namespace = props.value.meta?.namespace;
-
-  if (!namespace) {
+// Debounced handler for updating the desired instances
+const onInstancesChange = debounce(async (newInstances: number) => {
+  if (!application.value) {
     return;
   }
 
-  const show = async (type: string, path: string, name: string) => {
-    try {
-      const res = await store.dispatch('epinio/request', {
-        opt: {
-          url:          `/api/v1/namespaces/${ namespace }/${ path }/${ encodeURIComponent(name) }`,
-          method:       'GET',
-          responseType: 'json'
-        }
-      });
-
-      // id is what epiniofy() would have added; the tables key and filter on it
-      return await store.dispatch('epinio/create', {
-        type,
-        ...res.data,
-        id: `${ namespace }/${ name }`,
-      });
-    } catch {
-      // a binding can name something that was just deleted
-      return null;
-    }
-  };
-
-  const [configs, services] = await Promise.all([
-    Promise.all((props.value.configuration?.configurations ?? []).map(
-      (name: string) => show(EPINIO_TYPES.CONFIGURATION, 'configurations', name)
-    )),
-    Promise.all((props.value.configuration?.services ?? []).map(
-      (name: string) => show(EPINIO_TYPES.SERVICE_INSTANCE, 'services', name)
-    )),
-  ]);
-
-  boundConfigurations.value = configs.filter(Boolean);
-  boundServices.value = services.filter(Boolean);
-}
-
-watch(
-  () => [props.value.configuration?.configurations, props.value.configuration?.services],
-  () => fetchBound(),
-  { deep: true, immediate: true }
-);
-
-const baseConfigurations = computed(
-  () => boundConfigurations.value.filter((c: any) => !c.isServiceRelated)
-);
-const serviceConfigurations = computed(
-  () => boundConfigurations.value.filter((c: any) => c.isServiceRelated)
-);
-
-watchEffect(() => {
-  const all = [...boundServices.value];
-
-  all.forEach((row: any) => { void row.status; void row.stateDisplay; void row.meta; });
-
-  // Filter empty rows that are added during delete
-  const filtered = all.filter((row) => {
-    if (!row.id) return false;
-    else return true;
-  });
-
-  // Bound-services row actions are gated by service write perms.
-  const overrideProps = [
-    {
-      prop: 'availableActions',
-      value: (row: EpinioServiceModel) => {
-        const out: any[] = [];
-
-        if (canEditService.value) {
-          out.push(
-            {
-              action: 'removeService',
-              altAction: 'remove',
-              bulkAction: 'removeService',
-              bulkable: true,
-              enabled: row.canDelete,
-              icon: 'icon icon-trash',
-              label: 'Delete',
-              weight: -10
-            },
-            {
-              action: 'editServiceModal',
-              label: 'Edit',
-              enabled: true
-            }
-          );
-        }
-
-        return out;
-      },
-      conditionFn: () => true,
-    },
-    {
-      prop: 'removeService',
-      value: (row: EpinioServiceModel) => () => {
-        serviceDeleteModal.value?.openDelete(row);
-      },
-      conditionFn: (row: EpinioServiceModel) => canEditService.value && row.canDelete,
-    },
-    {
-      prop: 'editServiceModal',
-      value: (row: EpinioServiceModel) => () => {
-        serviceModal.value?.openEdit(row);
-      },
-      conditionFn: () => canEditService.value,
-    }
-  ];
-
-  serviceRows.value = [...overrideTableRows(filtered, overrideProps)];
-});
-
-watchEffect(() => {
-  const all = [...baseConfigurations.value];
-
-  all.forEach((row: any) => { void row.status; void row.stateDisplay; void row.meta; });
-
-  const overrides = [
-    {
-      prop: 'availableActions',
-      value: (row: any) => {
-        if (!canEditConfig.value) return [];
-
-        return [
-          {
-            action:  'editConfigModal',
-            label:   'Edit',
-            enabled: row.configuration?.type === 'custom',
-            icon:    'icon icon-edit',
-          },
-          {
-            action:  'deleteConfigModal',
-            label:   'Delete',
-            enabled: row.configuration?.type === 'custom',
-            icon:    'icon icon-trash',
-            weight:  -10,
-          },
-        ];
-      },
-      conditionFn: () => true,
-    },
-    {
-      prop:        'editConfigModal',
-      value:       (row: any) => () => { configModal.value?.openEdit(row); },
-      conditionFn: (row: any) => canEditConfig.value && row.configuration?.type === 'custom',
-    },
-    {
-      prop:        'deleteConfigModal',
-      value:       (row: any) => () => { configDeleteModal.value?.openDelete(row); },
-      conditionFn: (row: any) => canEditConfig.value && row.configuration?.type === 'custom',
-    },
-  ];
-
-  configRows.value = [...overrideTableRows(all, overrides)];
-});
-
-const commitActions = computed(() => canEdit.value ? [{
-  action: 'editFromCommit',
-  label: t('epinio.applications.actions.editFromCommit.label'),
-  icon: 'icon icon-edit',
-  enabled: true
-}] : []);
-
-// Debounce settings for scaling instances
-const UPDATE_INSTANCES_DEBOUNCE_MS = 2000; // 2s; adjust as needed
-let updateInstancesTimeout: number | null = null;
-
-onMounted(async () => {
-  await store.dispatch('epinio/me'); //Need to fetch fresh rights for scaling
-  startPolling([EPINIO_TYPES.APP], store);
-
-  // The bound tables read their own fetches, not the store slices, so refresh
-  // them on the same cadence to keep service state current.
-  boundPollId = window.setInterval(() => fetchBound(), BOUND_POLL_RATE_MS);
-
-  if (props.value.appSource.git) {
-    await fetchRepoDetails();
-    setCommitDetails();
-    deploymentTabs.value.push({
-      id: 'gitCommits',
-      label: t('epinio.applications.detail.tables.gitCommits'),
-      completed: false,
-      valid: true,
-      disabled: false,
-      visible: true,
-    });
+  // If the new instance count matches the current desired replicas, no update is needed
+  if (newInstances === application.value.deployment?.desiredReplicas) {
+    return;
   }
-});
 
-onUnmounted(() => {
-  stopPolling([EPINIO_TYPES.APP]);
-  if (boundPollId !== undefined) {
-    window.clearInterval(boundPollId);
-  }
-});
+  const updateRequest: AppUpdateRequest = {
+    appChart: application.value.configuration.appChart,
+    configurations: application.value.configuration.configurations,
+    environment: application.value.configuration.environment,
+    routes: application.value.configuration.routes,
+    replaceEnv: true,
+    restart: true,
+    settings: application.value.configuration.settings || null,
+    instances: newInstances
+  }; 
+
+  updateApp({namespace: application.value.meta.namespace, app: application.value.meta.name, body: updateRequest});
+}, 500);
 
 async function updateInstances(newInstances: number) {
-  // Update desired and configured instances immediately so the UI reflects the target
-  props.value.desiredInstances = newInstances;
-  props.value.configuration.instances = newInstances;
-
-  // Debounce the API call so rapid clicks collapse into one request
-  if (updateInstancesTimeout !== null) {
-    clearTimeout(updateInstancesTimeout);
-  }
-  debouncePending.value = true;
-
-  updateInstancesTimeout = window.setTimeout(async () => {
-    debouncePending.value = false;
-    scalingInFlight.value = true;
-
-    try {
-      await props.value.update();
-      await props.value.forceFetch();
-    } catch (err) {
-      console.error('[Epinio instances] Failed to scale Application', epinioExceptionToErrorsArray(err));
-    } finally {
-      scalingInFlight.value = false;
-      debouncePending.value = false;
-      updateInstancesTimeout = null;
-    }
-  }, UPDATE_INSTANCES_DEBOUNCE_MS);
+  desiredInstances.value = newInstances;
 }
 
-const showScaleSpinner = computed(() => debouncePending.value || scalingInFlight.value);
+const showScaleSpinner = computed(() => isUpdatingApp.value);
+
+// Initial git values from the application form data
+const sourceType = computed(() => appFormData.value?.source.type);
+const gitUsername = computed(() => {
+  if (!appFormData.value || !sourceType.value) {
+    return '';
+  }
+  return appFormData.value?.source[sourceType.value as 'github' | 'gitlab']?.userOrOrg;
+});
+const gitConfig = computed(() => {
+  if (!appFormData.value || !sourceType.value) {
+    return null;
+  }
+  return appFormData.value?.source[sourceType.value as 'github' | 'gitlab']?.gitConfig || null;
+});
+
+// Fetch git config details if needed for use in git requests
+const gitConfigRequestOptions = ref<ResourceQueryOptions>({
+  enabled: !!appFormData.value && !!gitConfig.value && (sourceType.value === 'github' || sourceType.value === 'gitlab'),
+  polling: false,
+});
+const {data: selectedGitConfig, isLoading: isLoadingGitConfig, isError: isErrorGitConfig, error: gitConfigError} = useGitConfig(store, appFormData.value?.source[sourceType.value as 'github' | 'gitlab']?.gitConfig || '', gitConfigRequestOptions);
+
+// Compute the base URL for the selected git provider using the fetched git config
+const gitBaseUrl = useGitBaseUrl(sourceType as Ref<'github' | 'gitlab'>, selectedGitConfig); 
+
+// Git User
+const gitUserRequestOptions = computed<ResourceQueryOptions>(() => ({
+  enabled: !!appFormData.value && !!gitBaseUrl.value && !!gitUsername.value,
+  polling: false,
+}));
+const { data: gitUser, isLoading: isGitUserLoading, isError: isGitUserError } = useGitProxyUserType(
+  store,
+  sourceType as Ref<'github' | 'gitlab'>,
+  gitUsername as Ref<string>,
+  gitConfig,
+  gitBaseUrl as Ref<string>,
+  gitUserRequestOptions,
+);
+
+// Git Repository
+const gitRepo = computed(() => {
+  if (!appFormData.value || !sourceType.value) {
+    return '';
+  }
+  return appFormData.value?.source[sourceType.value as 'github' | 'gitlab']?.repository;
+});
+const gitRepoRequestOptions = computed<ResourceQueryOptions>(() => ({
+  enabled: gitBaseUrl.value !== null && !!gitUser.value?.username && !!gitRepo.value,
+  polling: false,
+}));
+const { data: gitRepos, isLoading: isGitReposLoading, isError: isGitReposError } = useGitProxyRepos(
+  store,
+  sourceType as Ref<'github' | 'gitlab'>,
+  gitUser as Ref<{ username: string, userType: string | null }>,
+  gitConfig,
+  gitBaseUrl as Ref<string>,
+  gitRepo as Ref<string>,
+  gitRepoRequestOptions,
+);
+const selectedRepo = computed(() => {
+  return gitRepos.value?.find(repo => repo.name === gitRepo.value) || null;
+});
+
+// Git Branch
+const gitBranch = computed(() => {
+  if (!appFormData.value || !sourceType.value) {
+    return '';
+  }
+  return appFormData.value?.source[sourceType.value as 'github' | 'gitlab']?.branch;
+});
+const gitBranchRequestOptions = computed<ResourceQueryOptions>(() => ({
+  enabled: gitBaseUrl.value !== null && !!gitUser.value && !!selectedRepo.value,
+  polling: false,
+}));
+const { data: gitBranches, isLoading: isGitBranchesLoading, isError: isGitBranchesError } = useGitProxyBranches(
+  store,
+  sourceType as Ref<'github' | 'gitlab'>,
+  gitUser as Ref<{ username: string, userType: string | null }>,
+  gitConfig,
+  gitBaseUrl as Ref<string>,
+  selectedRepo as Ref<GitProxyGitRepo>,
+  gitBranch as Ref<string>,
+  gitBranchRequestOptions,
+);
+const selectedBranch = computed(() => {
+  return gitBranches.value?.find(branch => branch.name === gitBranch.value) || null;
+})
+
+// Git Commit
+const gitCommit = computed(() => {
+  if (!appFormData.value || !sourceType.value) {
+    return '';
+  }
+  return appFormData.value?.source[sourceType.value as 'github' | 'gitlab']?.commit;
+});
+const gitCommitRequestOptions = computed<ResourceQueryOptions>(() => ({
+  enabled: gitBaseUrl.value !== null && !!gitUser.value && !!selectedRepo.value && !!selectedBranch.value,
+  polling: false,
+}));
+const { data: gitCommits, isLoading: isGitCommitsLoading, isError: isGitCommitsError } = useGitProxyCommits(
+  store,
+  sourceType as Ref<'github' | 'gitlab'>,
+  gitUser as Ref<{ username: string, userType: string | null }>,
+  gitConfig,
+  gitBaseUrl as Ref<string>,
+  selectedRepo as Ref<GitProxyGitRepo>,
+  selectedBranch as Ref<GitProxyGitBranch>,
+  gitCommitRequestOptions,
+);
+const selectedCommit = computed(() => {
+  return gitCommits.value?.find(commit => commit.sha === gitCommit.value) || null;
+});
 
 function formatURL(str: string) {
   const matchGit = str.match('^(https|git)(:\/\/|@)([^\/:]+)[\/:]([^\/:]+)\/(.+)(.git)*$'); // eslint-disable-line no-useless-escape
   return `${matchGit?.[4]}/${matchGit?.[5]}`;
 }
 
-async function fetchRepoDetails() {
-  const { usernameOrOrg, repo } = props.value.appSource.git;
-  const res = await store.dispatch(`${gitType.value}/fetchRepoDetails`, { username: usernameOrOrg, repo });
-
-  gitSource.value = GitUtils[gitType.value].normalize.repo(res);
-  await fetchCommits();
-}
-
-async function fetchCommits() {
-  const { usernameOrOrg, repo, branch } = props.value.appSource.git;
-
-  if (branch?.name) {
-    gitDeployment.value.commits = await store.dispatch(`${gitType.value}/fetchCommits`, {
-      username: usernameOrOrg, repo, branch
-    });
-  }
-}
-
-function setCommitDetails() {
-  const { commit } = props.value.appSource.git;
-  const selectedCommit = preparedCommits.value.find((c) => c.commitId === commit);
-
-  gitDeployment.value.deployedCommit = {
-    short: selectedCommit?.commitId?.slice(0, 7),
-    long: selectedCommit.commitId
-  };
-}
-
-const gitType = computed(() => props.value.appSource?.type || null);
-
-const preparedCommits = computed(() => {
-  const commits = gitDeployment.value.commits;
-
-  if (!commits) {
-    return [];
-  }
-
-  const arr = isArray(commits) ? commits : [commits];
-
-  return arr.map((c: { sha: any; id: any; }) => ({
-    ...GitUtils[gitType.value].normalize.commit(c),
-    availableActions: commitActions.value,
-    editFromCommit: () => appModal.value?.openEdit(props.value, c.sha)
-  }));
-});
-
+// Git commits table columns for display in the UI
 const gitCommitsColumns = computed(() => [
   {
     field: 'sha',
-    label: t(`epinio.applications.gitSource.${gitType.value}.tableHeaders.sha.label`),
-    width: '100px',
-    formatter: (_v: any, row: any) => makeCommitShaCell(
+    label: t(`epinio.applications.gitSource.${ sourceType.value }.tableHeaders.sha.label`),
+    width: '90px',
+    sortable: false,
+    formatter: (_v: any, row: GitProxyGitCommit) => makeCommitShaCell(
       row,
-      gitDeployment.value.deployedCommit.long,
+      application.value?.origin.git?.revision,
       t('epinio.applications.detail.deployment.details.git.deployed')
     )
   },
   {
-    field: 'author_login',
-    label: t(`epinio.applications.gitSource.${gitType.value}.tableHeaders.author.label`),
+    field: 'author',
+    label: t(`epinio.applications.gitSource.${ sourceType.value }.tableHeaders.author.label`),
     width: '190px',
-    formatter: (_v: any, row: any) => makeCommitAuthorCell(
+    sortable: false,
+    formatter: (_v: any, row: GitProxyGitCommit) => makeCommitAuthorCell(
       row,
-      t(`epinio.applications.gitSource.${gitType.value}.tableHeaders.author.unknown`)
+      t(`epinio.applications.gitSource.${ sourceType.value }.tableHeaders.author.unknown`)
     )
   },
   {
     field: 'message',
-    label: t(`epinio.applications.gitSource.${gitType.value}.tableHeaders.message.label`)
+    label: t(`epinio.applications.gitSource.${ sourceType.value }.tableHeaders.message.label`),
+    sortable: false,
   },
   {
     field: 'date',
-    label: t(`epinio.applications.gitSource.${gitType.value}.tableHeaders.date.label`),
+    label: t(`epinio.applications.gitSource.${ sourceType.value }.tableHeaders.date.label`),
     width: '220px',
-    formatter: 'dateTime'
-  }
+    sortable: false,
+    formatter: (_v: any, row: GitProxyGitCommit) => {
+      const span = document.createElement('span');
+
+      if (row.date) {
+        span.textContent = new Date(row.date).toLocaleString();
+      }
+
+      return span;
+    }
+  },
 ]);
 
-function formatDate(date, from) {
+// Git commit table rows for display in the UI
+const gitCommitRows = computed(() => {
+  if (!gitCommits.value) {
+    return [];
+  }
+  // Add custom namespace delete action to replace the built in rancher shell flow.
+  // Gate by namespace write perms so view-only / app-only roles don't see Delete.
+  const rows: ResourceTableRow<GitProxyGitCommit>[] = (gitCommits.value ?? []).map((c) => ({
+    ...c,
+    id: c.sha, // stable, unique per namespace
+    availableActions: [{
+      label: 'Redeploy',
+      action: () => {
+        if (!application.value) {
+          return;
+        }
+        appModal.value?.openEdit(application.value, c.commitId)
+      },
+      enabled: canEditApp.value && !!application.value && c.commitId !== application.value?.origin.git?.revision,
+      visible: canEditApp.value && !!application.value && c.commitId !== application.value?.origin.git?.revision,
+    }],
+  }));
+  return rows;
+});
+
+
+function formatDate(date: string, from: boolean) {
   return from ? day(date).fromNow() : day(date).format('DD MMM YYYY');
 }
 
@@ -599,6 +751,14 @@ function handleDeleted() {
   });
 }
 
+const appSourceDetails = computed(() => {
+  if (!appFormData.value) {
+    return null;
+  }
+
+  return toAppSourceDetails(appFormData.value, t);
+});
+
 </script>
 
 <!-- eslint-disable vue/no-deprecated-slot-attribute -->
@@ -608,34 +768,38 @@ function handleDeleted() {
   only applies to Vue component slots.
 -->
 <template>
-  <div class="content">
+  <div class="page-loading" v-if="isApplicationLoading">
+    <trailhand-loading-spinner size="large" />
+  </div>
+  <div v-else-if="isApplicationError">Error loading application data: {{ applicationError?.message || 'Error fetching application data'}}</div>
+  <div v-else class="content">
     <div class="heading">
       <div class="heading-row">
         <div class="title-content">
-          <h1>Application: {{ value.meta.name }}</h1>
-          <p>{{ value.stateDisplay }}</p>
+          <h1>Application: {{ application?.meta.name }}</h1>
+          <p>{{ application?.stateDisplay }}</p>
         </div>
         <trailhand-action-menu
-          v-if="availableActions.length > 0"
-          :actions="availableActions"
+          v-if="appAvailableActions.length > 0"
+          :actions="appAvailableActions"
         />
       </div>
-      <h3>Namespace: {{ value.meta.namespace }}</h3>
+      <h3>Namespace: {{ application?.meta.namespace }}</h3>
       <ul>
         <li
-          v-for="route in value.configuration.routes"
-          :key="route.id"
+          v-for="(route, index) in application?.configuration.routes"
+          :key="`${route}-${index}`"
         >
           <a
-            v-if="value.state === 'running'"
-            :key="route.id + 'a'"
+            v-if="application?.status === 'running'"
+            :key="`${route}-${index}-a`"
             :href="`https://${route}`"
             target="_blank"
             rel="noopener noreferrer nofollow"
           >{{ `https://${route}` }}</a>
           <span
             v-else
-            :key="route.id + 'b'"
+            :key="`${route}-${index}-b`"
           >{{ `https://${route}` }}</span>
         </li>
       </ul>
@@ -643,29 +807,29 @@ function handleDeleted() {
     <div class="number-cards">
       <trailhand-card class="dashboard-card" variant="info">
         <div slot="title">
-          <p class="number-text"><span class="number">{{ value.envCount }}</span> {{ t('epinio.applications.detail.counts.envVars') }}</p>
+          <p class="number-text"><span class="number">{{ Object.keys(application?.configuration.environment || {}).length ?? 0 }}</span> {{ t('epinio.applications.detail.counts.envVars') }}</p>
         </div>
       </trailhand-card>
       <trailhand-card class="dashboard-card" variant="info">
         <div slot="title">
-          <p class="number-text"><span class="number">{{ serviceConfigurations.length }}</span> {{ t('epinio.applications.detail.counts.services') }}</p>
+          <p class="number-text"><span class="number">{{ application?.configuration.services?.length ?? 0 }}</span> {{ t('epinio.applications.detail.counts.services') }}</p>
         </div>
       </trailhand-card>
       <trailhand-card class="dashboard-card" variant="info">
         <div slot="title">
-          <p class="number-text"><span class="number">{{ baseConfigurations.length }}</span> {{ t('epinio.applications.detail.counts.config') }}</p>
+          <p class="number-text"><span class="number">{{ application?.configuration.boundConfigurations?.filter(config => config.type === "custom").length ?? 0 }}</span> {{ t('epinio.applications.detail.counts.config') }}</p>
         </div>
       </trailhand-card>
     </div>
 
     <h3
-      v-if="value.deployment || value.image_url"
+      v-if="application?.deployment || application?.imageUrl"
       class="mt-20"
     >
       {{ t('epinio.applications.detail.deployment.label') }}
     </h3>
     <div
-      v-if="value.deployment || value.image_url"
+      v-if="application?.deployment || application?.imageUrl"
       class="deployment"
     >
       <!-- Source information -->
@@ -675,9 +839,9 @@ function handleDeleted() {
             <trailhand-card variant="info" class="dashboard-card simple-box">
               <div slot="title" class="consumption-card">
                 <div class="instances">
-                  <trailhand-progress-bar label="Instances" :value="value.readyInstances" :total="value.desiredInstances"></trailhand-progress-bar>
+                  <trailhand-progress-bar label="Instances" :value="application?.deployment?.readyReplicas" :total="desiredInstances"></trailhand-progress-bar>
                   <div class="instances-controls">
-                    <trailhand-button v-if="canScale" variant="secondary" size="small" :disabled="scalingInFlight || value.desiredInstances <= 0" @button-click="updateInstances(value.desiredInstances - 1)">
+                    <trailhand-button v-if="canScaleApp" variant="secondary" size="small" :disabled="isUpdatingApp || desiredInstances <= 0" @button-click="updateInstances(desiredInstances - 1)">
                       <trailhand-icon name="minus" />
                     </trailhand-button>
                     <div
@@ -686,7 +850,7 @@ function handleDeleted() {
                     >
                       <i class="icon-spinner animate-spin" />
                     </div>
-                    <trailhand-button v-if="canScale" variant="secondary" size="small" :disabled="scalingInFlight" @button-click="updateInstances(value.desiredInstances + 1)">
+                    <trailhand-button v-if="canScaleApp" variant="secondary" size="small" :disabled="isUpdatingApp" @button-click="updateInstances(desiredInstances + 1)">
                       <trailhand-icon name="plus" />
                     </trailhand-button>
                   </div>
@@ -715,15 +879,15 @@ function handleDeleted() {
                       <tbody>
                           <tr>
                               <td>{{ t('tableHeaders.memory') }}</td>
-                              <td>{{ value.instanceMemory.min }}</td>
-                              <td>{{ value.instanceMemory.max }}</td>
-                              <td>{{ value.instanceMemory.avg }}</td>
+                              <td>{{ instanceMemory.min }}</td>
+                              <td>{{ instanceMemory.max }}</td>
+                              <td>{{ instanceMemory.avg }}</td>
                           </tr>
                           <tr>
                               <td>{{ t('tableHeaders.cpu') }}</td>
-                              <td>{{ value.instanceCpu.min }}</td>
-                              <td>{{ value.instanceCpu.max }}</td>
-                              <td>{{ value.instanceCpu.avg }}</td>
+                              <td>{{ instanceCpu.min }}</td>
+                              <td>{{ instanceCpu.max }}</td>
+                              <td>{{ instanceCpu.avg }}</td>
                           </tr>
                       </tbody>
                     </table>
@@ -731,7 +895,7 @@ function handleDeleted() {
                 </div>
               </div>
             </trailhand-card>
-            <trailhand-card v-if="value.appSourceInfo" variant="info" class="dashboard-card simple-box">
+            <trailhand-card v-if="appSourceDetails" variant="info" class="dashboard-card simple-box">
               <div slot="title" class="deployment__origin__list" >
                 <table>
                   <tbody>
@@ -740,10 +904,10 @@ function handleDeleted() {
                         {{ t('epinio.applications.detail.deployment.details.origin') }}
                       </td>
                       <td class="origin-value">
-                        {{ value.appSourceInfo.label }}
+                        {{ appSourceDetails.label }}
                       </td>
                     </tr>
-                    <tr v-for="d of value.appSourceInfo.details" :key="d.label">
+                    <tr v-for="d of appSourceDetails.details" :key="d.label">
                       <td class="origin-prop">{{ d.label }}</td>
                       <td v-if="d.value && d.value.startsWith('http')" class="origin-value">
                         <a
@@ -752,29 +916,29 @@ function handleDeleted() {
                           class="origin-link"
                         >{{ formatURL(d.value) }}</a>
                       </td>
-                      <td v-else-if="gitSource && d.value && d.value.match(/^[a-f0-9]{40}$/)" class="origin-value">
+                      <td v-else-if="selectedCommit && d.value && d.value.match(/^[a-f0-9]{40}$/)" class="origin-value">
                         <a
-                          :href="`${gitSource.htmlUrl}/commit/${d.value}`"
+                          :href="`${selectedCommit.htmlUrl}/commit/${d.value}`"
                           target="_blank"
                           class="origin-link"
                         >{{ d.value }}</a>
                       </td>
                       <td v-else class="origin-value">{{ d.value }}</td>
                     </tr>
-                    <tr v-if="gitSource">
+                    <tr v-if="selectedRepo && selectedRepo.createdAt">
                       <td class="origin-prop">
                         {{ t('epinio.applications.detail.deployment.details.git.created') }}
                       </td>
                       <td class="origin-value">
-                        {{ formatDate(gitSource.created_at, false) }}
+                        {{ formatDate(selectedRepo.createdAt, false) }}
                       </td>
                     </tr>
-                    <tr v-if="gitSource">
+                    <tr v-if="selectedRepo && (selectedRepo.updatedAt || selectedRepo.lastActivityAt)">
                       <td class="origin-prop">
                         {{ t('epinio.applications.detail.deployment.details.git.updated') }}
                       </td>
                       <td class="origin-value">
-                        {{ formatDate(gitSource.updated_at, true) }}
+                        {{ formatDate(selectedRepo.updatedAt || selectedRepo.lastActivityAt || '', true) }}
                       </td>
                     </tr>
                     <tr>
@@ -782,7 +946,7 @@ function handleDeleted() {
                         {{ t('epinio.applications.tableHeaders.deployedBy') }}
                       </td>
                       <td class="origin-value">
-                        {{ value.deployment?.username }}
+                        {{ application.deployment?.username }}
                       </td>
                     </tr>
                   </tbody>
@@ -799,9 +963,9 @@ function handleDeleted() {
             {{ t('epinio.applications.detail.deployment.commits.redeploy') }}
           </Banner>
           <trailhand-table
-            v-if="preparedCommits"
+            v-if="gitCommits && gitCommits.length"
             :ref="(el: any) => { if (el) el.renderActions = makeActionMenu; }"
-            :rows="preparedCommits"
+            :rows="gitCommitRows"
             :columns="gitCommitsColumns"
             key-field="sha"
             :searchable="true"
@@ -822,27 +986,51 @@ function handleDeleted() {
           <trailhand-table
             :ref="(el: any) => { if (el) el.renderActions = makeActionMenu; }"
             :columns="instanceColumns"
-            :rows="value.instances"
+            :rows="instanceRows"
             :searchable="false"
             :paginated="false"
           />
         </template>
         <template #services>
+          <div class="search-container">
+            <trailhand-text-input
+              :value="servicesSearchQuery"
+              placeholder="Search..."
+              @text-input-change="(e: CustomEvent) => servicesSearchQuery = e.detail.value"
+            ></trailhand-text-input>
+          </div>
           <trailhand-table
             :ref="(el: any) => { if (el) el.renderActions = makeActionMenu; }"
+            :rows="displayServiceRows"
             :columns="serviceColumns"
-            :rows="serviceRows"
             :searchable="false"
-            :paginated="false"
+            :server-side="true"
+            :total-items="services?.totalItems ?? 0"
+            :current-page="servicesRequestParams.page"
+            :loading="isLoadingServices"
+            key-field="id"
+            @page-change="(e: CustomEvent) => { servicesRequestParams.page = e.detail.page; }"
           />
         </template>
         <template #configs>
+          <div class="search-container">
+            <trailhand-text-input
+              :value="configurationsSearchQuery"
+              placeholder="Search..."
+              @text-input-change="(e: CustomEvent) => configurationsSearchQuery = e.detail.value"
+            ></trailhand-text-input>
+          </div>
           <trailhand-table
             :ref="(el: any) => { if (el) el.renderActions = makeActionMenu; }"
-            :columns="configColumns"
-            :rows="configRows"
+            :rows="displayConfigurationRows"
+            :columns="configurationColumns"
             :searchable="false"
-            :paginated="false"
+            :server-side="true"
+            :total-items="configurations?.totalItems ?? 0"
+            :current-page="configurationsRequestParams.page"
+            :loading="isLoadingConfigurations"
+            key-field="id"
+            @page-change="(e: CustomEvent) => { configurationsRequestParams.page = e.detail.page; }"
           />
         </template>
       </Tabs>
@@ -858,6 +1046,13 @@ function handleDeleted() {
 </template>
 
 <style lang="scss" scoped>
+.page-loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+}
+
 .heading {
   display: flex;
   flex-direction: column;
@@ -969,6 +1164,13 @@ trailhand-table {
   --sortable-table-row-hover-bg: var(--sortable-table-hover-bg);
   --sortable-table-header-hover-bg: var(--sortable-table-hover-bg);
   --sortable-table-header-sorted-bg: var(--sortable-table-hover-bg);
+}
+
+.search-container {
+  width: 100%;
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 1rem;
 }
 
 .simple-box-row {

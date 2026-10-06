@@ -6,7 +6,7 @@ import { epinioQueryClient } from "../api/queryClient";
 import { computed, Ref } from "vue";
 import { ListResourceRequestParams, ResourceQueryOptions } from "../models/resource/ui-types";
 import { toApiListResourceRequestParams } from "../models/resource/mappers";
-import { toListAppsResponse } from "../models/application/mappers";
+import { toListAppsResponse, toApp } from "../models/application/mappers";
 
 export function useApplications(store: any, params: Ref<ListResourceRequestParams>, options: Ref<ResourceQueryOptions>) {
     const { data: cluster } = useCluster(store);
@@ -29,33 +29,23 @@ export function useApplications(store: any, params: Ref<ListResourceRequestParam
     }, epinioQueryClient);
 }
 
-// function applicationPartOptions(
-//   cluster: any,
-//   isExtension: boolean,
-//   namespace: string,
-//   app: string,
-//   part: string,
-//   signal?: AbortSignal
-// ) {
-//   return queryOptions({
-//     queryKey: ['application-part', cluster?.id, namespace, app, part],
-//     queryFn: async () => {
-//       if (!cluster) {
-//         throw new Error('Cluster is not available');
-//       }
-//       const epinioClient = createEpinioClient(cluster, isExtension);
-//       return await applicationsApi(epinioClient).fetchPart(namespace, app, part, signal);
-//     },
-//     enabled: !!cluster,
-//   });
-// }
+export function useApplication(store: any, namespace: string, app: string, options: Ref<ResourceQueryOptions>) {
+    const { data: cluster } = useCluster(store);
+    const isExtension = computed(() => !!store.getters['isSingleProduct'] === false);
 
-// export async function fetchApplicationPart(store: any, namespace: string, app: string, part: string, signal?: AbortSignal) {
-//     const { data: cluster } = useCluster(store);
-//     const isExtension = computed(() => !!store.getters['isSingleProduct'] === false);
-
-//     const apiPart = await epinioQueryClient.fetchQuery(
-//         applicationPartOptions(cluster.value, isExtension.value, namespace, app, part, signal)
-//     );
-//     return apiPart;
-// }
+    return useQuery({
+        queryKey: computed(() => ['application', cluster.value?.id, namespace, app]),
+        queryFn: async () => {
+            if (!cluster?.value) {
+                throw new Error('Cluster is not available');
+            }
+            const epinioClient = createEpinioClient(cluster.value, isExtension.value);
+            const appData = await applicationsApi(epinioClient).getApp(namespace, app);
+            return toApp(appData);
+        },
+        enabled: computed(() => !!cluster.value && options.value.enabled),
+        placeholderData: options.value.isTablePagination ? keepPreviousData : undefined,
+        refetchInterval: options.value.polling ? 10000 : false,
+        structuralSharing: options.value.polling ? false : true,
+    }, epinioQueryClient);
+}

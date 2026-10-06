@@ -18,9 +18,14 @@ export type ApiGitProxyGitlabUserResponse = ApiGitProxyGitlabGroupResponse[];
 export interface ApiGitProxyGitRepo {
   id: number;
   name: string;
-  path_with_namespace?: string;
+  created_at?: string;
+  // Gitlab specific fields
   web_url?: string;
+  path_with_namespace?: string;
+  last_activity_at?: string;
+  // Github specific fields
   html_url?: string;
+  updated_at?: string;
   [key: string]: any;
 }
 

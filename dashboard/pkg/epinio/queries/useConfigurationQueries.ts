@@ -28,3 +28,24 @@ export function useConfigurations(store: any, params: Ref<ListResourceRequestPar
         structuralSharing: options.value.polling ? false : true, // disable to ensure age updates in the ui when polling tables
     }, epinioQueryClient);
 }
+
+export function useNamespacedConfigurations(store: any, namespace: string, params: Ref<ListResourceRequestParams>, options: Ref<ResourceQueryOptions>) {
+    const { data: cluster } = useCluster(store);
+    const isExtension = computed(() => !!store.getters['isSingleProduct'] === false);
+
+    return useQuery({
+        queryKey: computed(() => ['namespacedConfigurations', cluster.value?.id, namespace, params?.value]),
+        queryFn: async () => {
+            if (!cluster?.value) {
+                throw new Error('Cluster is not available');
+            }
+            const epinioClient = createEpinioClient(cluster.value, isExtension.value);
+            const configurations = await configurationsApi(epinioClient).listNamespacedConfigurations(namespace, params ? toApiListResourceRequestParams(params.value) : undefined);
+            return toListConfigurationsResponse(configurations);
+        },
+        enabled: computed(() => !!cluster.value && options.value.enabled),
+        placeholderData: options.value.isTablePagination ? keepPreviousData : undefined,
+        refetchInterval: options.value.polling ? 10000 : false,
+        structuralSharing: options.value.polling ? false : true, // disable to ensure age updates in the ui when polling tables
+    }, epinioQueryClient);
+}
