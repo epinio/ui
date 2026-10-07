@@ -21,7 +21,6 @@ module.exports = function(api) {
   const plugins = ['@babel/plugin-transform-nullish-coalescing-operator', '@babel/plugin-transform-class-static-block'];
 
   if (process.env.NODE_ENV === 'test') {
-    plugins.push('transform-require-context');
     plugins.push([
       'babel-plugin-istanbul', { extension: ['.js', '.vue'] }, 'add-vue'
     ]);
