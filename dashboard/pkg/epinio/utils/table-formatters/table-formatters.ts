@@ -1,8 +1,8 @@
 import type { Router } from 'vue-router';
-import { ResourceTableRow } from '../models/resource/ui-types';
-import { createEpinioRoute } from './custom-routing';
-import { App } from '../models/application/ui-types';
-import { PipelineStep, StepState} from '../models/application/actions/useAppPipeline';
+import { ResourceTableRow } from '../../models/resource/ui-types';
+import { App } from '../../models/application/ui-types';
+import { PipelineStep, StepState} from '../../models/application/actions/useAppPipeline';
+import { createEpinioRoute } from '../custom-routing';
 
 /**
  * Returns an empty non-breaking space cell element.
