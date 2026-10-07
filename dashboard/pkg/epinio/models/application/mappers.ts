@@ -479,7 +479,7 @@ export function appFormToCreateRequest(form: AppForm): AppCreateRequest {
 export function appFormToUpdateRequest(form: AppForm, isCreate?: boolean, canRestart?: boolean): AppUpdateRequest {
     return {
         appChart: form.buildOptions.appChart ?? '',
-        configurations: form.bindings.configurations,
+        configurations: [...form.bindings.configurations, ...form.bindings.serviceConfigurations],
         environment: form.details.environment.reduce((acc, { key, value }) => ({ ...acc, [key]: value }), {}),
         instances: form.details.instances,
         replaceEnv: !isCreate,
