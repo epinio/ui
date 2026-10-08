@@ -98,24 +98,27 @@ const displayRows = computed(() => {
   if (!configurations.value) {
     return [];
   }
-  
+
   // Add custom namespace delete action to replace the built in rancher shell flow.
   // Gate by namespace write perms so view-only / app-only roles don't see Delete.
   const rows: ResourceTableRow<ConfigurationResponse>[] = (configurations.value.items ?? []).map((c) => ({
     ...c,
     id: c.meta.name, // stable, unique per namespace
-    availableActions: [{
-      label: 'Delete',
-      action: () => openDeleteModal(c),
-      enabled: canDelete.value,
-      visible: canDelete.value,
-      danger: true,
-    }, {
-      label: 'Edit',
-      action: () => openEditModal(c),
-      enabled: canEdit.value && !c.configuration.origin,
-      visible: canEdit.value && !c.configuration.origin,
-    }],
+    availableActions: [
+      {
+        label: 'Edit',
+        action: () => openEditModal(c),
+        enabled: canEdit.value && !c.configuration.origin,
+        visible: canEdit.value && !c.configuration.origin,
+      },
+      {
+        label: 'Delete',
+        action: () => openDeleteModal(c),
+        enabled: canDelete.value,
+        visible: canDelete.value,
+        danger: true,
+      },
+    ],
     canDelete: canDelete.value,
   }));
   return rows;
@@ -312,12 +315,12 @@ const columns = computed(() => {
       v-if="isErrorUser"
       color="error"
       :label="userError?.message || t('epinio.user.errors.fetch')"
-    />  
+    />
     <Banner
       v-if="isErrorConfigurations"
       color="error"
       :label="configurationsError?.message || t('epinio.configurations.errors.fetch')"
-    /> 
+    />
     <div class="search-container">
       <trailhand-text-input
         :value="searchQuery"

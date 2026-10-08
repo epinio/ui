@@ -8,7 +8,7 @@ export async function downloadFile(fileName: string, content: BlobPart, contentT
 }
 
 // {[fileName1]:data1, [fileName2]:data2}
-export function generateZip(files) {
+export function generateZip(files: Record<string, Blob | string>) {
   // Moving this to a dynamic const JSZip = import('jszip') didn't work... figure out later
   const zip = new JSZip();
 
@@ -21,8 +21,8 @@ export function generateZip(files) {
   });
 }
 
-export function downloadUrl(url, id = '__downloadIframe') {
-  let iframe = document.getElementById(id);
+export function downloadUrl(url: string, id = '__downloadIframe') {
+  let iframe = document.getElementById(id) as HTMLIFrameElement | null;
 
   if ( !iframe ) {
     iframe = document.createElement('iframe');

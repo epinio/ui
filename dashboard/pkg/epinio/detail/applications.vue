@@ -369,24 +369,27 @@ const displayServiceRows = computed(() => {
   if (!services.value) {
     return [];
   }
-  
+
   // Add custom namespace delete action to replace the built in rancher shell flow.
   // Gate by namespace write perms so view-only / app-only roles don't see Delete.
   const rows: ResourceTableRow<ServiceInstance>[] = (services.value.items ?? []).map((s) => ({
     ...s,
     id: s.meta.name, // stable, unique per namespace
-    availableActions: [{
-      label: 'Delete',
-      action: () => openDeleteServiceModal(s),
-      enabled: canDeleteService.value,
-      visible: canDeleteService.value,
-      danger: true,
-    }, {
-      label: 'Edit',
-      action: () => openEditServiceModal(s),
-      enabled: canEditService.value,
-      visible: canEditService.value,
-    }],
+    availableActions: [
+      {
+        label: 'Edit',
+        action: () => openEditServiceModal(s),
+        enabled: canEditService.value,
+        visible: canEditService.value,
+      },
+      {
+        label: 'Delete',
+        action: () => openDeleteServiceModal(s),
+        enabled: canDeleteService.value,
+        visible: canDeleteService.value,
+        danger: true,
+      },
+    ],
     canDelete: canDeleteService.value,
   }));
   return rows;
@@ -452,24 +455,27 @@ const displayConfigurationRows = computed(() => {
   if (!configurations.value) {
     return [];
   }
-  
+
   // Add custom namespace delete action to replace the built in rancher shell flow.
   // Gate by namespace write perms so view-only / app-only roles don't see Delete.
   const rows: ResourceTableRow<ConfigurationResponse>[] = (configurations.value.items ?? []).map((c) => ({
     ...c,
     id: c.meta.name, // stable, unique per namespace
-    availableActions: [{
-      label: 'Delete',
-      action: () => openDeleteConfigurationModal(c),
-      enabled: canDeleteConfiguration.value,
-      visible: canDeleteConfiguration.value,
-      danger: true,
-    }, {
-      label: 'Edit',
-      action: () => openEditConfigurationModal(c),
-      enabled: canEditConfiguration.value && !c.configuration.origin,
-      visible: canEditConfiguration.value && !c.configuration.origin,
-    }],
+    availableActions: [
+      {
+        label: 'Edit',
+        action: () => openEditConfigurationModal(c),
+        enabled: canEditConfiguration.value && !c.configuration.origin,
+        visible: canEditConfiguration.value && !c.configuration.origin,
+      },
+      {
+        label: 'Delete',
+        action: () => openDeleteConfigurationModal(c),
+        enabled: canDeleteConfiguration.value,
+        visible: canDeleteConfiguration.value,
+        danger: true,
+      },
+    ],
     canDelete: canDeleteConfiguration.value,
   }));
   return rows;
@@ -479,7 +485,7 @@ const displayConfigurationRows = computed(() => {
 const showMetricsUnavailable = computed(() => {
   const replicas = application.value?.deployment?.replicas ?? {};
   const hasReplicas = Object.keys(replicas).length > 0;
-  const allReplicasMetricsOk = hasReplicas ? 
+  const allReplicasMetricsOk = hasReplicas ?
     Object.values(replicas).every((r) => r.metricsOk) : false;
   return !allReplicasMetricsOk;
 });
@@ -539,7 +545,7 @@ const onInstancesChange = debounce(async (newInstances: number) => {
     restart: true,
     settings: application.value.configuration.settings || null,
     instances: newInstances
-  }; 
+  };
 
   updateApp({namespace: application.value.meta.namespace, app: application.value.meta.name, body: updateRequest});
 }, 500);
@@ -573,7 +579,7 @@ const gitConfigRequestOptions = ref<ResourceQueryOptions>({
 const {data: selectedGitConfig, isLoading: isLoadingGitConfig, isError: isErrorGitConfig, error: gitConfigError} = useGitConfig(store, appFormData.value?.source[sourceType.value as 'github' | 'gitlab']?.gitConfig || '', gitConfigRequestOptions);
 
 // Compute the base URL for the selected git provider using the fetched git config
-const gitBaseUrl = useGitBaseUrl(sourceType as Ref<'github' | 'gitlab'>, selectedGitConfig); 
+const gitBaseUrl = useGitBaseUrl(sourceType as Ref<'github' | 'gitlab'>, selectedGitConfig);
 
 // Git User
 const gitUserRequestOptions = computed<ResourceQueryOptions>(() => ({

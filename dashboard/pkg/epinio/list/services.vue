@@ -72,24 +72,27 @@ const displayRows = computed(() => {
   if (!services.value) {
     return [];
   }
-  
+
   // Add custom namespace delete action to replace the built in rancher shell flow.
   // Gate by namespace write perms so view-only / app-only roles don't see Delete.
   const rows: ResourceTableRow<ServiceInstance>[] = (services.value.items ?? []).map((s) => ({
     ...s,
     id: s.meta.name, // stable, unique per namespace
-    availableActions: [{
-      label: 'Delete',
-      action: () => openDeleteModal(s),
-      enabled: canDelete.value,
-      visible: canDelete.value,
-      danger: true,
-    }, {
-      label: 'Edit',
-      action: () => openEditModal(s),
-      enabled: canEdit.value,
-      visible: canEdit.value,
-    }],
+    availableActions: [
+      {
+        label: 'Edit',
+        action: () => openEditModal(s),
+        enabled: canEdit.value,
+        visible: canEdit.value,
+      },
+      {
+        label: 'Delete',
+        action: () => openDeleteModal(s),
+        enabled: canDelete.value,
+        visible: canDelete.value,
+        danger: true,
+      },
+    ],
     canDelete: canDelete.value,
   }));
   return rows;
@@ -267,12 +270,12 @@ const columns = [
       v-if="isErrorServices"
       color="error"
       :label="servicesError?.message || t('epinio.service.errors.fetch')"
-    />  
+    />
     <Banner
       v-if="isErrorUser"
       color="error"
       :label="userError?.message || t('epinio.user.errors.fetch')"
-    />  
+    />
     <div class="search-container">
       <trailhand-text-input
         :value="searchQuery"
