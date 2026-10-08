@@ -10,6 +10,9 @@ export function servicesApi(epinioClient: ReturnType<typeof createEpinioClient>)
         listServices: async (params?: ApiListResourceRequestParams): Promise<ApiListServiceInstancesResponse> => {
             return await epinioClient.get(servicesBasePath, { params });
         },
+        listNamespacedServices: async (namespace: string, params?: ApiListResourceRequestParams): Promise<ApiListServiceInstancesResponse> => {
+            return await epinioClient.get(`${namespacesBasePath}/${namespace}/services`, { params });
+        },
         getService: async (namespace: string, serviceName: string): Promise<ApiServiceInstance> => {
             return await epinioClient.get(`${namespacesBasePath}/${namespace}/services/${serviceName}`);
         },

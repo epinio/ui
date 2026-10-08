@@ -25,6 +25,9 @@ function hostFromUrl(raw: string | null | undefined): string {
 
 export function useGitBaseUrl(type: Ref<'github' | 'gitlab'>, gitConfig: Ref<GitConfig | null | undefined>) {
     const url = computed(() => {
+        if (type.value !== 'github' && type.value !== 'gitlab') {
+            return null;
+        }
         if (!gitConfig.value) {
             return type.value === 'github' ? 'api.github.com' : 'gitlab.com';
         }

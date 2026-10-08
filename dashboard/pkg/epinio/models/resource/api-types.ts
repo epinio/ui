@@ -6,7 +6,6 @@ export interface ApiPaginatedResponseMetadata {
     totalPages: number;
 }
 
-
 export interface ApiListResource<T> {
     items: T[];
 }
@@ -17,5 +16,6 @@ export interface ApiListResourceRequestParams {
     page?: number;
     pageSize?: number;
     search?: string;
-    namespaces?: string;
+    namespaces?: string; // Filter namespaced resources by their namespace
+    app?: string; // Filter by application name for configs and services
 }

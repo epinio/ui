@@ -66,22 +66,25 @@ const displayRows = computed(() => {
   if (!builderImages.value) {
     return [];
   }
-  
+
   const rows: ResourceTableRow<BuilderImage>[] = (builderImages.value.items ?? []).map((bi) => ({
     ...bi,
     id: bi.meta.name,
-    availableActions: [{
-      label: 'Delete',
-      action: () => openDeleteModal(bi),
-      enabled: canDelete.value && !bi.default,
-      visible: canDelete.value && !bi.default,
-      danger: true,
-    }, {
-      label: 'Edit',
-      action: () => openEditModal(bi),
-      enabled: canEdit.value,
-      visible: canEdit.value,
-    }],
+    availableActions: [
+      {
+        label: 'Edit',
+        action: () => openEditModal(bi),
+        enabled: canEdit.value,
+        visible: canEdit.value,
+      },
+      {
+        label: 'Delete',
+        action: () => openDeleteModal(bi),
+        enabled: canDelete.value && !bi.default,
+        visible: canDelete.value && !bi.default,
+        danger: true,
+      },
+    ],
     canDelete: canDelete.value,
   }));
   return rows;
@@ -135,7 +138,7 @@ const columns = [
       v-if="isErrorBuilderImages"
       color="error"
       :label="builderImagesError?.message || t('epinio.builderImages.errors.fetch')"
-    /> 
+    />
     <div class="search-container">
       <trailhand-text-input
         :value="searchQuery"

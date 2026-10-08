@@ -19,7 +19,8 @@ export interface ListResourceRequestParams {
     page?: number;
     pageSize?: number;
     search?: string;
-    namespaces?: string[];
+    namespaces?: string[]; // Filter namespaced resources by their namespace
+    app?: string; // Filter by application name for configs and services
 }
 
 export interface ResourceTableAction<T> {

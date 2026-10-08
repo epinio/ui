@@ -1,5 +1,5 @@
 import { ApiApp, ApiAppConfiguration, ApiAppDeployment, ApiAppOrigin, ApiAppStage, ApiAppGitRef, ApiListAppsResponse, ApiAppDeploymentStatus, ApiAsyncDeployRequest, ApiAppStageRequest, ApiAppStageResponse, ApiAppDeployRequest, ApiAppDeployResponse, ApiAppDeleteRequest, ApiAppUpdateRequest, ApiAppCreateRequest, ApiAppGitImportParams, ApiAppGitImportResponse, ApiAppDeploymentsRequest, ApiAppManifest, ApiAppStoreArchiveResponse } from "./api-types";
-import { App, AppConfiguration, AppDeployment, AppOrigin, AppStage, AppGitRef, ListAppsResponse, AppDeploymentStatus, AsyncDeployRequest, AppStageRequest, AppStageResponse, AppDeployRequest, AppDeployResponse, AppDeleteRequest, AppUpdateRequest, AppCreateRequest, AppGitImportParams, AppGitImportResponse, AppDeploymentsRequest, AppFormSource, AppFormBindings, AppFormDetails, AppFormBuildOptions, AppForm, AppManifest, AppStoreArchiveResponse, AppMeta } from "./ui-types";
+import { App, AppConfiguration, AppDeployment, AppOrigin, AppStage, AppGitRef, ListAppsResponse, AppDeploymentStatus, AsyncDeployRequest, AppStageRequest, AppStageResponse, AppDeployRequest, AppDeployResponse, AppDeleteRequest, AppUpdateRequest, AppCreateRequest, AppGitImportParams, AppGitImportResponse, AppDeploymentsRequest, AppFormSource, AppFormBindings, AppFormDetails, AppFormBuildOptions, AppForm, AppManifest, AppStoreArchiveResponse, AppMeta, AppPodInfo } from "./ui-types";
 import { statusToStateDisplay } from "../../models/resource/mappers";
 import { AppUtils } from "../../utils/application";
 import { APPLICATION_SOURCE_TYPE, APPLICATION_BUILD_MODE, APPLICATION_MANIFEST_SOURCE_TYPE } from "../../types";
@@ -260,6 +260,113 @@ export function toAppStoreArchiveResponse(apiResponse: ApiAppStoreArchiveRespons
     };
 }
 
+export function toInstanceStats(instances: AppPodInfo[], prop: 'millicpus' | 'memoryBytes') {
+    const stats = instances.reduce((res, r) => {
+      if (r[prop] >= res.max) {
+        res.max = r[prop];
+      }
+      if (r[prop] <= res.min) {
+        res.min = r[prop];
+      }
+      res.total += r[prop];
+
+      return res;
+    }, {
+      min: instances[0]?.[prop] || 0, max: 0, total: 0
+    });
+
+    const avg = instances.length ? (stats.total / instances.length).toFixed(2) : 0;
+
+    return {
+      ...stats,
+      avg: avg === '0.00' ? 0 : avg,
+    };
+}
+
+export function toAppSourceDetails(application: AppForm, t: any) {
+    console.log(application);
+  const appChart = {
+    label: 'App Chart',
+    value: application.buildOptions.appChart
+  };
+
+  const builder = {
+    label: '',
+    value: ''
+  };
+  if (application.buildOptions.buildMode === 'dockerfile') {
+    builder.label = 'Dockerfile Path';
+    builder.value = application.buildOptions.dockerfilePath ?? '';
+  } else {
+    builder.label = 'Builder Image';
+    builder.value = application.buildOptions.builderImage ?? '';
+  }
+
+  const sourceType = application.source.type;
+
+  switch (sourceType) {
+    case APPLICATION_SOURCE_TYPE.FOLDER:
+    case APPLICATION_SOURCE_TYPE.ARCHIVE:
+      return {
+        label:   'File system',
+        icon:    'icon-file',
+        details: [
+          {
+            label: 'Original Name',
+            value: application.source[sourceType]?.name
+          }, appChart, builder
+        ]
+      };
+    case APPLICATION_SOURCE_TYPE.GIT_URL:
+      return {
+        label:   'Git',
+        icon:    'icon-file',
+        details: [
+          {
+            label: 'Url',
+            value: application.source.gitUrl?.url
+          }, {
+            label: 'Revision',
+            icon:  'icon-commit',
+            value: application.source.gitUrl?.branch
+          }, appChart, builder
+        ]
+      };
+    case APPLICATION_SOURCE_TYPE.GIT_HUB:
+    case APPLICATION_SOURCE_TYPE.GIT_LAB:
+      return {
+        label:   t(`epinio.applications.gitSource.${ sourceType }.label`),
+        icon:    `icon-${ sourceType }`,
+        details: [
+          {
+            label: 'Url',
+            value: application.source.github?.url
+          }, {
+            label: 'Revision',
+            icon:  'icon-commit',
+            value: application.source.github?.commit
+          }, {
+            label: 'Branch',
+            icon:  'icon-commit',
+            value: application.source.github?.branch
+          }, appChart, builder
+        ]
+      };
+    case APPLICATION_SOURCE_TYPE.CONTAINER_URL:
+      return {
+        label:   'Container',
+        icon:    'icon-docker',
+        details: [{
+          label: 'Image',
+          value: application.source.containerUrl?.url
+        }, appChart
+        ]
+      };
+    default:
+      return undefined;
+    }
+}
+
 // FORM MAPPERs
 function toAppFormGitData(gitData: AppGitRef): AppFormSource['github' | 'gitlab'] {
     const url = gitData.repository;
@@ -372,7 +479,7 @@ export function appFormToCreateRequest(form: AppForm): AppCreateRequest {
 export function appFormToUpdateRequest(form: AppForm, isCreate?: boolean, canRestart?: boolean): AppUpdateRequest {
     return {
         appChart: form.buildOptions.appChart ?? '',
-        configurations: form.bindings.configurations,
+        configurations: [...form.bindings.configurations, ...form.bindings.serviceConfigurations],
         environment: form.details.environment.reduce((acc, { key, value }) => ({ ...acc, [key]: value }), {}),
         instances: form.details.instances,
         replaceEnv: !isCreate,

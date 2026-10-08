@@ -11,6 +11,9 @@ export function toApiListResourceRequestParams(params: ListResourceRequestParams
     if (namespaces) {
         apiParams.namespaces = namespaces;
     }
+    if (params.app) {
+        apiParams.app = params.app;
+    }
     return apiParams;
 }
 

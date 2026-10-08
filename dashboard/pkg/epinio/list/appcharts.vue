@@ -18,7 +18,7 @@ defineProps<{ schema: object }>(); // Keep for compatibility
 const store = useStore();
 
 const chartsModal = ref<InstanceType<typeof ChartsModal> | null>(null);
-const deleteModal = ref<InstanceType<typeof ChartsDeleteModal> | null>(null);   
+const deleteModal = ref<InstanceType<typeof ChartsDeleteModal> | null>(null);
 
 const resource: string = EPINIO_TYPES.APP_CHARTS;
 
@@ -67,22 +67,25 @@ const displayRows = computed(() => {
   if (!appCharts.value) {
     return [];
   }
-  
+
   const rows: ResourceTableRow<AppChart>[] = (appCharts.value.items ?? []).map((ac) => ({
     ...ac,
     id: ac.meta.name, // stable, unique per namespace
-    availableActions: [{
-      label: 'Delete',
-      action: () => openDeleteModal(ac),
-      enabled: canDelete.value,
-      visible: canDelete.value,
-      danger: true,
-    }, {
-      label: 'Edit',
-      action: () => openEditModal(ac),
-      enabled: canEdit.value,
-      visible: canEdit.value,
-    }],
+    availableActions: [
+      {
+        label: 'Edit',
+        action: () => openEditModal(ac),
+        enabled: canEdit.value,
+        visible: canEdit.value,
+      },
+      {
+        label: 'Delete',
+        action: () => openDeleteModal(ac),
+        enabled: canDelete.value,
+        visible: canDelete.value,
+        danger: true,
+      },
+    ],
     canDelete: canDelete.value,
   }));
   return rows;
@@ -136,7 +139,7 @@ const columns = [
       v-if="isErrorAppCharts"
       color="error"
       :label="appChartsError?.message || t('epinio.appCharts.errors.fetch')"
-    /> 
+    />
     <div class="search-container">
       <trailhand-text-input
         :value="searchQuery"
