@@ -11,7 +11,11 @@ import {
   useUpdateAppChart,
   usePushAppChart,
 } from '../../queries/useAppChartsMutations';
-import { AppChart, AppChartUpdateRequest, AppChartCreateRequest } from '../../models/appcharts/ui-types';
+import {
+  AppChart,
+  AppChartUpdateRequest,
+  AppChartCreateRequest,
+} from '../../models/appcharts/ui-types';
 
 import isEqual from 'lodash/isEqual';
 import sortBy from 'lodash/sortBy';
@@ -24,6 +28,7 @@ const showModal = ref(false);
 const modalMode = ref<'create' | 'edit' | 'view'>('create');
 
 const initialValues = ref<AppChart | null>(null);
+const viewCanEdit = ref(false);
 
 // Form fields (separate from the model to avoid proxy mutation issues)
 const chartName = ref('');
@@ -49,13 +54,31 @@ const archiveFileInput = ref<HTMLInputElement | null>(null);
 const isEdit = computed(() => modalMode.value === 'edit');
 const isView = computed(() => modalMode.value === 'view');
 
-// Only a create can upload. The server has no endpoint to replace the archive of
-// an existing chart, so edit and view stay on the url fields.
+// The upload source of a create. An edit keeps the url fields, and replaces
+// the archive of a stored chart through canReplaceArchive.
 const isUpload = computed(() => modalMode.value === 'create' && chartSource.value === 'upload');
 
 // Repointing a chart that applications are bound to changes what they deploy on their
-// next rebuild, with no version bump and no record. Lock the location instead.
-const isLocationLocked = computed(() => isEdit.value && !!initialValues.value?.boundApps);
+// next rebuild, with no version bump and no record. The server refuses it, so lock the
+// location instead.
+const isLockedByApps = computed(() => isEdit.value && !!initialValues.value?.boundApps);
+
+// A chart uploaded to Epinio lives in a repository of its own, named after the chart:
+// oci://<registry>/epinio-charts/<name>. The server never lets its location change, as
+// the stored archive would be left behind. The response does not mark such charts, so
+// this mirrors the path check of the server (mayBeStored). The server has the last word.
+const isStoredByEpinio = computed(() => {
+  const name = initialValues.value?.meta?.name;
+  const repo = initialValues.value?.helmRepo || '';
+
+  return !!name && repo.startsWith('oci://') && repo.endsWith(`/epinio-charts/${ name }`);
+});
+
+const isLocationLocked = computed(() => isEdit.value && (isLockedByApps.value || isStoredByEpinio.value));
+
+// The chart of a stored chart is replaced by uploading a new archive under the same name.
+// The server refuses that while applications use the chart, so it is not offered then.
+const canReplaceArchive = computed(() => isEdit.value && isStoredByEpinio.value && !isLockedByApps.value);
 
 const {mutateAsync: createAppChart, isPending: isCreatingAppChart, isError: createAppChartError, error: createAppChartErrorData} = useCreateAppChart(store, () => {
   handleSuccess('create');
@@ -68,6 +91,40 @@ const {mutateAsync: updateAppChart, isPending: isUpdatingAppChart, isError: upda
 const {mutateAsync: pushAppChart, isPending: isPushingAppChart, isError: pushAppChartError, error: pushAppChartErrorData} = usePushAppChart(store, () => {
   handleSuccess('create');
   closeModal();
+});
+
+// Replacing the archive of an existing chart. The other changes of the form are saved first,
+// without closing the modal, the push then finishes the edit.
+const {mutateAsync: updateAppChartQuietly, isPending: isUpdatingBeforeReplace, isError: updateBeforeReplaceError, error: updateBeforeReplaceErrorData} = useUpdateAppChart(store);
+const {mutateAsync: replaceAppChartArchive, isPending: isReplacingArchive, isError: replaceArchiveError, error: replaceArchiveErrorData} = usePushAppChart(store, () => {
+  handleSuccess('update');
+  closeModal();
+});
+
+const isSaving = computed(() => {
+  return isCreatingAppChart.value ||
+    isUpdatingAppChart.value ||
+    isPushingAppChart.value ||
+    isUpdatingBeforeReplace.value ||
+    isReplacingArchive.value;
+});
+
+const saveError = computed(() => {
+  if (createAppChartError.value) return createAppChartErrorData.value;
+  if (updateAppChartError.value) return updateAppChartErrorData.value;
+  if (pushAppChartError.value) return pushAppChartErrorData.value;
+  if (updateBeforeReplaceError.value) return updateBeforeReplaceErrorData.value;
+  if (replaceArchiveError.value) return replaceArchiveErrorData.value;
+
+  return null;
+});
+
+const hasSaveError = computed(() => {
+  return createAppChartError.value ||
+    updateAppChartError.value ||
+    pushAppChartError.value ||
+    updateBeforeReplaceError.value ||
+    replaceArchiveError.value;
 });
 
 const isDirty = computed(() => {
@@ -118,7 +175,7 @@ const validationPassed = computed(() => {
 const canSave = computed(() => {
   const dirty = isDirty.value;
   const valid = validationPassed.value;
-  return dirty && valid && !isCreatingAppChart.value && !isUpdatingAppChart.value && !isPushingAppChart.value;
+  return dirty && valid && !isSaving.value;
 });
 
 function openCreate() {
@@ -181,6 +238,14 @@ function openEdit(row: AppChart) {
   chartArchive.value = null;
   archiveError.value = '';
   showModal.value = true;
+}
+
+// Read-only look at a chart, opened from its name in the list. canEdit decides whether
+// the view offers to switch to editing.
+function openView(row: AppChart, canEdit = false) {
+  openEdit(row);
+  modalMode.value = 'view';
+  viewCanEdit.value = canEdit;
 }
 
 function handleModalClose() {
@@ -266,13 +331,7 @@ const buildUpdateRequest = (): AppChartUpdateRequest => {
 };
 
 async function onSubmit() {
-  if (
-    !validationPassed.value ||
-    !isDirty.value ||
-    isCreatingAppChart.value ||
-    isUpdatingAppChart.value ||
-    isPushingAppChart.value
-  )
+  if (!validationPassed.value || !isDirty.value || isSaving.value)
     return;
 
   if (isUpload.value && chartArchive.value) {
@@ -282,6 +341,25 @@ async function onSubmit() {
       shortDescription: chartShortDescription.value,
       archive: chartArchive.value,
     } });
+  } else if (canReplaceArchive.value && initialValues.value && chartArchive.value) {
+    // Read the form before the first request. A successful save resets it.
+    const name = initialValues.value.meta.name;
+    const pushRequest = {
+      name,
+      description: chartDescription.value,
+      shortDescription: chartShortDescription.value,
+      archive: chartArchive.value,
+    };
+
+    // The push carries the descriptions. What is left for the update are the settings.
+    const request = buildUpdateRequest();
+    delete request.description;
+    delete request.shortDescription;
+
+    if (Object.keys(request).length > 0) {
+      await updateAppChartQuietly({ name, request });
+    }
+    await replaceAppChartArchive({ request: pushRequest });
   } else if (isEdit.value && initialValues.value) {
     const request = buildUpdateRequest();
     await updateAppChart({ name: initialValues.value.meta.name, request });
@@ -298,7 +376,7 @@ const handleSuccess = (type: 'create' | 'update') => {
   });
 };
 
-defineExpose({ openCreate, openEdit });
+defineExpose({ openCreate, openEdit, openView });
 </script>
 
 <template>
@@ -315,9 +393,14 @@ defineExpose({ openCreate, openEdit });
         <Banner
           v-if="initialValues?.boundApps"
           color="warning"
-          :label="isLocationLocked
+          :label="isLockedByApps
             ? 'One or more applications use this chart, so its location is locked. Repointing it would change what those applications deploy on their next rebuild. Description and settings can still be edited.'
             : 'This chart is currently associated with one or more applications. Editing it may cause issues for future rebuilds.'"
+        />
+        <Banner
+          v-else-if="isEdit && isStoredByEpinio"
+          color="info"
+          label="This chart is stored in Epinio's registry, so its location is locked. To use a different chart, select a new archive below. Description and settings can still be edited."
         />
         <trailhand-form-row columns="2">
           <trailhand-text-input
@@ -357,36 +440,7 @@ defineExpose({ openCreate, openEdit });
           ></trailhand-dropdown>
         </trailhand-form-row>
 
-        <div v-if="isUpload">
-          <label style="font-size: 11px; color: var(--th-input-label);">Chart Archive <span style="color: var(--th-color-red);">*</span></label>
-          <div class="archive-row">
-            <trailhand-text-input
-              style="flex: 1"
-              :value="chartArchive?.name || ''"
-              label="Archive"
-              placeholder="A .tgz produced by 'helm package'"
-              :disabled="true"
-              :required="true"
-            ></trailhand-text-input>
-            <trailhand-button
-              variant="alternate"
-              @button-click="handleArchiveFileClick"
-            >
-              Select File
-            </trailhand-button>
-            <input
-              ref="archiveFileInput"
-              type="file"
-              class="hidden-file-input"
-              accept=".tgz,.tar.gz"
-              @change="handleArchiveFileChange"
-            >
-          </div>
-          <Banner v-if="archiveError" color="error" :label="archiveError" />
-          <Banner color="info" label="Epinio stores the archive in its own registry. Chart settings can be added afterwards by editing the chart." />
-        </div>
-
-        <div v-else>
+        <div v-if="!isUpload">
           <label style="font-size: 11px; color: var(--th-input-label);">Helm URLs - Provide at least one of the following: <span style="color: var(--th-color-red);">*</span></label>
           <trailhand-form-row columns="2">
             <trailhand-text-input
@@ -405,6 +459,43 @@ defineExpose({ openCreate, openEdit });
             ></trailhand-text-input>
           </trailhand-form-row>
         </div>
+
+        <div v-if="isUpload || canReplaceArchive">
+          <label style="font-size: 11px; color: var(--th-input-label);">
+            {{ isUpload ? 'Chart Archive' : 'Replace Chart Archive' }}
+            <span v-if="isUpload" style="color: var(--th-color-red);">*</span>
+          </label>
+          <div class="archive-row">
+            <trailhand-text-input
+              style="flex: 1"
+              :value="chartArchive?.name || ''"
+              label="Archive"
+              placeholder="A .tgz produced by 'helm package'"
+              :disabled="true"
+              :required="isUpload"
+            ></trailhand-text-input>
+            <trailhand-button
+              variant="alternate"
+              @button-click="handleArchiveFileClick"
+            >
+              Select File
+            </trailhand-button>
+            <input
+              ref="archiveFileInput"
+              type="file"
+              class="hidden-file-input"
+              accept=".tgz,.tar.gz"
+              @change="handleArchiveFileChange"
+            >
+          </div>
+          <Banner v-if="archiveError" color="error" :label="archiveError" />
+          <Banner
+            color="info"
+            :label="isUpload
+              ? 'Epinio stores the archive in its own registry. Chart settings can be added afterwards by editing the chart.'
+              : 'The new archive replaces the chart in Epinio\'s registry. Settings are kept. This is only possible while no application uses the chart.'"
+          />
+        </div>
         <ChartSettings
           v-if="!isUpload"
           v-model="chartSettings"
@@ -413,9 +504,9 @@ defineExpose({ openCreate, openEdit });
         />
       </trailhand-form-card>
       <Banner
-        v-if="createAppChartError || updateAppChartError || pushAppChartError"
+        v-if="hasSaveError"
         color="error"
-        :label="createAppChartErrorData?.message || updateAppChartErrorData?.message || pushAppChartErrorData?.message || t('epinio.appCharts.errors.save')"
+        :label="saveError?.message || t('epinio.appCharts.errors.save')"
       />
     </div>
 
@@ -429,6 +520,7 @@ defineExpose({ openCreate, openEdit });
           Close
         </trailhand-button>
         <trailhand-button
+          v-if="viewCanEdit"
           variant="primary"
           @button-click="modalMode = 'edit'"
         >
@@ -464,7 +556,7 @@ defineExpose({ openCreate, openEdit });
           :disabled="!canSave"
           @button-click="onSubmit"
         >
-          {{ isEdit ? (isUpdatingAppChart ? t('generic.updating') : t('generic.save')) : ((isCreatingAppChart || isPushingAppChart) ? t('generic.creating') : t('generic.create')) }}
+          {{ isEdit ? (isSaving ? t('generic.updating') : t('generic.save')) : (isSaving ? t('generic.creating') : t('generic.create')) }}
         </trailhand-button>
       </template>
     </div>

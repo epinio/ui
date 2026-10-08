@@ -24,6 +24,7 @@ const builderImage = ref('');
 const saving = ref(false);
 const errors = ref<string[]>([]);
 
+const viewCanEdit = ref(false);
 const isEdit = computed(() => modalMode.value === 'edit');
 const isView = computed(() => modalMode.value === 'view');
 
@@ -93,6 +94,14 @@ function openEdit(row: BuilderImage) {
   imageDescription.value = row.description || '';
   builderImage.value = row.image || '';
   showModal.value = true;
+}
+
+// Read-only look at a builder image, opened from its name in the list. canEdit decides
+// whether the view offers to switch to editing.
+function openView(row: BuilderImage, canEdit = false) {
+  openEdit(row);
+  modalMode.value = 'view';
+  viewCanEdit.value = canEdit;
 }
 
 function handleModalClose() {
@@ -176,7 +185,7 @@ const handleSuccess = (type: 'create' | 'update') => {
   });
 };
 
-defineExpose({ openCreate, openEdit });
+defineExpose({ openCreate, openEdit, openView });
 </script>
 
 <template>
@@ -248,6 +257,7 @@ defineExpose({ openCreate, openEdit });
           Close
         </trailhand-button>
         <trailhand-button
+          v-if="viewCanEdit"
           variant="primary"
           @button-click="modalMode = 'edit'"
         >
