@@ -1,4 +1,7 @@
 import type { Router } from 'vue-router';
+import { ResourceTableRow } from '../../models/resource/ui-types';
+import { App } from '../../models/application/ui-types';
+import { PipelineStep, StepState} from '../../models/application/actions/useAppPipeline';
 import { createEpinioRoute } from '../custom-routing';
 
 /**
@@ -68,16 +71,16 @@ export function makeRouterLinksOrEmpty(
  */
 export function makeNameLinks(
   names: string[] | null | undefined,
-  opts: { cluster: string; namespace: string; resource: string },
+  opts: { cluster: string; namespace?: string; resource: string },
   router: Router
 ): HTMLElement {
   const items = (names ?? []).map((name) => ({
     meta:           { name },
-    detailLocation: createEpinioRoute('c-cluster-resource-namespace-id', {
+    detailLocation: createEpinioRoute(opts.namespace ? 'c-cluster-resource-namespace-id' : 'c-cluster-resource-id', {
       cluster:   opts.cluster,
       resource:  opts.resource,
       id:        name,
-      namespace: opts.namespace,
+      namespace: opts.namespace ?? '',
     }),
   }));
 
@@ -170,6 +173,28 @@ export function makeActionMenu(row: any): HTMLElement {
 }
 
 /**
+ * Returns an action-menu element for a table row.
+ * Transforms epinio string action names into callable functions
+ * so the action-menu web component can invoke them.
+ */
+export function attachActionMenu(row: ResourceTableRow<any>): HTMLElement {
+  ensureActionMenuCaptureListener();
+
+  const id = row.id;
+  let el = id ? _actionMenuCache.get(id) : null;
+
+  if (!el) {
+    el = document.createElement('trailhand-action-menu') as any;
+    if (id) _actionMenuCache.set(id, el);
+  }
+
+  el.resource = row;
+  el.actions = row.availableActions;
+
+  return el;
+}
+
+/**
  * Creates a single anchor element navigating to a router location,
  * or a plain span with the text if no location is provided.
  */
@@ -197,17 +222,17 @@ export function makeRouterLink(text: string, location: any, router: Router): HTM
 /**
  * Renders an application's routes as external links (when running) or plain text.
  */
-export function makeAppRoutesCell(row: any): HTMLElement {
-  if (!row.routes?.length) return makeEmptyCell();
+export function makeAppRoutesCell(row: App): HTMLElement {
+  if (!row.configuration.routes?.length) return makeEmptyCell();
 
   const span = document.createElement('span');
 
   span.style.wordBreak = 'break-word';
 
-  row.routes.forEach((route: string, index: number) => {
+  row.configuration.routes.forEach((route: string, index: number) => {
     const url = `https://${ route }`;
 
-    if (row.state === 'running') {
+    if (row.status === 'running') {
       const a = document.createElement('a');
 
       a.href = url;
@@ -222,7 +247,7 @@ export function makeAppRoutesCell(row: any): HTMLElement {
       span.appendChild(s);
     }
 
-    if (index < row.routes.length - 1) {
+    if (index < row.configuration.routes.length - 1) {
       span.appendChild(document.createTextNode(', '));
     }
   });
@@ -263,6 +288,7 @@ export function stateToTagVariant(state: string): string {
     case 'building':
     case 'deploying':
     case 'created':
+    case 'staging':
     case 'updating': return 'info';
     default: return 'default';
   }
@@ -280,6 +306,7 @@ export function stateToIcon(state: string): string {
     case 'error':
     case 'fail': return 'error';
     case 'building': return 'tools';
+    case 'staging':
     case 'deploying': return 'info';
     case 'created': return 'gear';
     default: return '';
@@ -293,9 +320,9 @@ export function makeStateTag(row: any): HTMLElement {
   const tag = document.createElement('trailhand-tag') as any;
 
   tag.label = row.stateDisplay || '';
-  tag.variant = stateToTagVariant(row.state);
+  tag.variant = stateToTagVariant(row.status);
   tag.size = 'md';
-  tag.icon = stateToIcon(row.state);
+  tag.icon = stateToIcon(row.status);
 
   return tag;
 }
@@ -313,15 +340,24 @@ function actionStateToTagVariant(state: string): string {
 }
 
 const runningLabels: Record<string, string> = {
-  build:              'Building',
-  deploy:             'Deploying',
-  upload:             'Uploading',
-  gitFetch:           'Fetching',
-  create:             'Creating',
-  create_namespace:   'Creating NS',
-  bind_configurations: 'Binding',
-  bind_services:      'Binding',
-  updateSource:       'Updating',
+  build:                'Building',
+  deploy:               'Deploying',
+  upload:               'Uploading',
+  gitFetch:             'Fetching',
+  create:               'Creating',
+  bindConfigurations:   'Binding',
+  updateConfigurations: 'Updating',
+  bindServices:         'Binding',
+  updateServices:       'Updating',
+  update:               'Updating',
+};
+
+const stepStates: Record<StepState, string> = {
+  running: 'Running',
+  pending: 'Pending',
+  success: 'Success',
+  fail:    'Fail',
+
 };
 
 /**
@@ -344,9 +380,9 @@ export function makeCommitShaCell(row: any, deployedCommitId?: string, deployedT
   div.appendChild(a);
 
   if (deployedCommitId && row.commitId === deployedCommitId) {
-    const icon = document.createElement('i');
+    const icon = document.createElement('trailhand-icon') as any;
 
-    icon.className = 'icon icon-fw icon-commit';
+    icon.name = 'codeBranch';
     if (deployedTitle) icon.title = deployedTitle;
     div.appendChild(icon);
   }
@@ -395,13 +431,13 @@ export function makeCommitAuthorCell(row: any, unknownLabel: string): HTMLElemen
 /**
  * Creates the state cell for the build progress table.
  */
-export function makeProgressStateCell(row: any): HTMLElement {
+export function makeProgressStateCell(row: PipelineStep): HTMLElement {
   const tag = document.createElement('trailhand-tag') as any;
 
   if (row.state === 'running') {
     tag.label = runningLabels[row.action] || 'Running';
   } else {
-    tag.label = row.stateDisplay || row.state || '';
+    tag.label = stepStates[row.state] || '';
   }
 
   tag.variant = actionStateToTagVariant(row.state);

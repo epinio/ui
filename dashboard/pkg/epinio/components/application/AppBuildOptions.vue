@@ -1,108 +1,107 @@
 <script setup lang="ts">
 
-import { ref, reactive, computed, onMounted, watch, watchEffect } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { useStore } from 'vuex';
-import jsyaml from 'js-yaml';
-
-import Application from '../../models/applications';
-import GitPicker from './GitPicker.vue';
-import { sortBy } from '@shell/utils/sort';
-import { generateZip } from '@shell/utils/download';
 import {
   APPLICATION_SOURCE_TYPE,
   APPLICATION_BUILD_MODE,
-  EpinioApplicationChartResource,
-  EpinioInfo,
-  EpinioAppSource,
-  EPINIO_APP_MANIFEST
 } from '../../types';
-import { EpinioAppInfo } from '../../types';
-import { _EDIT } from '@shell/config/query-params';
-import { AppUtils } from '../../utils/application';
-import { EPINIO_TYPES } from '../../types';
+import { useBuilderImages } from '../../queries/useBuilderImagesQueries';
+import { useAppCharts } from '../../queries/useAppChartsQueries';
+import { ListResourceRequestParams, ResourceQueryOptions } from '../../models/resource/ui-types';
+import { debounce } from 'lodash';
+import { AppFormBuildOptions, AppFormDetails } from '../../models/application/ui-types';
 import { isForbidden } from '../../utils/errors';
-import ResourceDropdown from './ResourceDropdown.vue';
 
 const store = useStore();
 
 const t = store.getters['i18n/t'];
 
 const props = defineProps<{
-  application: Application;
-  source?: EpinioAppSource;
-  info?: EpinioInfo;
+  buildOptions: AppFormBuildOptions;
+  sourceType: APPLICATION_SOURCE_TYPE;
   mode: string;
   active: boolean;
+  modalOpen: boolean;
+  updateBuildOptions: (newBuildOptions: Partial<AppFormBuildOptions>) => void;
+  updateDetails: (newDetails: Partial<AppFormDetails>) => void;
 }>();
 
-const emit = defineEmits<{
-  (e: 'change', payload: any): void;
-  (e: 'changeAppInfo', info: EpinioAppInfo): void;
-  (e: 'changeAppConfig', configs: string[]): void;
-  (e: 'valid', valid: boolean): void;
-}>();
+watch(() => props.modalOpen, (newVal) => {
+  appChartsRequestOptions.value.enabled = newVal;
+  builderImageRequestOptions.value.enabled = newVal;
+});
 
-const isEdit = computed(() => props.mode === _EDIT);
-const isView = computed(() => props.mode === 'view');
+const isEdit = computed(() => props.mode === 'edit');
 
-const isLoadingAppCharts = ref(false);
-const appCharts = ref<any[]>([]);
-const cachedAppCharts = ref<any[]>([]);
-
-const isLoadingBuilderImages = ref(false);
-const builderImages = ref<any[]>([]);
-const cachedBuilderImages = ref<any[]>([]);
-// Set when the catalog read is refused, which is a valid role, not a fault.
-const builderImagesForbidden = ref(false);
-
-const isFetchingChartsAndImages = ref<boolean>(true);
-
-const builderImage = ref(props.source?.builderImage || '');
-const buildMode = ref(props.source?.buildMode || APPLICATION_BUILD_MODE.BUILDPACK);
-const dockerfilePath = ref(props.source?.dockerfilePath || 'Dockerfile');
 const dockerfilePathError = ref('');
+const defaultBuilderImageForPlaceholder = ref('');
 
-function validateDockerfilePathValue(value: string): string {
-  const trimmed = (value || '').trim();
-  if (!trimmed) {
-    return '';
-  }
-  if (
-    trimmed.startsWith('/') ||
-    trimmed.startsWith('\\') ||
-    /^[A-Za-z]:[\\/]/.test(trimmed) ||
-    trimmed.startsWith('\\\\')
-  ) {
-    return t('epinio.applications.steps.source.dockerfilePath.error.absolute');
-  }
+const appChartsRequestParams = ref<ListResourceRequestParams>({ page: 1, pageSize: 25, search: '' });
+const appChartsRequestOptions = ref<ResourceQueryOptions>({ enabled: false, polling: false });
+const {data: appChartsData, isLoading: isLoadingAppCharts, isError: isErrorAppCharts } = useAppCharts(store, appChartsRequestParams, appChartsRequestOptions);
+const onAppChartsFilter = debounce((query: string) => {
+  appChartsRequestParams.value.page = 1;
+  appChartsRequestParams.value.search = query;
+}, 500);
 
-  const normalized = trimmed.replace(/\\/g, '/');
-  if (normalized.split('/').some((part) => part === '..')) {
-    return t('epinio.applications.steps.source.dockerfilePath.error.parent');
-  }
 
-  if (!/^[A-Za-z0-9._/-]+$/.test(normalized)) {
-    return t('epinio.applications.steps.source.dockerfilePath.error.chars');
-  }
+const builderImageRequestParams = ref<ListResourceRequestParams>({ page: 1, pageSize: 25, search: '' });
+const builderImageRequestOptions = ref<ResourceQueryOptions>({ enabled: false, polling: false });
+const {data: builderImagesData, isLoading: isLoadingBuilderImages, isError: isErrorBuilderImages, error: builderImagesError } = useBuilderImages(store, builderImageRequestParams, builderImageRequestOptions);
+const onBuilderImageFilter = debounce((query: string) => {
+  builderImageRequestParams.value.page = 1;
+  builderImageRequestParams.value.search = query;
+}, 500);
 
-  return '';
+// If no app chart is set from the source or application configuration
+// default to the standard app chart.
+function setDefaultAppChart() {
+  if (props.buildOptions.appChart) return;
+  const items = appChartsData.value?.items;
+  if (!items?.length) return;
+  const standard = items.find(ac => ac.meta.name === 'standard');
+  props.updateBuildOptions({
+    appChart: standard?.meta.name || items[0].meta.name
+  });
 }
+// If no builder image is set from the source, default to the catalog's default or
+// its first entry. `custom` is a sentinel, not an image, so it is filtered out --
+// seeding it would stage the literal string. Empty means the server picks.
+const setDefaultBuilderImage = () => {
+  if (props.buildOptions.builderImage) return;
+  const defaultBuilderImage = builderImagesData.value?.items?.find((bi: any) => bi.default)?.image || '';
+  defaultBuilderImageForPlaceholder.value = defaultBuilderImage;
+  props.updateBuildOptions({ builderImage: defaultBuilderImage });
+};
+// Watch for changes to the app charts and builder images and set defaults accordingly
+watch(appChartsData, setDefaultAppChart);
+watch(builderImagesData, setDefaultBuilderImage);
+watch(
+  () => props.modalOpen,
+  (isOpen) => {
+    if (isOpen) {
+      setDefaultAppChart();
+      setDefaultBuilderImage();
+    }
+  }
+);
 
-function onDockerfilePathChange(value: string) {
-  dockerfilePath.value = value;
-  dockerfilePathError.value = validateDockerfilePathValue(value);
-  update();
-}
+// If builder images result in a forbidden error, update the build options so validation can
+// account for it
+watch(builderImagesError, (error) => {
+  if (isForbidden(error)) {
+    props.updateBuildOptions({ builderImagesForbidden: true });
+  } else {
+    props.updateBuildOptions({ builderImagesForbidden: false });
+  }
+});
 
-
-const appChart = ref(props.application.configuration?.appchart || props.source?.appChart || '');
-const type = ref(props.source?.type || APPLICATION_SOURCE_TYPE.FOLDER);
-
-// Get the builder images from the store, add custom option and format for dropdown
+// Format the builder images for the dropdown, adding a custom option
 const allBuilderImages = computed(() => {
-  const catalogImages = sortBy(builderImages.value, 'meta.name', false).map((bi: any) => ({
+  const catalogImages = (builderImagesData.value?.items || []).map((bi) => ({
     value: bi.image,
-    label: `${bi.meta.name} (${bi.short_description})`,
+    label: `${bi.meta.name} (${bi.shortDescription})`,
     default: bi.default
   }))
   const customOption = {
@@ -115,9 +114,9 @@ const allBuilderImages = computed(() => {
 
 const selectedBuilderImage = computed(() => {
   return allBuilderImages.value.some(
-    (bi) => bi.value === builderImage.value
+    (bi) => bi.value === props.buildOptions.builderImage
   )
-    ? builderImage.value
+    ? props.buildOptions.builderImage
     : 'custom';
 });
 
@@ -125,13 +124,34 @@ const isCustomBuilderImage = computed(
   () => selectedBuilderImage.value === 'custom'
 );
 
-// An empty builder image is legal when the catalog cannot be read: the server
-// resolves its own default (request, then app CR, then default CR, then env).
-const hasBuilderImage = computed(
-  () => !!builderImage.value || builderImagesForbidden.value
-);
+// Validate the Dockerfile path input
+function validateDockerfilePathValue(value: string): string {
+  const trimmed = (value || '').trim();
+  if (!trimmed) {
+    dockerfilePathError.value = t('epinio.applications.steps.source.dockerfilePath.error.required');
+  }
+  if (
+    trimmed.startsWith('/') ||
+    trimmed.startsWith('\\') ||
+    /^[A-Za-z]:[\\/]/.test(trimmed) ||
+    trimmed.startsWith('\\\\')
+  ) {
+    dockerfilePathError.value = t('epinio.applications.steps.source.dockerfilePath.error.absolute');
+  }
 
-const builderImageLabel = computed(() => builderImagesForbidden.value
+  const normalized = trimmed.replace(/\\/g, '/');
+  if (normalized.split('/').some((part) => part === '..')) {
+    dockerfilePathError.value = t('epinio.applications.steps.source.dockerfilePath.error.parent');
+  }
+
+  if (!/^[A-Za-z0-9._/-]+$/.test(normalized)) {
+    dockerfilePathError.value = t('epinio.applications.steps.source.dockerfilePath.error.chars');
+  }
+
+  return dockerfilePathError.value || '';
+}
+
+const builderImageLabel = computed(() => props.buildOptions.builderImagesForbidden
   ? t('epinio.applications.steps.source.archive.builderimage.clusterDefault')
   : t('epinio.applications.steps.source.archive.builderimage.inputLabel'));
 
@@ -142,8 +162,8 @@ const showBuilderImage = computed(() =>
     APPLICATION_SOURCE_TYPE.GIT_URL,
     APPLICATION_SOURCE_TYPE.GIT_HUB,
     APPLICATION_SOURCE_TYPE.GIT_LAB,
-  ].includes(type.value) &&
-  buildMode.value === APPLICATION_BUILD_MODE.BUILDPACK
+  ].includes(props.sourceType) &&
+  props.buildOptions.buildMode === APPLICATION_BUILD_MODE.BUILDPACK
 );
 
 const showBuildMode = computed(() =>
@@ -153,290 +173,108 @@ const showBuildMode = computed(() =>
     APPLICATION_SOURCE_TYPE.GIT_URL,
     APPLICATION_SOURCE_TYPE.GIT_HUB,
     APPLICATION_SOURCE_TYPE.GIT_LAB,
-  ].includes(type.value)
+  ].includes(props.sourceType)
 );
 
-const showDockerfilePath = computed(() => showBuildMode.value && buildMode.value === APPLICATION_BUILD_MODE.DOCKERFILE);
+const showDockerfilePath = computed(() => showBuildMode.value && props.buildOptions.buildMode === APPLICATION_BUILD_MODE.DOCKERFILE);
 
 const buildModes = [
   { label: t('epinio.applications.steps.source.buildMode.buildpack'), value: APPLICATION_BUILD_MODE.BUILDPACK },
   { label: t('epinio.applications.steps.source.buildMode.dockerfile'), value: APPLICATION_BUILD_MODE.DOCKERFILE },
 ];
 
-const valid = computed(() => validate());
-
-watch(() => props.active, (isActive) => {
-  if (isActive) {
-    emit('valid', valid.value)
-  }
-})
-
-const fetchAppCharts = async () => {
-  if (cachedAppCharts.value.length > 0) {
-    appCharts.value = cachedAppCharts.value;
-    return;
-  }
-  isLoadingAppCharts.value = true;
-  try {
-    const res = await store.dispatch('epinio/request', {
-      opt: {
-        url: '/api/v1/appcharts',
-        method: 'GET',
-        responseType: 'json'
-      }
-    });
-    const rawData = res.data ?? [];
-    const classifiedData = await Promise.all(rawData.map((item: any) =>
-      store.dispatch('epinio/create', { type: EPINIO_TYPES.APP_CHART, ...item })
-    ));
-    appCharts.value = classifiedData;
-    cachedAppCharts.value = classifiedData;
-  } catch (error) {
-    console.error('Failed to fetch app charts', error);
-  } finally {
-    isLoadingAppCharts.value = false;
-  }
-};
-
-async function searchAppCharts(query: string) {
-  isLoadingAppCharts.value = true;
-  try {
-    const res = await store.dispatch('epinio/request', {
-      opt: {
-        url: `/api/v1/appcharts?search=${query}`,
-        method: 'GET',
-        responseType: 'json'
-      }
-    });
-    const rawData = res.data ?? [];
-    const classifiedData = await Promise.all(rawData.map((item: any) =>
-      store.dispatch('epinio/create', { type: EPINIO_TYPES.APP_CHARTS, ...item })
-    ));
-    appCharts.value = classifiedData;
-  } catch {
-    appCharts.value = [];
-  } finally {
-    isLoadingAppCharts.value = false;
-  }
-}
-
-const fetchBuilderImages = async () => {
-  if (cachedBuilderImages.value.length > 0) {
-    builderImages.value = cachedBuilderImages.value;
-    return;
-  }
-  isLoadingBuilderImages.value = true;
-  try {
-    const res = await store.dispatch('epinio/request', {
-      opt: {
-        url: '/api/v1/builderimages',
-        method: 'GET',
-        responseType: 'json'
-      }
-    });
-    const rawData = res.data ?? [];
-    const classifiedData = await Promise.all(rawData.map((item: any) =>
-      store.dispatch('epinio/create', { type: EPINIO_TYPES.BUILDER_IMAGE, ...item })
-    ));
-    builderImages.value = classifiedData;
-    cachedBuilderImages.value = classifiedData;
-    builderImagesForbidden.value = false;
-  } catch (error: any) {
-    builderImagesForbidden.value = isForbidden(error);
-
-    if (!builderImagesForbidden.value) {
-      console.error('Failed to fetch builder images', error);
-    }
-  } finally {
-    isLoadingBuilderImages.value = false;
-  }
-};
-
-async function searchBuilderImages(query: string) {
-  isLoadingBuilderImages.value = true;
-  try {
-    const res = await store.dispatch('epinio/request', {
-      opt: {
-        url: `/api/v1/builderimages?search=${query}`,
-        method: 'GET',
-        responseType: 'json'
-      }
-    });
-    const rawData = res.data ?? [];
-    const classifiedData = await Promise.all(rawData.map((item: any) =>
-      store.dispatch('epinio/create', { type: EPINIO_TYPES.BUILDER_IMAGE, ...item })
-    ));
-    builderImages.value = classifiedData;
-  } catch (error: any) {
-    builderImagesForbidden.value = isForbidden(error);
-    builderImages.value = [];
-  } finally {
-    isLoadingBuilderImages.value = false;
-  }
-}
-
-// Immediate so the parent starts from the form's real validity instead of
-// assuming the tab is valid until something changes.
-watch(valid, (val) => {
-  emit('valid', val);
-}, { immediate: true });
-
-function validate() {
-  switch (type.value) {
-    case APPLICATION_SOURCE_TYPE.ARCHIVE:
-    case APPLICATION_SOURCE_TYPE.FOLDER:
-      if (buildMode.value === APPLICATION_BUILD_MODE.DOCKERFILE) {
-        dockerfilePathError.value = validateDockerfilePathValue(dockerfilePath.value);
-        return !!dockerfilePath.value && !dockerfilePathError.value;
-      }
-      return hasBuilderImage.value;
-    case APPLICATION_SOURCE_TYPE.CONTAINER_URL:
-      return true;
-    case APPLICATION_SOURCE_TYPE.GIT_URL:
-      if (buildMode.value === APPLICATION_BUILD_MODE.DOCKERFILE) {
-        dockerfilePathError.value = validateDockerfilePathValue(dockerfilePath.value);
-        return !!dockerfilePath.value && !dockerfilePathError.value;
-      }
-      return hasBuilderImage.value;
-    case APPLICATION_SOURCE_TYPE.GIT_HUB:
-    case APPLICATION_SOURCE_TYPE.GIT_LAB:
-      if (buildMode.value === APPLICATION_BUILD_MODE.DOCKERFILE) {
-        dockerfilePathError.value = validateDockerfilePathValue(dockerfilePath.value);
-        return !!dockerfilePath.value && !dockerfilePathError.value;
-      }
-      return hasBuilderImage.value;
-  }
-  return false;
-}
-
-function update() {
-  emit('change', {
-    builderImage: builderImage.value,
-    buildMode: buildMode.value,
-    dockerfilePath: dockerfilePath.value,
-    appChart: appChart.value,
-  });
-}
-
 function handleBuilderImageDropdownChange(value: string) {
   if (value === 'custom') {
-    builderImage.value = '';
+    props.updateBuildOptions({ builderImage: '' });
   } else {
-    builderImage.value = value;
+    props.updateBuildOptions({ builderImage: value });
   }
-  update();
 }
-
-onMounted(async () => {
-  await Promise.all([fetchAppCharts(), fetchBuilderImages()]);
-  // If no app chart is set from the source or application configuration
-  // default to the standard app chart.
-  if (!appChart.value) {
-    const standardAppChart = appCharts.value.find((ac) => ac.meta.name === 'standard');
-    appChart.value = (
-      props.application.configuration?.appchart ||
-      props.source?.appChart ||
-      standardAppChart?.meta.name ||
-      appCharts.value[0]?.meta.name ||
-      ''
-    );
-  }
-  // If no builder image is set from the source, default to the catalog's default or
-  // its first entry. `custom` is a sentinel, not an image, so it is filtered out --
-  // seeding it would stage the literal string. Empty means the server picks.
-  if (!builderImage.value) {
-    const catalogImages = allBuilderImages.value.filter((bi: any) => bi.value !== 'custom');
-    const defaultImage = catalogImages.find((bi: any) => bi.default);
-
-    builderImage.value = defaultImage?.value || catalogImages[0]?.value || '';
-  }
-  isFetchingChartsAndImages.value = false;
-  update();
-});
 
 </script>
 
 <template>
-    <div class="spacer source">
-      <div
-        v-if="isFetchingChartsAndImages"
-        class="spacer"
-      >
-        <trailhand-loading-spinner />
-      </div>
-
-      <div v-else>
-        <ResourceDropdown
-          :value="appChart"
-          :options="appCharts.map((ap: EpinioApplicationChartResource) => ({
-            value: ap.meta.name,
-            label: `${ap.meta.name} (${ap.short_description})`
-          }))"
-          :label="t('epinio.applications.steps.source.archive.appchart.label')"
-          :disabled="isView"
+    <div>
+      <div class="spacer source">
+        <trailhand-dropdown
+          style="width: 100%"
+          :options="(appChartsData?.items || []).map((ac) => ({ value: ac.meta.name, label: `${ac.meta.name} (${ac.shortDescription})` }))"
+          :value="buildOptions.appChart"
+          label="Application Chart"
           placeholder="Select an application chart"
-          :onDropdownChange="(e: CustomEvent) => { appChart = e.detail.value; update(); }"
-          :fetchAllResources="fetchAppCharts"
-          :searchResources="searchAppCharts"
+          required
+          filterable
+          @dropdown-change="(e: CustomEvent) => { updateBuildOptions({ appChart: e.detail.value }); }"
+          @dropdown-filter="(e: CustomEvent<{ filter: string }>) => { onAppChartsFilter(e.detail.filter); }"
           :isLoading="isLoadingAppCharts"
-        />
-
-        <template v-if="showBuildMode">
-          <div class="spacer source">
-            <h4>{{ t('epinio.applications.steps.source.buildMode.label') }}</h4>
-            <trailhand-dropdown
-              style="width: 100%;"
-              :options="buildModes"
-              :value="buildMode"
-              data-testid="epinio_app-source_build-mode"
-              :label="t('epinio.applications.steps.source.buildMode.inputLabel')"
-              @dropdown-change="(e: CustomEvent) => { buildMode = e.detail.value; update(); }"
-            />
-          </div>
-        </template>
-
-        <template v-if="showDockerfilePath">
-          <div class="spacer source">
-            <h4>{{ t('epinio.applications.steps.source.dockerfilePath.label') }}</h4>
-            <trailhand-text-input
-              style="width: 100%;"
-              :value="dockerfilePath"
-              data-testid="epinio_app-source_dockerfile-path"
-              :label="t('epinio.applications.steps.source.dockerfilePath.inputLabel')"
-              :required="true"
-              @text-input-change="(e: CustomEvent) => { onDockerfilePathChange(e.detail.value); }"
-            />
-            <p v-if="dockerfilePathError" class="error">
-              {{ dockerfilePathError }}
-            </p>
-          </div>
-        </template>
-
-        <template v-if="showBuilderImage">
-          <div class="spacer source builder-image">
-            <h4>Paketo Builder Image</h4>
-            <ResourceDropdown
-              v-if="!builderImagesForbidden"
-              :value="selectedBuilderImage"
-              :options="allBuilderImages"
-              label="Builder Image"
-              :onDropdownChange="(e: CustomEvent) => { handleBuilderImageDropdownChange(e.detail.value) }"
-              :fetchAllResources="fetchBuilderImages"
-              :searchResources="searchBuilderImages"
-              :isLoading="isLoadingBuilderImages"
-            />
-            <trailhand-text-input
-              style="width: 100%;"
-              :value="builderImage"
-              data-testid="epinio_app-source_builder-value"
-              :label="builderImageLabel"
-              :placeholder="props.info?.default_builder_image"
-              :disabled="!isCustomBuilderImage"
-              @text-input-change="(e: CustomEvent) => { builderImage = e.detail.value; update(); }"
-            />
-          </div>
-        </template>
+        ></trailhand-dropdown>
+        <p v-if="isErrorAppCharts" class="error-message">
+          {{ t(`epinio.appCharts.errors.fetchAll`) }}
+        </p>
       </div>
+
+      <template v-if="showBuildMode">
+        <div class="spacer source">
+          <h4>{{ t('epinio.applications.steps.source.buildMode.label') }}</h4>
+          <trailhand-dropdown
+            style="width: 100%;"
+            :options="buildModes"
+            :value="buildOptions.buildMode"
+            required
+            data-testid="epinio_app-source_build-mode"
+            :label="t('epinio.applications.steps.source.buildMode.inputLabel')"
+            @dropdown-change="(e: CustomEvent) => { updateBuildOptions({ buildMode: e.detail.value }); }"
+          />
+        </div>
+      </template>
+
+      <template v-if="showDockerfilePath">
+        <div class="spacer source">
+          <h4>{{ t('epinio.applications.steps.source.dockerfilePath.label') }}</h4>
+          <trailhand-text-input
+            style="width: 100%;"
+            :value="buildOptions.dockerfilePath"
+            data-testid="epinio_app-source_dockerfile-path"
+            :label="t('epinio.applications.steps.source.dockerfilePath.inputLabel')"
+            :required="true"
+            @text-input-change="(e: CustomEvent) => { validateDockerfilePathValue(e.detail.value); updateBuildOptions({ dockerfilePath: e.detail.value }); }"
+          />
+          <p v-if="dockerfilePathError" class="error-message">
+            {{ dockerfilePathError }}
+          </p>
+        </div>
+      </template>
+
+      <template v-if="showBuilderImage">
+        <div class="spacer source builder-image">
+          <h4>Paketo Builder Image</h4>
+          <trailhand-dropdown
+            v-if="!buildOptions.builderImagesForbidden"
+            style="width: 100%"
+            :options="allBuilderImages"
+            :value="selectedBuilderImage"
+            label="Builder Image"
+            placeholder="Select a builder image"
+            required
+            filterable
+            @dropdown-change="(e: CustomEvent) => { handleBuilderImageDropdownChange(e.detail.value) }"
+            @dropdown-filter="(e: CustomEvent<{ filter: string }>) => { onBuilderImageFilter(e.detail.filter); }"
+            :isLoading="isLoadingBuilderImages"
+          ></trailhand-dropdown>
+          <p v-if="isErrorBuilderImages" class="error-message">
+            {{ t(`epinio.builderImages.errors.fetchAll`) }}
+          </p>
+          <trailhand-text-input
+            style="width: 100%;"
+            :value="buildOptions.builderImage"
+            data-testid="epinio_app-source_builder-value"
+            :label="builderImageLabel"
+            :placeholder="defaultBuilderImageForPlaceholder"
+            :disabled="!isCustomBuilderImage"
+            @text-input-change="(e: CustomEvent) => { updateBuildOptions({ builderImage: e.detail.value }); }"
+          />
+        </div>
+      </template>
     </div>
 </template>
 
@@ -446,5 +284,10 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+}
+.error-message {
+  color: var(--error);
+  font-size: 0.9em;
+  margin-top: 4px;
 }
 </style>

@@ -1,154 +1,120 @@
 <script setup lang="ts">
 import { EPINIO_TYPES } from '../types';
 import { useStore } from 'vuex';
-import { computed, ref, onMounted, onUnmounted, watchEffect, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import Masthead from '@shell/components/ResourceList/Masthead';
-import { startPolling, stopPolling } from '../utils/polling';
 import { debounce } from 'lodash';
 import ChartsModal from '../components/charts/ChartsModal.vue';
 import { makeActionMenu } from '../utils/table-formatters';
-import { overrideTableRows } from '../utils/table-formatters';
-import EpinioAppChartModel from '../models/appcharts';
 import ChartsDeleteModal from '../components/charts/ChartsDeleteModal.vue';
-
+import { useAppCharts } from '../queries/useAppChartsQueries';
+import { ListResourceRequestParams, ResourceQueryOptions, ResourceTableRow } from '../models/resource/ui-types';
+import { AppChart } from '../models/appcharts/ui-types';
+import Banner from '@components/Banner/Banner.vue';
+import { useUser } from '../queries/useUserQueries';
 
 defineProps<{ schema: object }>(); // Keep for compatibility
 
 const store = useStore();
 
-const pending = ref(true);
-const rows = ref<any[]>([]);
-
 const chartsModal = ref<InstanceType<typeof ChartsModal> | null>(null);
-const deleteModal = ref<InstanceType<typeof ChartsDeleteModal> | null>(null);   
+const deleteModal = ref<InstanceType<typeof ChartsDeleteModal> | null>(null);
 
 const resource: string = EPINIO_TYPES.APP_CHARTS;
-const paginationMeta = computed(() => store.getters['epinio/paginationMeta'](resource));
-const currentPage = computed(() => store.getters['epinio/currentPaginationPage'](resource));
+
+const { data: user, isError: isErrorUser, error: userError } = useUser(store);
+
+const requestParams = ref<ListResourceRequestParams>({
+  page: 1,
+  pageSize: 10,
+  search: '',
+});
+
+const requestOptions = ref<ResourceQueryOptions>({
+  enabled: true,
+  polling: true,
+  isTablePagination: true,
+});
 
 const searchQuery = ref<string>('');
-
-const paginating = ref(false);
-
-const canEdit = computed(() => {
-  const can = store.getters['epinio/can'];
-
-  return can && (can('chart_write'));
-});
-const canDelete = canEdit;
-const canCreate = canEdit;
-
-async function goToPage(page: number) {
-  const meta = paginationMeta.value;
-
-  if (meta && (page < 1 || page > meta.totalPages)) return;
-  paginating.value = true;
-  try {
-    await store.dispatch('epinio/goToPage', { type: resource, page });
-  } finally {
-    paginating.value = false;
-  }
-}
-
-const onSearch = debounce(async (query: string) => {
-  paginating.value = true;
-  try {
-    await store.dispatch('epinio/search', { type: resource, query });
-  } finally {
-    paginating.value = false;
-  }
-}, 500);
 
 watch(searchQuery, (newQuery) => {
   onSearch(newQuery);
 });
 
-watchEffect(() => {
-  const all = store.getters['epinio/all'](EPINIO_TYPES.APP_CHARTS) as any[];
+const onSearch = debounce(async (query: string) => {
+  requestParams.value.page = 1;
+  requestParams.value.search = query;
+}, 500);
 
-  // Touch meta so _MERGE polling (which deletes/re-adds all properties) re-runs this effect
-  all.forEach((row: any) => { void row.meta; });
+const {data: appCharts, isLoading: isLoadingAppCharts, isError: isErrorAppCharts, error: appChartsError} = useAppCharts(store, requestParams, requestOptions);
 
-  // Filter empty rows that are added during delete
-  const filtered = all.filter((row) => {
-    if (!row.id) return false;
-    else return true;
-  });
+const canEdit = computed(() => {
+  return user.value?.permissions?.chart_write;
+});
+const canDelete = canEdit;
+const canCreate = canEdit;
 
-  // Build the row action menu with RBAC gating. The model already gates the
-  // base actions; here we inject the modal-driven Edit/Delete entries only
-  // when the user has chart write permissions.
-  const rowActions = () => {
-    const out: any[] = [];
+const openDeleteModal = (appChart: AppChart) => {
+  deleteModal.value?.openDelete(appChart);
+};
 
-    if (canEdit.value) {
-      out.push({
-        action: 'editAppChart',
+const openEditModal = (appChart: AppChart) => {
+  chartsModal.value?.openEdit(appChart);
+};
+
+const displayRows = computed(() => {
+  if (!appCharts.value) {
+    return [];
+  }
+
+  const rows: ResourceTableRow<AppChart>[] = (appCharts.value.items ?? []).map((ac) => ({
+    ...ac,
+    id: ac.meta.name, // stable, unique per namespace
+    availableActions: [
+      {
         label: 'Edit',
-        enabled: true
-      });
-    }
-    if (canDelete.value) {
-      out.push({
-        action: 'removeAppChart',
-        enabled: true,
+        action: () => openEditModal(ac),
+        enabled: canEdit.value,
+        visible: canEdit.value,
+      },
+      {
         label: 'Delete',
-      });
-    }
-
-
-    return out;
-  };
-
-  const overrideProps = [
-    {
-      prop: 'availableActions',
-      value: rowActions,
-      conditionFn: () => true,
-    },
-    {
-      prop: 'removeAppChart',
-      value: (row: EpinioAppChartModel) => () => {
-        deleteModal.value?.openDelete(row);
+        action: () => openDeleteModal(ac),
+        enabled: canDelete.value,
+        visible: canDelete.value,
+        danger: true,
       },
-      conditionFn: () => canDelete.value,
-    },
-    {
-      prop: 'editAppChart',
-      value: (row: EpinioAppChartModel) => () => {
-        chartsModal.value?.openEdit(row);
-      },
-      conditionFn: () => canEdit.value,
-    }
-  ];
-
-  const processedRows = overrideTableRows(filtered, overrideProps);
-
-  rows.value = [...processedRows];
-});
-
-onMounted(async () => {
-  store.dispatch('epinio/me');
-  await store.dispatch(`epinio/findAll`, { type: EPINIO_TYPES.APP_CHARTS });
-  pending.value = false;
-  startPolling(['appcharts'], store);
-});
-
-onUnmounted(() => {
-  stopPolling(['appcharts']);
+    ],
+    canDelete: canDelete.value,
+  }));
+  return rows;
 });
 
 const columns = [
   {
-    field: 'meta.name',
-    label: 'Name'
+    field: 'nameDisplay',
+    label: 'Name',
+    formatter: (_v: any, row: AppChart) => {
+      const el = document.createElement('a');
+
+      el.textContent = row.meta?.name || '';
+      el.style.cursor = 'pointer';
+      el.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        chartsModal.value?.openView(row, !!canEdit.value);
+      });
+
+      return el;
+    }
   },
   {
     field: 'description',
     label: 'Description'
   },
   {
-    field: 'helm_chart',
+    field: 'helmChart',
     label: 'Helm Chart'
   },
   {
@@ -177,24 +143,34 @@ const columns = [
         <div v-else />
       </template>
     </Masthead>
+    <Banner
+      v-if="isErrorUser"
+      color="error"
+      :label="userError?.message || t('epinio.user.errors.fetch')"
+    />
+    <Banner
+      v-if="isErrorAppCharts"
+      color="error"
+      :label="appChartsError?.message || t('epinio.appCharts.errors.fetch')"
+    />
     <div class="search-container">
       <trailhand-text-input
         :value="searchQuery"
         placeholder="Search..."
-        @text-input-change="(e: CustomEvent) => searchQuery = e.detail.value"
+        @text-input-change="(e: CustomEvent) => { requestParams.search = e.detail.value; }"
       ></trailhand-text-input>
     </div>
     <trailhand-table
       :ref="(el: any) => { if (el) el.renderActions = makeActionMenu; }"
-      :rows="rows"
+      :rows="displayRows"
       :columns="columns"
+      :server-side="true"
       :searchable="false"
-      :server-side="!!paginationMeta"
-      :total-items="paginationMeta?.totalItems ?? rows.length"
-      :current-page="currentPage"
-      :loading="pending || paginating"
+      :total-items="appCharts?.totalItems ?? 0"
+      :current-page="requestParams.page"
+      :loading="isLoadingAppCharts"
       key-field="id"
-      @page-change="(e: CustomEvent) => goToPage(e.detail.page)"
+      @page-change="(e: CustomEvent) => { requestParams.page = e.detail.page; }"
     />
   </div>
   <ChartsModal ref="chartsModal" />

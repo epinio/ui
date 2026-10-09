@@ -1,18 +1,20 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watchEffect, watch } from 'vue';
+import { computed, onMounted, ref, watchEffect, watch } from 'vue';
 import { useStore } from 'vuex';
 import { debounce } from 'lodash';
 import { useRouter } from 'vue-router';
-
 import { EPINIO_TYPES, EPINIO_SERVICE_PARAM } from '../types';
-import { startPolling, stopPolling } from '../utils/polling';
 import Masthead from '@shell/components/ResourceList/Masthead';
-import { makeStateTag, makeRouterLink, makeNameLinks, makeActionMenu } from '../utils/table-formatters';
-import EpinioServiceModel from 'models/services';
-import { overrideTableRows } from '../utils/table-formatters';
+import { makeStateTag, makeNameLinks, makeActionMenu } from '../utils/table-formatters';
 import ServiceDeleteModal from '../components/service/ServiceDeleteModal.vue';
 import ServiceInstanceModal from '../components/service/ServiceInstanceModal.vue';
 import BulkDeleteModal from '../components/BulkDeleteModal.vue';
+import { ListResourceRequestParams, ResourceQueryOptions, ResourceTableRow } from '../models/resource/ui-types';
+import { useServices } from '../queries/useServiceQueries';
+import { useBulkRemoveServiceInstances, useUnbindServiceInstance } from '../queries/useServiceMutations';
+import { ServiceInstance } from '../models/service/ui-types';
+import Banner from '@components/Banner/Banner.vue';
+import { useUser } from '../queries/useUserQueries';
 
 defineProps<{
   schema: object,
@@ -23,154 +25,92 @@ const t = store.getters['i18n/t'];
 const router = useRouter();
 
 const resource: string = EPINIO_TYPES.SERVICE_INSTANCE;
-const paginationMeta = computed(() => store.getters['epinio/paginationMeta'](resource));
-const currentPage = computed(() => store.getters['epinio/currentPaginationPage'](resource));
+const serviceModal = ref<InstanceType<typeof ServiceInstanceModal> | null>(null);
+const deleteModal = ref<InstanceType<typeof ServiceDeleteModal> | null>(null);
+const bulkDeleteModal = ref<InstanceType<typeof BulkDeleteModal> | null>(null);
+
+const { data: user, isError: isErrorUser, error: userError } = useUser(store);
+
+const requestParams = ref<ListResourceRequestParams>({
+  page: 1,
+  pageSize: 10,
+  search: '',
+  namespaces: undefined,
+});
+
+const requestOptions = ref<ResourceQueryOptions>({
+  enabled: true,
+  polling: true,
+  isTablePagination: true,
+});
 
 const searchQuery = ref<string>('');
-
-const paginating = ref(false);
-
-async function goToPage(page: number) {
-  const meta = paginationMeta.value;
-
-  if (meta && (page < 1 || page > meta.totalPages)) return;
-  paginating.value = true;
-  try {
-    await store.dispatch('epinio/goToPage', { type: resource, page });
-  } finally {
-    paginating.value = false;
-  }
-}
-
-const onSearch = debounce(async (query: string) => {
-  paginating.value = true;
-  try {
-    await store.dispatch('epinio/search', { type: resource, query });
-  } finally {
-    paginating.value = false;
-  }
-}, 500);
 
 watch(searchQuery, (newQuery) => {
   onSearch(newQuery);
 });
 
-const serviceModal = ref<InstanceType<typeof ServiceInstanceModal> | null>(null);
-const deleteModal = ref<InstanceType<typeof ServiceDeleteModal> | null>(null);
-const bulkDeleteModal = ref<InstanceType<typeof BulkDeleteModal> | null>(null);
+const onSearch = debounce(async (query: string) => {
+  requestParams.value.page = 1;
+  requestParams.value.search = query;
+}, 500);
+
+const {data: services, isLoading: isLoadingServices, isError: isErrorServices, error: servicesError} = useServices(store, requestParams, requestOptions);
+const { mutateAsync: bulkRemove } = useBulkRemoveServiceInstances(store);
+const { mutateAsync: unbindServiceInstance } = useUnbindServiceInstance(store);
+
 const tableEl = ref<any>(null);
-const selectedRows = ref<any[]>([]);
-const displayRows = ref<any[]>([]);
+const selectedRows = ref<ResourceTableRow<ServiceInstance>[]>([]);
 
 const canEdit = computed(() => {
-  const can = store.getters['epinio/can'];
-
-  return can && (can('service_write') || can('service'));
+  return user.value?.permissions?.service_write || user.value?.permissions?.service;
 });
 const canDelete = canEdit;
 const canCreate = canEdit;
 
-// Watch the active namespace cache key and update the active namespaces in the store
-watch(
-  () => {
-    void store.state.activeNamespaceCacheKey;
-    const active = store.state.activeNamespaceCache;
-    return active ? Object.keys(active) : null;
-  },
-  async (namespacesArray) => {
-    paginating.value = true;
-    try {
-      await store.dispatch('epinio/setActiveNamespaces', { type: resource, namespaces: namespacesArray });
-    } finally {
-      paginating.value = false;
-    }
-  
-  },
-  { immediate: true }
-);
+const displayRows = computed(() => {
+  if (!services.value) {
+    return [];
+  }
 
-watchEffect(async () => {
-  const all = store.getters['epinio/all'](EPINIO_TYPES.SERVICE_INSTANCE) as any[];
-  all.forEach((row: any) => { void row.status; void row.stateDisplay; void row.meta; void row.boundapps; });
-
-  // Filter empty rows that are added during delete
-  const filtered = all.filter((row) => {
-    if (!row.id) return false;
-    return true;
-  });
-
-  // Build the row action menu with RBAC gating. The model already gates the
-  // base actions; here we inject the modal-driven Edit/Delete entries only
-  // when the user has service write permissions.
-  const rowActions = (row: EpinioServiceModel) => {
-    const out: any[] = [];
-
-    if (canEdit.value) {
-      out.push({
-        action: 'editServiceModal',
+  // Add custom namespace delete action to replace the built in rancher shell flow.
+  // Gate by namespace write perms so view-only / app-only roles don't see Delete.
+  const rows: ResourceTableRow<ServiceInstance>[] = (services.value.items ?? []).map((s) => ({
+    ...s,
+    id: s.meta.name, // stable, unique per namespace
+    availableActions: [
+      {
         label: 'Edit',
-        enabled: true
-      });
-    }
-    if (canDelete.value) {
-      out.push({
-        action: 'removeService',
-        altAction: 'remove',
-        bulkAction: 'removeService',
-        bulkable: true,
-        enabled: row.canDelete,
-        icon: 'icon icon-trash',
+        action: () => openEditModal(s),
+        enabled: canEdit.value,
+        visible: canEdit.value,
+      },
+      {
         label: 'Delete',
-        weight: -10
-      });
-    }
-
-
-    return out;
-  };
-
-  const overrideProps = [
-    {
-      prop: 'availableActions',
-      value: rowActions,
-      conditionFn: () => true,
-    },
-    {
-      prop: 'removeService',
-      value: (row: EpinioServiceModel) => () => {
-        deleteModal.value?.openDelete(row);
+        action: () => openDeleteModal(s),
+        enabled: canDelete.value,
+        visible: canDelete.value,
+        danger: true,
       },
-      conditionFn: (row: EpinioServiceModel) => canDelete.value && row.canDelete,
-    },
-    {
-      prop: 'editServiceModal',
-      value: (row: EpinioServiceModel) => () => {
-        serviceModal.value?.openEdit(row);
-      },
-      conditionFn: () => canEdit.value,
-    }
-  ];
+    ],
+    canDelete: canDelete.value,
+  }));
+  return rows;
+});
 
-  const processedRows = overrideTableRows(filtered, overrideProps);
+// Watch for changes to the active namespace cache and update the request params accordingly
+watchEffect(() => {
+  void store.state.activeNamespaceCacheKey;
+  const activeNamespaces = store.state.activeNamespaceCache;
 
-  displayRows.value = [...processedRows];
+  if (activeNamespaces && Object.keys(activeNamespaces).length > 0) {
+    requestParams.value.namespaces = Object.keys(activeNamespaces);
+  } else {
+    requestParams.value.namespaces = undefined;
+  }
 });
 
 onMounted(async () => {
-  paginating.value = true;
-  try {
-    await Promise.all([
-      store.dispatch('epinio/me'),
-      store.dispatch('epinio/findAll', { type: EPINIO_TYPES.SERVICE_INSTANCE }),
-      store.dispatch('epinio/findAll', { type: EPINIO_TYPES.NAMESPACE }),
-      store.dispatch('epinio/findAll', { type: EPINIO_TYPES.CATALOG_SERVICE }),
-      store.dispatch('epinio/findAll', { type: EPINIO_TYPES.APP }),
-    ]);
-  } finally {
-    paginating.value = false;
-  }
-  startPolling(['services', 'applications', 'namespaces'], store);
-
   const query = store.$router.currentRoute._value.query;
 
   if (query.mode === 'openModal') {
@@ -178,9 +118,17 @@ onMounted(async () => {
   }
 });
 
-onUnmounted(() => {
-  stopPolling(['services', 'applications', 'namespaces']);
-});
+async function openCreateModal() {
+  serviceModal.value?.openCreate();
+}
+
+function openDeleteModal(service: ServiceInstance) {
+  deleteModal.value?.openDelete(service);
+}
+
+function openEditModal(service: ServiceInstance) {
+  serviceModal.value?.openEdit(service);
+}
 
 // Services without service_write/service permission on that row can't be
 // individually deleted, so they're excluded from bulk selection too.
@@ -188,6 +136,18 @@ const isRowSelectable = (row: any) => row.canDelete;
 
 const handleSelectionChange = (event: CustomEvent) => {
   selectedRows.value = event.detail.selectedRows;
+};
+
+const handleBulkDelete = async (items: ServiceInstance[], deleteImage: boolean) => {
+  const servicesToUnbind = items.filter((item) => item.boundApps ? item.boundApps.length > 0 : false);
+  if (servicesToUnbind.length > 0) {
+    for (const service of servicesToUnbind) {
+      await Promise.all([
+        ...service.boundApps!.map((a: string) => unbindServiceInstance({ namespace: service.meta?.namespace || '', serviceName: service.meta?.name || '', request: { appName: a } })),
+      ]);
+    }
+  }
+  await bulkRemove({items,  deleteImage });
 };
 
 const handleBulkDeleteClick = () => {
@@ -222,15 +182,15 @@ const columns = [
     field: 'stateDisplay',
     label: 'State',
     width: '100px',
-    formatter: (_v: any, row: any) => makeStateTag(row)
+    formatter: (_v: any, row: ServiceInstance) => makeStateTag(row)
   },
   {
     field: 'nameDisplay',
     label: 'Name',
-    formatter: (_v: any, row: any) => {
+    formatter: (_v: any, row: ServiceInstance) => {
       const el = document.createElement('a');
 
-      el.textContent = row.nameDisplay || row.meta?.name || '';
+      el.textContent = row.meta?.name || '';
       el.style.cursor = 'pointer';
       el.addEventListener('click', (e) => {
         e.preventDefault();
@@ -242,25 +202,29 @@ const columns = [
     }
   },
   {
-    field: 'namespace',
+    field: 'meta.namespace',
     label: 'Namespace'
   },
   {
-    field: 'catalog_service',
+    field: 'catalogService',
     label: 'Catalog Service',
     sortable: false,
-    formatter: (_v: any, row: any) => makeRouterLink(row.catalog_service, row.serviceLocation, router)
+    formatter: (_v: any, row: ServiceInstance) => makeNameLinks(
+      [row.catalogService],
+      { cluster: store.getters['clusterId'], resource: EPINIO_TYPES.CATALOG_SERVICE },
+      router
+    )
   },
   {
-    field: 'catalog_service_version',
+    field: 'catalogServiceVersion',
     label: 'Catalog Service Version'
   },
   {
     field: 'boundApps',
     label: 'Bound Applications',
     sortable: false,
-    formatter: (_v: any, row: any) => makeNameLinks(
-      row.boundapps,
+    formatter: (_v: any, row: ServiceInstance) => makeNameLinks(
+      row.boundApps,
       { cluster: store.getters['clusterId'], namespace: row.meta?.namespace, resource: EPINIO_TYPES.APP },
       router
     )
@@ -295,13 +259,23 @@ const columns = [
           v-if="canCreate"
           variant="primary"
           size="large"
-          @click="serviceModal.openCreate()"
+          @click="openCreateModal"
         >
           {{ t('generic.create') }}
         </trailhand-button>
         <div v-else />
       </template>
     </Masthead>
+    <Banner
+      v-if="isErrorServices"
+      color="error"
+      :label="servicesError?.message || t('epinio.service.errors.fetch')"
+    />
+    <Banner
+      v-if="isErrorUser"
+      color="error"
+      :label="userError?.message || t('epinio.user.errors.fetch')"
+    />
     <div class="search-container">
       <trailhand-text-input
         :value="searchQuery"
@@ -315,13 +289,13 @@ const columns = [
       :columns="columns"
       :searchable="false"
       :selectable="canDelete"
-      :server-side="!!paginationMeta"
-      :total-items="paginationMeta?.totalItems ?? displayRows.length"
-      :current-page="currentPage"
-      :loading="paginating"
+      :server-side="true"
+      :total-items="services?.totalItems ?? 0"
+      :current-page="requestParams.page"
+      :loading="isLoadingServices"
       key-field="id"
       @navigate="handleNavigate"
-      @page-change="(e: CustomEvent) => goToPage(e.detail.page)"
+      @page-change="(e: CustomEvent) => { requestParams.page = e.detail.page; }"
       @selection-change="handleSelectionChange"
     />
     <ServiceInstanceModal ref="serviceModal" />
@@ -331,6 +305,7 @@ const columns = [
       resource-label="service instance"
       :resource-type="resource"
       :show-unbind-notice="true"
+      :bulk-remove="handleBulkDelete"
       @settled="handleBulkDeleted"
     />
   </div>

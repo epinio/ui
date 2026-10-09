@@ -1,0 +1,94 @@
+import { useQuery, keepPreviousData, queryOptions } from "@tanstack/vue-query";
+import { createEpinioClient } from "../api/client";
+import { useCluster } from "./useCluster";
+import { servicesApi } from "../api/services";
+import { epinioQueryClient } from "../api/queryClient";
+import { computed, Ref } from "vue";
+import { ResourceQueryOptions } from "../models/resource/ui-types";
+import { toListServiceInstancesResponse, toServiceInstance, toApiListServiceInstancesRequestParams } from "../models/service/mappers";
+import { ListServiceInstancesRequestParams } from "../models/service/ui-types";
+
+export function useServices(store: any, params: Ref<ListServiceInstancesRequestParams>, options: Ref<ResourceQueryOptions>) {
+    const { data: cluster } = useCluster(store);
+    const isExtension = computed(() => !!store.getters['isSingleProduct'] === false);
+
+    return useQuery({
+        queryKey: computed(() => ['services', cluster.value?.id, params?.value]),
+        queryFn: async () => {
+            if (!cluster?.value) {
+                throw new Error('Cluster is not available');
+            }
+            const epinioClient = createEpinioClient(cluster.value, isExtension.value);
+            const services = await servicesApi(epinioClient).listServices(params ? toApiListServiceInstancesRequestParams(params.value) : undefined);
+            return toListServiceInstancesResponse(services);
+        },
+        enabled: computed(() => !!cluster.value && options.value.enabled),
+        placeholderData: options.value.isTablePagination ? keepPreviousData : undefined,
+        refetchInterval: options.value.polling ? 10000 : false,
+        structuralSharing: options.value.polling ? false : true, // disable to ensure age updates in the ui when polling tables
+    }, epinioQueryClient);
+}
+
+export function useNamespacedServices(store: any, namespace: string, params: Ref<ListServiceInstancesRequestParams>, options: Ref<ResourceQueryOptions>) {
+    const { data: cluster } = useCluster(store);
+    const isExtension = computed(() => !!store.getters['isSingleProduct'] === false);
+
+    return useQuery({
+        queryKey: computed(() => ['namespacedServices', cluster.value?.id, namespace, params?.value]),
+        queryFn: async () => {
+            if (!cluster?.value) {
+                throw new Error('Cluster is not available');
+            }
+            const epinioClient = createEpinioClient(cluster.value, isExtension.value);
+            const services = await servicesApi(epinioClient).listNamespacedServices(namespace, params ? toApiListServiceInstancesRequestParams(params.value) : undefined);
+            return toListServiceInstancesResponse(services);
+        },
+        enabled: computed(() => !!cluster.value && options.value.enabled),
+        placeholderData: options.value.isTablePagination ? keepPreviousData : undefined,
+        refetchInterval: options.value.polling ? 10000 : false,
+        structuralSharing: options.value.polling ? false : true, // disable to ensure age updates in the ui when polling tables
+    }, epinioQueryClient);
+}
+
+function serviceQueryOptions(
+  cluster: any,
+  isExtension: boolean,
+  namespace: string,
+  serviceName: string,
+) {
+  return queryOptions({
+    queryKey: ['service', cluster?.id, namespace, serviceName],
+    queryFn: async () => {
+      if (!cluster) {
+        throw new Error('Cluster is not available');
+      }
+      const epinioClient = createEpinioClient(cluster, isExtension);
+      const apiService = await servicesApi(epinioClient).getService(namespace, serviceName);
+      return toServiceInstance  (apiService);
+    },
+    enabled: !!cluster,
+  });
+}
+
+export function useService(store: any, namespace: string, serviceName: string) {
+    const { data: cluster } = useCluster(store);
+    const isExtension = computed(() => !!store.getters['isSingleProduct'] === false);
+
+    return useQuery({
+        ...serviceQueryOptions(cluster.value, isExtension.value, namespace, serviceName),
+        queryKey: computed(() => ['service', cluster.value?.id, namespace, serviceName]),
+        enabled: computed(() => !!cluster.value),
+        refetchInterval: 10000,
+        structuralSharing: false, // disable to ensure age updates in the ui
+    }, epinioQueryClient);
+}
+
+export async function fetchService(store: any, namespace: string, serviceName: string) {
+    const { data: cluster } = useCluster(store);
+    const isExtension = computed(() => !!store.getters['isSingleProduct'] === false);
+
+    const service = await epinioQueryClient.fetchQuery(
+        serviceQueryOptions(cluster.value, isExtension.value, namespace, serviceName)
+    );
+    return service;
+}

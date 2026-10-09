@@ -1,30 +1,19 @@
 <script setup lang="ts">
 
-import { ref, reactive, computed, onMounted, watch } from 'vue';
+import { ref, computed } from 'vue';
 import { useStore } from 'vuex';
 import jsyaml from 'js-yaml';
-
-import Application from '../../models/applications';
 import GitPicker from './GitPicker.vue';
-import { sortBy } from '@shell/utils/sort';
-import { generateZip } from '@shell/utils/download';
+import { generateZip } from '../../utils/download';
 import {
   APPLICATION_SOURCE_TYPE,
-  EpinioInfo,
-  EpinioAppSource,
-  EPINIO_APP_MANIFEST
 } from '../../types';
-import { EpinioAppInfo } from '../../types';
-import { _EDIT } from '@shell/config/query-params';
-import { AppUtils } from '../../utils/application';
-import { EPINIO_TYPES } from '../../types';
-import { isForbidden } from '../../utils/errors';
-import ResourceDropdown from './ResourceDropdown.vue';
-
-const GIT_BASE_URL = {
-  [APPLICATION_SOURCE_TYPE.GIT_HUB]: 'https://github.com',
-  [APPLICATION_SOURCE_TYPE.GIT_LAB]: 'https://gitlab.com',
-};
+import { useGitConfigs } from '../../queries/useGitConfigQueries';
+import { ResourceQueryOptions, ListResourceRequestParams } from '../../models/resource/ui-types';
+import debounce from 'lodash/debounce';
+import { AppFormSource, App, AppManifest } from '../../models/application/ui-types';
+import { ApiAppManifest } from '../../models/application/api-types';
+import { toAppManifest } from '../../models/application/mappers';
 
 interface FileWithRelativePath extends File {
   // For some reason TS throws this as missing at transpile time .. so recreate it
@@ -36,95 +25,35 @@ const store = useStore();
 const t = store.getters['i18n/t'];
 
 const props = defineProps<{
-  application: Application;
-  source?: EpinioAppSource;
-  info?: EpinioInfo;
+  source: AppFormSource;
   mode: string;
+  updateSource: <K extends AppFormSource['type']>(type: K, newSource?: Partial<NonNullable<AppFormSource[K]>>) => void;
+  populateFormFromApp: (app: App | AppManifest, setInitial?: boolean) => void;
 }>();
 
-const emit = defineEmits<{
-  (e: 'change', payload: any): void;
-  (e: 'changeAppInfo', info: EpinioAppInfo): void;
-  (e: 'changeAppConfig', configs: string[]): void;
-  (e: 'valid', valid: boolean): void;
-}>();
-
-const isEdit = computed(() => props.mode === _EDIT);
-const isView = computed(() => props.mode === 'view');
+const isEdit = computed(() => props.mode === 'edit');
 
 const manifestFileInput = ref<HTMLInputElement | null>(null);
 const archiveFileInput = ref<HTMLInputElement | null>(null);
 const folderFileInput = ref<HTMLInputElement | null>(null);
 const fileDialogActive = ref(false);
-
-const isLoadingGitConfigs = ref(false);
-const gitConfigs = ref<any[]>([]);
-const cachedGitConfigs = ref<any[]>([]);
 // Set when the config read is refused, which is a valid role, not a fault.
 const gitConfigsForbidden = ref(false);
 
-const dockerfilePath = ref(props.source?.dockerfilePath || 'Dockerfile');
-const dockerfilePathError = ref('');
-
-function validateDockerfilePathValue(value: string): string {
-  const trimmed = (value || '').trim();
-  if (!trimmed) {
-    return '';
-  }
-  if (
-    trimmed.startsWith('/') ||
-    trimmed.startsWith('\\') ||
-    /^[A-Za-z]:[\\/]/.test(trimmed) ||
-    trimmed.startsWith('\\\\')
-  ) {
-    return t('epinio.applications.steps.source.dockerfilePath.error.absolute');
-  }
-
-  const normalized = trimmed.replace(/\\/g, '/');
-  if (normalized.split('/').some((part) => part === '..')) {
-    return t('epinio.applications.steps.source.dockerfilePath.error.parent');
-  }
-
-  if (!/^[A-Za-z0-9._/-]+$/.test(normalized)) {
-    return t('epinio.applications.steps.source.dockerfilePath.error.chars');
-  }
-
-  return '';
-}
-
-// Reactive State
-const gitSkipTypeReset = ref(false);
-const archive = reactive({
-  tarball: props.source?.archive?.tarball || '',
-  fileName: props.source?.type === 'folder' ? props.application?.origin?.path : props.source?.archive?.fileName || '',
+const gitConfigRequestParams = ref<ListResourceRequestParams>({
+  page: 1,
+  pageSize: 25,
+  search: '',
 });
-
-const container = reactive({
-  url: props.source?.container?.url || ''
+const gitConfigRequestOptions = ref<ResourceQueryOptions>({
+  enabled: true,
+  polling: false,
 });
-
-const gitUrl = reactive({
-  url: props.source?.gitUrl?.url || '',
-  branch: props.source?.gitUrl?.branch || '',
-  validGitUrl: props.source?.gitUrl?.url ? true : false,
-  gitconfig: props.source?.gitUrl?.gitconfig || ''
-});
-
-const git = reactive({
-  usernameOrOrg: props.source?.git?.usernameOrOrg || '',
-  repo: props.source?.git?.repo || '',
-  commit: props.source?.git?.commit || '',
-  branch: props.source?.git?.branch || '',
-  url: props.source?.git?.url || '',
-  sourceData: props.source?.git?.sourceData || {
-    repos: [],
-    branches: [],
-    commits: []
-  },
-  gitconfig: props.source?.git?.gitconfig || ''
-});
-
-const type = ref(props.source?.type || APPLICATION_SOURCE_TYPE.FOLDER);
+const {data: gitConfigs, isLoading: isLoadingGitConfigs, isError: isErrorGitConfigs, error: gitConfigsError} = useGitConfigs(store, gitConfigRequestParams, gitConfigRequestOptions);
+const onGitConfigFilter = debounce((query: string) => {
+  gitConfigRequestParams.value.page = 1;
+  gitConfigRequestParams.value.search = query;
+}, 500);
 
 // Derived and Computed
 const types = Object.values(APPLICATION_SOURCE_TYPE).map(value => ({
@@ -132,180 +61,17 @@ const types = Object.values(APPLICATION_SOURCE_TYPE).map(value => ({
   value
 }));
 
-const namespaces = computed(() => sortBy(store.getters['epinio/all'](EPINIO_TYPES.NAMESPACE), 'name', false));
-
-
-const gitSource = computed(() => ({
-  type: type.value,
-  selectedAccOrOrg: git.usernameOrOrg,
-  selectedRepo: git.repo,
-  selectedBranch: git.branch,
-  selectedCommit: { sha: git.commit },
-  gitconfig: git.gitconfig
-}));
-
-const valid = ref(validate());
-
-const fetchGitConfigs = async () => {
-  if (cachedGitConfigs.value.length > 0) {
-    gitConfigs.value = cachedGitConfigs.value;
-    return;
-  }
-  isLoadingGitConfigs.value = true;
-  try {
-    const res = await store.dispatch('epinio/request', {
-      opt: {
-        url: '/api/v1/gitconfigs',
-        method: 'GET',
-        responseType: 'json'
-      }
-    });
-    const rawData = res.data ?? [];
-    const classifiedData = await Promise.all(rawData.map((item: any) =>
-      store.dispatch('epinio/create', { type: EPINIO_TYPES.GIT_CONFIG, ...item })
-    ));
-    gitConfigs.value = classifiedData;
-    cachedGitConfigs.value = classifiedData;
-    gitConfigsForbidden.value = false;
-  } catch (error: any) {
-    gitConfigsForbidden.value = isForbidden(error);
-
-    if (!gitConfigsForbidden.value) {
-      console.error('Failed to fetch git configs', error);
-    }
-  } finally {
-    isLoadingGitConfigs.value = false;
-  }
-};
-
-async function searchGitConfigs(query: string) {
-  isLoadingGitConfigs.value = true;
-  try {
-    const res = await store.dispatch('epinio/request', {
-      opt: {
-        url: `/api/v1/gitconfigs?search=${query}`,
-        method: 'GET',
-        responseType: 'json'
-      }
-    });
-    const rawData = res.data ?? [];
-    const classifiedData = await Promise.all(rawData.map((item: any) =>
-      store.dispatch('epinio/create', { type: EPINIO_TYPES.GIT_CONFIG, ...item })
-    ));
-    gitConfigs.value = classifiedData;
-  } catch (error: any) {
-    gitConfigsForbidden.value = isForbidden(error);
-    gitConfigs.value = [];
-  } finally {
-    isLoadingGitConfigs.value = false;
-  }
-}
-
-watch(type, () => {
-  if (gitSkipTypeReset.value) {
-    gitSkipTypeReset.value = false;
-  } else {
-    git.usernameOrOrg = '';
-    git.repo = '';
-    git.commit = '';
-    git.branch = '';
-    git.url = '';
-    git.sourceData = {
-      repos: [],
-      branches: [],
-      commits: []
-    };
-    git.gitconfig = '';
-  }
-  update();
-});
-
-// Immediate so the parent starts from the form's real validity instead of
-// assuming the tab is valid until something changes.
-watch(valid, (val) => {
-  emit('valid', val);
-}, { immediate: true });
-
-function validate() {
-  switch (type.value) {
-    case APPLICATION_SOURCE_TYPE.ARCHIVE:
-    case APPLICATION_SOURCE_TYPE.FOLDER:
-      return !!archive.tarball;
-    case APPLICATION_SOURCE_TYPE.CONTAINER_URL:
-      return !!container.url;
-    case APPLICATION_SOURCE_TYPE.GIT_URL:
-      return !!gitUrl.url && !!gitUrl.branch && !!gitUrl.validGitUrl;
-    case APPLICATION_SOURCE_TYPE.GIT_HUB:
-    case APPLICATION_SOURCE_TYPE.GIT_LAB:
-      return !!git.usernameOrOrg && !!git.url && !!git.repo && !!git.branch && !!git.commit;
-  }
-}
-
-function update() {
-  emit('change', {
-    type: type.value,
-    archive,
-    container,
-    gitUrl,
-    git
-  });
-  valid.value = validate();
-}
-
-function updateAppInfo(info: EpinioAppInfo) {
-  emit('changeAppInfo', info);
-}
-
-function updateConfigurations(configs: string[]) {
-  emit('changeAppConfig', configs);
-}
-
-function gitUpdate({ repo, selectedAccOrOrg, branch, commit, sourceData, gitconfig }: any) {
-  // GitHub always has an account/org selected; GitLab with a gitconfig lists
-  // membership projects with no account/org, so only require it outside that case.
-  const hasOwner = type.value === 'gitlab' || !!selectedAccOrOrg;
-  if (hasOwner && !!repo && !!commit && !!branch) {
-    git.usernameOrOrg = selectedAccOrOrg;
-    // GitLab projects carry their own canonical URL (web_url), which is correct
-    // for gitlab.com, enterprise instances, and the membership flow where no
-    // account/org is picked. GitHub still builds from the selected org + repo.
-    // Both providers return the repo's canonical URL on its own instance
-    // (GitLab: web_url, GitHub: html_url), which is correct for SaaS and
-    // enterprise alike. Fall back to building from the hardcoded base only if
-    // that field is missing.
-    git.url = type.value === 'gitlab'
-      ? (repo.web_url || `${GIT_BASE_URL[type.value]}/${repo.path_with_namespace}`)
-      : (repo.html_url || `${GIT_BASE_URL[type.value]}/${selectedAccOrOrg}/${repo.name}`);
-    git.commit = commit;
-    git.branch = branch;
-    git.repo = repo;
-    git.sourceData = sourceData;
-    git.gitconfig = gitconfig;
-    update();
-    emit('valid', true);
-  } else {
-    update();
-    emit('valid', false);
-  }
-}
-
-function urlRule() {
-  if (!gitUrl.url) return;
+const validGitUrl = computed(() => {
+  if (!props.source.gitUrl?.url) return false;
 
   const gitRegex = /(https?:\/\/(?:www\.|(?!www))[a-zA-Z0-9]+\.[^\s]{2,})/gm;
-  const result = gitRegex.exec(gitUrl.url);
+  const result = gitRegex.exec(props.source.gitUrl?.url || '');
 
-  if (result && gitUrl.url === result[0]) {
-    gitUrl.validGitUrl = true;
-  } else {
-    gitUrl.validGitUrl = false;
-  }
-}
+  return !!result && props.source.gitUrl?.url === result[0];
+});
 
 function onFileSelected(file: File) {
-  archive.tarball = file;
-  archive.fileName = file.name;
-  update();
+  props.updateSource(props.source.type, { tarball: file, name: file.name });
 }
 
 function handleArchiveFileClick() {
@@ -330,57 +96,22 @@ function handleFromManifestClick() {
   }
 }
 
-function handleManifestFileChange(event: Event) {
+async function handleManifestFileChange(event: Event) {
   const input = event.target as HTMLInputElement;
   if (input.files && input.files[0]) {
-    onManifestFileSelected(input.files[0] as any);
+    const file = input.files[0];
+    const content = await file.text();
+    onManifestFileSelected(content);
     input.value = ''; // Clear the input so the same file can be selected again if needed
   }
 }
 
 function onManifestFileSelected(file: string) {
   try {
-    const parsed: any = jsyaml.load(file);
-    const manifestType = AppUtils.getManifestSourceType(parsed.origin);
-    gitSkipTypeReset.value = true;
-    type.value = manifestType;
-
-    switch (manifestType) {
-      case APPLICATION_SOURCE_TYPE.CONTAINER_URL:
-        container.url = parsed.origin.container;
-        break;
-      case APPLICATION_SOURCE_TYPE.GIT_URL:
-        gitUrl.url = parsed.origin.git.url;
-        gitUrl.branch = parsed.origin.git.revision;
-        break;
-      case APPLICATION_SOURCE_TYPE.GIT_HUB:
-      case APPLICATION_SOURCE_TYPE.GIT_LAB:
-        Object.assign(git, AppUtils.getGitData(parsed.origin.git));
-        break;
-    }
-
-    if (parsed.configuration) {
-      appChart.value = parsed.configuration.appchart;
-    }
-
-    const appInfo: EpinioAppInfo = {
-      meta: {
-        name: parsed.name || '',
-        namespace: namespaces.value?.[0]?.name || ''
-      },
-      configuration: {
-        configurations: parsed.configuration?.configurations || [],
-        instances: parsed.configuration.instances ?? 1,
-        environment: parsed.configuration.environment || {},
-        settings: parsed.configuration?.settings || {},
-        routes: parsed.configuration.routes || []
-      }
-    };
-
-    store.$router.replace({ query: { from: EPINIO_APP_MANIFEST } });
-    update();
-    updateAppInfo(appInfo);
-    updateConfigurations(parsed.configuration.configurations || []);
+    const parsed: ApiAppManifest = jsyaml.load(file);
+    const manifest: AppManifest = toAppManifest(parsed);
+    if (!parsed) throw new Error('Parsed manifest is empty');
+    props.populateFormFromApp(manifest, false);
   } catch (e) {
     console.error('Failed to parse manifest:', e);
   }
@@ -429,18 +160,9 @@ function onFolderSelected(files: FileWithRelativePath | FileWithRelativePath[]) 
   }, {} as { [key: string]: any });
 
   generateZip(filesToZip).then((zip: any) => {
-    archive.tarball = zip;
-    archive.fileName = folderName || 'folder';
-    update();
+    props.updateSource(props.source.type, { tarball: zip, name: folderName || 'folder' });
   });
 }
-
-onMounted(async () => {
-  // Git configs are fetched here rather than on first dropdown open so a refused
-  // read is known before the first paint. Opening it to find out hides the field
-  // under the user's cursor. Each fetch owns its loading flag, so they can race.
-  await fetchGitConfigs();
-});
 
 </script>
 
@@ -450,12 +172,12 @@ onMounted(async () => {
       <trailhand-dropdown
         style="flex: 1"
         :options="types"
-        :value="type"
+        :value="source.type"
         label="Source Type"
         :required="true"
         placeholder="Select a source type"
         data-testid="epinio_app-source_type"
-        @dropdown-change="(e: CustomEvent) => type = e.detail.value"
+        @dropdown-change="(e: CustomEvent) => updateSource(e.detail.value)"
       ></trailhand-dropdown>
       <trailhand-button
         variant="alternate"
@@ -473,13 +195,13 @@ onMounted(async () => {
       >
     </div>
 
-    <template v-if="type === APPLICATION_SOURCE_TYPE.ARCHIVE">
+    <template v-if="source.type === APPLICATION_SOURCE_TYPE.ARCHIVE">
       <div class="spacer source">
         <h3>{{ t('epinio.applications.steps.source.archive.file.label') }}</h3>
         <div class="button-row">
           <trailhand-text-input
             style="flex: 1"
-            :value="archive.fileName"
+            :value="source.archive?.name || ''"
             data-testid="epinio_app-source_archive_name"
             :disabled="true"
             :label="t('epinio.applications.steps.source.archive.file.inputLabel')"
@@ -504,13 +226,13 @@ onMounted(async () => {
       </div>
     </template>
 
-    <template v-else-if="type === APPLICATION_SOURCE_TYPE.FOLDER">
+    <template v-else-if="source.type === APPLICATION_SOURCE_TYPE.FOLDER">
       <div class="spacer source">
         <h3>{{ t('epinio.applications.steps.source.folder.file.label') }}</h3>
         <div class="button-row">
           <trailhand-text-input
             style="flex: 1"
-            :value="archive.fileName"
+            :value="source.folder?.name || ''"
             data-testid="epinio_app-source_folder_name"
             :disabled="true"
             :label="t('epinio.applications.steps.source.folder.file.inputLabel')"
@@ -535,76 +257,80 @@ onMounted(async () => {
       </div>
     </template>
 
-    <template v-else-if="type === APPLICATION_SOURCE_TYPE.CONTAINER_URL">
+    <template v-else-if="source.type === APPLICATION_SOURCE_TYPE.CONTAINER_URL">
       <div class="spacer source">
-        <h3>{{ t('epinio.applications.steps.source.container_url.url.label') }}</h3>
+        <h3>{{ t('epinio.applications.steps.source.containerUrl.url.label') }}</h3>
         <trailhand-text-input
           style="width: 100%;"
-          :value="container.url"
+          :value="source.containerUrl?.url || ''"
           data-testid="epinio_app-source_container"
-          :label="t('epinio.applications.steps.source.container_url.url.inputLabel')"
+          :label="t('epinio.applications.steps.source.containerUrl.url.inputLabel')"
           :required="true"
-          @text-input-change="(e: CustomEvent) => { container.url = e.detail.value; update(); }"
+          @text-input-change="(e: CustomEvent) => { updateSource(source.type, { url: e.detail.value }); }"
         />
       </div>
     </template>
 
-    <template v-else-if="type === APPLICATION_SOURCE_TYPE.GIT_URL">
+    <template v-else-if="source.type === APPLICATION_SOURCE_TYPE.GIT_URL">
       <div
         v-if="!gitConfigsForbidden"
         class="spacer source"
       >
         <h3>Git Config</h3>
-        <ResourceDropdown
-          :value="gitUrl.gitconfig"
-          :options="gitConfigs.map((c: any) => ({ value: c.meta.name, label: c.meta.name }))"
+        <trailhand-dropdown
+          style="width: 100%"
+          :value="source.gitUrl?.gitConfig"
+          :options="(gitConfigs?.items || []).map((c: any) => ({ value: c.meta.name, label: c.meta.name }))"
           label="Git Config"
           :disabled="isEdit"
-          :onDropdownChange="(e: CustomEvent) => { gitUrl.gitconfig = e.detail.value; update(); }"
-          :fetchAllResources="fetchGitConfigs"
-          :searchResources="searchGitConfigs"
-          :isLoading="isLoadingGitConfigs"
+          @dropdown-change="(e: CustomEvent) => { updateSource(source.type, { gitConfig: e.detail.value }); }"
+          filterable
+          @dropdown-filter="(e: CustomEvent<{ filter: string }>) => { onGitConfigFilter(e.detail.filter); }"
+          :loading="isLoadingGitConfigs"
         />
-      </div>
-      <div class="spacer source">
-        <h3>{{ t('epinio.applications.steps.source.git_url.url.label') }}</h3>
-        <trailhand-text-input
-          style="width: 100%;"
-          :value="gitUrl.url"
-          data-testid="epinio_app-source_git-url"
-          :label="t('epinio.applications.steps.source.git_url.url.inputLabel')"
-          :placeholder="'https://github.com/{user or org}/{repository}'"
-          :required="true"
-          @text-input-change="(e: CustomEvent) => { gitUrl.url = e.detail.value; urlRule(); update(); }"
-        />
-        <p v-if="gitUrl.url && !gitUrl.validGitUrl" class="error">
-          {{ t('epinio.applications.steps.source.git_url.error.label') }}
+        <p v-if="isErrorGitConfigs" class="error-message">
+          {{ t(`epinio.gitConfigs.errors.fetchAll`) }}
         </p>
       </div>
       <div class="spacer source">
-        <h3>{{ t('epinio.applications.steps.source.git_url.branch.label') }}</h3>
+        <h3>{{ t('epinio.applications.steps.source.gitUrl.url.label') }}</h3>
         <trailhand-text-input
           style="width: 100%;"
-          :value="gitUrl.branch"
-          data-testid="epinio_app-source_git-branch"
-          :label="t('epinio.applications.steps.source.git_url.branch.inputLabel')"
+          :value="source.gitUrl?.url"
+          data-testid="epinio_app-source_git-url"
+          :label="t('epinio.applications.steps.source.gitUrl.url.inputLabel')"
+          :placeholder="'https://github.com/{user or org}/{repository}'"
           :required="true"
-          :disabled="!gitUrl.validGitUrl"
-          @text-input-change="(e: CustomEvent) => { gitUrl.branch = e.detail.value; update(); }"
+          @text-input-change="(e: CustomEvent) => { updateSource(source.type, { url: e.detail.value, branch: '' }); }"
+        />
+        <p v-if="source.gitUrl?.url && !validGitUrl" class="error-message">
+          {{ t('epinio.applications.steps.source.gitUrl.error.label') }}
+        </p>
+      </div>
+      <div class="spacer source">
+        <h3>{{ t('epinio.applications.steps.source.gitUrl.branch.label') }}</h3>
+        <trailhand-text-input
+          style="width: 100%;"
+          :value="source.gitUrl?.branch"
+          data-testid="epinio_app-source_git-branch"
+          :label="t('epinio.applications.steps.source.gitUrl.branch.inputLabel')"
+          :required="true"
+          :disabled="!validGitUrl"
+          @text-input-change="(e: CustomEvent) => { updateSource(source.type, { branch: e.detail.value }); }"
         />
       </div>
     </template>
 
     <template v-else>
       <GitPicker
-        v-model:value="gitSource"
-        :type="type"
-        :gitConfigs="gitConfigs"
+        :gitSource="source[source.type] as AppFormSource['github'] | AppFormSource['gitlab']"
+        :type="source.type as 'github' | 'gitlab'"
+        :gitConfigs="gitConfigs?.items || []"
         :gitConfigsForbidden="gitConfigsForbidden"
-        :fetchGitConfigs="fetchGitConfigs"
-        :searchGitConfigs="searchGitConfigs"
+        :onGitConfigFilter="onGitConfigFilter"
         :isLoadingGitConfigs="isLoadingGitConfigs"
-        @change="gitUpdate"
+        :isErrorGitConfigs="isErrorGitConfigs"
+        :updateSource="updateSource"
       />
     </template>
   </div>
@@ -634,5 +360,10 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+}
+.error-message {
+  color: var(--error);
+  font-size: 0.9em;
+  margin-top: 4px;
 }
 </style>

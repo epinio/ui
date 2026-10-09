@@ -1,0 +1,34 @@
+import { createEpinioClient } from "./client";
+import { ApiListResourceRequestParams } from "../models/resource/api-types";
+import {
+  ApiListAppChartsResponse,
+  ApiAppChartCreateRequest,
+  ApiAppChartUpdateRequest,
+  ApiAppChart,
+  ApiAppChartPushResponse,
+} from "../models/appcharts/api-types";
+
+export function appChartsApi(epinioClient: ReturnType<typeof createEpinioClient>) {
+    const appChartsBasePath = '/api/v1/appcharts';
+
+    return {
+        listAppCharts: async (params?: ApiListResourceRequestParams): Promise<ApiListAppChartsResponse> => {
+            return await epinioClient.get(appChartsBasePath, { params });
+        },
+        getAppChart: async (name: string): Promise<ApiAppChart> => {
+            return await epinioClient.get(`${appChartsBasePath}/${name}`);
+        },
+        createAppChart: async (request: ApiAppChartCreateRequest) => {
+            return await epinioClient.post(`${appChartsBasePath}`, request);
+        },
+        pushAppChart: async (data: FormData): Promise<ApiAppChartPushResponse> => {
+            return await epinioClient.post(`${appChartsBasePath}/push`, data);
+        },
+        updateAppChart: async (name: string, request: ApiAppChartUpdateRequest) => {
+            return await epinioClient.patch(`${appChartsBasePath}/${name}`, request);
+        },
+        deleteAppChart: async (name: string) => {
+            return await epinioClient.delete(`${appChartsBasePath}/${name}`);
+        },
+    };
+}

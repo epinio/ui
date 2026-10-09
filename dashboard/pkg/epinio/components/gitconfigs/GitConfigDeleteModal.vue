@@ -1,24 +1,24 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { useStore } from 'vuex';
-import { EPINIO_TYPES } from '../../types';
-import { epinioExceptionToErrorsArray } from '../../utils/errors';
 import Banner from '@components/Banner/Banner.vue';
-import EpinioGitConfigModel from 'models/gitconfigs';
+import { useDeleteGitConfig } from '../../queries/useGitConfigMutations';
+import { GitConfig } from '../../models/gitconfig/ui-types';
 
 const showDeleteModal = ref<boolean>(false);
-const gitConfigToDelete = ref<EpinioGitConfigModel | null>(null);
+const gitConfigToDelete = ref<GitConfig | null>(null);
 const errors = ref<Array<string>>([]);
-const deletingGitConfig = ref<boolean>(false);
 const hasAssociatedApps = ref<boolean>(false);
 
 const store = useStore();
 const t = store.getters['i18n/t'];
 
-function openDelete(row: EpinioGitConfigModel) {
+const {mutate: deleteGitConfig, isPending: isDeletingGitConfig, isError: deleteGitConfigError, error: deleteGitConfigErrorData} = useDeleteGitConfig(store, handleSuccess);
+
+function openDelete(row: GitConfig) {
   gitConfigToDelete.value = row;
   showDeleteModal.value = true;
-  hasAssociatedApps.value = !!row.bound_apps;
+  hasAssociatedApps.value = !!row.boundApps;
 }
 
 function closeDelete() {
@@ -29,30 +29,22 @@ gitConfigToDelete.value = null;
 }
 
 async function onSubmitDelete() {
-if (!gitConfigToDelete.value) {
-    return;
+    if (!gitConfigToDelete.value) {
+        return;
+    }
+    const gitConfigName = gitConfigToDelete.value.meta.name;
+    deleteGitConfig({ name: gitConfigName });
 }
-const gitConfigName = gitConfigToDelete.value.meta.name;
-try {
-    deletingGitConfig.value = true;
-    await gitConfigToDelete.value.remove();
+
+function handleSuccess() {
     store.dispatch('growl/success', {
-      title:   t('epinio.growl.gitConfigs.delete.success.title'),
-      message: t('epinio.growl.gitConfigs.delete.success.message', { name: gitConfigName }),
+        title:   t('epinio.growl.gitConfigs.delete.success.title'),
+        message: t('epinio.growl.gitConfigs.delete.success.message', { name: gitConfigToDelete.value?.meta.name }),
     });
+    emit('deleted');
     closeDelete();
-    store.dispatch('epinio/refreshList', { type: EPINIO_TYPES.GIT_CONFIG });
-} catch(e) {
-    errors.value = [];
-    errors.value = epinioExceptionToErrorsArray(e).map(JSON.stringify);
-    store.dispatch('growl/error', {
-      title:   t('epinio.growl.gitConfigs.delete.error.title'),
-      message: t('epinio.growl.gitConfigs.delete.error.message', { name: gitConfigName }),
-    });
-} finally {
-    deletingGitConfig.value = false;
-}
-}
+};
+const emit = defineEmits(['deleted']);
 defineExpose({
   openDelete
 });
@@ -69,18 +61,17 @@ defineExpose({
         <p>Are you sure you want to proceed?</p>
         <Banner v-if="hasAssociatedApps" color="warning" label="This Git Config is currently associated with one or more applications. Deleting it will prevent future rebuilds." />
         <Banner
-            v-for="(err, i) in errors"
-            :key="i"
+            v-if="deleteGitConfigError"
             color="error"
-            :label="err"
-            />
+            :label="deleteGitConfigErrorData?.message || t('epinio.gitConfigs.errors.delete')"
+        />
         </div>
         <div slot="footer">
         <trailhand-button variant="secondary" class="mr-10" @button-click="closeDelete"
             >Cancel</trailhand-button
         >
-        <trailhand-button :disabled="deletingGitConfig" variant="destructive" @button-click="onSubmitDelete"
-            >{{ deletingGitConfig ? 'Deleting...' : t('generic.delete') }}</trailhand-button
+        <trailhand-button :disabled="isDeletingGitConfig" variant="destructive" @button-click="onSubmitDelete"
+            >{{ isDeletingGitConfig ? t('generic.deleting') : t('generic.delete') }}</trailhand-button
         >
         </div>
     </trailhand-modal>

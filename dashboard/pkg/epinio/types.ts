@@ -46,10 +46,10 @@ export const APPLICATION_MANIFEST_SOURCE_TYPE = {
 
 // ------------ App Source Info (used within the UI) --------------
 export enum APPLICATION_SOURCE_TYPE {
-  CONTAINER_URL = 'container_url',
+  CONTAINER_URL = 'containerUrl',
   ARCHIVE = 'archive',
   FOLDER = 'folder',
-  GIT_URL = 'git_url',
+  GIT_URL = 'gitUrl',
   GIT_HUB = 'github',
   GIT_LAB = 'gitlab',
 }

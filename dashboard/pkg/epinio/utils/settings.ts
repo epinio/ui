@@ -1,11 +1,4 @@
-export interface ConfigSetting {
-  name: string;
-  type: 'string' | 'number' | 'integer' | 'bool';
-  enum?: string[];
-  minimum?: string;
-  maximum?: string;
-  value?: any;
-}
+import { ChartSetting } from "../models/catalogservice/ui-types";
 
 export function objValuesToString(obj: any) {
   const copy = { ...obj };
@@ -31,7 +24,7 @@ export function mapSettingsFromApiResponse(apiResponse: any) {
   return mappedSettings;
 }
 
-export function mapSettingsToApiRequest(chartSettings: ConfigSetting[]) {
+export function mapSettingsToApiRequest(chartSettings: ChartSetting[]) {
   const settings = chartSettings.reduce((acc, setting) => {
     acc[setting.name] = { type: setting.type };
     if (setting.type === 'string' && setting.enum && setting.enum.length > 0) {
@@ -54,7 +47,7 @@ export function mapSettingsToApiRequest(chartSettings: ConfigSetting[]) {
   return { settings, values };
 }
 
-export function validateSettings(chartSettings: ConfigSetting[]) {
+export function validateSettings(chartSettings: ChartSetting[]) {
   for (const setting of chartSettings) {
     if (!setting.name) {
       return false;

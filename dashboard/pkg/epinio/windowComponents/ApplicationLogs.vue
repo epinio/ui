@@ -19,7 +19,7 @@ import day from 'dayjs';
 import AnsiUp from 'ansi_up';
 import { addParams, downloadFile, escapeHtml, escapeRegex } from '../utils/browser';
 import { logPrefs, setLogWrap } from '../utils/log-prefs';
-
+import { App } from '../models/application/ui-types';
 import { useApplicationSocketMixin } from './ApplicationSocketMixin';
 
 const store = useStore();
@@ -33,7 +33,7 @@ interface ContainerInfo {
 
 const props = defineProps({
   application: {
-    type: Object as PropType<object>,
+    type: Object as PropType<App>,
     default: null,
   },
   endpoint: {

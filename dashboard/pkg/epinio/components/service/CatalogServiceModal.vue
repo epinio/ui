@@ -1,14 +1,13 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import { useStore } from 'vuex';
+import { useCreateCatalogService, useUpdateCatalogService } from '../../queries/useCatalogServiceMutation';
 
-import { EPINIO_TYPES } from '../../types';
-import { epinioExceptionToErrorsArray } from '../../utils/errors';
 import { validateKubernetesName } from '@shell/utils/validators/kubernetes-name';
-import { mapSettingsFromApiResponse, mapSettingsToApiRequest, validateSettings } from '../../utils/settings';
+import { validateSettings } from '../../utils/settings';
 import Banner from '@components/Banner/Banner.vue';
-import EpinioCatalogServiceModel from '../../models/catalogservices';
-import ChartSettings, { ConfigSetting } from '../settings/ChartSettings.vue';
+import ChartSettings from '../settings/ChartSettings.vue';
+import { CatalogService, ChartSetting, CatalogServiceCreateRequest, CatalogServiceUpdateRequest } from '../../models/catalogservice/ui-types';
 
 import isEqual from 'lodash/isEqual';
 import sortBy from 'lodash/sortBy';
@@ -20,7 +19,7 @@ const t = store.getters['i18n/t'];
 const showModal = ref(false);
 const modalMode = ref<'create' | 'edit' | 'view'>('create');
 
-const initialValues = ref<EpinioCatalogServiceModel | null>(null);
+const initialValues = ref<CatalogService | null>(null);
 
 // Form fields (separate from the model to avoid proxy mutation issues)
 const catalogServiceName = ref('');
@@ -31,11 +30,9 @@ const catalogServiceChartVersion = ref('');
 const catalogServiceAppVersion = ref('');
 const catalogServiceIcon = ref('');
 const catalogServiceHelmRepo = ref({ name: '', url: '', secret: '' });
-const chartSettings = ref<ConfigSetting[]>([]);
+const chartSettings = ref<ChartSetting[]>([]);
 const catalogServiceSecretTypes = ref<string[]>([]);
 
-const saving = ref(false);
-const errors = ref<string[]>([]);
 const hasAssociatedServices = ref<boolean>(false);
 
 const isEdit = computed(() => modalMode.value === 'edit');
@@ -43,38 +40,47 @@ const isView = computed(() => modalMode.value === 'view');
 
 const showAdvancedOptions = ref<boolean>(false);
 
+const {mutateAsync: createCatalogService, isPending: isCreatingCatalogService, isError: createCatalogServiceError, error: createCatalogServiceErrorData} = useCreateCatalogService(store, () => {
+  handleSuccess('create');
+  closeModal();
+});
+const {mutateAsync: updateCatalogService, isPending: isUpdatingCatalogService, isError: updateCatalogServiceError, error: updateCatalogServiceErrorData} = useUpdateCatalogService(store, () => {
+  handleSuccess('update');
+  closeModal();
+});
+
 const isDirty = computed(() => {
-  if (!initialValues.value) {
-    return catalogServiceName.value !== '' ||
-      catalogServiceShortDescription.value !== '' ||
-      catalogServiceDescription.value !== '' ||
-      catalogServiceChart.value !== '' ||
-      catalogServiceChartVersion.value !== '' ||
-      catalogServiceAppVersion.value !== '' ||
-      catalogServiceIcon.value !== '' ||
-      catalogServiceHelmRepo.value.name !== '' ||
-      catalogServiceHelmRepo.value.url !== '' ||
-      catalogServiceHelmRepo.value.secret !== '' ||
-      chartSettings.value.length > 0 ||
-      catalogServiceSecretTypes.value.length > 0;
-  }
+  return dirtyFields.value.name ||
+    dirtyFields.value.shortDescription ||
+    dirtyFields.value.description ||
+    dirtyFields.value.chart ||
+    dirtyFields.value.chartVersion ||
+    dirtyFields.value.appVersion ||
+    dirtyFields.value.serviceIcon ||
+    dirtyFields.value.helmRepo ||
+    dirtyFields.value.settings ||
+    dirtyFields.value.secretTypes;
+ });
 
-  const initialSettings = mapSettingsFromApiResponse(initialValues.value);
+const dirtyFields = computed(() => {
+  const fields: Partial<
+    Record<keyof CatalogServiceCreateRequest, boolean>
+  > = {};
 
-  const isDirty = catalogServiceName.value !== (initialValues.value!.meta.name || '') ||
-    catalogServiceShortDescription.value !== (initialValues.value!.short_description || '') ||
-    catalogServiceDescription.value !== (initialValues.value!.description || '') ||
-    catalogServiceChart.value !== (initialValues.value!.chart || '') ||
-    catalogServiceChartVersion.value !== (initialValues.value!.chart_version || '') ||
-    catalogServiceAppVersion.value !== (initialValues.value!.app_version || '') ||
-    catalogServiceIcon.value !== (initialValues.value!.service_icon || '') ||
-    catalogServiceHelmRepo.value.name !== (initialValues.value!.helm_repo?.name || '') ||
-    catalogServiceHelmRepo.value.url !== (initialValues.value!.helm_repo?.url || '') ||
-    catalogServiceHelmRepo.value.secret !== (initialValues.value!.helm_repo?.secret || '') ||
-    !isEqual(sortBy(chartSettings.value, 'name'), sortBy(initialSettings, 'name')) ||
-    !isEqual(sortBy(catalogServiceSecretTypes.value), sortBy(initialValues.value!.secret_types || []));
- 
-  return isDirty;
+  fields.name = catalogServiceName.value !== (initialValues.value?.meta.name || '');
+  fields.shortDescription = catalogServiceShortDescription.value !== (initialValues.value?.shortDescription || '');
+  fields.description = catalogServiceDescription.value !== (initialValues.value?.description || '');
+  fields.chart = catalogServiceChart.value !== (initialValues.value?.chart || '');
+  fields.chartVersion = catalogServiceChartVersion.value !== (initialValues.value?.chartVersion || '');
+  fields.appVersion = catalogServiceAppVersion.value !== (initialValues.value?.appVersion || '');
+  fields.serviceIcon = catalogServiceIcon.value !== (initialValues.value?.serviceIcon || '');
+  fields.helmRepo = catalogServiceHelmRepo.value.name !== (initialValues.value?.helmRepo?.name || '') ||
+                    catalogServiceHelmRepo.value.url !== (initialValues.value?.helmRepo?.url || '') ||
+                    catalogServiceHelmRepo.value.secret !== (initialValues.value?.helmRepo?.secret || '');
+  fields.settings = !isEqual(sortBy(chartSettings.value, 'name'), sortBy(initialValues.value?.settings || [], 'name'));
+  fields.secretTypes = !isEqual(sortBy(catalogServiceSecretTypes.value), sortBy(initialValues.value?.secretTypes || []));
+
+  return fields;
 });
 
 const showDiscardConfirm = ref(false);
@@ -100,11 +106,10 @@ const validationPassed = computed(() => {
 const canSave = computed(() => {
   const dirty = isDirty.value;
   const valid = validationPassed.value;
-  return dirty && valid && !saving.value;
+  return dirty && valid && !isCreatingCatalogService.value && !isUpdatingCatalogService.value;
 });
 
 function openCreate() {
-  errors.value = [];
   modalMode.value = 'create';
   catalogServiceName.value = '';
   catalogServiceShortDescription.value = '';
@@ -119,26 +124,25 @@ function openCreate() {
   showModal.value = true;
 }
 
-function openEdit(row: EpinioCatalogServiceModel) {
-  errors.value = [];
+function openEdit(row: CatalogService) {
   modalMode.value = 'edit';
   initialValues.value = row;
-  catalogServiceName.value = row.name || row.meta?.name || '';
-  catalogServiceShortDescription.value = row.short_description || '';
+  catalogServiceName.value = row.meta.name;
+  catalogServiceShortDescription.value = row.shortDescription || '';
   catalogServiceDescription.value = row.description || '';
   catalogServiceChart.value = row.chart || '';
-  catalogServiceChartVersion.value = row.chart_version || '';
-  catalogServiceAppVersion.value = row.app_version || '';
-  catalogServiceIcon.value = row.service_icon || '';
+  catalogServiceChartVersion.value = row.chartVersion || '';
+  catalogServiceAppVersion.value = row.appVersion || '';
+  catalogServiceIcon.value = row.serviceIcon || '';
   catalogServiceHelmRepo.value = {
-    name: row.helm_repo?.name || '',
-    url: row.helm_repo?.url || '',
-    secret: row.helm_repo?.secret || ''
+    name: row.helmRepo?.name || '',
+    url: row.helmRepo?.url || '',
+    secret: row.helmRepo?.secret || ''
   };
-  chartSettings.value = mapSettingsFromApiResponse(row);
-  catalogServiceSecretTypes.value = row.secret_types || [];
-  hasAssociatedServices.value = !!row.bound_services;
-  showAdvancedOptions.value = row.secret_types && row.secret_types.length > 0;
+  chartSettings.value = row.settings || [];
+  catalogServiceSecretTypes.value = row.secretTypes || [];
+  hasAssociatedServices.value = !!row.boundServices;
+  showAdvancedOptions.value = !!row.secretTypes && row.secretTypes.length > 0;
 
   showModal.value = true;
 }
@@ -173,7 +177,6 @@ function closeModal() {
   catalogServiceHelmRepo.value = { name: '', url: '', secret: '' };
   chartSettings.value = [];
   catalogServiceSecretTypes.value = [];
-  errors.value = [];
   showDiscardConfirm.value = false;
   showModal.value = false;
   initialValues.value = null;
@@ -181,70 +184,98 @@ function closeModal() {
   showAdvancedOptions.value = false;
 }
 
+const buildCreateRequest = (): CatalogServiceCreateRequest => {
+  const request: CatalogServiceCreateRequest = {
+    name: catalogServiceName.value,
+    shortDescription: catalogServiceShortDescription.value,
+    description: catalogServiceDescription.value,
+    chart: catalogServiceChart.value,
+    serviceIcon: catalogServiceIcon.value,
+    helmRepo: { ...catalogServiceHelmRepo.value },
+  };
+  if (catalogServiceChartVersion.value) {
+    request.chartVersion = catalogServiceChartVersion.value;
+  }
+  if (catalogServiceAppVersion.value) {
+    request.appVersion = catalogServiceAppVersion.value;
+  }
+  if (catalogServiceIcon.value) {
+    request.serviceIcon = catalogServiceIcon.value;
+  }
+  if (chartSettings.value.length > 0) {
+    request.settings = chartSettings.value;
+  }
+  if (catalogServiceSecretTypes.value.length > 0) {
+    request.secretTypes = [...catalogServiceSecretTypes.value];
+  }
+  return request;
+};
+
+const buildUpdateRequest = (): CatalogServiceUpdateRequest => {
+  const request: CatalogServiceUpdateRequest = {};
+
+  if (dirtyFields.value.name) {
+    request.name = catalogServiceName.value;
+  }
+
+  if (dirtyFields.value.description) {
+    request.description = catalogServiceDescription.value;
+  }
+
+  if (dirtyFields.value.shortDescription) {
+    request.shortDescription = catalogServiceShortDescription.value;
+  }
+
+  if (dirtyFields.value.chart) {
+    request.chart = catalogServiceChart.value;
+  }
+
+  if (dirtyFields.value.chartVersion) {
+    request.chartVersion = catalogServiceChartVersion.value;
+  }
+
+  if (dirtyFields.value.appVersion) {
+    request.appVersion = catalogServiceAppVersion.value;
+  }
+
+  if (dirtyFields.value.serviceIcon) {
+    request.serviceIcon = catalogServiceIcon.value;
+  }
+
+  if (dirtyFields.value.helmRepo) {
+    request.helmRepo = { ...catalogServiceHelmRepo.value };
+  }
+
+  if (dirtyFields.value.settings) {
+    request.settings = chartSettings.value;
+  }
+
+  if (dirtyFields.value.secretTypes) {
+    request.secretTypes = [...catalogServiceSecretTypes.value];
+  }
+
+  return request;
+};
+
 async function onSubmit() {
-  if (!validationPassed.value || !isDirty.value || saving.value) return;
+  if (!validationPassed.value || !isDirty.value || isCreatingCatalogService.value || isUpdatingCatalogService.value) return;
 
-  saving.value = true;
-  errors.value = [];
+  if (isEdit.value && initialValues.value) {
+    const request: CatalogServiceUpdateRequest = buildUpdateRequest();
 
-  const { settings } = mapSettingsToApiRequest(chartSettings.value);
-
-  try {
-    if (isEdit.value && initialValues.value) {
-      const catalogService = initialValues.value;
-
-      catalogService.description       = catalogServiceDescription.value;
-      catalogService.short_description = catalogServiceShortDescription.value;
-      catalogService.chart             = catalogServiceChart.value;
-      catalogService.chart_version     = catalogServiceChartVersion.value;
-      catalogService.app_version       = catalogServiceAppVersion.value;
-      catalogService.service_icon      = catalogServiceIcon.value;
-      catalogService.helm_repo         = { ...catalogServiceHelmRepo.value };
-      catalogService.settings          = settings;
-      catalogService.secret_types      = [...catalogServiceSecretTypes.value];
-
-      await catalogService.update();
-      store.dispatch('growl/success', {
-        title:   t('epinio.growl.catalogServices.update.success.title'),
-        message: t('epinio.growl.catalogServices.update.success.message', { name: catalogServiceName.value }),
-      });
-      closeModal();
-      store.dispatch('epinio/findAll', { type: EPINIO_TYPES.CATALOG_SERVICE, opt: { force: true } }).catch(() => {});
-    } else {
-      const catalogService = await store.dispatch('epinio/create', { type: EPINIO_TYPES.CATALOG_SERVICE });
-
-      catalogService.metadata          = { name: catalogServiceName.value };
-      catalogService.description       = catalogServiceDescription.value;
-      catalogService.short_description = catalogServiceShortDescription.value;
-      catalogService.chart             = catalogServiceChart.value;
-      catalogService.chart_version     = catalogServiceChartVersion.value;
-      catalogService.app_version       = catalogServiceAppVersion.value;
-      catalogService.service_icon      = catalogServiceIcon.value;
-      catalogService.helm_repo         = { ...catalogServiceHelmRepo.value };
-      catalogService.settings          = settings;
-      catalogService.secret_types      = [...catalogServiceSecretTypes.value];
-
-      await catalogService.create();
-      store.dispatch('growl/success', {
-        title:   t('epinio.growl.catalogServices.create.success.title'),
-        message: t('epinio.growl.catalogServices.create.success.message', { name: catalogServiceName.value }),
-      });
-      closeModal();
-      store.dispatch('epinio/findAll', { type: EPINIO_TYPES.CATALOG_SERVICE, opt: { force: true } }).catch(() => {});
-    }
-  } catch (err: any) {
-    errors.value = epinioExceptionToErrorsArray(err);
-    store.dispatch('growl/error', {
-      title: isEdit.value
-        ? t('epinio.growl.catalogServices.save.error.updateTitle')
-        : t('epinio.growl.catalogServices.save.error.createTitle'),
-      message: t('epinio.growl.catalogServices.save.error.message'),
-    });
-    console.error('Error saving catalog service:', err);
-  } finally {
-    saving.value = false;
+    await updateCatalogService({ name: initialValues.value.meta.name, request });
+  } else {
+    const request: CatalogServiceCreateRequest = buildCreateRequest();
+    await createCatalogService({request});
   }
 }
+
+const handleSuccess = (type: 'create' | 'update') => {
+  store.dispatch('growl/success', {
+    title:   t(`epinio.growl.catalogServices.${type}.success.title`),
+    message: t(`epinio.growl.catalogServices.${type}.success.message`, { name: catalogServiceName.value }),
+  });
+};
 
 defineExpose({ openCreate, openEdit });
 </script>
@@ -385,10 +416,9 @@ defineExpose({ openCreate, openEdit });
       </trailhand-form-card>
 
       <Banner
-        v-for="(err, i) in errors"
-        :key="i"
+        v-if="createCatalogServiceError || updateCatalogServiceError"
         color="error"
-        :label="err"
+        :label="createCatalogServiceErrorData?.message || updateCatalogServiceErrorData?.message || t('epinio.catalogservices.errors.save')"
       />
     </div>
 
@@ -437,7 +467,7 @@ defineExpose({ openCreate, openEdit });
           :disabled="!canSave"
           @button-click="onSubmit"
         >
-          {{ saving ? (isEdit ? 'Saving...' : 'Creating...') : (isEdit ? t('generic.save') : t('generic.create')) }}
+          {{ isEdit ? (isUpdatingCatalogService ? t('generic.updating') : t('generic.save')) : (isCreatingCatalogService ? t('generic.creating') : t('generic.create')) }}
         </trailhand-button>
       </template>
     </div>
