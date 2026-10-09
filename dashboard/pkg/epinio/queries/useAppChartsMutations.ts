@@ -4,8 +4,8 @@ import { useCluster } from "./useCluster";
 import { appChartsApi } from "../api/appcharts";
 import { epinioQueryClient } from "../api/queryClient";
 import { computed } from "vue";
-import { AppChartCreateRequest, AppChartUpdateRequest } from "../models/appcharts/ui-types";
-import { toApiAppChartCreateRequest, toApiAppChartUpdateRequest } from "../models/appcharts/mappers";
+import { AppChartCreateRequest, AppChartUpdateRequest, AppChartPushRequest } from "../models/appcharts/ui-types";
+import { toApiAppChartCreateRequest, toApiAppChartUpdateRequest, toAppChartPushFormData, toAppChartPushResponse } from "../models/appcharts/mappers";
 
 export function useCreateAppChart(store: any, onSuccessCallback?: () => void) {
     const { data: cluster } = useCluster(store);
@@ -28,6 +28,28 @@ export function useCreateAppChart(store: any, onSuccessCallback?: () => void) {
         },
     }, epinioQueryClient);
 }   
+
+export function usePushAppChart(store: any, onSuccessCallback?: () => void) {
+    const { data: cluster } = useCluster(store);
+    const isExtension = computed(() => !!store.getters['isSingleProduct'] === false);
+
+    return useMutation({
+        mutationFn: async ({ request }: { request: AppChartPushRequest }) => {
+            if (!cluster?.value) {
+                throw new Error('Cluster is not available');
+            }
+            const epinioClient = createEpinioClient(cluster.value, isExtension.value);
+            const response = await appChartsApi(epinioClient).pushAppChart(toAppChartPushFormData(request));
+            return toAppChartPushResponse(response);
+        },
+        onSuccess: () => {
+            epinioQueryClient.invalidateQueries({ queryKey: ['appcharts', cluster.value?.id] });
+            if (onSuccessCallback) {
+                onSuccessCallback();
+            }
+        },
+    }, epinioQueryClient);
+}
 
 export function useUpdateAppChart(store: any, onSuccessCallback?: () => void) {
     const { data: cluster } = useCluster(store);

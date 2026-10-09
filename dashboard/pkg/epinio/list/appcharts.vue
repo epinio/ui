@@ -93,8 +93,21 @@ const displayRows = computed(() => {
 
 const columns = [
   {
-    field: 'meta.name',
-    label: 'Name'
+    field: 'nameDisplay',
+    label: 'Name',
+    formatter: (_v: any, row: AppChart) => {
+      const el = document.createElement('a');
+
+      el.textContent = row.meta?.name || '';
+      el.style.cursor = 'pointer';
+      el.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        chartsModal.value?.openView(row, !!canEdit.value);
+      });
+
+      return el;
+    }
   },
   {
     field: 'description',

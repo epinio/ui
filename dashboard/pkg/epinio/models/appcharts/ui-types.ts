@@ -28,3 +28,17 @@ export interface AppChartCreateRequest {
 }
 
 export type AppChartUpdateRequest = Partial<AppChartCreateRequest>;
+
+// A push uploads the chart archive itself, so it carries no helm urls and no settings.
+export interface AppChartPushRequest {
+    name: string;
+    description: string;
+    shortDescription: string;
+    archive: File;
+}
+
+export interface AppChartPushResponse {
+    name: string;
+    helmChart: string;
+    helmRepo: string;
+}
