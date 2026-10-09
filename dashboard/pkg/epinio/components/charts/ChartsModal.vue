@@ -461,15 +461,11 @@ defineExpose({ openCreate, openEdit, openView });
         </div>
 
         <div v-if="isUpload || canReplaceArchive">
-          <label style="font-size: 11px; color: var(--th-input-label);">
-            {{ isUpload ? 'Chart Archive' : 'Replace Chart Archive' }}
-            <span v-if="isUpload" style="color: var(--th-color-red);">*</span>
-          </label>
           <div class="archive-row">
             <trailhand-text-input
               style="flex: 1"
               :value="chartArchive?.name || ''"
-              label="Archive"
+              :label="isUpload ? 'Chart Archive' : 'Replace Chart Archive'"
               placeholder="A .tgz produced by 'helm package'"
               :disabled="true"
               :required="isUpload"
