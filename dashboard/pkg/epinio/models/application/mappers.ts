@@ -15,14 +15,14 @@ function toAppStage(apiStage: ApiAppStage): AppStage {
     };
 }
 
-function toAppConfiguration(apiConfiguration: ApiAppConfiguration): AppConfiguration {
+function toAppConfiguration(apiConfiguration: ApiAppConfiguration, fromManifest?: boolean): AppConfiguration {
     return {
         appChart: apiConfiguration.appchart,
         configurations: apiConfiguration.configurations,
         boundConfigurations: apiConfiguration.bound_configurations,
         environment: apiConfiguration.environment,
         instances: apiConfiguration.instances,
-        routes: apiConfiguration.routes,
+        routes: fromManifest ? [] : apiConfiguration.routes,
         services: apiConfiguration.services,
         settings: apiConfiguration.settings,
     };
@@ -248,7 +248,7 @@ export function toAppManifest(apiManifest: ApiAppManifest): AppManifest {
             namespace: apiManifest.namespace,
             createdAt: '',
         },
-        configuration: toAppConfiguration(apiManifest.configuration),
+        configuration: toAppConfiguration(apiManifest.configuration, true),
         origin: toAppOrigin(apiManifest.origin),
         staging: toAppStage(apiManifest.staging),
     };
