@@ -8,18 +8,18 @@ export interface ApiAppMeta {
 
 export interface ApiAppConfiguration {
     appchart: string;
-    configurations: string[];
-    bound_configurations: {
+    configurations?: string[];
+    bound_configurations?: {
         name: string;
         type: 'custom' | 'service';
     }[];
-    environment: Record<string, string>;
+    environment?: Record<string, string>;
     // ignore: string[];
     instances: number;
     // replace_env: boolean;
     routes: string[];
-    services: string[];
-    settings: Record<string, string>;
+    services?: string[];
+    settings?: Record<string, string>;
 }
 
 export interface ApiAppPodInfo {

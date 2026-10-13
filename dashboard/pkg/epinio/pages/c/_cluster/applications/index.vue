@@ -287,7 +287,7 @@ const allColumns = [
     width:     '180px',
     sortable:  false,
     formatter: (_value: any, row: App) => {
-      const configs = row.configuration.configurations;
+      const configs = row.configuration.configurations || [];
       const span = document.createElement('span');
 
       span.style.whiteSpace = 'normal';

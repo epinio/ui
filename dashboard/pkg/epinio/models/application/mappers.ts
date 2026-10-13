@@ -446,9 +446,9 @@ export function toAppFormDetails(app: App | AppManifest): AppFormDetails {
         name: app.meta.name,
         namespace: app.meta.namespace,
         instances: app.configuration.instances,
-        routes: [...app.configuration.routes],
-        settings: {...app.configuration.settings},
-        environment: [...Object.entries(app.configuration.environment).map(([key, value]) => ({ key, value }))],
+        routes: [...(app.configuration.routes || [])],
+        settings: {...(app.configuration.settings || {})},
+        environment: [...Object.entries(app.configuration.environment || {}).map(([key, value]) => ({ key, value }))],
     }
 }
 

@@ -8,12 +8,12 @@ export interface AppMeta {
 
 export interface AppConfiguration {
     appChart: string;
-    configurations: string[];
+    configurations?: string[];
     boundConfigurations?: {
         name: string;
         type: 'custom' | 'service';
     }[];
-    environment: Record<string, string>;
+    environment?: Record<string, string>;
     // ignore: string[];
     instances: number;
     // replace_env: boolean;

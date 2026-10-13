@@ -538,8 +538,8 @@ const onInstancesChange = debounce(async (newInstances: number) => {
 
   const updateRequest: AppUpdateRequest = {
     appChart: application.value.configuration.appChart,
-    configurations: application.value.configuration.configurations,
-    environment: application.value.configuration.environment,
+    configurations: application.value.configuration.configurations || [],
+    environment: application.value.configuration.environment || {},
     routes: application.value.configuration.routes,
     replaceEnv: true,
     restart: true,
