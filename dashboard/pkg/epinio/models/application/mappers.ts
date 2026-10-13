@@ -244,7 +244,7 @@ export function toAppGitImportResponse(response: ApiAppGitImportResponse): AppGi
 export function toAppManifest(apiManifest: ApiAppManifest): AppManifest {
     return {
         meta: {
-            name: apiManifest.name,
+            name: '',
             namespace: apiManifest.namespace,
             createdAt: '',
         },

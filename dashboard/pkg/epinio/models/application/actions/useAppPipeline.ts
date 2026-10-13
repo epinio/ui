@@ -70,7 +70,7 @@ export function useAppPipeline(store: any) {
     failed.value = false;
     isDone.value = false;
     buildCache.value = {};
-    hasAppBeenCreated.value = !isEdit;
+    hasAppBeenCreated.value = isEdit;
 
     if (!cluster?.value) {
       throw new Error('Cluster not found');
