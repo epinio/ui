@@ -133,6 +133,7 @@ defineExpose({ openDelete });
   flex-direction: column;
   gap: 1rem;
   width: 560px;
+  max-width: 100%;
 }
 
 .discard-message {
