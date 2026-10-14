@@ -1,15 +1,17 @@
 <script setup lang="ts">
-import { computed, ref, reactive, watch } from 'vue';
+import { computed, ref, reactive, watchEffect, watch } from 'vue';
 import { useStore } from 'vuex';
-
-import { EPINIO_TYPES } from '../../types';
-import { epinioExceptionToErrorsArray } from '../../utils/errors';
 import { validateKubernetesName } from '@shell/utils/validators/kubernetes-name';
 import { objValuesToString } from '../../utils/settings';
 import Banner from '@components/Banner/Banner.vue';
 import ChartValues from '../settings/ChartValues.vue';
-import ResourceDropdown from '../application/ResourceDropdown.vue';
-import { useNamespaces } from '../../utils/namespaces';
+import { useCreateServiceInstance, useBindServiceInstance, useUnbindServiceInstance, useUpdateServiceInstance } from '../../queries/useServiceMutations';
+import { ServiceInstance } from '../../models/service/ui-types';
+import { useNamespaces } from '../../queries/useNamespaceQueries';
+import { useCatalogServices } from '../../queries/useCatalogServicesQueries';
+import { useApplications } from '../../queries/useApplicationQueries';
+import { debounce } from 'lodash';
+import { ListResourceRequestParams, ResourceQueryOptions } from '../../models/resource/ui-types';
 
 import isEqual from 'lodash/isEqual';
 
@@ -20,7 +22,7 @@ const t = store.getters['i18n/t'];
 const showModal = ref(false);
 const modalMode = ref<'create' | 'edit' | 'view'>('create');
 // Model instance, used only for API calls
-const serviceModel = ref<any>(null);
+const serviceModel = ref<ServiceInstance | null>(null);
 
 // Form fields (separate from the model to avoid proxy mutation issues)
 const formNamespace = ref('');
@@ -31,47 +33,72 @@ const initialBoundApps = ref<string[]>([]);
 const selectedApps = ref<string[]>([]);
 const chartValues = reactive<Record<string, any>>({});
 const validChartValues = ref<Record<string, boolean>>({});
-const saving = ref(false);
-const errors = ref<string[]>([]);
+
+const namespaceRequestParams = ref<ListResourceRequestParams>({ page: 1, pageSize: 25, search: '' });
+const namespaceRequestOptions = ref<ResourceQueryOptions>({ enabled: false, polling: false });
+const {data: namespaces, isLoading: isLoadingNamespaces, isError: isErrorNamespaces, error: namespacesError} = useNamespaces(store, namespaceRequestParams, namespaceRequestOptions);
+const catalogServiceRequestParams = ref<ListResourceRequestParams>({ page: 1, pageSize: 25, search: '' });
+const catalogServiceRequestOptions = ref<ResourceQueryOptions>({ enabled: false, polling: false });
+const {data: catalogServices, isLoading: isLoadingCatalogServices, isError: isErrorCatalogServices, error: catalogServicesError} = useCatalogServices(store, catalogServiceRequestParams, catalogServiceRequestOptions);
+const applicationRequestParams = ref<ListResourceRequestParams>({
+  page: 1,
+  pageSize: 10,
+  search: '',
+  namespaces: []
+});
+const applicationRequestOptions = ref<ResourceQueryOptions>({
+  enabled: true,
+  polling: false,
+});
+const {data: applications, isLoading: isLoadingApplications, isError: isErrorApplications, error: applicationsError} = useApplications(store, applicationRequestParams, applicationRequestOptions);
+
+
+const {mutateAsync: createService, isPending: isCreatingService, isError: createServiceError, error: createServiceErrorData} = useCreateServiceInstance(store, () => {
+  handleSuccess('create');
+  closeModal();
+});
+const {mutateAsync: bindService, isError: bindServiceError} = useBindServiceInstance(store);
+const {mutateAsync: unbindService, isError: unbindServiceError} = useUnbindServiceInstance(store);
+const {mutateAsync: updateService, isPending: isUpdatingService, isError: updateServiceError, error: updateServiceErrorData} = useUpdateServiceInstance(store, () => {
+  handleSuccess('update');
+  closeModal();
+});
 
 // Captured separately so background list polls (which omit internal_routes) can't wipe it
 const internalRoutes = ref<string[]>([]);
 
-const isLoadingCatalogServices = ref(false);
-const cachedCatalogServices = ref<any[]>([]);
-const fetchedCatalogServices = ref<any[]>([]);
+// Watch for changes to the active namespace cache and update the request params accordingly
+watchEffect(() => {
+  void store.state.activeNamespaceCacheKey;
+  const activeNamespaces = store.state.activeNamespaceCache;
 
-const isLoadingApplications = ref(false);
-const cachedApplications = ref<any[]>([]);
-const fetchedApplications = ref<any[]>([]);
-
-const {
-  options:   namespaceOpts,
-  isLoading: isLoadingNamespaces,
-  firstName: firstNamespace,
-  fetchAll:  fetchNamespaces,
-  search:    searchNamespaces,
-  seed:      seedNamespace,
-} = useNamespaces(store, {
-  scopeToActiveFilter: true
+  if (activeNamespaces && Object.keys(activeNamespaces).length > 0) {
+    namespaceRequestParams.value.namespaces = Object.keys(activeNamespaces);
+  } else {
+    namespaceRequestParams.value.namespaces = undefined;
+  }
 });
 
-const catalogServiceOpts = computed(() =>
-  fetchedCatalogServices.value.map((cs: any) => ({
-    label: `${cs.name} (${cs.short_description})`,
-    value: cs.name,
-  }))
-);
+const namespaceOpts = computed(() => {
+  return namespaces?.value?.items.map((ns) => ({ label: ns.meta.name, value: ns.meta.name })) || [];
+});
+
+const catalogServiceOpts = computed(() => {
+  return catalogServices?.value?.items.map((cs) => ({
+    label: `${cs.meta.name} (${cs.shortDescription})`,
+    value: cs.meta.name,
+  })) || [];
+});
 
 const nsAppOptions = computed(() => {
   if (!formNamespace.value) return [];
 
-  return fetchedApplications.value
-    .map((a: any) => ({ label: a.meta.name, value: a.meta.name }));
+  return applications?.value?.items
+    .map((a: any) => ({ label: a.meta.name, value: a.meta.name })) || [];
 });
 
 const selectedCatalogService = computed(() =>
-  fetchedCatalogServices.value.find((cs: any) => cs.name === formCatalogService.value)
+  catalogServices?.value?.items.find((cs) => cs.meta.name === formCatalogService.value)
 );
 
 const showChartValues = computed(() =>
@@ -132,7 +159,6 @@ const validationPassed = computed(() => {
 });
 
 async function openCreate(prefilledCatalogService?: string) {
-  errors.value = [];
   modalMode.value = 'create';
 
   serviceModel.value = null;
@@ -145,87 +171,46 @@ async function openCreate(prefilledCatalogService?: string) {
   Object.keys(chartValues).forEach(k => delete chartValues[k]);
   validChartValues.value = {};
 
-  // Open first so the user sees the modal while the namespaces load, then
-  // default to the first one as before.
+  namespaceRequestOptions.value.enabled = true;
+  catalogServiceRequestOptions.value.enabled = true;
   showModal.value = true;
-
-  await fetchNamespaces();
-
-  if (!formNamespace.value) {
-    formNamespace.value = firstNamespace.value;
-  }
 }
 
-function openView(row: any) {
-  errors.value = [];
+function populateForm(row: ServiceInstance) {
+  serviceModel.value = row;
+  formNamespace.value = row.meta?.namespace || '';
+  formName.value = row.meta?.name || '';
+  formCatalogService.value = row.catalogService || '';
+  internalRoutes.value = [...(row.internalRoutes || [])];
+
+  selectedApps.value = [...(row.boundApps || [])];
+  initialBoundApps.value = [...(row.boundApps || [])];
+
+  const settings = objValuesToString(row.settings || {});
+
+  Object.keys(chartValues).forEach(k => delete chartValues[k]);
+  Object.assign(chartValues, settings);
+  validChartValues.value = {};
+}
+
+function openView(row: ServiceInstance) {
   modalMode.value = 'view';
 
-  serviceModel.value = row;
-  formNamespace.value = row.meta?.namespace || '';
-  seedNamespace(formNamespace.value);
-  formName.value = row.name || row.meta?.name || '';
-  formCatalogService.value = row.catalog_service || '';
-  internalRoutes.value = [];
-
-  selectedApps.value = [...(row.boundapps || [])];
-  initialBoundApps.value = [...(row.boundapps || [])];
-
-  const settings = objValuesToString(row.settings || {});
-
-  Object.keys(chartValues).forEach(k => delete chartValues[k]);
-  Object.assign(chartValues, settings);
-  validChartValues.value = {};
-
+  populateForm(row);
+  
+  namespaceRequestOptions.value.enabled = true;
+  catalogServiceRequestOptions.value.enabled = true;
   showModal.value = true;
-
-  // The list endpoint omits internal_routes, fetch the full record and capture routes locally
-  // so background list polls (which also omit internal_routes) cannot wipe them.
-  row.forceFetch().then(() => {
-    if (!showModal.value) return;
-    const id = `${ row.meta?.namespace }/${ row.meta?.name || row.name }`;
-    const updated = store.getters['epinio/byId'](EPINIO_TYPES.SERVICE_INSTANCE, id);
-
-    if (updated) {
-      serviceModel.value = updated;
-      internalRoutes.value = [...(updated.internal_routes || [])];
-    }
-  }).catch(() => {});
 }
 
-function openEdit(row: any) {
-  errors.value = [];
+function openEdit(row: ServiceInstance) {
   modalMode.value = 'edit';
 
-  serviceModel.value = row;
-  formNamespace.value = row.meta?.namespace || '';
-  seedNamespace(formNamespace.value);
-  formName.value = row.name || row.meta?.name || '';
-  formCatalogService.value = row.catalog_service || '';
-  internalRoutes.value = [];
+  populateForm(row);
 
-  selectedApps.value = [...(row.boundapps || [])];
-  initialBoundApps.value = [...(row.boundapps || [])];
-
-  const settings = objValuesToString(row.settings || {});
-
-  Object.keys(chartValues).forEach(k => delete chartValues[k]);
-  Object.assign(chartValues, settings);
-  validChartValues.value = {};
-
+  namespaceRequestOptions.value.enabled = true;
+  catalogServiceRequestOptions.value.enabled = true;
   showModal.value = true;
-
-  // The list endpoint omits internal_routes, fetch the full record and capture routes locally
-  // so background list polls (which also omit internal_routes) cannot wipe them.
-  row.forceFetch().then(() => {
-    if (!showModal.value) return;
-    const id = `${ row.meta?.namespace }/${ row.meta?.name || row.name }`;
-    const updated = store.getters['epinio/byId'](EPINIO_TYPES.SERVICE_INSTANCE, id);
-
-    if (updated) {
-      serviceModel.value = updated;
-      internalRoutes.value = [...(updated.internal_routes || [])];
-    }
-  }).catch(() => {});
 }
 
 function handleModalClose() {
@@ -255,10 +240,13 @@ function closeModal() {
   initialBoundApps.value = [];
   Object.keys(chartValues).forEach(k => delete chartValues[k]);
   validChartValues.value = {};
-  errors.value = [];
   internalRoutes.value = [];
   serviceModel.value = null;
   showDiscardConfirm.value = false;
+  namespaceRequestOptions.value.enabled = false;
+  catalogServiceRequestOptions.value.enabled = false;
+  namespaceRequestParams.value.page = 1;
+  namespaceRequestParams.value.search = '';
   showModal.value = false;
 }
 
@@ -267,228 +255,117 @@ function resetChartValues() {
   validChartValues.value = {};
 }
 
-// Refresh the whole list, not just the saved record: the table paginates
-// server-side, so a single-resource fetch adds an 11th row to a 10-row page
-// and leaves the page count stale until the 30s poller catches up.
-const refreshServices = () => store
-  .dispatch('epinio/refreshList', { type: EPINIO_TYPES.SERVICE_INSTANCE })
-  .catch(() => {});
-
-// The Bound Applications column reads from the apps slice, so app bindings
-// need that list refreshed too.
-const refreshApps = () => store
-  .dispatch('epinio/findAll', { type: EPINIO_TYPES.APP, opt: { force: true } })
-  .catch(() => {});
-
 async function onSubmit() {
-  if (!validationPassed.value || saving.value) return;
+  if (!validationPassed.value || isCreatingService.value || isUpdatingService.value) return;
 
-  saving.value = true;
-  errors.value = [];
+  if (!isEdit.value) {
+    // Capture values before closeModal() wipes form state
+    const capturedNamespace = formNamespace.value;
+    const capturedName = formName.value;
+    const capturedSelectedApps = [...selectedApps.value];
 
-  try {
-    if (!isEdit.value) {
-      const svc = await store.dispatch('epinio/create', { type: EPINIO_TYPES.SERVICE_INSTANCE });
+    const cleanSettings = { ...chartValues };
 
-      // Capture values before closeModal() wipes form state
-      const capturedNamespace = formNamespace.value;
-      const capturedName = formName.value;
-      const capturedSelectedApps = [...selectedApps.value];
+    delete cleanSettings.value;
+    const request = {
+      name: capturedName,
+      catalogService: formCatalogService.value,
+      settings: cleanSettings,
+      wait: capturedSelectedApps.length > 0,
+    };
 
-      // Create the service instance, then bind apps and refresh in the background
-      svc.metadata = { namespace: capturedNamespace, name: capturedName };
-      svc.catalog_service = formCatalogService.value;
+    await createService({ namespace: capturedNamespace, request });
 
+    if (capturedSelectedApps.length) {
+      Promise.all(capturedSelectedApps.map((app: string) => bindService({ namespace: capturedNamespace, serviceName: capturedName, request: { appName: app } })))
+    }
+  } else {
+    const svc = {...serviceModel.value};
+    if (!svc) throw new Error('Service model is missing');
+    const newSettings = !isEqual(
+      objValuesToString(chartValues),
+      objValuesToString(svc.settings || {})
+    );
+
+    if (newSettings) {
       const cleanSettings = { ...chartValues };
 
       delete cleanSettings.value;
-      svc.settings = Object.keys(cleanSettings).length ? objValuesToString(cleanSettings) : undefined;
-
-      // Wait for the install only when apps are waiting to be bound to it
-      await svc.create(capturedSelectedApps.length > 0);
-
-      // Re-assert metadata: followLink merges the sparse create response back
-      // into the model, which can wipe metadata and break subsequent bind calls
-      svc.metadata = { namespace: capturedNamespace, name: capturedName };
-
-      closeModal();
-
-      store.dispatch('growl/success', {
-        title:   t('epinio.growl.serviceInstance.create.success.title'),
-        message: t('epinio.growl.serviceInstance.create.success.message', { name: capturedName }),
-      });
-
-      // Show the new item quickly, then bind apps and refresh again once done
-      refreshServices();
-      if (capturedSelectedApps.length) {
-        Promise.all(capturedSelectedApps.map((app: string) => svc.bindApp(app)))
-          .then(() => {
-            refreshApps();
-            refreshServices();
-          })
-          .catch(() => {});
-      }
-    } else {
-      const svc = serviceModel.value;
-      const newSettings = !isEqual(
-        objValuesToString(chartValues),
-        objValuesToString(svc.settings || {})
-      );
-
-      if (newSettings) {
-        const cleanSettings = { ...chartValues };
-
-        delete cleanSettings.value;
-        svc.settings = objValuesToString(cleanSettings);
-        await svc.update();
-      }
-
-      const bindApps = selectedApps.value;
-      const unbindApps = initialBoundApps.value.filter(a => !bindApps.includes(a));
-      const newBindApps = bindApps.filter(a => !initialBoundApps.value.includes(a));
-      const serviceName = svc.meta?.name;
-
-      closeModal();
-
-      store.dispatch('growl/success', {
-        title:   t('epinio.growl.serviceInstance.update.success.title'),
-        message: t('epinio.growl.serviceInstance.update.success.message', { name: serviceName }),
-      });
-
-      // Bind/unbind and refresh in the background
-      Promise.all([
-        ...newBindApps.map((a: string) => svc.bindApp(a)),
-        ...unbindApps.map((a: string) => svc.unbindApp(a)),
-      ]).then(() => {
-        refreshApps();
-        refreshServices();
-      }).catch(() => {});
-      svc.forceFetch().catch(() => {});
+      const request = {
+        settings: cleanSettings,
+        wait: selectedApps.value.length > 0,
+      };
+      await updateService({ namespace: svc.meta?.namespace || '', serviceName: svc.meta?.name || '', request });
     }
-  } catch (err: any) {
-    errors.value = epinioExceptionToErrorsArray(err);
-    store.dispatch('growl/error', {
-      title: isEdit.value
-        ? t('epinio.growl.serviceInstance.save.error.updateTitle')
-        : t('epinio.growl.serviceInstance.save.error.createTitle'),
-      message: t('epinio.growl.serviceInstance.save.error.message'),
-    });
-  } finally {
-    saving.value = false;
+
+    const bindApps = selectedApps.value;
+    const unbindApps = initialBoundApps.value.filter(a => !bindApps.includes(a));
+    const newBindApps = bindApps.filter(a => !initialBoundApps.value.includes(a));
+    const serviceName = svc.meta?.name;
+
+    if (showModal.value) {
+      closeModal();
+    }
+
+    // Bind/unbind and refresh in the background
+    if (newBindApps.length > 0 || unbindApps.length > 0) {
+      Promise.all([
+        ...newBindApps.map((a: string) => bindService({ namespace: svc.meta?.namespace || '', serviceName: serviceName || '', request: { appName: a } })),
+        ...unbindApps.map((a: string) => unbindService({ namespace: svc.meta?.namespace || '', serviceName: serviceName || '', request: { appName: a } })),
+      ]).then(() => {
+        store.dispatch('growl/success', {
+          title:   t(`epinio.growl.service.both.success.title`),
+          message: t(`epinio.growl.service.both.success.message`, { name: svc.meta?.name }),
+        });
+      })
+    }
+    
   }
 }
 
-const fetchCatalogServices = async () => {
-  if (cachedCatalogServices.value.length > 0) {
-    fetchedCatalogServices.value = cachedCatalogServices.value;
-    return;
-  }
-  isLoadingCatalogServices.value = true;
-  try {
-    const res = await store.dispatch('epinio/request', {
-      opt: {
-        url: `/api/v1/catalogservices`,
-        method: 'GET',
-        responseType: 'json'
-      }
+watchEffect(() => {
+  if (bindServiceError.value) {
+    store.dispatch('growl/error', {
+      title: t('epinio.growl.serviceInstance.bind.error.title'),
+      message: t('epinio.growl.serviceInstance.bind.error.message'),
     });
-    const rawData = res.data ?? [];
-
-    // classify raw JSON into proper model instances
-    const classifiedData = await Promise.all(rawData.map((item: any) =>
-      store.dispatch('epinio/create', { type: EPINIO_TYPES.CATALOG_SERVICE, ...item })
-    ));
-    fetchedCatalogServices.value = classifiedData;
-    cachedCatalogServices.value = classifiedData;
-  } catch (error) {
-    console.error('Failed to fetch services', error);
-  } finally {
-    isLoadingCatalogServices.value = false;
   }
+  if (unbindServiceError.value) {
+    store.dispatch('growl/error', {
+      title: t('epinio.growl.serviceInstance.unbind.error.title'),
+      message: t('epinio.growl.serviceInstance.unbind.error.message'),
+    });
+  }
+});
+
+const handleSuccess = (type: 'create' | 'update') => {
+  store.dispatch('growl/success', {
+    title:   t(`epinio.growl.serviceInstance.${type}.success.title`),
+    message: t(`epinio.growl.serviceInstance.${type}.success.message`, { name: formName.value }),
+  });
 };
 
-async function searchCatalogServices(query: string) {
-  isLoadingCatalogServices.value = true;
-  try {
-    const res = await store.dispatch('epinio/request', {
-      opt: {
-        url: `/api/v1/catalogservices?search=${query}`,
-        method: 'GET',
-        responseType: 'json'
-      }
-    });
-    const rawData = res.data ?? [];
-    const classifiedData = await Promise.all(rawData.map((item: any) =>
-      store.dispatch('epinio/create', { type: EPINIO_TYPES.CATALOG_SERVICE, ...item })
-    ));
-    fetchedCatalogServices.value = classifiedData;
-  } catch {
-    fetchedCatalogServices.value = [];
-  } finally {
-    isLoadingCatalogServices.value = false;
-  }
-}
+const onNamespaceFilter = debounce((query: string) => {
+  namespaceRequestParams.value.page = 1;
+  namespaceRequestParams.value.search = query;
+}, 500);
 
-async function fetchApplications() {
-  if (!formNamespace.value) return;
+const onCatalogServiceFilter = debounce((query: string) => {
+  catalogServiceRequestParams.value.page = 1;
+  catalogServiceRequestParams.value.search = query;
+}, 500);
 
-  if (cachedApplications.value.length > 0) {
-    fetchedApplications.value = cachedApplications.value;
-    return;
-  }
-
-  isLoadingApplications.value = true;
-  try {
-    const res = await store.dispatch('epinio/request', {
-      opt: {
-        url: `/api/v1/applications?namespaces=${formNamespace.value}`,
-        method: 'GET',
-        responseType: 'json'
-      }
-    });
-    const rawData = res.data ?? [];
-    const classifiedData = await Promise.all(rawData.map((item: any) =>
-      store.dispatch('epinio/create', { type: EPINIO_TYPES.APP, ...item })
-    ));
-    fetchedApplications.value = classifiedData;
-    cachedApplications.value = classifiedData;
-  } catch (error) {
-    console.error('Failed to fetch applications', error);
-  } finally {
-    isLoadingApplications.value = false;
-  }
-}  
-
-async function searchApplications(query: string) {
-  if (!formNamespace.value) return;
-
-  isLoadingApplications.value = true;
-  try {
-    const res = await store.dispatch('epinio/request', {
-      opt: {
-        url: `/api/v1/applications?namespaces=${formNamespace.value}&search=${query}`,
-        method: 'GET',
-        responseType: 'json'
-      }
-    });
-    const rawData = res.data ?? [];
-    const classifiedData = await Promise.all(rawData.map((item: any) =>
-      store.dispatch('epinio/create', { type: EPINIO_TYPES.APP, ...item })
-    ));
-    fetchedApplications.value = classifiedData;
-  } catch {
-    fetchedApplications.value = [];
-  } finally {
-    isLoadingApplications.value = false;
-  }
-}
+const onApplicationFilter = debounce((query: string) => {
+  applicationRequestParams.value.page = 1;
+  applicationRequestParams.value.search = query;
+}, 500);
 
 // watch namespace changes to fetch applications for the selected namespace
 watch(formNamespace, (newNamespace) => {
   if (newNamespace) {
-    fetchedApplications.value = [];
-    cachedApplications.value = [];
-    fetchApplications();
+    applicationRequestParams.value.page = 1;
+    applicationRequestParams.value.search = '';
+    applicationRequestParams.value.namespaces = [newNamespace];
   }
 }, { immediate: true });
 
@@ -507,18 +384,19 @@ defineExpose({ openCreate, openEdit, openView });
       <trailhand-form-card>
         <!-- Namespace + Name -->
         <trailhand-form-row columns="2">
-          <ResourceDropdown
-            :value="formNamespace"
+          <trailhand-dropdown
+            style="width: 100%"
             :options="namespaceOpts"
+            :value="formNamespace"
             label="Namespace"
             placeholder="Select a namespace"
             :disabled="isEdit || isView"
             :required="!isView"
-            :onDropdownChange="(e: CustomEvent) => { formNamespace = e.detail.value; selectedApps = []; }"
-            :fetchAllResources="fetchNamespaces"
-            :searchResources="searchNamespaces"
+            filterable
+            @dropdown-change="(e: CustomEvent) => { formNamespace = e.detail.value; selectedApps = []; }"
+            @dropdown-filter="(e: CustomEvent<{ filter: string }>) => { onNamespaceFilter(e.detail.filter); }"
             :isLoading="isLoadingNamespaces"
-          />
+          ></trailhand-dropdown>
           <trailhand-text-input
             :value="formName"
             label="Name"
@@ -531,21 +409,22 @@ defineExpose({ openCreate, openEdit, openView });
 
         <!-- Catalog Service + Version (version only in view/edit, 3/4 + 1/4 split via 4-col grid) -->
         <trailhand-form-row :columns="(isView || isEdit) ? '4' : '1'">
-          <ResourceDropdown
-            :value="formCatalogService"
+          <trailhand-dropdown
+            style="width: 100%"
             :options="catalogServiceOpts"
-            :label="'Catalog Service'"
-            :disabled="isEdit || isView"
-            filterable
+            :value="formCatalogService"
+            label="Catalog Service"
             placeholder="Select the type of service to create"
-            :onDropdownChange="(e: CustomEvent) => { formCatalogService = e.detail.value; resetChartValues(); }"
-            :fetchAllResources="fetchCatalogServices"
-            :searchResources="searchCatalogServices"
+            :disabled="isEdit || isView"
+            :required="!isView"
+            filterable
+            @dropdown-change="(e: CustomEvent) => { formCatalogService = e.detail.value; resetChartValues(); }"
+            @dropdown-filter="(e: CustomEvent<{ filter: string }>) => { onCatalogServiceFilter(e.detail.filter); }"
             :isLoading="isLoadingCatalogServices"
-          />
+          ></trailhand-dropdown>
           <trailhand-text-input
             v-if="isView || isEdit"
-            :value="serviceModel?.catalog_service_version || ''"
+            :value="serviceModel?.catalogServiceVersion || ''"
             label="Cat. Service Version"
             :disabled="true"
           ></trailhand-text-input>
@@ -563,19 +442,17 @@ defineExpose({ openCreate, openEdit, openView });
 
         <!-- Bind to Application -->
         <trailhand-form-row>
-        <ResourceDropdown
-          :values="selectedApps"
-          :options="nsAppOptions"
-          label="Bind to Application (Optional)"
-          :disabled="isView"
-          filterable
-          multiselect
-          placeholder="Select applications to bind"
-          :onDropdownChange="(e: CustomEvent) => { selectedApps = e.detail.values; }"
-          :fetchAllResources="fetchApplications"
-          :searchResources="searchApplications"
-          :isLoading="isLoadingApplications"
-        />
+          <trailhand-dropdown
+            :values="selectedApps"
+            :options="nsAppOptions"
+            label="Bind to Application (Optional)"
+            :disabled="isView || !formNamespace || isLoadingApplications"
+            filterable
+            multiselect
+            placeholder="Select applications to bind"
+            @dropdown-change="(e: CustomEvent) => { selectedApps = e.detail.values; }"
+            @dropdown-filter="(e: CustomEvent<{ filter: string }>) => { onApplicationFilter(e.detail.filter); }"
+          ></trailhand-dropdown>
         </trailhand-form-row>
 
         <!-- Chart Values (shown when the selected catalog service has configurable settings) -->
@@ -585,7 +462,7 @@ defineExpose({ openCreate, openEdit, openView });
         >
           <ChartValues
             v-model:value="chartValues"
-            :chart="selectedCatalogService.settings"
+            :chart="selectedCatalogService?.settings ?? []"
             :title="t('epinio.services.chartValues.title')"
             :mode="isEdit ? 'edit' : 'create'"
             :disabled="isView"
@@ -595,10 +472,14 @@ defineExpose({ openCreate, openEdit, openView });
       </trailhand-form-card>
 
       <Banner
-        v-for="(err, i) in errors"
-        :key="i"
+        v-if="createServiceError || updateServiceError"
         color="error"
-        :label="err"
+        :label="createServiceErrorData?.message || updateServiceErrorData?.message || t('epinio.services.errors.save')"
+      />
+      <Banner
+        v-if="isErrorNamespaces || isErrorCatalogServices || isErrorApplications"
+        color="error"
+        :label="namespacesError?.message || catalogServicesError?.message || applicationsError?.message || t('epinio.services.errors.optionsFetch')"
       />
     </div>
 
@@ -644,10 +525,10 @@ defineExpose({ openCreate, openEdit, openView });
         </trailhand-button>
         <trailhand-button
           variant="primary"
-          :disabled="!validationPassed || saving"
+          :disabled="!validationPassed || isCreatingService || isUpdatingService"
           @button-click="onSubmit"
         >
-          {{ saving ? (isEdit ? 'Saving...' : 'Creating...') : (isEdit ? t('generic.save') : t('generic.create')) }}
+          {{ isEdit ? (isUpdatingService ? t('generic.updating') : t('generic.save')) : (isCreatingService ? t('generic.creating') : t('generic.create')) }}
         </trailhand-button>
       </template>
     </div>

@@ -3,13 +3,21 @@ import { EPINIO_TYPES } from '../types';
 import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
 import { computed, onMounted, onUnmounted, ref, watchEffect, watch } from 'vue';
-import { startPolling, stopPolling } from '../utils/polling';
 import Masthead from '@shell/components/ResourceList/Masthead';
-import { makeEmptyCell, makeNameLinks, makeActionMenu, overrideTableRows } from '../utils/table-formatters';
+import { makeEmptyCell, makeNameLinks, makeActionMenu } from '../utils/table-formatters';
 import ConfigurationModal from '../components/configuration/ConfigurationModal.vue';
 import ConfigurationDeleteModal from '../components/configuration/ConfigurationDeleteModal.vue';
 import BulkDeleteModal from '../components/BulkDeleteModal.vue';
 import { debounce } from 'lodash';
+import { useConfigurations } from '../queries/useConfigurationQueries';
+import { ListResourceRequestParams, ResourceQueryOptions } from '../models/resource/ui-types';
+import { ResourceTableRow } from '../models/resource/ui-types';
+import { ConfigurationResponse } from '../models/configuration/ui-types';
+import { useBulkRemoveConfigurations, useUnbindConfiguration } from '../queries/useConfigurationMutations';
+import { fetchService } from '../queries/useServiceQueries';
+import ServiceInstanceModal from '../components/service/ServiceInstanceModal.vue';
+import Banner from '@components/Banner/Banner.vue';
+import { useUser } from '../queries/useUserQueries';
 
 const store = useStore();
 const router = useRouter();
@@ -20,83 +28,65 @@ const resource: string = EPINIO_TYPES.CONFIGURATION;
 
 const configModal = ref<InstanceType<typeof ConfigurationModal> | null>(null);
 const deleteModal = ref<InstanceType<typeof ConfigurationDeleteModal> | null>(null);
+const serviceInstanceModal = ref<InstanceType<typeof ServiceInstanceModal> | null>(null);
 const bulkDeleteModal = ref<InstanceType<typeof BulkDeleteModal> | null>(null);
 const tableEl = ref<any>(null);
 const selectedRows = ref<any[]>([]);
 const windowWidth = ref(window.innerWidth);
 const onResize = () => { windowWidth.value = window.innerWidth; };
-const displayRows = ref<any[]>([]);
 
-const paginationMeta = computed(() => store.getters['epinio/paginationMeta'](resource));
-const currentPage = computed(() => store.getters['epinio/currentPaginationPage'](resource));
+const { data: user, isError: isErrorUser, error: userError } = useUser(store);
 
-const paginating = ref(false);
+const requestParams = ref<ListResourceRequestParams>({
+  page: 1,
+  pageSize: 10,
+  search: ''
+});
+
+const requestOptions = ref<ResourceQueryOptions>({
+  enabled: true,
+  polling: true,
+  isTablePagination: true,
+});
 
 const searchQuery = ref<string>('');
-
-async function goToPage(page: number) {
-  const meta = paginationMeta.value;
-
-  if (meta && (page < 1 || page > meta.totalPages)) return;
-  paginating.value = true;
-  try {
-    await store.dispatch('epinio/goToPage', { type: resource, page });
-  } finally {
-    paginating.value = false;
-  }
-}
-
-const onSearch = debounce(async (query: string) => {
-  paginating.value = true;
-  try {
-    await store.dispatch('epinio/search', { type: resource, query });
-  } finally {
-    paginating.value = false;
-  }
-}, 500);
 
 watch(searchQuery, (newQuery) => {
   onSearch(newQuery);
 });
 
+const onSearch = debounce(async (query: string) => {
+  requestParams.value.page = 1;
+  requestParams.value.search = query;
+}, 500);
+
+const {data: configurations, isLoading: isLoadingConfigurations, isError: isErrorConfigurations, error: configurationsError} = useConfigurations(store, requestParams, requestOptions);
+const { mutateAsync: bulkRemove } = useBulkRemoveConfigurations(store);
+const { mutateAsync: unbindConfiguration } = useUnbindConfiguration(store);
+
+// Watch for changes to the active namespace cache and update the request params accordingly
+watchEffect(() => {
+  void store.state.activeNamespaceCacheKey;
+  const activeNamespaces = store.state.activeNamespaceCache;
+
+  if (activeNamespaces && Object.keys(activeNamespaces).length > 0) {
+    requestParams.value.namespaces = Object.keys(activeNamespaces);
+  } else {
+    requestParams.value.namespaces = undefined;
+  }
+});
+
 onMounted(async () => {
   window.addEventListener('resize', onResize);
-  paginating.value = true;
-  try {
-    await Promise.all([
-      store.dispatch('epinio/me'),
-      store.dispatch('epinio/findAll', { type: EPINIO_TYPES.CONFIGURATION }),
-      // Bound Applications/Service columns cross-reference these; fetch them
-      // directly so they're populated on first load instead of depending on
-      // another page (Applications/Services) having fetched them already.
-      store.dispatch('epinio/findAll', { type: EPINIO_TYPES.APP }),
-      store.dispatch('epinio/findAll', { type: EPINIO_TYPES.SERVICE_INSTANCE }),
-    ]);
-  } finally {
-    paginating.value = false;
-  }
-  startPolling(['configurations', 'applications', 'services'], store);
 });
 
 onUnmounted(() => {
   window.removeEventListener('resize', onResize);
-  stopPolling(['configurations', 'applications', 'services']);
 });
-
-const handleCreateClick = () => {
-  configModal.value?.openCreate();
-};
 
 // Strict RBAC: only show Create when user has configuration write (hides for view_only)
 const canCreateConfiguration = computed(() => {
-  const can = store.getters['epinio/can'];
-  const perms = store.getters['epinio/permissions']?.();
-
-  if (!can || !perms || Object.keys(perms).length === 0) {
-    return false;
-  }
-
-  return can('configuration_write') || can('configuration');
+  return user.value?.permissions?.configuration_write || user.value?.permissions?.configuration;
 });
 
 // Edit/Delete share the same permission as Create — anything that mutates
@@ -104,78 +94,47 @@ const canCreateConfiguration = computed(() => {
 const canEdit = canCreateConfiguration;
 const canDelete = canCreateConfiguration;
 
-// Watch the active namespace cache key and update the active namespaces in the store
-watch(
-  () => {
-    void store.state.activeNamespaceCacheKey;
-    const active = store.state.activeNamespaceCache;
-    return active ? Object.keys(active) : null;
-  },
-  async (namespacesArray) => {
-    paginating.value = true;
-    try {
-      await store.dispatch('epinio/setActiveNamespaces', { type: resource, namespaces: namespacesArray });
-    } finally {
-      paginating.value = false;
-    }
-  
-  },
-  { immediate: true }
-);
+const displayRows = computed(() => {
+  if (!configurations.value) {
+    return [];
+  }
 
-watchEffect(() => {
-  const all = store.getters['epinio/all'](EPINIO_TYPES.CONFIGURATION) as any[];
-
-  all.forEach((row: any) => { void row.status; void row.stateDisplay; void row.meta; void row.configuration; });
-
-  // Filter empty rows that are added during delete
-  const filtered = all.filter((row) => {
-    if (!row.id) return false;
-    return true;
-  });
-
-  const overrides = [
-    {
-      prop: 'availableActions',
-      value: (row: any) => {
-        const out: any[] = [];
-
-        if (canEdit.value) {
-          out.push({
-            action:  'editConfigModal',
-            label:   'Edit',
-            enabled: row.configuration?.type === 'custom',
-            icon:    'icon icon-edit',
-          });
-        }
-        if (canDelete.value) {
-          out.push({
-            action:  'deleteConfigModal',
-            label:   'Delete',
-            enabled: row.configuration?.type === 'custom',
-            icon:    'icon icon-trash',
-            weight:  -10,
-          });
-        }
-
-        return out;
+  // Add custom namespace delete action to replace the built in rancher shell flow.
+  // Gate by namespace write perms so view-only / app-only roles don't see Delete.
+  const rows: ResourceTableRow<ConfigurationResponse>[] = (configurations.value.items ?? []).map((c) => ({
+    ...c,
+    id: c.meta.name, // stable, unique per namespace
+    availableActions: [
+      {
+        label: 'Edit',
+        action: () => openEditModal(c),
+        enabled: canEdit.value && !c.configuration.origin,
+        visible: canEdit.value && !c.configuration.origin,
       },
-      conditionFn: () => true,
-    },
-    {
-      prop:        'editConfigModal',
-      value:       (row: any) => () => { configModal.value?.openEdit(row); },
-      conditionFn: (row: any) => canEdit.value && row.configuration?.type === 'custom',
-    },
-    {
-      prop:        'deleteConfigModal',
-      value:       (row: any) => () => { deleteModal.value?.openDelete(row); },
-      conditionFn: (row: any) => canDelete.value && row.configuration?.type === 'custom',
-    },
-  ];
-
-  displayRows.value = [...overrideTableRows(filtered, overrides)];
+      {
+        label: 'Delete',
+        action: () => openDeleteModal(c),
+        enabled: canDelete.value,
+        visible: canDelete.value,
+        danger: true,
+      },
+    ],
+    canDelete: canDelete.value,
+  }));
+  return rows;
 });
+
+async function openCreateModal() {
+  configModal.value?.openCreate();
+}
+
+function openDeleteModal(configuration: ConfigurationResponse) {
+  deleteModal.value?.openDelete(configuration);
+}
+
+function openEditModal(configuration: ConfigurationResponse) {
+  configModal.value?.openEdit(configuration);
+}
 
 // Auto-generated configurations (bound to a service instance) can't be
 // individually deleted, so they're excluded from bulk selection too.
@@ -183,6 +142,18 @@ const isRowSelectable = (row: any) => row.configuration?.type === 'custom';
 
 const handleSelectionChange = (event: CustomEvent) => {
   selectedRows.value = event.detail.selectedRows;
+};
+
+const handleBulkDelete = async (items: ConfigurationResponse[], deleteImage: boolean) => {
+  const configsToUnbind = items.filter((item) => item.configuration.boundApps ? item.configuration.boundApps.length > 0 : false);
+  if (configsToUnbind.length > 0) {
+    for (const config of configsToUnbind) {
+      await Promise.all([
+        ...config.configuration.boundApps!.map((a: string) => unbindConfiguration({ namespace: config.meta?.namespace || '', configName: config.meta?.name || '', appName: a })),
+      ]);
+    }
+  }
+  await bulkRemove({items,  deleteImage });
 };
 
 const handleBulkDeleteClick = () => {
@@ -211,15 +182,23 @@ const setTableRef = (el: any) => {
   }
 };
 
+const openServiceModal = async (namespace: string, service: string) => {
+  if (!namespace || !service) {
+    return;
+  }
+  const serviceInstance = await fetchService(store, namespace, service);
+  serviceInstanceModal.value?.openView(serviceInstance);
+};
+
 const allColumns = [
   {
     field: 'nameDisplay',
     label: 'Name',
     width: '200px',
-    formatter: (_v: any, row: any) => {
+    formatter: (_v: any, row: ConfigurationResponse) => {
       const el = document.createElement('a');
 
-      el.textContent = row.nameDisplay || row.meta?.name || '';
+      el.textContent = row.meta?.name || '';
       el.style.cursor = 'pointer';
       el.addEventListener('click', (e) => {
         e.preventDefault();
@@ -231,7 +210,7 @@ const allColumns = [
     }
   },
   {
-    field: 'namespace',
+    field: 'meta.namespace',
     label: 'Namespace',
     width: '100px',
   },
@@ -240,8 +219,8 @@ const allColumns = [
     label: 'Bound Applications',
     width: '200px',
     sortable: false,
-    formatter: (_v: any, row: any) => makeNameLinks(
-      row.configuration?.boundapps,
+    formatter: (_v: any, row: ConfigurationResponse) => makeNameLinks(
+      row.configuration?.boundApps ?? [],
       { cluster: store.getters['clusterId'], namespace: row.meta?.namespace, resource: EPINIO_TYPES.APP },
       router
     )
@@ -251,14 +230,22 @@ const allColumns = [
     label: 'Service',
     width: '150px',
     sortable: false,
-    formatter: (_v: any, row: any) => makeNameLinks(
-      row.configuration?.origin ? [row.configuration.origin] : [],
-      { cluster: store.getters['clusterId'], namespace: row.meta?.namespace, resource: EPINIO_TYPES.SERVICE_INSTANCE },
-      router
-    )
+    formatter: (_v: any, row: ConfigurationResponse) => {
+      const el = document.createElement('a');
+
+      el.textContent = row.configuration.origin || '';
+      el.style.cursor = 'pointer';
+      el.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        openServiceModal(row.meta?.namespace || '', row.configuration?.origin || '');
+      });
+
+      return el;
+    }
   },
   {
-    field: 'variableCount',
+    field: 'configuration.variableCount',
     label: 'No. of Variables',
     width: '150px'
   },
@@ -266,7 +253,7 @@ const allColumns = [
     field: 'configuration.user',
     label: 'Created By',
     width: '150px',
-    formatter: (_v: any, row: any) => row.configuration?.user || makeEmptyCell()
+    formatter: (_v: any, row: ConfigurationResponse) => row.configuration?.user || makeEmptyCell()
   },
   {
     field: 'meta.createdAt',
@@ -317,13 +304,23 @@ const columns = computed(() => {
           v-if="canCreateConfiguration"
           variant="primary"
           size="large"
-          @click="handleCreateClick"
+          @click="openCreateModal"
         >
           {{ t('generic.create') }}
         </trailhand-button>
         <div v-else></div>
       </template>
     </Masthead>
+    <Banner
+      v-if="isErrorUser"
+      color="error"
+      :label="userError?.message || t('epinio.user.errors.fetch')"
+    />
+    <Banner
+      v-if="isErrorConfigurations"
+      color="error"
+      :label="configurationsError?.message || t('epinio.configurations.errors.fetch')"
+    />
     <div class="search-container">
       <trailhand-text-input
         :value="searchQuery"
@@ -337,13 +334,13 @@ const columns = computed(() => {
       :columns="columns"
       :searchable="false"
       :selectable="canDelete"
-      :server-side="!!paginationMeta"
-      :total-items="paginationMeta?.totalItems ?? displayRows.length"
-      :current-page="currentPage"
-      :loading="paginating"
+      :server-side="true"
+      :total-items="configurations?.totalItems ?? 0"
+      :current-page="requestParams.page"
+      :loading="isLoadingConfigurations"
       key-field="id"
       @navigate="handleNavigate"
-      @page-change="(e: CustomEvent) => goToPage(e.detail.page)"
+      @page-change="(e: CustomEvent) => { requestParams.page = e.detail.page; }"
       @selection-change="handleSelectionChange"
     />
     <ConfigurationModal ref="configModal" />
@@ -353,8 +350,10 @@ const columns = computed(() => {
       resource-label="configuration"
       :resource-type="resource"
       :show-unbind-notice="true"
+      :bulk-remove="handleBulkDelete"
       @settled="handleBulkDeleted"
     />
+    <ServiceInstanceModal ref="serviceInstanceModal" />
   </div>
 </template>
 
