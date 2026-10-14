@@ -102,17 +102,15 @@ function mapCatalogServiceRequest(
   }
 
   if (uiRequest.settings !== undefined) {
-    const { settings, values } = mapSettingsToApiRequest(uiRequest.settings);
-
-    // YAML, not JSON: the server appends its own YAML block to this string
-    // before parsing, and a JSON object followed by YAML does not parse.
-    if (Object.keys(values).length > 0) {
-      payload.values = jsyaml.dump(values);
-    }
+    const { settings } = mapSettingsToApiRequest(uiRequest.settings);
 
     if (Object.keys(settings).length > 0) {
       payload.settings = settings;
     }
+  }
+
+  if (uiRequest.values) {
+    payload.values = uiRequest.values;
   }
 
   if (uiRequest.secretTypes !== undefined) {
@@ -134,12 +132,63 @@ function mapCatalogServiceRequest(
   return payload;
 }
 
+// Setting defaults are stored as flat keys in values, YAML not JSON: the
+// server appends its own YAML block to this string before parsing, and a
+// JSON object followed by YAML does not parse.
+function dumpSettingDefaults(
+  settings: CatalogServiceCreateRequest["settings"]
+): string | undefined {
+  const { values } = mapSettingsToApiRequest(settings || []);
+
+  return Object.keys(values).length > 0 ? jsyaml.dump(values) : undefined;
+}
+
+// Merges setting defaults into a catalog service's existing values. The
+// server replaces values wholesale on update, so sending only the defaults
+// would drop everything else (image overrides, extraDeploy hooks). Returns
+// undefined when the existing values cannot be parsed into a mapping, so
+// they are left untouched. Defaults of removed settings are left in place:
+// a flat key cannot be told apart from an operator's own value.
+export function mergeSettingDefaults(
+  currentValues: string | undefined,
+  settings: CatalogServiceCreateRequest["settings"]
+): string | undefined {
+  let merged: Record<string, any> = {};
+
+  if (currentValues) {
+    try {
+      const parsed = jsyaml.load(currentValues);
+
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        return undefined;
+      }
+
+      merged = parsed as Record<string, any>;
+    } catch (e) {
+      console.warn("Not merging into unparseable catalog values", e);
+
+      return undefined;
+    }
+  }
+
+  const { values } = mapSettingsToApiRequest(settings || []);
+
+  Object.assign(merged, values);
+
+  return Object.keys(merged).length > 0 ? jsyaml.dump(merged) : undefined;
+}
+
 export function toApiCatalogServiceCreateRequest(
   uiRequest: CatalogServiceCreateRequest
 ): ApiCatalogServiceCreateRequest {
-  return mapCatalogServiceRequest(uiRequest) as ApiCatalogServiceCreateRequest;
+  return mapCatalogServiceRequest({
+    ...uiRequest,
+    values: uiRequest.values ?? dumpSettingDefaults(uiRequest.settings),
+  }) as ApiCatalogServiceCreateRequest;
 }
 
+// Never derives values from settings: an update only carries values the
+// caller built on purpose, normally through mergeSettingDefaults.
 export function toApiCatalogServiceUpdateRequest(
   uiRequest: CatalogServiceUpdateRequest
 ): ApiCatalogServiceUpdateRequest {

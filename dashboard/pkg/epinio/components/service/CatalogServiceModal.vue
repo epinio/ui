@@ -5,6 +5,7 @@ import { useCreateCatalogService, useUpdateCatalogService } from '../../queries/
 
 import { validateKubernetesName } from '@shell/utils/validators/kubernetes-name';
 import { validateSettings } from '../../utils/settings';
+import { mergeSettingDefaults } from '../../models/catalogservice/mappers';
 import Banner from '@components/Banner/Banner.vue';
 import ChartSettings from '../settings/ChartSettings.vue';
 import { CatalogService, ChartSetting, CatalogServiceCreateRequest, CatalogServiceUpdateRequest } from '../../models/catalogservice/ui-types';
@@ -248,6 +249,10 @@ const buildUpdateRequest = (): CatalogServiceUpdateRequest => {
 
   if (dirtyFields.value.settings) {
     request.settings = chartSettings.value;
+    request.values = mergeSettingDefaults(
+      initialValues.value?.values,
+      chartSettings.value
+    );
   }
 
   if (dirtyFields.value.secretTypes) {
