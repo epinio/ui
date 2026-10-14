@@ -3376,6 +3376,28 @@
   resolved "https://registry.npmjs.org/@soda/get-current-script/-/get-current-script-1.0.2.tgz"
   integrity sha512-T7VNNlYVM1SgQ+VsMYhnDkcGmWhQdL0bDyGm5TlQ3GBXnJscEClUUOKduWTmm2zCnvNLC1hc3JpuXjs/nFOc5w==
 
+"@tanstack/match-sorter-utils@^9.1.2":
+  version "9.2.6"
+  resolved "https://registry.yarnpkg.com/@tanstack/match-sorter-utils/-/match-sorter-utils-9.2.6.tgz#a16c9e695111c3659805c1b278a7f205233dbe6e"
+  integrity sha512-DIpUSOhPfQ7u/qfUi/Wgm0wBO56MyBYXGvnlI0NcauDRPqdBUlAZZjW2Dxm92m+k1UWVhKw8YJ4f47+75Aujyw==
+  dependencies:
+    remove-accents "0.5.0"
+
+"@tanstack/query-core@5.104.2":
+  version "5.104.2"
+  resolved "https://registry.yarnpkg.com/@tanstack/query-core/-/query-core-5.104.2.tgz#f06a6938160edcd09d22def172c381895b81627d"
+  integrity sha512-/qbsxJK5c3Ve1aFIULWYNcT2jeRUAiD4HME6Eu2ZdpofHoVgAjpkQhLg5xHuOoBkTPQUJLfP7zOxy0qsBcqROA==
+
+"@tanstack/vue-query@^5.101.3":
+  version "5.104.2"
+  resolved "https://registry.yarnpkg.com/@tanstack/vue-query/-/vue-query-5.104.2.tgz#2e804b2563fb0729fa4eeb0f8a3d7dfa70dec54a"
+  integrity sha512-xTJpUMYenXuFstlgRSug10HPcc2TgAfughAxr7ftvaxsuHIZ4jfHQy/uzk99ejJWbrzpPdXiGC9VWtNd/Qvfew==
+  dependencies:
+    "@tanstack/match-sorter-utils" "^9.1.2"
+    "@tanstack/query-core" "5.104.2"
+    "@vue/devtools-api" "^6.6.3"
+    vue-demi "^0.14.10"
+
 "@tootallnate/once@1":
   version "1.1.2"
   resolved "https://registry.npmjs.org/@tootallnate/once/-/once-1.1.2.tgz"
@@ -3513,6 +3535,11 @@
     "@types/express-serve-static-core" "^4.17.33"
     "@types/qs" "*"
     "@types/serve-static" "^1"
+
+"@types/file-saver@^2.0.7":
+  version "2.0.7"
+  resolved "https://registry.yarnpkg.com/@types/file-saver/-/file-saver-2.0.7.tgz#8dbb2f24bdc7486c54aa854eb414940bbd056f7d"
+  integrity sha512-dNKVfHd/jk0SkR/exKGj2ggkB45MAkzvWCaqLUUgkyjITkGNzH8H+yUwr+BLJUBjZOe9w8X3wgmXhZDRg1ED6A==
 
 "@types/graceful-fs@^4.1.2":
   version "4.1.9"
@@ -4300,7 +4327,7 @@
   optionalDependencies:
     prettier "^1.18.2 || ^2.0.0"
 
-"@vue/devtools-api@^6.0.0-beta.11", "@vue/devtools-api@^6.5.0", "@vue/devtools-api@^6.6.4":
+"@vue/devtools-api@^6.0.0-beta.11", "@vue/devtools-api@^6.5.0", "@vue/devtools-api@^6.6.3", "@vue/devtools-api@^6.6.4":
   version "6.6.4"
   resolved "https://registry.npmjs.org/@vue/devtools-api/-/devtools-api-6.6.4.tgz"
   integrity sha512-sGhTPMuXqZ1rVOk32RylztWkfXTRhuS7vgAKv0zjqk8gbsHkJ7xfFf+jbySxt7tWObEJwyKaHMikV/WGDiQm8g==
@@ -12198,6 +12225,11 @@ release-zalgo@^1.0.0:
   dependencies:
     es6-error "^4.0.1"
 
+remove-accents@0.5.0:
+  version "0.5.0"
+  resolved "https://registry.yarnpkg.com/remove-accents/-/remove-accents-0.5.0.tgz#77991f37ba212afba162e375b627631315bed687"
+  integrity sha512-8g3/Otx1eJaVD12e31UbJj1YzdtVvzH85HV7t+9MJYk/u3XmkOUJ5Ys9wQrf9PCPK8+xn4ymzqYCiZl6QWKn+A==
+
 renderkid@^3.0.0:
   version "3.0.0"
   resolved "https://registry.npmjs.org/renderkid/-/renderkid-3.0.0.tgz"
@@ -13892,6 +13924,11 @@ vue-component-type-helpers@^2.0.0:
   version "2.2.12"
   resolved "https://registry.npmjs.org/vue-component-type-helpers/-/vue-component-type-helpers-2.2.12.tgz"
   integrity sha512-YbGqHZ5/eW4SnkPNR44mKVc6ZKQoRs/Rux1sxC6rdwXb4qpbOSYfDr9DsTHolOTGmIKgM9j141mZbBeg05R1pw==
+
+vue-demi@^0.14.10:
+  version "0.14.10"
+  resolved "https://registry.yarnpkg.com/vue-demi/-/vue-demi-0.14.10.tgz#afc78de3d6f9e11bf78c55e8510ee12814522f04"
+  integrity sha512-nMZBOwuzabUO0nLgIcc6rycZEebF6eeUfaiQx9+WSk8e29IbLvPU9feI6tqW4kTo3hvoYAJkMh8n8D0fuISphg==
 
 vue-eslint-parser@^9.1.1, vue-eslint-parser@^9.4.3:
   version "9.4.3"
