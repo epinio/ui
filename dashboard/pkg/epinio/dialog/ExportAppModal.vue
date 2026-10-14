@@ -189,6 +189,7 @@ defineExpose({
   flex-direction: column;
   gap: 1rem;
   width: 750px;
+  max-width: 100%;
   min-height: 300px;
 }
 

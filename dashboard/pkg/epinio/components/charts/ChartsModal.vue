@@ -565,6 +565,7 @@ defineExpose({ openCreate, openEdit, openView });
   flex-direction: column;
   gap: 1rem;
   width: 1000px;
+  max-width: 100%;
   min-height: 500px;
 }
 

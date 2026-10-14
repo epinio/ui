@@ -618,6 +618,7 @@ defineExpose({ openCreate, openView, openEdit });
   flex-direction: column;
   gap: 1rem;
   width: 700px;
+  max-width: 100%;
 }
 
 .config-data-section-title {
