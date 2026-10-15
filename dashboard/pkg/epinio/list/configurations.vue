@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { EPINIO_TYPES } from '../types';
 import { useStore } from 'vuex';
-import { useRouter } from 'vue-router';
 import { computed, onMounted, onUnmounted, ref, watchEffect, watch } from 'vue';
 import Masthead from '@shell/components/ResourceList/Masthead';
 import { makeEmptyCell, makeNameLinks, makeActionMenu } from '../utils/table-formatters';
@@ -20,7 +19,7 @@ import Banner from '@components/Banner/Banner.vue';
 import { useUser } from '../queries/useUserQueries';
 
 const store = useStore();
-const router = useRouter();
+const router = store.$router;
 
 defineProps<{ schema: object }>(); // Keep for compatibility
 

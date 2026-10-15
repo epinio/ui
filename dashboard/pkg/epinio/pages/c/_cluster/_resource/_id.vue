@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import ResourceDetail from '@shell/components/ResourceDetail/index.vue';
-import { useRoute } from 'vue-router';
+import { useStore } from 'vuex';
 
-const route = useRoute();
+const store = useStore();
+const route = store.$router.currentRoute.value;
 
 // Determine if the current resource is catalogservices to hide default header and use custom Masthead in the detail component
 const isCatalogServices = route.params.resource === 'catalogservices';

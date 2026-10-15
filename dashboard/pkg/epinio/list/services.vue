@@ -2,7 +2,6 @@
 import { computed, onMounted, ref, watchEffect, watch } from 'vue';
 import { useStore } from 'vuex';
 import { debounce } from 'lodash';
-import { useRouter } from 'vue-router';
 import { EPINIO_TYPES, EPINIO_SERVICE_PARAM } from '../types';
 import Masthead from '@shell/components/ResourceList/Masthead';
 import { makeStateTag, makeNameLinks, makeActionMenu } from '../utils/table-formatters';
@@ -22,7 +21,7 @@ defineProps<{
 
 const store = useStore() as any;
 const t = store.getters['i18n/t'];
-const router = useRouter();
+const router = store.$router;
 
 const resource: string = EPINIO_TYPES.SERVICE_INSTANCE;
 const serviceModal = ref<InstanceType<typeof ServiceInstanceModal> | null>(null);

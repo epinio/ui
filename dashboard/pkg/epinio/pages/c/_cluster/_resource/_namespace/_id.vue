@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import ResourceDetail from '@shell/components/ResourceDetail/index.vue';
-import { useRoute } from 'vue-router';
+import { useStore } from 'vuex';
 
-const route = useRoute();
+const store = useStore();
+const route = store.$router.currentRoute.value;
 
 const isApplication = route.params.resource === 'applications';
 </script>

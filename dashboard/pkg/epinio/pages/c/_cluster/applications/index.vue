@@ -2,7 +2,6 @@
 import { computed, onMounted, onUnmounted, ref, watchEffect, watch } from 'vue';
 import { useStore } from 'vuex';
 import { debounce } from 'lodash';
-import { useRouter } from 'vue-router';
 import Banner from '@components/Banner/Banner.vue';
 import { EPINIO_TYPES } from '../../../../types';
 import Masthead from '@shell/components/ResourceList/Masthead';
@@ -31,7 +30,7 @@ import { fetchService } from '../../../../queries/useServiceQueries';
 
 const store = useStore() as any;
 const t = store.getters['i18n/t'];
-const router = useRouter();
+const router = store.$router;
 
 const appModal = ref<InstanceType<typeof AppModal> | null>(null);
 const deleteModal = ref<InstanceType<typeof AppDeleteModal> | null>(null);
