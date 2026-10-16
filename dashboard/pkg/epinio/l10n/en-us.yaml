@@ -5,6 +5,12 @@ generic:
   delete: Delete
   edit: Edit
   save: Save
+  discard: Discard
+  creating: Creating
+  updating: Updating
+  deleting: Deleting
+  keepEditing: Keep Editing
+  search: Search...
 typeLabel:
   withoutCount:
     namespaces: Namespaces
@@ -319,7 +325,7 @@ epinio:
             clusterDefault: Builder Image (leave blank to use the cluster default)
           appchart:
             label: Application Chart
-        container_url:
+        containerUrl:
           label: Container Image
           url:
             label: Container Image
@@ -340,7 +346,7 @@ epinio:
         manifest:
           button: From Manifest
           tooltip: Manifests can provide app configuration from another app
-        git_url:
+        gitUrl:
           label: Git URL
           url:
             label: URL
@@ -388,15 +394,21 @@ epinio:
       create:
         label: Create Application
         description: The Application will be created ready to deploy source to
-      bind_configurations:
-        label: Bind Configurations
-        description: Configurations will be bound to the new Application
-      updateSource:
+      update:
         label: Updating
         description: Updates the application source and settings
-      bind_services:
+      bindConfigurations:
+        label: Bind Configurations
+        description: Configurations will be bound to the new Application
+      updateConfigurations:
+        label: Updating Configurations
+        description: Updates the application's configuration bindings
+      bindServices:
         label: Bind Services
         description: Services will be bound to the new Application
+      updateServices:
+        label: Updating Services
+        description: Updates the application's service bindings
       gitFetch:
         label: Fetch
         description: Fetch the files at the git repository's branch
@@ -437,15 +449,26 @@ epinio:
     wm:
       containerName: 'Instance: {label}'
       noData: There are no log entries to show.
+    errors:
+      fetch: Error fetching application, please try again.
   namespace:
     tableHeaders:
       appCount: Applications
       configCount: Configs
+      age: Age
     name: Name
     create: Create a Namespace
     deleteWarning: All resources in a namespace will be deleted.
     validations:
       name: Namespace's name must consist of lower case alphanumeric characters or '-', and must start and end with an alphanumeric character (e.g. 'my-name', or '123-abc')
+    errors:
+      delete: Error deleting namespace, please try again.
+      create: Error creating namespace, please try again.
+      fetch: Error fetching namespaces, please try again.
+    placeholders:
+      name: Namespace Name
+    attemptDelete: You are attempting to delete the Namespace
+    confirmDelete: Confirm deletion of the Namespace by entering
   services:
     applicationsNotBound: No applications bound to the Service Instance(s)
     applicationsBound: |-
@@ -459,6 +482,12 @@ epinio:
       title: Service Variables
     create:
       label: Create Service
+    errors:
+      save: Error saving Service Instance, please try again.
+      delete: Error deleting Service Instance, please try again.
+      unbind: Error unbinding Service Instance, please try again.
+      bind: Error binding Service Instance, please try again.
+      optionsFetch: Error fetching options for Service Instance, please try again.
   configurations:
     pairs:
       label: Config Data
@@ -476,6 +505,11 @@ epinio:
       label: Bind to Applications (optional)
       placeholderWithOptions: Applications
       placeholderNoOptions: There are no apps in this namespace
+    errors:
+      optionsFetch: Error fetching options for Configuration, please try again.
+      unbind: Error unbinding Configuration, please try again.
+      delete: Error deleting Configuration, please try again.
+      fetch: Error fetching Configurations, please try again.
   serviceInstance:
     tableHeaders:
       service: Catalog Service
@@ -495,6 +529,13 @@ epinio:
       chartVersion: Chart Version
       appVersion: Version
       helmChart: Helm Chart
+    errors:
+      delete: Error deleting Catalog Service, please try again.
+      create: Error creating Catalog Service, please try again.
+      update: Error updating Catalog Service, please try again.
+      save: Error saving Catalog Service, please try again.
+      fetchAll: Error fetching Catalog Services, please try again.
+    noServicesFound: No services found.
   warnings:
     noNamespace: There are no namespaces. Please create one before proceeding
   login:
@@ -503,8 +544,33 @@ epinio:
     useGenericProvider: Use Auth Provider
   unsavedChanges:
     title: Unsaved Changes
-    message: You have unsaved changes. Are you sure you want to leave this page?
+    pageMessage: You have unsaved changes. Are you sure you want to leave this page?
     discard: Discard Changes
+    warning: You have unsaved changes.
+  appCharts:
+    errors:
+      delete: Error deleting App Chart, please try again.
+      fetch: Error fetching App Charts, please try again.
+      create: Error creating App Chart, please try again.
+      update: Error updating App Chart, please try again.
+      save: Error saving App Chart, please try again.
+  builderImages:
+    errors:
+      delete: Error deleting Builder Image, please try again.
+      fetch: Error fetching Builder Images, please try again.
+      create: Error creating Builder Image, please try again.
+      update: Error updating Builder Image, please try again.
+      save: Error saving Builder Image, please try again.\
+  gitConfigs:
+    errors:
+      save: Error saving Git Configuration, please try again.
+      create: Error creating Git Configuration, please try again.
+      delete: Error deleting Git Configuration, please try again.
+      fetchAll: Error fetching Git Configurations, please try again.
+      fetchOne: Error fetching Git Configuration, please try again.
+  user:
+    errors:
+      fetch: Error fetching user permissions, please try again.
   growl:
     application:
       deploy:
@@ -599,15 +665,32 @@ epinio:
         error:
           title: Configuration Deletion Failed
           message: 'Failed to delete configuration { name }. Please try again or contact your system admin to investigate the issue.'
+      bindings:
+        success:
+          title: Configuration Bindings Updated
+          message: 'Your configuration { name } has been successfully updated with new bindings.'
+        error:
+          title: Something Went Wrong Updating Configuration Bindings
+          message: Please wait a moment and try again. If the problem persists, please contact support.
     service:
       bind:
         error:
           title: Something Went Wrong Binding the Service
           message: The service most likely wasn't ready yet. Please wait a moment and try again. If the problem persists, please contact support.
+        success:
+          title: Service Bound Successfully
+          message: 'Your service { name } has been successfully bound to the application(s).'
       unbind:
         error:
           title: Something Went Wrong Unbinding the Service
           message: Please wait a moment and try again. Please try again or contact your system admin to investigate the issue.
+        success:
+          title: Service Unbound Successfully
+          message: 'Your service { name } has been successfully unbound from the application(s).'
+      both:
+        success:
+          title: Service bindings updated successfully
+          message: 'Your service { name } has been successfully updated with new bindings.'
     serviceInstance:
       create:
         success:

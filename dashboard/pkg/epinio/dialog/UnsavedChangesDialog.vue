@@ -51,7 +51,7 @@ const config = {
 
     <template #body>
       <p>
-        {{ t('epinio.unsavedChanges.message') }}
+        {{ t('epinio.unsavedChanges.pageMessage') }}
       </p>
     </template>
   </GenericPrompt>

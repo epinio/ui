@@ -1,14 +1,17 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watchEffect, watch } from 'vue';
 import { useStore } from 'vuex';
-
 import { EPINIO_TYPES } from '../../types';
-import { epinioExceptionToErrorsArray } from '../../utils/errors';
 import { validateKubernetesName } from '@shell/utils/validators/kubernetes-name';
 import Banner from '@components/Banner/Banner.vue';
 import isEqual from 'lodash/isEqual';
+import { useNamespaces } from '../../queries/useNamespaceQueries';
+import { useCreateConfiguration, useBindConfiguration, useUpdateConfiguration, useUnbindConfiguration } from '../../queries/useConfigurationMutations';
+import { ConfigurationResponse } from '../../models/configuration/ui-types';
+import { debounce } from 'lodash';
 import ResourceDropdown from '../application/ResourceDropdown.vue';
-import { useNamespaces } from '../../utils/namespaces';
+import { ListResourceRequestParams, ResourceQueryOptions } from '../../models/resource/ui-types';
+import { useApplications } from '../../queries/useApplicationQueries';
 
 const store = useStore() as any;
 const t = store.getters['i18n/t'];
@@ -23,8 +26,6 @@ const initialBoundApps = ref<string[]>([]);
 const selectedApps = ref<string[]>([]);
 const configData = ref<Array<{ key: string; value: string }>>([]);
 const initialConfigDataSnapshot = ref('');
-const saving = ref(false);
-const errors = ref<string[]>([]);
 const showDiscardConfirm = ref(false);
 
 // Hidden file inputs, both rendered outside the modal to avoid focus-return side effects
@@ -38,25 +39,52 @@ const isEdit = computed(() => modalMode.value === 'edit');
 const isCreate = computed(() => modalMode.value === 'create');
 const isEditing = computed(() => isEdit.value || isCreate.value);
 
-const isLoadingApplications = ref(false);
-const cachedApplications = ref<any[]>([]);
-const fetchedApplications = ref<any[]>([]);
+const namespaceRequestParams = ref<ListResourceRequestParams>({ page: 1, pageSize: 25, search: '' });
+const namespaceRequestOptions = ref({ enabled: false, polling: false });
+const {data: namespaces, isLoading: isLoadingNamespaces, isError: isErrorNamespaces, error: namespacesError} = useNamespaces(store, namespaceRequestParams, namespaceRequestOptions);
 
-const {
-  options:    namespaceOpts,
-  isLoading:  isLoadingNamespaces,
-  firstName:  firstNamespace,
-  fetchAll:   fetchNamespaces,
-  search:     searchNamespaces,
-} = useNamespaces(store, {
-  scopeToActiveFilter: true
+const {mutateAsync: createConfiguration, isPending: isCreatingConfiguration, isError: createConfigurationError, error: createConfigurationErrorData} = useCreateConfiguration(store, () => {
+  handleSuccess('create');
+  closeModal();
+});
+const {mutateAsync: bindConfiguration, isError: bindConfigurationError } = useBindConfiguration(store);
+const {mutateAsync: unbindConfiguration, isError: unbindConfigurationError } = useUnbindConfiguration(store);
+const {mutateAsync: updateConfiguration, isPending: isUpdatingConfiguration, isError: updateConfigurationError, error: updateConfigurationErrorData} = useUpdateConfiguration(store, () => {
+  handleSuccess('update');
+  closeModal();
+});
+const applicationRequestParams = ref<ListResourceRequestParams>({
+  page: 1,
+  pageSize: 10,
+  search: '',
+  namespaces: []
+});
+const applicationRequestOptions = ref<ResourceQueryOptions>({
+  enabled: true,
+  polling: false,
+});
+const {data: applications, isLoading: isLoadingApplications, isError: isErrorApplications, error: applicationsError} = useApplications(store, applicationRequestParams, applicationRequestOptions);
+// Watch for changes to the active namespace cache and update the request params accordingly
+watchEffect(() => {
+  void store.state.activeNamespaceCacheKey;
+  const activeNamespaces = store.state.activeNamespaceCache;
+
+  if (activeNamespaces && Object.keys(activeNamespaces).length > 0) {
+    namespaceRequestParams.value.namespaces = Object.keys(activeNamespaces);
+  } else {
+    namespaceRequestParams.value.namespaces = undefined;
+  }
+});
+
+const namespaceOpts = computed(() => {
+  return namespaces?.value?.items.map((ns: any) => ({ label: ns.meta.name, value: ns.meta.name })) || [];
 });
 
 const nsAppOptions = computed(() => {
   if (!formNamespace.value) return [];
 
-  return fetchedApplications.value
-    .map((a: any) => ({ label: a.meta.name, value: a.meta.name }));
+  return applications?.value?.items
+    .map((a: any) => ({ label: a.meta.name, value: a.meta.name })) || [];
 });
 
 const isDirty = computed(() => {
@@ -113,7 +141,6 @@ function rowsToDetails(rows: Array<{ key: string; value: string }>): Record<stri
 }
 
 async function openCreate() {
-  errors.value = [];
   modalMode.value = 'create';
   configModel.value = null;
   formNamespace.value = '';
@@ -123,39 +150,34 @@ async function openCreate() {
   configData.value = [{ key: '', value: '' }];
   initialConfigDataSnapshot.value = '';
 
-  // Open first so the modal is visible while the namespaces load
+  namespaceRequestOptions.value.enabled = true;
+
   showModal.value = true;
-
-  await fetchNamespaces();
-
-  if (!formNamespace.value) {
-    formNamespace.value = firstNamespace.value;
-  }
 }
 
-function openView(row: any) {
-  errors.value = [];
-  modalMode.value = 'view';
+const populateForm = (row: ConfigurationResponse) => {
   configModel.value = row;
   formNamespace.value = row.meta?.namespace || '';
   formName.value = row.meta?.name || '';
+  selectedApps.value = [...(row.configuration?.boundApps || [])];
+  initialBoundApps.value = [...(row.configuration?.boundApps || [])];
+  configData.value = detailsToRows(row.configuration?.details || {});
+  initialConfigDataSnapshot.value = JSON.stringify(configData.value);
+};
 
-  const boundapps = row.configuration?.boundapps || [];
-
-  selectedApps.value = [...boundapps];
-  initialBoundApps.value = [...boundapps];
-
-  const rows = detailsToRows(row.configuration?.details || {});
-
-  configData.value = [...rows];
-  initialConfigDataSnapshot.value = JSON.stringify(rows);
+function openView(row: ConfigurationResponse) {
+  modalMode.value = 'view';
+  populateForm(row);
+  namespaceRequestOptions.value.enabled = true;
 
   showModal.value = true;
 }
 
-function openEdit(row: any) {
-  openView(row);
+function openEdit(row: ConfigurationResponse) {
   modalMode.value = 'edit';
+  populateForm(row);
+  namespaceRequestOptions.value.enabled = true;
+  showModal.value = true;
 }
 
 function handleModalClose() {
@@ -177,13 +199,13 @@ function handleDiscard() {
 }
 
 function closeModal() {
+  namespaceRequestOptions.value.enabled = false;
   formNamespace.value = '';
   formName.value = '';
   selectedApps.value = [];
   initialBoundApps.value = [];
   configData.value = [];
   initialConfigDataSnapshot.value = '';
-  errors.value = [];
   configModel.value = null;
   showDiscardConfirm.value = false;
   showModal.value = false;
@@ -276,180 +298,100 @@ function onBulkFileChange(event: Event) {
   (event.target as HTMLInputElement).value = '';
 }
 
-// Refresh the whole list, not just the saved record: the table paginates
-// server-side, so a single-resource fetch adds an 11th row to a 10-row page
-// and leaves the page count stale until the 30s poller catches up.
-const refreshConfigurations = () => store
-  .dispatch('epinio/refreshList', { type: EPINIO_TYPES.CONFIGURATION })
-  .catch(() => {});
-
-// The Bound Applications column reads from the apps slice, so app bindings
-// need that list refreshed too.
-const refreshApps = () => store
-  .dispatch('epinio/findAll', { type: EPINIO_TYPES.APP, opt: { force: true } })
-  .catch(() => {});
-
 async function onSubmit() {
-  if (!validationPassed.value || saving.value) return;
+  if (!validationPassed.value || isCreatingConfiguration.value) return;
 
-  saving.value = true;
-  errors.value = [];
+  if (isCreate.value) {
+    const capturedNamespace = formNamespace.value;
+    const capturedName = formName.value;
+    const capturedSelectedApps = [...selectedApps.value];
 
-  try {
-    if (isCreate.value) {
-      const capturedNamespace = formNamespace.value;
-      const capturedName = formName.value;
-      const capturedSelectedApps = [...selectedApps.value];
+    const request = {
+      name: capturedName,
+      data: rowsToDetails(configData.value),
+    };
 
-      const cfg = await store.dispatch('epinio/create', { type: EPINIO_TYPES.CONFIGURATION });
+    await createConfiguration({ namespace: capturedNamespace, request });
 
-      cfg.metadata = { namespace: capturedNamespace, name: capturedName };
-      cfg.data = rowsToDetails(configData.value);
-      await cfg.create();
-
-      closeModal();
-
-      store.dispatch('growl/success', {
-        title:   t('epinio.growl.configuration.create.success.title'),
-        message: t('epinio.growl.configuration.create.success.message', { name: capturedName }),
-      });
-
-      refreshConfigurations();
-
-      if (capturedSelectedApps.length) {
-        const nsApps = store.getters['epinio/all'](EPINIO_TYPES.APP)
-          .filter((a: any) => a.meta.namespace === capturedNamespace);
-
-        Promise.all(
-          nsApps
-            .filter((a: any) => capturedSelectedApps.includes(a.metadata.name))
-            .map((a: any) => a.bindConfigurations([capturedName]))
-        ).then(() => {
-          refreshApps();
-          refreshConfigurations();
-        }).catch(() => {});
-      }
-    } else {
-      const cfg = configModel.value;
-      const capturedNamespace = formNamespace.value;
-      const capturedName = cfg.meta?.name;
-      const capturedSelectedApps = [...selectedApps.value];
-      const capturedInitialApps = [...initialBoundApps.value];
-      const dataChanged = JSON.stringify(configData.value) !== initialConfigDataSnapshot.value;
-
-      if (dataChanged) {
-        cfg.data = rowsToDetails(configData.value);
-        await cfg.update();
-      }
-
-      closeModal();
-
-      store.dispatch('growl/success', {
-        title:   t('epinio.growl.configuration.update.success.title'),
-        message: t('epinio.growl.configuration.update.success.message', { name: capturedName }),
-      });
-
-      // Determine which apps were newly bound or unbound, and update accordingly
-      const newBindApps = capturedSelectedApps.filter(a => !capturedInitialApps.includes(a));
-      const unbindApps = capturedInitialApps.filter(a => !capturedSelectedApps.includes(a));
-
-      if (newBindApps.length || unbindApps.length) {
-        const nsApps = store.getters['epinio/all'](EPINIO_TYPES.APP)
-          .filter((a: any) => a.meta.namespace === capturedNamespace);
-
-        const bindingOps = nsApps.reduce((ops: Promise<any>[], app: any) => {
-          const appName = app.metadata.name;
-
-          if (newBindApps.includes(appName) && !app.configuration?.configurations?.includes(capturedName)) {
-            ops.push(app.bindConfigurations([capturedName]));
-          } else if (unbindApps.includes(appName)) {
-            ops.push(app.unbindConfiguration([capturedName]));
-          }
-
-          return ops;
-        }, []);
-
-        Promise.all(bindingOps).then(() => {
-          refreshApps();
-          refreshConfigurations();
-        }).catch(() => {});
-      }
-
-      cfg.forceFetch().catch(() => {});
+    if (capturedSelectedApps.length) {
+      Promise.all(capturedSelectedApps.map(appName => bindConfiguration({ namespace: capturedNamespace, appName, request: { names: [capturedName] } })))
     }
-  } catch (err: any) {
-    errors.value = epinioExceptionToErrorsArray(err);
+  } else {
+    const cfg = configModel.value;
+    const capturedNamespace = formNamespace.value;
+    const capturedName = cfg.meta?.name;
+    const capturedSelectedApps = [...selectedApps.value];
+    const capturedInitialApps = [...initialBoundApps.value];
+    const dataChanged = JSON.stringify(configData.value) !== initialConfigDataSnapshot.value;
+
+    if (dataChanged) {
+      cfg.data = rowsToDetails(configData.value);
+      const request = {
+        data: cfg.data,
+      };
+      await updateConfiguration({ namespace: capturedNamespace, configurationName: capturedName, request });
+    }
+
+    // Determine which apps were newly bound or unbound, and update accordingly
+    const newBindApps = capturedSelectedApps.filter(a => !capturedInitialApps.includes(a));
+    const unbindApps = capturedInitialApps.filter(a => !capturedSelectedApps.includes(a));
+
+    if (showModal.value) {
+      closeModal();
+    }
+
+    if (newBindApps.length || unbindApps.length) {
+      Promise.all([
+        ...newBindApps.map(appName => bindConfiguration({ namespace: capturedNamespace, appName, request: { names: [capturedName] } })),
+        ...unbindApps.map(appName => unbindConfiguration({ namespace: capturedNamespace, appName, configName: capturedName }))
+      ]).then(() => {
+      store.dispatch('growl/success', {
+        title:   t(`epinio.growl.configuration.bindings.success.title`),
+        message: t(`epinio.growl.configuration.bindings.success.message`, { name: capturedName }),
+      });
+    });
+    }
+  }
+}
+
+const onNamespaceFilter = debounce((query: string) => {
+  namespaceRequestParams.value.page = 1;
+  namespaceRequestParams.value.search = query;
+}, 500);
+
+const onApplicationFilter = debounce((query: string) => {
+  applicationRequestParams.value.page = 1;
+  applicationRequestParams.value.search = query;
+}, 500);
+
+watchEffect(() => {
+  if (bindConfigurationError.value) {
     store.dispatch('growl/error', {
-      title: isEdit.value
-        ? t('epinio.growl.configuration.save.error.updateTitle')
-        : t('epinio.growl.configuration.save.error.createTitle'),
-      message: t('epinio.growl.configuration.save.error.message'),
+      title: t('epinio.growl.serviceInstance.bind.error.title'),
+      message: t('epinio.growl.serviceInstance.bind.error.message'),
     });
-  } finally {
-    saving.value = false;
   }
-}
-
-async function fetchApplications() {
-  if (!formNamespace.value) return;
-
-  if (cachedApplications.value.length > 0) {
-    fetchedApplications.value = cachedApplications.value;
-    return;
-  }
-
-  isLoadingApplications.value = true;
-  try {
-    const res = await store.dispatch('epinio/request', {
-      opt: {
-        url: `/api/v1/applications?namespaces=${formNamespace.value}`,
-        method: 'GET',
-        responseType: 'json'
-      }
+  if (unbindConfigurationError.value) {
+    store.dispatch('growl/error', {
+      title: t('epinio.growl.serviceInstance.unbind.error.title'),
+      message: t('epinio.growl.serviceInstance.unbind.error.message'),
     });
-    const rawData = res.data ?? [];
-    const classifiedData = await Promise.all(rawData.map((item: any) =>
-      store.dispatch('epinio/create', { type: EPINIO_TYPES.APP, ...item })
-    ));
-    fetchedApplications.value = classifiedData;
-    cachedApplications.value = classifiedData;
-  } catch (error) {
-    console.error('Failed to fetch applications', error);
-  } finally {
-    isLoadingApplications.value = false;
   }
-}  
+});
 
-async function searchApplications(query: string) {
-  if (!formNamespace.value) return;
-
-  isLoadingApplications.value = true;
-  try {
-    const res = await store.dispatch('epinio/request', {
-      opt: {
-        url: `/api/v1/applications?namespaces=${formNamespace.value}&search=${query}`,
-        method: 'GET',
-        responseType: 'json'
-      }
-    });
-    const rawData = res.data ?? [];
-    const classifiedData = await Promise.all(rawData.map((item: any) =>
-      store.dispatch('epinio/create', { type: EPINIO_TYPES.APP, ...item })
-    ));
-    fetchedApplications.value = classifiedData;
-  } catch {
-    fetchedApplications.value = [];
-  } finally {
-    isLoadingApplications.value = false;
-  }
-}
+const handleSuccess = (type: 'create' | 'update') => {
+  store.dispatch('growl/success', {
+    title:   t(`epinio.growl.configuration.${type}.success.title`),
+    message: t(`epinio.growl.configuration.${type}.success.message`, { name: formName.value }),
+  });
+};
 
 // watch namespace changes to fetch applications for the selected namespace
 watch(formNamespace, (newNamespace) => {
   if (newNamespace) {
-    fetchedApplications.value = [];
-    cachedApplications.value = [];
-    fetchApplications();
+    applicationRequestParams.value.page = 1;
+    applicationRequestParams.value.search = '';
+    applicationRequestParams.value.namespaces = [newNamespace];
   }
 }, { immediate: true });
 
@@ -491,24 +433,19 @@ defineExpose({ openCreate, openView, openEdit });
       <trailhand-form-card>
         <!-- Namespace + Name -->
         <trailhand-form-row columns="2">
-          <ResourceDropdown
-            v-if="isCreate"
+          <trailhand-dropdown
+            style="width: 100%"
             :options="namespaceOpts"
             :value="formNamespace"
             label="Namespace"
-            required
             placeholder="Select a namespace"
-            :onDropdownChange="(e: CustomEvent) => { formNamespace = e.detail.value; selectedApps = []; }"
-            :fetchAllResources="fetchNamespaces"
-            :searchResources="searchNamespaces"
+            :disabled="isEdit || isView"
+            :required="!isView"
+            filterable
+            @dropdown-change="(e: CustomEvent) => { formNamespace = e.detail.value; selectedApps = []; }"
+            @dropdown-filter="(e: CustomEvent<{ filter: string }>) => { onNamespaceFilter(e.detail.filter); }"
             :isLoading="isLoadingNamespaces"
-          />
-          <trailhand-text-input
-            v-else
-            :value="formNamespace"
-            label="Namespace"
-            :disabled="true"
-          />
+          ></trailhand-dropdown>
           <trailhand-text-input
             :value="formName"
             label="Name"
@@ -521,19 +458,17 @@ defineExpose({ openCreate, openView, openEdit });
 
         <!-- Bind to Application -->
         <trailhand-form-row>
-          <ResourceDropdown
+          <trailhand-dropdown
             :values="selectedApps"
             :options="nsAppOptions"
             label="Bind to Application (Optional)"
-            :disabled="isView"
+            :disabled="isView || !formNamespace || isLoadingApplications"
             filterable
             multiselect
             placeholder="Select applications to bind"
-            :onDropdownChange="(e: CustomEvent) => { selectedApps = e.detail.values; }"
-            :fetchAllResources="fetchApplications"
-            :searchResources="searchApplications"
-            :isLoading="isLoadingApplications"
-          />
+            @dropdown-change="(e: CustomEvent) => { selectedApps = e.detail.values; }"
+            @dropdown-filter="(e: CustomEvent<{ filter: string }>) => { onApplicationFilter(e.detail.filter); }"
+          ></trailhand-dropdown>
         </trailhand-form-row>
 
         <!-- Config Data -->
@@ -613,10 +548,14 @@ defineExpose({ openCreate, openView, openEdit });
       </trailhand-form-card>
 
       <Banner
-        v-for="(err, i) in errors"
-        :key="i"
+        v-if="createConfigurationError || updateConfigurationError"
         color="error"
-        :label="err"
+        :label="createConfigurationErrorData?.message || updateConfigurationErrorData?.message || t('epinio.services.errors.save')"
+      />
+      <Banner
+        v-if="isErrorNamespaces || isErrorApplications"
+        color="error"
+        :label="namespacesError?.message || applicationsError?.message || t('epinio.services.errors.optionsFetch')"
       />
     </div>
 
@@ -663,10 +602,10 @@ defineExpose({ openCreate, openView, openEdit });
         </trailhand-button>
         <trailhand-button
           variant="primary"
-          :disabled="!validationPassed || saving"
+          :disabled="!validationPassed || isCreatingConfiguration || isUpdatingConfiguration"
           @button-click="onSubmit"
         >
-          {{ saving ? (isCreate ? 'Creating...' : 'Saving...') : (isCreate ? 'Create' : 'Save') }}
+          {{ isEdit ? (isUpdatingConfiguration ? t('generic.updating') : t('generic.save')) : (isCreatingConfiguration ? t('generic.creating') : t('generic.create')) }}
         </trailhand-button>
       </template>
     </div>

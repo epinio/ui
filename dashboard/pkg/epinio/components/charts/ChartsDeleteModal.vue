@@ -1,61 +1,52 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { useStore } from 'vuex';
-import EpinoAppChartModel from 'models/appcharts';
-import { EPINIO_TYPES } from '../../types';
-import { epinioExceptionToErrorsArray } from '../../utils/errors';
 import Banner from '@components/Banner/Banner.vue';
+import { useDeleteAppChart } from '../../queries/useAppChartsMutations';
+import { AppChart } from '../../models/appcharts/ui-types';
 
 const showDeleteModal = ref<boolean>(false);
-const chartToDelete = ref<EpinoAppChartModel | null>(null);
-const errors = ref<Array<string>>([]);
-const deletingChart = ref<boolean>(false);
+const chartToDelete = ref<AppChart | null>(null);
 const hasAssociatedApps = ref<boolean>(false);
 
 const store = useStore();
 const t = store.getters['i18n/t'];
 
-function openDelete(row: EpinoAppChartModel) {
+const {mutate: deleteAppChart, isPending: isDeletingAppChart, isError: deleteAppChartError, error: deleteAppChartErrorData} = useDeleteAppChart(store, handleSuccess);
+
+function openDelete(row: AppChart) {
   chartToDelete.value = row;
   showDeleteModal.value = true;
-  hasAssociatedApps.value = !!row.bound_apps;
+  hasAssociatedApps.value = !!row.boundApps;
 }
 
 function closeDelete() {
 showDeleteModal.value = false;
-errors.value = [];
 hasAssociatedApps.value = false;
 chartToDelete.value = null;
 }
 
 async function onSubmitDelete() {
-if (!chartToDelete.value) {
-    return;
+    if (!chartToDelete.value) {
+        return;
+    }
+    const chartName = chartToDelete.value.meta.name;
+    deleteAppChart({ name: chartName });
 }
-const chartName = chartToDelete.value.meta.name;
-try {
-    deletingChart.value = true;
-    await chartToDelete.value.remove();
+
+function handleSuccess() {
     store.dispatch('growl/success', {
-      title:   t('epinio.growl.appCharts.delete.success.title'),
-      message: t('epinio.growl.appCharts.delete.success.message', { name: chartName }),
+        title:   t('epinio.growl.appCharts.delete.success.title'),
+        message: t('epinio.growl.appCharts.delete.success.message', { name: chartToDelete.value?.meta.name }),
     });
+    emit('deleted');
     closeDelete();
-    store.dispatch('epinio/refreshList', { type: EPINIO_TYPES.APP_CHARTS });
-} catch(e) {
-    errors.value = [];
-    errors.value = epinioExceptionToErrorsArray(e).map(JSON.stringify);
-    store.dispatch('growl/error', {
-      title:   t('epinio.growl.appCharts.delete.error.title'),
-      message: t('epinio.growl.appCharts.delete.error.message', { name: chartName }),
-    });
-} finally {
-    deletingChart.value = false;
-}
-}
+};
+
 defineExpose({
   openDelete
 });
+const emit = defineEmits(['deleted']);
 </script> 
 
 <template>
@@ -69,18 +60,17 @@ defineExpose({
         <p>Are you sure you want to proceed?</p>
         <Banner v-if="hasAssociatedApps" color="warning" label="This chart is currently associated with one or more applications. Deleting it will prevent future rebuilds." />
         <Banner
-            v-for="(err, i) in errors"
-            :key="i"
+            v-if="deleteAppChartError"
             color="error"
-            :label="err"
-            />
+            :label="deleteAppChartErrorData?.message || t('epinio.appCharts.errors.delete')"
+        />
         </div>
         <div slot="footer">
         <trailhand-button variant="secondary" class="mr-10" @button-click="closeDelete"
             >Cancel</trailhand-button
         >
-        <trailhand-button :disabled="deletingChart" variant="destructive" @button-click="onSubmitDelete"
-            >{{ deletingChart ? 'Deleting...' : t('generic.delete') }}</trailhand-button
+        <trailhand-button :disabled="isDeletingAppChart" variant="destructive" @button-click="onSubmitDelete"
+            >{{ isDeletingAppChart ? t('generic.deleting') : t('generic.delete') }}</trailhand-button
         >
         </div>
     </trailhand-modal>

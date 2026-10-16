@@ -1,62 +1,52 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { useStore } from 'vuex';
-import EpinioCatalogServiceModel from 'models/catalogservices';
-import { EPINIO_TYPES } from '../../types';
-import { epinioExceptionToErrorsArray } from '../../utils/errors';
 import Banner from '@components/Banner/Banner.vue';
+import { CatalogService } from '../../models/catalogservice/ui-types';
+import { useDeleteCatalogService } from '../../queries/useCatalogServiceMutation';
 
 const showDeleteModal = ref<boolean>(false);
-const catalogServiceToDelete = ref<EpinioCatalogServiceModel | null>(null);
-const errors = ref<Array<string>>([]);
-const deletingCatalogService = ref<boolean>(false);
+const catalogServiceToDelete = ref<CatalogService | null>(null);
 const hasAssociatedServices = ref<boolean>(false);
 
 const store = useStore();
 const t = store.getters['i18n/t'];
 
-function openDelete(row: EpinioCatalogServiceModel) {
+const {mutate: deleteCatalogService, isPending: isDeletingCatalogService, isError: deleteCatalogServiceError, error: deleteCatalogServiceErrorData} = useDeleteCatalogService(store, handleSuccess);
+
+function openDelete(row: CatalogService) {
   catalogServiceToDelete.value = row;
   showDeleteModal.value = true;
-  hasAssociatedServices.value = !!row.bound_services;
+  hasAssociatedServices.value = !!row.boundServices;
 }
 
 function closeDelete() {
-showDeleteModal.value = false;
-errors.value = [];
-hasAssociatedServices.value = false;
-catalogServiceToDelete.value = null;
+    showDeleteModal.value = false;
+    hasAssociatedServices.value = false;
+    catalogServiceToDelete.value = null;
 }
 
 async function onSubmitDelete() {
-if (!catalogServiceToDelete.value) {
-    return;
+    if (!catalogServiceToDelete.value) {
+        return;
+    }
+    const catalogServiceName = catalogServiceToDelete.value.meta.name;
+    deleteCatalogService({ name: catalogServiceName });
 }
-const catalogServiceName = catalogServiceToDelete.value.meta.name;
-try {
-    deletingCatalogService.value = true;
-    await catalogServiceToDelete.value.remove();
+
+function handleSuccess() {
     store.dispatch('growl/success', {
-      title:   t('epinio.growl.catalogServices.delete.success.title'),
-      message: t('epinio.growl.catalogServices.delete.success.message', { name: catalogServiceName }),
+        title:   t('epinio.growl.catalogServices.delete.success.title'),
+        message: t('epinio.growl.catalogServices.delete.success.message', { name: catalogServiceToDelete.value?.meta.name }),
     });
-    closeDelete();
     emit('deleted');
-    store.dispatch('epinio/findAll', { type: EPINIO_TYPES.CATALOG_SERVICE, opt: { force: true } });
-} catch(e) {
-    errors.value = [];
-    errors.value = epinioExceptionToErrorsArray(e).map(JSON.stringify);
-    store.dispatch('growl/error', {
-      title:   t('epinio.growl.catalogServices.delete.error.title'),
-      message: t('epinio.growl.catalogServices.delete.error.message', { name: catalogServiceName }),
-    });
-} finally {
-    deletingCatalogService.value = false;
-}
-}
+    closeDelete();
+};
+
 defineExpose({
   openDelete
 });
+
 const emit = defineEmits(['deleted']);
 </script> 
 
@@ -71,18 +61,17 @@ const emit = defineEmits(['deleted']);
         <p>Are you sure you want to proceed?</p>
         <Banner v-if="hasAssociatedServices" color="warning" label="This catalog service is currently associated with one or more services. Deleting it may affect those services." />
         <Banner
-            v-for="(err, i) in errors"
-            :key="i"
+            v-if="deleteCatalogServiceError"
             color="error"
-            :label="err"
-            />
+            :label="deleteCatalogServiceErrorData?.message || t('epinio.catalogService.errors.delete')"
+        />
         </div>
         <div slot="footer">
         <trailhand-button variant="secondary" class="mr-10" @button-click="closeDelete"
             >Cancel</trailhand-button
         >
-        <trailhand-button :disabled="deletingCatalogService" variant="destructive" @button-click="onSubmitDelete"
-            >{{ deletingCatalogService ? 'Deleting...' : t('generic.delete') }}</trailhand-button
+        <trailhand-button :disabled="isDeletingCatalogService" variant="destructive" @button-click="onSubmitDelete"
+            >{{ isDeletingCatalogService ? t('generic.deleting') : t('generic.delete') }}</trailhand-button
         >
         </div>
     </trailhand-modal>
