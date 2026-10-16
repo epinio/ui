@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watchEffect } from 'vue';
+import { ref, computed } from 'vue';
 import { useStore } from 'vuex';
 import Banner from '@components/Banner/Banner.vue';
 import { useDeleteConfiguration, useUnbindConfiguration } from '../../queries/useConfigurationMutations';

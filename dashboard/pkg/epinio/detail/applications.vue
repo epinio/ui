@@ -61,7 +61,7 @@ const configModal = ref<InstanceType<typeof ConfigurationModal> | null>(null);
 const configDeleteModal = ref<InstanceType<typeof ConfigurationDeleteModal> | null>(null);
 
 // Fetch user for permissions
-const { data: user, isError: isErrorUser, error: userError } = useUser(store);
+const { data: user } = useUser(store);
 
 // Fetch application details
 const appRequestOptions = ref<ResourceQueryOptions>({
@@ -147,7 +147,7 @@ const onServicesSearch = debounce(async (query: string) => {
   servicesRequestParams.value.page = 1;
   servicesRequestParams.value.search = query;
 }, 500);
-const {data: services, isLoading: isLoadingServices, isError: isErrorServices, error: servicesError} = useNamespacedServices(store, route.params.namespace as string, servicesRequestParams, requestOptions);
+const {data: services, isLoading: isLoadingServices} = useNamespacedServices(store, route.params.namespace as string, servicesRequestParams, requestOptions);
 
 // Fetch configurations for table
 const configurationsRequestParams = ref<ListResourceRequestParams>({
@@ -164,7 +164,7 @@ const onConfigurationsSearch = debounce(async (query: string) => {
   configurationsRequestParams.value.page = 1;
   configurationsRequestParams.value.search = query;
 }, 500);
-const {data: configurations, isLoading: isLoadingConfigurations, isError: isErrorConfigurations, error: configurationsError} = useNamespacedConfigurations(store, route.params.namespace as string, configurationsRequestParams, requestOptions);
+const {data: configurations, isLoading: isLoadingConfigurations} = useNamespacedConfigurations(store, route.params.namespace as string, configurationsRequestParams, requestOptions);
 
 // Update app mutation for increasing/decreasing instances
 const { mutateAsync: updateApp, isPending: isUpdatingApp } = useUpdateApplication(store, () => refetchApplication());
@@ -574,7 +574,7 @@ const gitConfigRequestOptions = ref<ResourceQueryOptions>({
   enabled: !!appFormData.value && !!gitConfig.value && (sourceType.value === 'github' || sourceType.value === 'gitlab'),
   polling: false,
 });
-const {data: selectedGitConfig, isLoading: isLoadingGitConfig, isError: isErrorGitConfig, error: gitConfigError} = useGitConfig(store, appFormData.value?.source[sourceType.value as 'github' | 'gitlab']?.gitConfig || '', gitConfigRequestOptions);
+const {data: selectedGitConfig} = useGitConfig(store, appFormData.value?.source[sourceType.value as 'github' | 'gitlab']?.gitConfig || '', gitConfigRequestOptions);
 
 // Compute the base URL for the selected git provider using the fetched git config
 const gitBaseUrl = useGitBaseUrl(sourceType as Ref<'github' | 'gitlab'>, selectedGitConfig);
@@ -584,7 +584,7 @@ const gitUserRequestOptions = computed<ResourceQueryOptions>(() => ({
   enabled: !!appFormData.value && !!gitBaseUrl.value && !!gitUsername.value,
   polling: false,
 }));
-const { data: gitUser, isLoading: isGitUserLoading, isError: isGitUserError } = useGitProxyUserType(
+const { data: gitUser } = useGitProxyUserType(
   store,
   sourceType as Ref<'github' | 'gitlab'>,
   gitUsername as Ref<string>,
@@ -604,7 +604,7 @@ const gitRepoRequestOptions = computed<ResourceQueryOptions>(() => ({
   enabled: gitBaseUrl.value !== null && !!gitUser.value?.username && !!gitRepo.value,
   polling: false,
 }));
-const { data: gitRepos, isLoading: isGitReposLoading, isError: isGitReposError } = useGitProxyRepos(
+const { data: gitRepos } = useGitProxyRepos(
   store,
   sourceType as Ref<'github' | 'gitlab'>,
   gitUser as Ref<{ username: string, userType: string | null }>,
@@ -628,7 +628,7 @@ const gitBranchRequestOptions = computed<ResourceQueryOptions>(() => ({
   enabled: gitBaseUrl.value !== null && !!gitUser.value && !!selectedRepo.value,
   polling: false,
 }));
-const { data: gitBranches, isLoading: isGitBranchesLoading, isError: isGitBranchesError } = useGitProxyBranches(
+const { data: gitBranches } = useGitProxyBranches(
   store,
   sourceType as Ref<'github' | 'gitlab'>,
   gitUser as Ref<{ username: string, userType: string | null }>,
@@ -653,7 +653,7 @@ const gitCommitRequestOptions = computed<ResourceQueryOptions>(() => ({
   enabled: gitBaseUrl.value !== null && !!gitUser.value && !!selectedRepo.value && !!selectedBranch.value,
   polling: false,
 }));
-const { data: gitCommits, isLoading: isGitCommitsLoading, isError: isGitCommitsError } = useGitProxyCommits(
+const { data: gitCommits } = useGitProxyCommits(
   store,
   sourceType as Ref<'github' | 'gitlab'>,
   gitUser as Ref<{ username: string, userType: string | null }>,
@@ -772,7 +772,7 @@ const appSourceDetails = computed(() => {
   only applies to Vue component slots.
 -->
 <template>
-  <div class="page-loading" v-if="isApplicationLoading">
+  <div v-if="isApplicationLoading" class="page-loading">
     <trailhand-loading-spinner size="large" />
   </div>
   <div v-else-if="isApplicationError">Error loading application data: {{ applicationError?.message || 'Error fetching application data'}}</div>
@@ -791,20 +791,20 @@ const appSourceDetails = computed(() => {
       <h3>Namespace: {{ application?.meta.namespace }}</h3>
       <ul>
         <li
-          v-for="(route, index) in application?.configuration.routes"
-          :key="`${route}-${index}`"
+          v-for="(appRoute, index) in application?.configuration.routes"
+          :key="`${appRoute}-${index}`"
         >
           <a
             v-if="application?.status === 'running'"
-            :key="`${route}-${index}-a`"
-            :href="`https://${route}`"
+            :key="`${appRoute}-${index}-a`"
+            :href="`https://${appRoute}`"
             target="_blank"
             rel="noopener noreferrer nofollow"
-          >{{ `https://${route}` }}</a>
+          >{{ `https://${appRoute}` }}</a>
           <span
             v-else
-            :key="`${route}-${index}-b`"
-          >{{ `https://${route}` }}</span>
+            :key="`${appRoute}-${index}-b`"
+          >{{ `https://${appRoute}` }}</span>
         </li>
       </ul>
     </div>

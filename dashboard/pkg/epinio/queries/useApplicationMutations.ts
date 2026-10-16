@@ -210,13 +210,13 @@ export function useBulkRemoveApplications(store: any, onSuccessCallback?: () => 
         );
     },
 
-    onError: (_err, _vars) => {
+    onError: () => {
         epinioQueryClient.invalidateQueries({
             queryKey: ['applications', cluster.value?.id]
         });
     },
 
-    onSuccess: (_data, { items, settings }) => {
+    onSuccess: () => {
         epinioQueryClient.invalidateQueries({
             queryKey: ['applications', cluster.value?.id]
         });

@@ -1,7 +1,7 @@
 import { ApiCatalogService, ApiListCatalogServicesResponse, ApiCatalogServiceCreateRequest, ApiCatalogServiceUpdateRequest } from "./api-types";
 import { CatalogService, ListCatalogServicesResponse, CatalogServiceCreateRequest, CatalogServiceUpdateRequest } from "./ui-types";
 import { toPaginatedResponseMetadata } from "../resource/mappers";
-import { objValuesToString, mapSettingsToApiRequest } from "../../utils/settings";
+import { mapSettingsToApiRequest } from "../../utils/settings";
 import jsyaml from "js-yaml";
 
 // Catalog values are Helm values: YAML, which the chart seeds and the server

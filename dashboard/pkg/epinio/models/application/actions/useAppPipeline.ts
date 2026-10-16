@@ -4,7 +4,7 @@ import { useCreateApplication, useUpdateApplication, useStoreApplicationArchive,
 import { useBindConfiguration, useUnbindConfiguration } from "../../../queries/useConfigurationMutations";
 import { useBindServiceInstance, useUnbindServiceInstance } from "../../../queries/useServiceMutations";
 import { extractErrorMessage } from "../../../utils/errors";
-import { AppForm, App, AppFormSource, AppMeta } from "../ui-types";
+import { AppForm, App, AppMeta } from "../ui-types";
 import { appFormToCreateRequest, appFormToUpdateRequest, appFormToAsyncDeployRequest, resolveGitParams } from "../mappers";
 import { epinioQueryClient } from "../../../api/queryClient";
 import { useCluster } from "../../../queries/useCluster";

@@ -22,6 +22,10 @@ eslint.configs.recommended,
 {
   rules: {
     '@typescript-eslint/no-explicit-any': 'off',
+    '@typescript-eslint/no-unused-vars': [
+      'error',
+      { ignoreRestSiblings: true }
+    ],
     'no-console': 'off',
     'vue/multi-word-component-names': 'off',
     'vue/no-useless-template-attributes': 'off',

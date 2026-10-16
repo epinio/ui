@@ -33,6 +33,15 @@ const props = defineProps<{
 
 const isEdit = computed(() => props.mode === 'edit');
 
+// Casts live here: a `|` in a template binding parses as a Vue 2 filter.
+type GitPickerSource = AppFormSource['github'] | AppFormSource['gitlab'];
+const gitPickerSource = computed(
+  () => props.source[props.source.type] as GitPickerSource
+);
+const gitPickerType = computed(
+  () => props.source.type as 'github' | 'gitlab'
+);
+
 const manifestFileInput = ref<HTMLInputElement | null>(null);
 const archiveFileInput = ref<HTMLInputElement | null>(null);
 const folderFileInput = ref<HTMLInputElement | null>(null);
@@ -49,7 +58,7 @@ const gitConfigRequestOptions = ref<ResourceQueryOptions>({
   enabled: true,
   polling: false,
 });
-const {data: gitConfigs, isLoading: isLoadingGitConfigs, isError: isErrorGitConfigs, error: gitConfigsError} = useGitConfigs(store, gitConfigRequestParams, gitConfigRequestOptions);
+const {data: gitConfigs, isLoading: isLoadingGitConfigs, isError: isErrorGitConfigs} = useGitConfigs(store, gitConfigRequestParams, gitConfigRequestOptions);
 const onGitConfigFilter = debounce((query: string) => {
   gitConfigRequestParams.value.page = 1;
   gitConfigRequestParams.value.search = query;
@@ -283,10 +292,10 @@ function onFolderSelected(files: FileWithRelativePath | FileWithRelativePath[]) 
           :options="(gitConfigs?.items || []).map((c: any) => ({ value: c.meta.name, label: c.meta.name }))"
           label="Git Config"
           :disabled="isEdit"
-          @dropdown-change="(e: CustomEvent) => { updateSource(source.type, { gitConfig: e.detail.value }); }"
           filterable
-          @dropdown-filter="(e: CustomEvent<{ filter: string }>) => { onGitConfigFilter(e.detail.filter); }"
           :loading="isLoadingGitConfigs"
+          @dropdown-change="(e: CustomEvent) => { updateSource(source.type, { gitConfig: e.detail.value }); }"
+          @dropdown-filter="(e: CustomEvent<{ filter: string }>) => { onGitConfigFilter(e.detail.filter); }"
         />
         <p v-if="isErrorGitConfigs" class="error-message">
           {{ t(`epinio.gitConfigs.errors.fetchAll`) }}
@@ -323,8 +332,8 @@ function onFolderSelected(files: FileWithRelativePath | FileWithRelativePath[]) 
 
     <template v-else>
       <GitPicker
-        :gitSource="source[source.type] as AppFormSource['github'] | AppFormSource['gitlab']"
-        :type="source.type as 'github' | 'gitlab'"
+        :gitSource="gitPickerSource"
+        :type="gitPickerType"
         :gitConfigs="gitConfigs?.items || []"
         :gitConfigsForbidden="gitConfigsForbidden"
         :onGitConfigFilter="onGitConfigFilter"

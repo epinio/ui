@@ -154,13 +154,13 @@ export function useBulkRemoveConfigurations(store: any, onSuccessCallback?: () =
         );
     },
 
-    onError: (_err, _vars) => {
+    onError: () => {
         epinioQueryClient.invalidateQueries({
             queryKey: ['configurations', cluster.value?.id]
         });
     },
 
-    onSuccess: (_data, { items, deleteImage }) => {
+    onSuccess: () => {
         epinioQueryClient.invalidateQueries({
             queryKey: ['configurations', cluster.value?.id]
         });

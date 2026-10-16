@@ -1,6 +1,5 @@
 import { ref, computed, Ref } from "vue";
 import { AppForm, App, AppManifest, AppFormSource, AppFormBuildOptions, AppFormDetails, AppFormBindings } from "../ui-types";
-import { AppUtils } from "../../../utils/application";
 import { toAppForm } from "../mappers";
 import { APPLICATION_SOURCE_TYPE, APPLICATION_BUILD_MODE } from "../../../types";
 import { ChartSetting } from "models/catalogservice/ui-types";

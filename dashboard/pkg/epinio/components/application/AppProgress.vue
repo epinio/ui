@@ -19,7 +19,7 @@ const props = defineProps<{
   setModalToEdit: () => void,
 }>();
 
-const emit = defineEmits(['finished', 'failed']);
+defineEmits(['finished', 'failed']);
 
 const store = useStore();
 const t = store.getters['i18n/t'];

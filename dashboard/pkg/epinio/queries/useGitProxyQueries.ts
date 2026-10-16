@@ -1,11 +1,10 @@
-import { useQuery, keepPreviousData } from "@tanstack/vue-query";
+import { useQuery } from "@tanstack/vue-query";
 import { createEpinioClient } from "../api/client";
 import { useCluster } from "./useCluster";
 import { gitProxyApi } from "../api/gitproxy";
 import { epinioQueryClient } from "../api/queryClient";
 import { computed, Ref } from "vue";
 import { ResourceQueryOptions } from "../models/resource/ui-types";
-import { toApiListResourceRequestParams } from "../models/resource/mappers";
 import { toApiGitProxyRequest, toGitProxyGithubUserResponse, toGitProxyGitlabGroupResponse, toGitProxyGitlabUserResponse, toGitProxyGithubReposResponse, toGitProxyGitlabReposResponse, toGitProxyGitBranch, toGitProxyGitBranchesResponse, toGitProxyGithubCommitsResponse, toGitProxyGitlabCommitsResponse } from "../models/gitproxy/mappers";
 import { GitProxyRequest, GitProxyGitRepo, GitProxyGitBranch } from "../models/gitproxy/ui-types";
 import { GitConfig } from "../models/gitconfig/ui-types";

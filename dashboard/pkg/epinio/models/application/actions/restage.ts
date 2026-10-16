@@ -5,7 +5,7 @@ import { createEpinioClient } from "../../../api/client";
 import { AppUtils } from "../../../utils/application";
 import { APPLICATION_SOURCE_TYPE, APPLICATION_MANIFEST_SOURCE_TYPE } from "../../../types";
 import { toAppDeploymentStatus, toApiAsyncDeployRequest, toApiAppStageRequest, toAppStageResponse, toApp } from "../mappers";
-import { AsyncDeployRequest, AppDeploymentStatus, AppStageRequest, AppStageResponse, AppDeployRequest, AppMeta } from "../ui-types";
+import { AsyncDeployRequest, AppDeploymentStatus, AppStageRequest, AppMeta } from "../ui-types";
 import { epinioQueryClient } from "../../../api/queryClient";
 import { showAppLog, showStagingLog } from "./logs";
 

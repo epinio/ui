@@ -54,7 +54,7 @@ const gitConfigRequestOptions = ref<ResourceQueryOptions>({
   enabled: !!props.gitSource?.gitConfig,
   polling: false,
 });
-const {data: selectedGitConfig, isLoading: isLoadingGitConfig, isError: isErrorGitConfig, error: gitConfigError} = useGitConfig(store, props.gitSource?.gitConfig || '', gitConfigRequestOptions);
+const {data: selectedGitConfig, isError: isErrorGitConfig} = useGitConfig(store, props.gitSource?.gitConfig || '', gitConfigRequestOptions);
 
 const preparedRepos = computed(() =>
   (gitRepos.value || []).map((item) => ({ value: item.name, label: item.name }))
@@ -239,10 +239,10 @@ const tableRows = computed(() => {
           :value="gitConfig"
           :options="(gitConfigs || []).map((c: any) => ({ value: c.meta.name, label: c.meta.name }))"
           label="Git Config"
-          @dropdown-change="(e: CustomEvent) => { updateSource(gitType, { gitConfig: e.detail.value }); }"
           filterable
-          @dropdown-filter="(e: CustomEvent<{ filter: string }>) => { onGitConfigFilter(e.detail.filter); }"
           :loading="isLoadingGitConfigs"
+          @dropdown-change="(e: CustomEvent) => { updateSource(gitType, { gitConfig: e.detail.value }); }"
+          @dropdown-filter="(e: CustomEvent<{ filter: string }>) => { onGitConfigFilter(e.detail.filter); }"
         />
         <p v-if="isErrorGitConfigs" class="error-message">
           {{ t(`epinio.gitConfigs.errors.fetchAll`) }}
@@ -271,7 +271,7 @@ const tableRows = computed(() => {
         </p>
       </div>
 
-      <div class="spacer" v-if="isGitUserLoading">
+      <div v-if="isGitUserLoading" class="spacer">
         <trailhand-loading-spinner />
       </div>
 

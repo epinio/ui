@@ -38,7 +38,7 @@ const selectedChart = computed(() => {
 });
 
 const appChartRequestOptions = ref<ResourceQueryOptions>({ enabled: false, polling: false });
-const { data: appChart, isLoading: isLoadingAppChart, isError: isErrorAppChart } = useAppChart(store, selectedChart, appChartRequestOptions);
+const { data: appChart } = useAppChart(store, selectedChart, appChartRequestOptions);
 
 // Watch for changes to the app chart and set default settings if none exist
 watch(() => appChart.value?.meta.name, () => {
@@ -192,13 +192,13 @@ function onBulkFileChange(event: Event) {
           :disabled="isEdit"
           required
           filterable
+          :isLoading="isLoadingNamespaces"
           @dropdown-change="(e: CustomEvent) => {
             updateDetails({ namespace: e.detail.value });
             // Reset the bindings when the namespace changes
             updateBindings({ services: [], configurations: [] });
           }"
           @dropdown-filter="(e: CustomEvent<{ filter: string }>) => { onNamespaceFilter(e.detail.filter); }"
-          :isLoading="isLoadingNamespaces"
         ></trailhand-dropdown>
         <p v-if="isErrorNamespaces" class="error-message">
           {{ t(`epinio.namespace.errors.fetchAll`) }}

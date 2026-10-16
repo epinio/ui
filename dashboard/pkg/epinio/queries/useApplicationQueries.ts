@@ -1,4 +1,4 @@
-import { useQuery, keepPreviousData, queryOptions } from "@tanstack/vue-query";
+import { useQuery, keepPreviousData } from "@tanstack/vue-query";
 import { createEpinioClient } from "../api/client";
 import { useCluster } from "./useCluster";
 import { applicationsApi } from "../api/applications";

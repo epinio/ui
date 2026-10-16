@@ -58,7 +58,7 @@ const onSearch = debounce(async (query: string) => {
   requestParams.value.search = query;
 }, 500);
 
-const {data: catalogService, isLoading: isLoadingCatalogService, isError: isErrorCatalogService, error: catalogServiceError} = useCatalogService(store, ref(props.value.meta.name));
+const {data: catalogService, isError: isErrorCatalogService, error: catalogServiceError} = useCatalogService(store, ref(props.value.meta.name));
 const {data: services, isLoading: isLoadingServices, isError: isErrorServices, error: servicesError} = useServices(store, requestParams, requestOptions);
 
 const canEditService = computed(() => {

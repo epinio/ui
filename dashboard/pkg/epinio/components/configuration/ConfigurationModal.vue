@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watchEffect, watch } from 'vue';
 import { useStore } from 'vuex';
-import { EPINIO_TYPES } from '../../types';
 import { validateKubernetesName } from '@shell/utils/validators/kubernetes-name';
 import Banner from '@components/Banner/Banner.vue';
 import isEqual from 'lodash/isEqual';
@@ -9,7 +8,6 @@ import { useNamespaces } from '../../queries/useNamespaceQueries';
 import { useCreateConfiguration, useBindConfiguration, useUpdateConfiguration, useUnbindConfiguration } from '../../queries/useConfigurationMutations';
 import { ConfigurationResponse } from '../../models/configuration/ui-types';
 import { debounce } from 'lodash';
-import ResourceDropdown from '../application/ResourceDropdown.vue';
 import { ListResourceRequestParams, ResourceQueryOptions } from '../../models/resource/ui-types';
 import { useApplications } from '../../queries/useApplicationQueries';
 
@@ -442,9 +440,9 @@ defineExpose({ openCreate, openView, openEdit });
             :disabled="isEdit || isView"
             :required="!isView"
             filterable
+            :isLoading="isLoadingNamespaces"
             @dropdown-change="(e: CustomEvent) => { formNamespace = e.detail.value; selectedApps = []; }"
             @dropdown-filter="(e: CustomEvent<{ filter: string }>) => { onNamespaceFilter(e.detail.filter); }"
-            :isLoading="isLoadingNamespaces"
           ></trailhand-dropdown>
           <trailhand-text-input
             :value="formName"

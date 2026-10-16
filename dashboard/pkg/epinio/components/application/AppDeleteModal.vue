@@ -2,7 +2,7 @@
 import { ref } from 'vue';
 import { useStore } from 'vuex';
 import Banner from '@components/Banner/Banner.vue';
-import { useDeleteApplication, useBulkRemoveApplications } from '../../queries/useApplicationMutations';
+import { useDeleteApplication } from '../../queries/useApplicationMutations';
 
 const store = useStore() as any;
 const t = store.getters['i18n/t'];
@@ -46,7 +46,7 @@ function handleSuccess() {
 }
 
 defineExpose({ openDelete });
-const emit = defineEmits(['deleted']);
+defineEmits(['deleted']);
 </script>
 
 <template>

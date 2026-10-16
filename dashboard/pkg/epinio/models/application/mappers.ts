@@ -563,13 +563,14 @@ export function resolveGitParams(source: AppFormSource): { url?: string; rev?: s
         gitConfig: source.gitUrl?.gitConfig,
       };
     case APPLICATION_SOURCE_TYPE.GIT_HUB:
-    case APPLICATION_SOURCE_TYPE.GIT_LAB:
+    case APPLICATION_SOURCE_TYPE.GIT_LAB: {
       const gitSource = source[source.type];
       return {
         url: gitSource?.url,
         rev: gitSource?.commit,
         gitConfig: gitSource?.gitConfig,
       };
+    }
     default:
       return {};
   }

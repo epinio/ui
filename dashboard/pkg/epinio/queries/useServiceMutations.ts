@@ -155,13 +155,13 @@ export function useBulkRemoveServiceInstances(store: any, onSuccessCallback?: ()
         );
     },
 
-    onError: (_err, _vars) => {
+    onError: () => {
         epinioQueryClient.invalidateQueries({
             queryKey: ['services', cluster.value?.id]
         });
     },
 
-    onSuccess: (_data, { items, deleteImage }) => {
+    onSuccess: () => {
         epinioQueryClient.invalidateQueries({
             queryKey: ['services', cluster.value?.id]
         });

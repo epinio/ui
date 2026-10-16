@@ -393,9 +393,9 @@ defineExpose({ openCreate, openEdit, openView });
             :disabled="isEdit || isView"
             :required="!isView"
             filterable
+            :isLoading="isLoadingNamespaces"
             @dropdown-change="(e: CustomEvent) => { formNamespace = e.detail.value; selectedApps = []; }"
             @dropdown-filter="(e: CustomEvent<{ filter: string }>) => { onNamespaceFilter(e.detail.filter); }"
-            :isLoading="isLoadingNamespaces"
           ></trailhand-dropdown>
           <trailhand-text-input
             :value="formName"
@@ -418,9 +418,9 @@ defineExpose({ openCreate, openEdit, openView });
             :disabled="isEdit || isView"
             :required="!isView"
             filterable
+            :isLoading="isLoadingCatalogServices"
             @dropdown-change="(e: CustomEvent) => { formCatalogService = e.detail.value; resetChartValues(); }"
             @dropdown-filter="(e: CustomEvent<{ filter: string }>) => { onCatalogServiceFilter(e.detail.filter); }"
-            :isLoading="isLoadingCatalogServices"
           ></trailhand-dropdown>
           <trailhand-text-input
             v-if="isView || isEdit"

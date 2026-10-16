@@ -32,8 +32,6 @@ watch(() => props.modalOpen, (newVal) => {
   builderImageRequestOptions.value.enabled = newVal;
 });
 
-const isEdit = computed(() => props.mode === 'edit');
-
 const dockerfilePathError = ref('');
 const defaultBuilderImageForPlaceholder = ref('');
 
@@ -204,9 +202,9 @@ function handleBuilderImageDropdownChange(value: string) {
           placeholder="Select an application chart"
           required
           filterable
+          :isLoading="isLoadingAppCharts"
           @dropdown-change="(e: CustomEvent) => { updateBuildOptions({ appChart: e.detail.value }); }"
           @dropdown-filter="(e: CustomEvent<{ filter: string }>) => { onAppChartsFilter(e.detail.filter); }"
-          :isLoading="isLoadingAppCharts"
         ></trailhand-dropdown>
         <p v-if="isErrorAppCharts" class="error-message">
           {{ t(`epinio.appCharts.errors.fetchAll`) }}
@@ -257,9 +255,9 @@ function handleBuilderImageDropdownChange(value: string) {
             placeholder="Select a builder image"
             required
             filterable
+            :isLoading="isLoadingBuilderImages"
             @dropdown-change="(e: CustomEvent) => { handleBuilderImageDropdownChange(e.detail.value) }"
             @dropdown-filter="(e: CustomEvent<{ filter: string }>) => { onBuilderImageFilter(e.detail.filter); }"
-            :isLoading="isLoadingBuilderImages"
           ></trailhand-dropdown>
           <p v-if="isErrorBuilderImages" class="error-message">
             {{ t(`epinio.builderImages.errors.fetchAll`) }}

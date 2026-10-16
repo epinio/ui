@@ -36,8 +36,8 @@ const requestOptions = ref<ResourceQueryOptions>({
   enabled: false,
   polling: false,
 });
-const {data: fetchedServices, isLoading: isLoadingServices, isError: isErrorServices, error: servicesError} = useServices(store, requestParams, requestOptions);
-const {data: fetchedConfigurations, isLoading: isLoadingConfigurations, isError: isErrorConfigurations, error: configurationsError} = useConfigurations(store, requestParams, requestOptions);
+const {data: fetchedServices, isLoading: isLoadingServices, isError: isErrorServices} = useServices(store, requestParams, requestOptions);
+const {data: fetchedConfigurations, isLoading: isLoadingConfigurations, isError: isErrorConfigurations} = useConfigurations(store, requestParams, requestOptions);
 
 const onServicesFilter = debounce((query: string) => {
   requestParams.value.page = 1;
@@ -94,11 +94,11 @@ const services = computed(() => {
         :disabled="noConfigs"
         filterable
         multiselect
+        :isLoading="isLoadingConfigurations"
         @dropdown-change="(e: CustomEvent) => { 
           updateBindings({ configurations: e.detail.values });
         }"
         @dropdown-filter="(e: CustomEvent<{ filter: string }>) => { onConfigurationsFilter(e.detail.filter); }"
-        :isLoading="isLoadingConfigurations"
       ></trailhand-dropdown>
       <p v-if="isErrorConfigurations" class="error-message">
         {{ t(`epinio.configurations.errors.fetchAll`) }}
@@ -114,9 +114,9 @@ const services = computed(() => {
         :disabled="noServices"
         filterable
         multiselect
+        :isLoading="isLoadingServices"
         @dropdown-change="(e: CustomEvent) => { updateBindings({ services: e.detail.values.map((s: string) => s.replace(`${namespace}/`, '')) }); }"
         @dropdown-filter="(e: CustomEvent<{ filter: string }>) => { onServicesFilter(e.detail.filter); }"
-        :isLoading="isLoadingServices"
       ></trailhand-dropdown>
       <p v-if="isErrorServices" class="error-message">
         {{ t(`epinio.services.errors.fetchAll`) }}
