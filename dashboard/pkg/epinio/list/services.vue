@@ -3,7 +3,6 @@ import { computed, onMounted, ref, watchEffect, watch } from 'vue';
 import { useStore } from 'vuex';
 import { debounce } from 'lodash';
 import { EPINIO_TYPES, EPINIO_SERVICE_PARAM } from '../types';
-import Masthead from '@shell/components/ResourceList/Masthead';
 import { makeStateTag, makeNameLinks, makeActionMenu } from '../utils/table-formatters';
 import ServiceDeleteModal from '../components/service/ServiceDeleteModal.vue';
 import ServiceInstanceModal from '../components/service/ServiceInstanceModal.vue';
@@ -243,33 +242,31 @@ useServerTableSort(requestParams, tableEl, columns);
 
 <template>
   <div id="modal-container-element">
-    <Masthead
-      :schema="schema"
-      :resource="resource"
-    >
-      <template #extraActions>
+    <div class="heading">
+      <h1>Services</h1>
+      <div class="actions">
         <trailhand-button
           v-if="selectedRows.length"
           variant="destructive"
-          size="large"
           @click="handleBulkDeleteClick"
         >
           <trailhand-icon name="trash" />
           Delete ({{ selectedRows.length }})
         </trailhand-button>
-      </template>
-      <template #createButton>
         <trailhand-button
           v-if="canCreate"
           variant="primary"
-          size="large"
           @click="openCreateModal"
         >
           {{ t('generic.create') }}
         </trailhand-button>
-        <div v-else />
-      </template>
-    </Masthead>
+        <trailhand-text-input
+          :value="searchQuery"
+          placeholder="Search..."
+          @text-input-change="(e: CustomEvent) => searchQuery = e.detail.value"
+        ></trailhand-text-input>
+      </div>
+    </div>
     <Banner
       v-if="isErrorServices"
       color="error"
@@ -280,13 +277,6 @@ useServerTableSort(requestParams, tableEl, columns);
       color="error"
       :label="userError?.message || t('epinio.user.errors.fetch')"
     />
-    <div class="search-container">
-      <trailhand-text-input
-        :value="searchQuery"
-        placeholder="Search..."
-        @text-input-change="(e: CustomEvent) => searchQuery = e.detail.value"
-      ></trailhand-text-input>
-    </div>
     <trailhand-table
       :ref="setTableRef"
       :rows="displayRows"
@@ -317,11 +307,21 @@ useServerTableSort(requestParams, tableEl, columns);
 
 <style lang="scss" scoped>
 
-.search-container {
-  width: 100%;
+.heading {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: flex-end;
   margin-bottom: 1rem;
+
+  h1 {
+    margin: 0;
+  }
+}
+
+.actions {
+  display: flex;
+  align-items: flex-end;
+  gap: 1rem;
 }
 
 trailhand-table {
