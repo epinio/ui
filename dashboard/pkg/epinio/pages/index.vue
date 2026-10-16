@@ -179,7 +179,7 @@ const columns = [
     field: 'stateDisplay',
     label: 'State',
     width: '100px',
-    formatter: (_v: any, row: any) => makeStateTag(row)
+    formatter: (_v: any, row: any) => makeStateTag(row, row.state)
   },
   {
     field: 'name',

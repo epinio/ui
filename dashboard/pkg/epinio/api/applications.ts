@@ -1,0 +1,69 @@
+import { createEpinioClient } from "./client";
+import { ApiListResourceRequestParams } from "../models/resource/api-types";
+import { ApiListAppsResponse, ApiAppDeploymentStatus, ApiAsyncDeployRequest, ApiAppStageRequest, ApiAppStageResponse, ApiApp, ApiAppDeployRequest, ApiAppDeployResponse, ApiAppDeleteRequest, ApiAppCreateRequest, ApiAppUpdateRequest, ApiAppStoreArchiveResponse, ApiAppGitImportResponse } from "../models/application/api-types";
+    
+export function applicationsApi(epinioClient: ReturnType<typeof createEpinioClient>) {
+    const appsBasePath = '/api/v1/applications';
+    const namespacesBasePath = '/api/v1/namespaces';
+
+    return {
+        listApps: async (params?: ApiListResourceRequestParams): Promise<ApiListAppsResponse> => {
+            return await epinioClient.get(appsBasePath, { params });
+        },
+        getApp: async (namespace: string, app: string): Promise<ApiApp> => {
+            return await epinioClient.get(`${namespacesBasePath}/${namespace}/applications/${app}`);
+        },
+        fetchPart: async (namespace: string, app: string, part: string, signal?: AbortSignal): Promise<any> => {
+            const isText = part === 'values' || part === 'manifest';
+            return await epinioClient.get(`${namespacesBasePath}/${namespace}/applications/${app}/part/${part}`, { responseType: isText ? 'text' : 'blob', signal });
+        },
+        fetchDeploymentStatus: async (namespace: string, app: string, deploymentId: string): Promise<ApiAppDeploymentStatus> => {
+            return await epinioClient.get(`${namespacesBasePath}/${namespace}/applications/${app}/deployments/${deploymentId}`);
+        },
+        startAsyncDeploy: async (namespace: string, app: string, body: ApiAsyncDeployRequest): Promise<ApiAppDeploymentStatus> => {
+            return await epinioClient.post(`${namespacesBasePath}/${namespace}/applications/${app}/deployments`, body);
+        },
+        stage: async (namespace: string, app: string, body: ApiAppStageRequest): Promise<ApiAppStageResponse> => {
+            return await epinioClient.post(`${namespacesBasePath}/${namespace}/applications/${app}/stage`, body);
+        },
+        waitForStaging: async (namespace: string, stageId: string) => {
+            return await epinioClient.get(`${namespacesBasePath}/${namespace}/staging/${stageId}/complete`);
+        },
+        deploy: async (namespace: string, app: string, body: ApiAppDeployRequest): Promise<ApiAppDeployResponse> => {
+            return await epinioClient.post(`${namespacesBasePath}/${namespace}/applications/${app}/deploy`, body);
+        },
+        restart: async (namespace: string, app: string) => {
+            return await epinioClient.post(`${namespacesBasePath}/${namespace}/applications/${app}/restart`);
+        },
+        deleteApp: async (namespace: string, app: string, body: ApiAppDeleteRequest): Promise<void> => {
+            return await epinioClient.delete(`${namespacesBasePath}/${namespace}/applications/${app}`, body);
+        },
+        bulkDelete: async (
+            namespace: string,
+            names: string[],
+            body: ApiAppDeleteRequest
+        ) => {
+            const query = names
+            .map(name => `applications[]=${encodeURIComponent(name)}`)
+            .join('&');
+
+            return epinioClient.delete(
+                `${namespacesBasePath}/${namespace}/applications?${query}`,
+                body
+            );
+        },
+        createApp: async (namespace: string, body: ApiAppCreateRequest) => {
+            return await epinioClient.post(`${namespacesBasePath}/${namespace}/applications`, body);
+        },
+        updateApp: async (namespace: string, app: string, body: ApiAppUpdateRequest) => {
+            return await epinioClient.patch(`${namespacesBasePath}/${namespace}/applications/${app}`, body);
+        },
+        storeArchive: async (namespace: string, app: string, data: FormData, size: string): Promise<ApiAppStoreArchiveResponse> => {
+            return await epinioClient.post(`${namespacesBasePath}/${namespace}/applications/${app}/store`, data, { headers: { 'File-Size': size } });
+        },
+        importGit: async (namespace: string, app: string, data: FormData): Promise<ApiAppGitImportResponse> => {
+            return await epinioClient.post(`${namespacesBasePath}/${namespace}/applications/${app}/import-git`, data, { headers: { 'accept': 'gzip' } });
+        },
+
+    };
+}

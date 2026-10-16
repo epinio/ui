@@ -6,6 +6,8 @@ export interface Tab {
   label: string
   disabled?: boolean
   completed?: boolean
+  valid?: boolean
+  visible?: boolean
 }
 
 const props = withDefaults(
@@ -44,7 +46,7 @@ function selectTab(tab: Tab) {
     <!-- Tab List -->
     <div :class="variant === 'default' ? 'tab-list' : 'tab-list-underline'" role="tablist">
       <button
-        v-for="(tab) in tabs"
+        v-for="(tab) in tabs.filter(tab => tab.visible)"
         :key="tab.id"
         role="tab"
         :aria-selected="activeTab === tab.id"

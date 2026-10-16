@@ -12,7 +12,8 @@ export default tseslint.config(
     '**/dist-pkg/**',
     '**/.yarn/**',
     '**/babel.config.js',
-    '**/vue.config.js'
+    '**/vue.config.js',
+    '**/jest.config.js'
   ],
 },
 eslint.configs.recommended,
@@ -21,6 +22,10 @@ eslint.configs.recommended,
 {
   rules: {
     '@typescript-eslint/no-explicit-any': 'off',
+    '@typescript-eslint/no-unused-vars': [
+      'error',
+      { ignoreRestSiblings: true }
+    ],
     'no-console': 'off',
     'vue/multi-word-component-names': 'off',
     'vue/no-useless-template-attributes': 'off',

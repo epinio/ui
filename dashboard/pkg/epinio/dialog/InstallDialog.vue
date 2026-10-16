@@ -5,6 +5,7 @@ import { useStore } from 'vuex';
 import { LabeledInput } from '@components/Form/LabeledInput';
 import { Banner } from '@components/Banner';
 import EpinioCluster from '../models/epiniomgmt/epinio.io.management.cluster';
+import { extractErrorMessage } from '../utils/errors';
 
 const store = useStore();
 
@@ -82,24 +83,6 @@ function crUrl(name = '') {
 
 async function k8sRequest(opt: Record<string, any>) {
   return store.dispatch('cluster/request', opt, { root: true });
-}
-
-function extractErrorMessage(err: any): string {
-  if (typeof err === 'string') return err;
-  if (err?._status) {
-    const body = err?.message || err?.reason || err?._statusText;
-
-    if (body) return `${ err._status }: ${ body }`;
-
-    return `Request failed with status ${ err._status }`;
-  }
-  if (err?.response?.data?.message) return err.response.data.message;
-  if (err?.message) return err.message;
-  try {
-    return JSON.stringify(err);
-  } catch {
-    return 'An unknown error occurred';
-  }
 }
 
 async function applyResource(url: string, data: any): Promise<void> {
