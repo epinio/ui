@@ -2,7 +2,6 @@
 import { EPINIO_TYPES } from '../types';
 import { useStore } from 'vuex';
 import { computed, ref, watch } from 'vue';
-import Masthead from '@shell/components/ResourceList/Masthead';
 import { debounce } from 'lodash';
 import { makeActionMenu } from '../utils/table-formatters';
 import GitConfigModal from '../components/gitconfigs/GitConfigModal.vue';
@@ -55,6 +54,10 @@ const canEdit = computed(() => {
 const canDelete = canEdit;
 const canCreate = canEdit;
 
+const openCreateModal = () => {
+  gitConfigModal.value?.openCreate();
+};
+
 const openDeleteModal = (gitConfig: GitConfig) => {
   gitConfigDeleteModal.value?.openDelete(gitConfig);
 };
@@ -104,22 +107,23 @@ const columns = [
 
 <template>
   <div id="modal-container-element">
-    <Masthead
-      :schema="schema"
-      :resource="resource"
-    >
-      <template #createButton>
+    <div class="heading">
+      <h1>Git Configs</h1>
+      <div class="actions">
         <trailhand-button
           v-if="canCreate"
           variant="primary"
-          size="large"
-          @button-click="gitConfigModal?.openCreate()"
+          @click="openCreateModal()"
         >
           {{ t('generic.create') }}
         </trailhand-button>
-        <div v-else></div>
-      </template>
-    </Masthead>
+        <trailhand-text-input
+          :value="searchQuery"
+          placeholder="Search..."
+          @text-input-change="(e: CustomEvent) => searchQuery = e.detail.value"
+        ></trailhand-text-input>
+      </div>
+    </div>
     <Banner
       v-if="isErrorUser"
       color="error"
@@ -130,13 +134,6 @@ const columns = [
       color="error"
       :label="gitConfigsError?.message || t('epinio.gitconfigs.errors.fetch')"
     />  
-    <div class="search-container">
-      <trailhand-text-input
-        :value="searchQuery"
-        placeholder="Search..."
-        @text-input-change="(e: CustomEvent) => searchQuery = e.detail.value"
-      ></trailhand-text-input>
-    </div>
     <trailhand-table
       :ref="(el: any) => { if (el) el.renderActions = makeActionMenu; }"
       :rows="displayRows"
@@ -155,11 +152,21 @@ const columns = [
 </template>
 
 <style lang="scss" scoped>
-.search-container {
-  width: 100%;
+.heading {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: flex-end;
   margin-bottom: 1rem;
+
+  h1 {
+    margin: 0;
+  }
+}
+
+.actions {
+  display: flex;
+  align-items: flex-end;
+  gap: 1rem;
 }
 
 trailhand-table {

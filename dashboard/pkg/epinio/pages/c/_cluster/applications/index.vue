@@ -5,7 +5,6 @@ import { debounce } from 'lodash';
 import { useRouter } from 'vue-router';
 import Banner from '@components/Banner/Banner.vue';
 import { EPINIO_TYPES } from '../../../../types';
-import Masthead from '@shell/components/ResourceList/Masthead';
 import {
   makeActionMenu,
   makeStateTag,
@@ -377,33 +376,31 @@ const columns = computed(() => {
 
 <template>
   <div id="modal-container-element">
-    <Masthead
-      :schema="schema"
-      :resource="resource"
-    >
-      <template #extraActions>
+    <div class="heading">
+      <h1>Applications</h1>
+      <div class="actions">
         <trailhand-button
           v-if="selectedRows.length"
           variant="destructive"
-          size="large"
           @click="handleBulkDeleteClick"
         >
           <trailhand-icon name="trash" />
           Delete ({{ selectedRows.length }})
         </trailhand-button>
-      </template>
-      <template #createButton>
         <trailhand-button
           v-if="canCreate"
           variant="primary"
-          size="large"
           @click="handleCreateClick"
         >
           {{ t('generic.create') }}
         </trailhand-button>
-        <div v-else />
-      </template>
-    </Masthead>
+        <trailhand-text-input
+          :value="searchQuery"
+          placeholder="Search..."
+          @text-input-change="(e: CustomEvent) => searchQuery = e.detail.value"
+        ></trailhand-text-input>
+      </div>
+    </div>
     <Banner
       v-if="isErrorUser"
       color="error"
@@ -414,13 +411,6 @@ const columns = computed(() => {
       color="error"
       :label="applicationsError?.message || t('epinio.applications.errors.fetch')"
     />  
-    <div class="search-container">
-      <trailhand-text-input
-        :value="searchQuery"
-        placeholder="Search..."
-        @text-input-change="(e: CustomEvent) => searchQuery = e.detail.value"
-      ></trailhand-text-input>
-    </div>
       <trailhand-table
         :ref="setTableRef"
         :rows="displayRows"
@@ -454,17 +444,27 @@ const columns = computed(() => {
 
 <style lang="scss" scoped>
 
-.search-container {
-  width: 100%;
-  display: flex;
-  justify-content: flex-end;
-  margin-bottom: 1rem;
-}
-
 trailhand-table {
   --sortable-table-row-hover-bg: var(--sortable-table-hover-bg);
   --sortable-table-header-hover-bg: var(--sortable-table-hover-bg);
   --sortable-table-header-sorted-bg: var(--sortable-table-hover-bg);
+}
+
+.heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 1rem;
+
+  h1 {
+    margin: 0;
+  }
+}
+
+.actions {
+  display: flex;
+  align-items: flex-end;
+  gap: 1rem;
 }
 
 .modal-content {

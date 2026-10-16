@@ -2,7 +2,6 @@
 import { useStore } from 'vuex';
 import { ref, onMounted, computed, watchEffect, watch } from 'vue';
 import { EPINIO_TYPES } from '../types';
-import Masthead from '@shell/components/ResourceList/Masthead';
 import { attachActionMenu } from '../utils/table-formatters';
 import { debounce } from 'lodash';
 import { useNamespaces } from '../queries/useNamespaceQueries';
@@ -135,22 +134,23 @@ const columns = [
 
 <template>
   <div id="modal-container-element">
-    <Masthead
-      :schema="schema"
-      :resource="resource"
-    >
-      <template #createButton>
+    <div class="heading">
+      <h1>Namespaces</h1>
+      <div class="actions">
         <trailhand-button
           v-if="canCreateNamespace"
           variant="primary"
-          size="large"
           @click="openCreateModal"
         >
           {{ t('generic.create') }}
         </trailhand-button>
-        <div v-else></div>
-      </template>
-    </Masthead>
+        <trailhand-text-input
+          :value="searchQuery"
+          placeholder="Search..."
+          @text-input-change="(e: CustomEvent) => searchQuery = e.detail.value"
+        ></trailhand-text-input>
+      </div>
+    </div>
     <Banner
       v-if="isErrorNamespaces"
       color="error"
@@ -161,13 +161,6 @@ const columns = [
       color="error"
       :label="userError?.message || t('epinio.user.errors.fetch')"
     />  
-    <div class="search-container">
-      <trailhand-text-input
-        :value="searchQuery"
-        :placeholder="t('generic.search')"
-        @text-input-change="(e: CustomEvent) => searchQuery = e.detail.value"
-      ></trailhand-text-input>
-    </div>
     <trailhand-table
       :ref="(el: any) => { if (el) el.renderActions = attachActionMenu; }"
       :rows="displayRows"
@@ -186,11 +179,22 @@ const columns = [
 </template>
 
 <style lang='scss' scoped>
-.search-container {
-  width: 100%;
+
+.heading {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: flex-end;
   margin-bottom: 1rem;
+
+  h1 {
+    margin: 0;
+  }
+}
+
+.actions {
+  display: flex;
+  align-items: flex-end;
+  gap: 1rem;
 }
 
 trailhand-table {
