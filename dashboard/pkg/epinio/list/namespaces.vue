@@ -12,6 +12,9 @@ import NamespaceDeleteModal from '../components/namespace/NamespaceDeleteModal.v
 import Banner from '@components/Banner/Banner.vue';
 import { ResourceTableRow } from '../models/resource/ui-types';
 import { useUser } from '../queries/useUserQueries';
+import { useRouter } from 'vue-router';
+import { createEpinioRoute } from '../utils/custom-routing';
+import { createNamespaceFilterKey } from '@shell/utils/namespace-filter';
 
 defineProps<{
   schema: object,
@@ -22,6 +25,7 @@ const store = useStore() as any;
 const t = store.getters['i18n/t'];
 
 const resource: string = EPINIO_TYPES.NAMESPACE;
+const router = useRouter();
 
 const namespaceModal = ref<InstanceType<typeof NamespaceModal> | null>(null);
 const namespaceDeleteModal = ref<InstanceType<typeof NamespaceDeleteModal> | null>(null);
@@ -105,6 +109,8 @@ function openDeleteModal(namespace: Namespace) {
   namespaceDeleteModal.value?.openDelete(namespace);
 }
 
+const namespaceFilterKey = computed(() => createNamespaceFilterKey(store.getters['clusterId'], store.getters['currentProduct']));
+
 const columns = [
   {
     field: 'meta.name',
@@ -114,14 +120,81 @@ const columns = [
     field: 'appCount',
     label: t('epinio.namespace.tableHeaders.appCount'),
     formatter: (_v: any, row: Namespace) => {
-      return row.apps?.length || 0;
+      if (!row.apps || row.apps.length === 0) {
+        return '0';
+      }
+      const link = createEpinioRoute(
+        'c-cluster-applications',
+        { resource: EPINIO_TYPES.APP },
+      )
+      const onLinkClick = (e: Event) => {
+        e.preventDefault();
+        store.dispatch('epinio/setActiveNamespaces', {type: EPINIO_TYPES.APP, namespaces: [row.meta.name]});
+        store.dispatch('switchNamespaces', {
+          ids: ['ns://dev'],
+          key: namespaceFilterKey.value,
+        });
+        router.push(link);
+      };
+      const a = document.createElement('a');
+      a.href = router.resolve(link).href;
+      a.addEventListener('click', onLinkClick);
+      a.textContent = row.apps.length.toString();
+      return a;
     }
   },
   {
     field: 'configCount',
     label: t('epinio.namespace.tableHeaders.configCount'),
     formatter: (_v: any, row: Namespace) => {
-      return row.configurations?.length || 0;
+      if (!row.configurations || row.configurations.length === 0) {
+        return '0';
+      }
+      const link = createEpinioRoute(
+        'c-cluster-resource',
+        { resource: EPINIO_TYPES.CONFIGURATION },
+      )
+      const onLinkClick = (e: Event) => {
+        e.preventDefault();
+        store.dispatch('epinio/setActiveNamespaces', {type: EPINIO_TYPES.CONFIGURATION, namespaces: [row.meta.name]});
+        store.dispatch('switchNamespaces', {
+          ids: ['ns://dev'],
+          key: namespaceFilterKey.value,
+        });
+        router.push(link);
+      };
+      const a = document.createElement('a');
+      a.href = router.resolve(link).href;
+      a.addEventListener('click', onLinkClick);
+      a.textContent = row.configurations.length.toString();
+      return a;
+    }
+  },
+  {
+    field: 'serviceInstanceCount',
+    label: t('epinio.namespace.tableHeaders.serviceInstanceCount'),
+    formatter: (_v: any, row: Namespace) => {
+      if (!row.services || row.services.length === 0) {
+        return '0';
+      }
+      const link = createEpinioRoute(
+        'c-cluster-resource',
+        { resource: EPINIO_TYPES.SERVICE_INSTANCE },
+      )
+      const onLinkClick = (e: Event) => {
+        e.preventDefault();
+        store.dispatch('epinio/setActiveNamespaces', {type: EPINIO_TYPES.SERVICE_INSTANCE, namespaces: [row.meta.name]});
+        store.dispatch('switchNamespaces', {
+          ids: ['ns://dev'],
+          key: namespaceFilterKey.value,
+        });
+        router.push(link);
+      };
+      const a = document.createElement('a');
+      a.href = router.resolve(link).href;
+      a.addEventListener('click', onLinkClick);
+      a.textContent = row.services.length.toString();
+      return a;
     }
   },
   {

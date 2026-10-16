@@ -7,8 +7,9 @@ interface NamespaceMeta {
 
 export interface Namespace {
     meta: NamespaceMeta;
-    apps: string[];
-    configurations: string[];
+    apps?: string[];
+    configurations?: string[];
+    services?: string[];
 }
 
 export type ListNamespacesResponse = ListResourceResponse<Namespace>;
