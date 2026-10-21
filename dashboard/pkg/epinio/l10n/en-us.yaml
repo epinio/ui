@@ -455,6 +455,7 @@ epinio:
     tableHeaders:
       appCount: Applications
       configCount: Configs
+      serviceInstanceCount: Services
       age: Age
     name: Name
     create: Create a Namespace
