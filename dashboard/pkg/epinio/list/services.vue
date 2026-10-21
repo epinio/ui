@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watchEffect, watch } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watchEffect, watch } from 'vue';
 import { useStore } from 'vuex';
 import { debounce } from 'lodash';
 import { useRouter } from 'vue-router';
@@ -109,12 +109,21 @@ watchEffect(() => {
   }
 });
 
+const windowWidth = ref(window.innerWidth);
+const onResize = () => { windowWidth.value = window.innerWidth; };
+
+
 onMounted(async () => {
+  window.addEventListener('resize', onResize);
   const query = store.$router.currentRoute._value.query;
 
   if (query.mode === 'openModal') {
     serviceModal.value?.openCreate(query[EPINIO_SERVICE_PARAM] as string | undefined);
   }
+});
+
+onUnmounted(() => {
+  window.removeEventListener('resize', onResize);
 });
 
 async function openCreateModal() {
@@ -176,7 +185,7 @@ const handleNavigate = (event: CustomEvent) => {
   router.push(event.detail.url);
 };
 
-const columns = [
+const allColumns = [
   {
     field: 'stateDisplay',
     label: 'State',
@@ -234,6 +243,17 @@ const columns = [
     formatter: 'age'
   }
 ];
+
+const columns = computed(() => {
+  const w = windowWidth.value;
+  const hide = new Set<string>();
+
+  if (w < 1700) hide.add('catalogServiceVersion');
+  if (w < 1600) hide.add('catalogService');
+  if (w < 1150) hide.add('meta.createdAt'); 
+
+  return allColumns.filter(col => !hide.has(col.field));
+});
 </script>
 
 <template>
