@@ -89,7 +89,7 @@ const nsAppOptions = computed(() => {
 
 const isDirty = computed(() => {
   if (isCreate.value) {
-    return !!(formName.value || selectedApps.value.length || configData.value.some(r => r.key || r.value));
+    return !!(formNamespace.value || formName.value || selectedApps.value.length || configData.value.some(r => r.key || r.value));
   }
   if (!isEdit.value || !configModel.value) return false;
 
@@ -417,10 +417,14 @@ defineExpose({ openCreate, openView, openEdit });
 
   <trailhand-modal
     :open.prop="showModal"
-    :dismissible.prop="false"
     :title="modalTitle"
     :subtitle="modalSubtitle"
-    @modal-close="handleModalClose"
+    position="top"
+    :dismissible="false"
+    :show-dismiss-button="true"
+    @escape-key-press="handleModalClose"
+    @backdrop-click="handleModalClose"
+    @close-button-click="handleModalClose"
   >
     <div id="modal-container-element" class="modal-content">
       <!-- Service-managed notice: shown when a config was created by a service (not directly by a user) -->

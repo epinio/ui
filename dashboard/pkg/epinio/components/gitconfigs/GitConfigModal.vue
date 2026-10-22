@@ -213,11 +213,14 @@ defineExpose({ openCreate });
 <template>
   <trailhand-modal
     :open.prop="showModal"
-    :dismissible.prop="false"
     title="Git Configuration"
     subtitle="Create New"
     position="top"
-    @modal-close="handleModalClose"
+    :dismissible="false"
+    :show-dismiss-button="true"
+    @escape-key-press="handleModalClose"
+    @backdrop-click="handleModalClose"
+    @close-button-click="handleModalClose"
   >
     <div id="modal-container-element" class="modal-content">
       <trailhand-form-card>
