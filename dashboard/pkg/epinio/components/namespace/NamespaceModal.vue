@@ -91,9 +91,13 @@ defineExpose({ openCreate });
     <trailhand-modal
       :open.prop="showModal"
       :title="t('epinio.namespace.create')"
-      :dismissible="false"
       @modal-open="() => newNamespaceInput?.focus()"
-      @modal-close="closeModal"
+      position="top"
+      :dismissible="false"
+      :show-dismiss-button="true"
+      @escape-key-press="handleModalClose"
+      @backdrop-click="handleModalClose"
+      @close-button-click="handleModalClose"
     >
       <div class="modal-content">
         <trailhand-text-input

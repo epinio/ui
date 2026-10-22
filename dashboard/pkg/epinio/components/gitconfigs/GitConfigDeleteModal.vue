@@ -55,6 +55,7 @@ defineExpose({
         :open.prop="showDeleteModal"
         title="Are you sure?"
         @modal-close="closeDelete"
+        :show-dismiss-button="true"
     >
         <div class="modal-content">
         <p>You are attempting to delete the Git Config <strong>{{ gitConfigToDelete?.meta.name }}</strong>.</p>

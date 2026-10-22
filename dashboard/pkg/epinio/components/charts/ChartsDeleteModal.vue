@@ -54,6 +54,7 @@ const emit = defineEmits(['deleted']);
         :open.prop="showDeleteModal"
         title="Are you sure?"
         @modal-close="closeDelete"
+        :show-dismiss-button="true"
     >
         <div class="modal-content">
         <p>You are attempting to delete the Chart <strong>{{ chartToDelete?.meta.name }}</strong>.</p>

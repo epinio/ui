@@ -23,7 +23,7 @@ const props = defineProps<{
   mode: string;
   active: boolean;
   modalOpen: boolean;
-  updateBuildOptions: (newBuildOptions: Partial<AppFormBuildOptions>) => void;
+  updateBuildOptions: (newBuildOptions: Partial<AppFormBuildOptions>, setInitial?: boolean) => void;
   updateDetails: (newDetails: Partial<AppFormDetails>) => void;
 }>();
 
@@ -61,7 +61,7 @@ function setDefaultAppChart() {
   const standard = items.find(ac => ac.meta.name === 'standard');
   props.updateBuildOptions({
     appChart: standard?.meta.name || items[0].meta.name
-  });
+  }, true);
 }
 // If no builder image is set from the source, default to the catalog's default or
 // its first entry. `custom` is a sentinel, not an image, so it is filtered out --
@@ -70,7 +70,7 @@ const setDefaultBuilderImage = () => {
   if (props.buildOptions.builderImage) return;
   const defaultBuilderImage = builderImagesData.value?.items?.find((bi: any) => bi.default)?.image || '';
   defaultBuilderImageForPlaceholder.value = defaultBuilderImage;
-  props.updateBuildOptions({ builderImage: defaultBuilderImage });
+  props.updateBuildOptions({ builderImage: defaultBuilderImage }, true);
 };
 // Watch for changes to the app charts and builder images and set defaults accordingly
 watch(appChartsData, setDefaultAppChart);

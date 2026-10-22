@@ -288,11 +288,14 @@ defineExpose({ openCreate, openEdit });
 <template>
   <trailhand-modal
     :open.prop="showModal"
-    :dismissible.prop="false"
     :title="(isView || isEdit) ? initialValues?.meta?.name || 'Catalog Service' : 'Catalog Service'"
     :subtitle="(isView || isEdit) ? '' : 'Create New'"
     position="top"
-    @modal-close="handleModalClose"
+    :dismissible="false"
+    :show-dismiss-button="true"
+    @escape-key-press="handleModalClose"
+    @backdrop-click="handleModalClose"
+    @close-button-click="handleModalClose"
   >
     <div id="modal-container-element" class="modal-content">
       <trailhand-form-card>
