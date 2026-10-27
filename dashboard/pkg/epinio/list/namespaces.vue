@@ -131,7 +131,7 @@ const columns = [
         e.preventDefault();
         store.dispatch('epinio/setActiveNamespaces', {type: EPINIO_TYPES.APP, namespaces: [row.meta.name]});
         store.dispatch('switchNamespaces', {
-          ids: [`ns://${row.meta.name}`],
+          ids: ['ns://dev'],
           key: namespaceFilterKey.value,
         });
         router.push(link);
@@ -158,7 +158,7 @@ const columns = [
         e.preventDefault();
         store.dispatch('epinio/setActiveNamespaces', {type: EPINIO_TYPES.CONFIGURATION, namespaces: [row.meta.name]});
         store.dispatch('switchNamespaces', {
-          ids: [`ns://${row.meta.name}`],
+          ids: ['ns://dev'],
           key: namespaceFilterKey.value,
         });
         router.push(link);
@@ -185,7 +185,7 @@ const columns = [
         e.preventDefault();
         store.dispatch('epinio/setActiveNamespaces', {type: EPINIO_TYPES.SERVICE_INSTANCE, namespaces: [row.meta.name]});
         store.dispatch('switchNamespaces', {
-          ids: [`ns://${row.meta.name}`],
+          ids: ['ns://dev'],
           key: namespaceFilterKey.value,
         });
         router.push(link);
