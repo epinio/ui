@@ -300,11 +300,8 @@ export function stateToTagVariant(state: string): string {
 export function stateToIcon(state: string): string {
   switch (state) {
     case 'running':
-    case 'ready':
-    case 'available':
     case 'deployed': return 'rocket';
     case 'notready':
-    case 'uninstalled':
     case 'not-ready': return 'warning';
     case 'error':
     case 'fail': return 'error';
@@ -318,19 +315,14 @@ export function stateToIcon(state: string): string {
 
 /**
  * Creates a trailhand-tag element representing an application's current state.
- *
- * Note that state is an optional parameter; some tables store status in the
- * state property, while others store it in the status property.
  */
-export function makeStateTag(row: any, state?: string): HTMLElement {
+export function makeStateTag(row: any): HTMLElement {
   const tag = document.createElement('trailhand-tag') as any;
-  const value = state ?? row.status;
-
 
   tag.label = row.stateDisplay || '';
-  tag.variant = stateToTagVariant(value);
+  tag.variant = stateToTagVariant(row.status);
   tag.size = 'md';
-  tag.icon = stateToIcon(value);
+  tag.icon = stateToIcon(row.status);
 
   return tag;
 }

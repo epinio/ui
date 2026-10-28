@@ -96,6 +96,7 @@ async function openEdit(row: App, commit?: string) {
 }
 
 function handleModalClose() {
+  if (!showModal.value) return;
   if (state.dirty.value) {
     showDiscardConfirm.value = true;
   } else {
@@ -156,11 +157,14 @@ defineExpose({ openCreate, openEdit });
 <template>
   <trailhand-modal
     :open.prop="showModal"
-    :dismissible="false"
     :title="(isEdit) ? (initialApp?.meta.name || 'Application') : 'Application'"
     :subtitle="(isEdit) ? (initialApp?.stateDisplay || 'Update') : 'Create New'"
     position="top"
-    @modal-close="closeModal"
+    :dismissible="false"
+    :show-dismiss-button="true"
+    @escape-key-press="handleModalClose"
+    @backdrop-click="handleModalClose"
+    @close-button-click="handleModalClose"
   >
     <div id="modal-container-element" class="modal-content">
       <Tabs v-model="activeTab" :tabs="tabs">
@@ -284,13 +288,6 @@ defineExpose({ openCreate, openEdit });
           Finish
         </trailhand-button>
       </template>
-      <!-- <trailhand-button
-        variant="secondary"
-        class="mr-10"
-        @button-click="() => { console.log('Form data:', form); console.log('Form state:', state); }"
-      >
-        Log Form
-      </trailhand-button> -->
     </div>
   </trailhand-modal>
 </template>
@@ -301,6 +298,7 @@ defineExpose({ openCreate, openEdit });
   flex-direction: column;
   gap: 1rem;
   width: 1000px;
+  max-width: 100%;
   min-height: 500px;
 }
 

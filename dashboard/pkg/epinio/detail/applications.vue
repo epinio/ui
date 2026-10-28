@@ -3,6 +3,7 @@ import { ref, computed, watch, Ref } from 'vue';
 import { useStore } from 'vuex';
 import day from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
+import { useRouter } from 'vue-router';
 import { formatSi } from '@shell/utils/units';
 import { EPINIO_TYPES } from '../types';
 import Tabs from '../components/application/Tabs.vue';
@@ -39,12 +40,13 @@ import { makeNameLinks, makeEmptyCell } from '../utils/table-formatters';
 import { useUpdateApplication } from '../queries/useApplicationMutations';
 import { useGitConfig } from '../queries/useGitConfigQueries';
 import { useGitBaseUrl, useGitProxyUserType, useGitProxyRepos, useGitProxyBranches, useGitProxyCommits } from '../queries/useGitProxyQueries';
+import { useRoute } from 'vue-router';
 
 day.extend(relativeTime);
 
 const store = useStore();
-const router = store.$router;
-const route = store.$router.currentRoute.value;
+const router = useRouter();
+const route = useRoute();
 const t = store.getters['i18n/t'];
 
 // Application modals

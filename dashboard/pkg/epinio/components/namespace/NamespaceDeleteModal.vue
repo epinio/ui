@@ -3,7 +3,7 @@ import { computed, ref } from 'vue';
 import { useStore } from 'vuex';
 import Banner from '@components/Banner/Banner.vue';
 import { useDeleteNamespace } from '../../queries/useNamespaceMutations';
-import { Namespace } from '../../models/namespace/api-types';
+import { Namespace } from '../../models/namespace/ui-types';
 
 const store = useStore() as any;
 const t = store.getters['i18n/t'];
@@ -30,7 +30,7 @@ function openDelete(namespace: Namespace) {
 }
 
 function handleModalClose() {
-  if (namespaceToDelete.value) {
+  if (confirmDeleteInput.value) {
     showDiscardConfirm.value = true;
   } else {
     closeModal();
@@ -66,9 +66,12 @@ defineExpose({ openDelete });
     <trailhand-modal
       :open.prop="showModal"
       title="Are you sure?"
-      :dismissible="false"
       @modal-open="() => deleteNamespaceInput?.focus()"
-      @modal-close="closeModal"
+      :dismissible="false"
+      :show-dismiss-button="true"
+      @escape-key-press="handleModalClose"
+      @backdrop-click="handleModalClose"
+      @close-button-click="handleModalClose"
     >
       <div class="modal-content">
         <p>{{ t('epinio.namespace.attemptDelete') }} <strong>{{ namespaceToDelete?.meta.name }}</strong>.</p>
@@ -133,6 +136,7 @@ defineExpose({ openDelete });
   flex-direction: column;
   gap: 1rem;
   width: 560px;
+  max-width: 100%;
 }
 
 .discard-message {

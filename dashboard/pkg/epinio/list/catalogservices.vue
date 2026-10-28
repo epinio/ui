@@ -4,7 +4,6 @@ import { ref, computed, watch } from 'vue'
 import type { ResourceQueryOptions } from '../models/resource/ui-types';
 import { useCatalogServices } from '../queries/useCatalogServicesQueries';
 import { useUser } from '../queries/useUserQueries';
-import Masthead from '@shell/components/ResourceList/Masthead';
 import { EPINIO_TYPES } from '../types'
 import CatalogServiceModal from '../components/service/CatalogServiceModal.vue';
 import CatalogServiceDeleteModal from '../components/service/CatalogServiceDeleteModal.vue';
@@ -14,7 +13,6 @@ import { ResourceTableRow } from '../models/resource/ui-types';
 import { CatalogService } from '../models/catalogservice/ui-types';
 import { createEpinioRoute } from '../utils/custom-routing';
 import Banner from '@components/Banner/Banner.vue';
-
 
 const store = useStore()
 const props = defineProps<{ schema: object }>(); // eslint-disable-line @typescript-eslint/no-unused-vars
@@ -107,23 +105,23 @@ const showDetails = (catalogService: CatalogService) => {
 
 <template>
   <div id="modal-container-element">
-    <Masthead
-      :schema="schema"
-      :resource="resource"
-    >
-      {{canCreate}}
-      <template #createButton>
+    <div class="heading">
+      <h1>Catalog</h1>
+      <div class="actions">
         <trailhand-button
           v-if="canCreate"
           variant="primary"
-          size="large"
-          @button-click="catalogServiceModal?.openCreate()"
+          @click="catalogServiceModal?.openCreate()"
         >
           {{ t('generic.create') }}
         </trailhand-button>
-        <div v-else></div>
-      </template>
-    </Masthead>
+        <trailhand-text-input
+          :value="searchQuery"
+          placeholder="Search..."
+          @text-input-change="(e: CustomEvent) => searchQuery = e.detail.value"
+        ></trailhand-text-input>
+      </div>
+    </div>
     <Banner
       v-if="isErrorUser"
       color="error"
@@ -134,14 +132,6 @@ const showDetails = (catalogService: CatalogService) => {
       color="error"
       :label="catalogServicesError?.message || t('epinio.catalogService.errors.fetchAll')"
     />
-    <div  class="filter-block">
-      <trailhand-text-input
-        v-model="searchQuery"
-        type="search"
-        class="input-sm"
-        :placeholder="t('catalog.charts.search')"
-      />
-    </div>
 
     <div v-if="isLoadingCatalogServices" class="center">
       <trailhand-loading-spinner />
@@ -185,12 +175,21 @@ const showDetails = (catalogService: CatalogService) => {
 </template>
 
 <style lang="scss" scoped>
-.filter-block {
+.heading {
   display: flex;
-  justify-content: flex-end;
-  input {
-    width: 315px;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 1rem;
+
+  h1 {
+    margin: 0;
   }
+}
+
+.actions {
+  display: flex;
+  align-items: flex-end;
+  gap: 1rem;
 }
 
 .cards-container {

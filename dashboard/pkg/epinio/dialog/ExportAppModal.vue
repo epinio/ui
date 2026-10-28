@@ -86,6 +86,7 @@ const fetchCancel = () => {
 };
 
 const closeExport = () => {
+  console.log('Closing export modal');
   fetchCancel();
   resources.value = [];
   showProgressBar.value = false;
@@ -126,7 +127,8 @@ defineExpose({
   <trailhand-modal
     :title="t('epinio.applications.export.label')"
     :open.prop="showModal"
-    :dismissible="false"
+    :dismissible="true"
+    :show-dismiss-button="true"
     @modal-close="closeExport"
   >
     <div id="modal-container-element" class="modal-content">
@@ -189,6 +191,7 @@ defineExpose({
   flex-direction: column;
   gap: 1rem;
   width: 750px;
+  max-width: 100%;
   min-height: 300px;
 }
 

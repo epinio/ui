@@ -111,7 +111,7 @@ defineExpose({
 </script>
 
 <template>
-  <trailhand-modal v-if="!!cluster" :title="`Login ${ cluster.name ? `to ${ cluster.name }` : '' }`" :open.prop="showModal" @modal-close="closeLogin">
+  <trailhand-modal v-if="!!cluster" :title="`Login ${ cluster.name ? `to ${ cluster.name }` : '' }`" :open.prop="showModal" @modal-close="closeLogin" :dismissible="true" :show-dismiss-button="true">
     <div id="modal-container-element" class="modal-content">
       <div v-if="errors.length">
         <div

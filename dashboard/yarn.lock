@@ -2521,10 +2521,10 @@
   resolved "https://registry.npmjs.org/@jsep-plugin/regex/-/regex-1.0.4.tgz"
   integrity sha512-q7qL4Mgjs1vByCaTnDFcBnV9HS7GVPJX5vyVoCgZHNSC9rjwIlmbXG5sUuorR5ndfHAIlJ8pVStxvjXHbNvtUg==
 
-"@krumio/trailhand-ui@^1.11.4":
-  version "1.11.4"
-  resolved "https://registry.npmjs.org/@krumio/trailhand-ui/-/trailhand-ui-1.11.4.tgz"
-  integrity sha512-q6QT8WnyVE60cyhHFFhVzZYN2tlzXKsbUHbeJTfUU3QFunSy1RG0ZoNPLdepS0G3OD/bXdSf/UDpSB/keQ7z+Q==
+"@krumio/trailhand-ui@1.11.6":
+  version "1.11.6"
+  resolved "https://registry.yarnpkg.com/@krumio/trailhand-ui/-/trailhand-ui-1.11.6.tgz#fa46a751463a7d8b273150ed9ddb87bf8dde4217"
+  integrity sha512-9TixqFoKuTATBOpjCSPuMxMNE7zL/njws82wjxg/+LAQmRP9eE4lWf1zAcgM+vUZTaUFL/Pf9z2EwWvf/h6yOA==
   dependencies:
     "@fortawesome/fontawesome-svg-core" "^7.1.0"
     "@fortawesome/free-solid-svg-icons" "^7.1.0"
@@ -3376,28 +3376,6 @@
   resolved "https://registry.npmjs.org/@soda/get-current-script/-/get-current-script-1.0.2.tgz"
   integrity sha512-T7VNNlYVM1SgQ+VsMYhnDkcGmWhQdL0bDyGm5TlQ3GBXnJscEClUUOKduWTmm2zCnvNLC1hc3JpuXjs/nFOc5w==
 
-"@tanstack/match-sorter-utils@^9.1.2":
-  version "9.2.6"
-  resolved "https://registry.yarnpkg.com/@tanstack/match-sorter-utils/-/match-sorter-utils-9.2.6.tgz#a16c9e695111c3659805c1b278a7f205233dbe6e"
-  integrity sha512-DIpUSOhPfQ7u/qfUi/Wgm0wBO56MyBYXGvnlI0NcauDRPqdBUlAZZjW2Dxm92m+k1UWVhKw8YJ4f47+75Aujyw==
-  dependencies:
-    remove-accents "0.5.0"
-
-"@tanstack/query-core@5.104.2":
-  version "5.104.2"
-  resolved "https://registry.yarnpkg.com/@tanstack/query-core/-/query-core-5.104.2.tgz#f06a6938160edcd09d22def172c381895b81627d"
-  integrity sha512-/qbsxJK5c3Ve1aFIULWYNcT2jeRUAiD4HME6Eu2ZdpofHoVgAjpkQhLg5xHuOoBkTPQUJLfP7zOxy0qsBcqROA==
-
-"@tanstack/vue-query@^5.101.3":
-  version "5.104.2"
-  resolved "https://registry.yarnpkg.com/@tanstack/vue-query/-/vue-query-5.104.2.tgz#2e804b2563fb0729fa4eeb0f8a3d7dfa70dec54a"
-  integrity sha512-xTJpUMYenXuFstlgRSug10HPcc2TgAfughAxr7ftvaxsuHIZ4jfHQy/uzk99ejJWbrzpPdXiGC9VWtNd/Qvfew==
-  dependencies:
-    "@tanstack/match-sorter-utils" "^9.1.2"
-    "@tanstack/query-core" "5.104.2"
-    "@vue/devtools-api" "^6.6.3"
-    vue-demi "^0.14.10"
-
 "@tootallnate/once@1":
   version "1.1.2"
   resolved "https://registry.npmjs.org/@tootallnate/once/-/once-1.1.2.tgz"
@@ -3535,11 +3513,6 @@
     "@types/express-serve-static-core" "^4.17.33"
     "@types/qs" "*"
     "@types/serve-static" "^1"
-
-"@types/file-saver@^2.0.7":
-  version "2.0.7"
-  resolved "https://registry.yarnpkg.com/@types/file-saver/-/file-saver-2.0.7.tgz#8dbb2f24bdc7486c54aa854eb414940bbd056f7d"
-  integrity sha512-dNKVfHd/jk0SkR/exKGj2ggkB45MAkzvWCaqLUUgkyjITkGNzH8H+yUwr+BLJUBjZOe9w8X3wgmXhZDRg1ED6A==
 
 "@types/graceful-fs@^4.1.2":
   version "4.1.9"
@@ -4327,7 +4300,7 @@
   optionalDependencies:
     prettier "^1.18.2 || ^2.0.0"
 
-"@vue/devtools-api@^6.0.0-beta.11", "@vue/devtools-api@^6.5.0", "@vue/devtools-api@^6.6.3", "@vue/devtools-api@^6.6.4":
+"@vue/devtools-api@^6.0.0-beta.11", "@vue/devtools-api@^6.5.0", "@vue/devtools-api@^6.6.4":
   version "6.6.4"
   resolved "https://registry.npmjs.org/@vue/devtools-api/-/devtools-api-6.6.4.tgz"
   integrity sha512-sGhTPMuXqZ1rVOk32RylztWkfXTRhuS7vgAKv0zjqk8gbsHkJ7xfFf+jbySxt7tWObEJwyKaHMikV/WGDiQm8g==
@@ -5400,7 +5373,7 @@ browserslist@^4.0.0, browserslist@^4.16.3, browserslist@^4.21.4, browserslist@^4
 
 bs-logger@0.x:
   version "0.2.6"
-  resolved "https://registry.yarnpkg.com/bs-logger/-/bs-logger-0.2.6.tgz#eb7d365307a72cf974cc6cda76b68354ad336bd8"
+  resolved "https://registry.npmjs.org/bs-logger/-/bs-logger-0.2.6.tgz"
   integrity sha512-pd8DCoxmbgc7hyPKOvxtqNcjYoOsABPQdcCUjGp3d42VR2CX1ORhk2A87oqqu5R1kk+76nsxZupkmyd+MVtCog==
   dependencies:
     fast-json-stable-stringify "2.x"
@@ -8164,9 +8137,9 @@ follow-redirects@^1.0.0, follow-redirects@^1.15.6:
   integrity sha512-deG2P0JfjrTxl50XGCDyfI97ZGVCxIpfKYmfyrQ54n5FO/0gfIES8C/Psl6kWVDolizcaaxZJnTS0QSMxvnsBQ==
 
 follow-redirects@^1.16.0:
-  version "1.16.1"
-  resolved "https://registry.yarnpkg.com/follow-redirects/-/follow-redirects-1.16.1.tgz#6e0efa40a727fb369b98dab15883ec34787d675e"
-  integrity sha512-FNvFGzoMLWmE6Yj9spb/zjd7yiNCHiAW9/Tg9CXrQ8wuu32HtlJOwWO11OJafl5FfY3DxTdQ0vj42zU1kvv5jg==
+  version "1.16.2"
+  resolved "https://registry.yarnpkg.com/follow-redirects/-/follow-redirects-1.16.2.tgz#a233160dd1bc9b16cbbab43709e6adc7cc941c8c"
+  integrity sha512-/kVP2U8z596Ia0gwFrwyIeo74ta5aVmSeU1FfAUMAmcEP5EP7zydmag3SLiN64NaRKef3lxsq7i/g7ltJQDGow==
 
 for-each@^0.3.3, for-each@^0.3.5:
   version "0.3.5"
@@ -12225,11 +12198,6 @@ release-zalgo@^1.0.0:
   dependencies:
     es6-error "^4.0.1"
 
-remove-accents@0.5.0:
-  version "0.5.0"
-  resolved "https://registry.yarnpkg.com/remove-accents/-/remove-accents-0.5.0.tgz#77991f37ba212afba162e375b627631315bed687"
-  integrity sha512-8g3/Otx1eJaVD12e31UbJj1YzdtVvzH85HV7t+9MJYk/u3XmkOUJ5Ys9wQrf9PCPK8+xn4ymzqYCiZl6QWKn+A==
-
 renderkid@^3.0.0:
   version "3.0.0"
   resolved "https://registry.npmjs.org/renderkid/-/renderkid-3.0.0.tgz"
@@ -12506,20 +12474,15 @@ selfsigned@^2.1.1:
   resolved "https://registry.npmjs.org/semver/-/semver-5.7.2.tgz"
   integrity sha512-cBznnQ9KjJqU67B52RMC65CMarK2600WFnbkcaiwWq3xy/5haFJlshgnpjovMVJ+Hff49d8GEn0b87C5pDQ10g==
 
-semver@7.x:
-  version "7.8.5"
-  resolved "https://registry.yarnpkg.com/semver/-/semver-7.8.5.tgz#39b646037dd50c14fb451e7e4cac58ed8b863f69"
-  integrity sha512-Y7/KDsb8LjooZpwaqGyulO6DQlksgCncchHGk+sZIY4SBvUocMBEFH5Ur1fI4dV+Jvl0w6cjvucaIi40puRioA==
+semver@7.x, semver@^7.0.0, semver@^7.2.1, semver@^7.3.2, semver@^7.3.4, semver@^7.3.5, semver@^7.3.6, semver@^7.3.7, semver@^7.3.8, semver@^7.5.3, semver@^7.5.4, semver@^7.6.0, semver@^7.6.3:
+  version "7.7.2"
+  resolved "https://registry.npmjs.org/semver/-/semver-7.7.2.tgz"
+  integrity sha512-RF0Fw+rO5AMf9MAyaRXI4AV0Ulj5lMHqVxxdSgiVbixSCXoEmmX/jk0CuJw4+3SqroYO9VoUh+HcuJivvtJemA==
 
 semver@^6.0.0, semver@^6.1.0, semver@^6.3.0, semver@^6.3.1:
   version "6.3.1"
   resolved "https://registry.npmjs.org/semver/-/semver-6.3.1.tgz"
   integrity sha512-BR7VvDCVHO+q2xBEWskxS6DJE1qRnb7DxzUrogb71CWoSficBxYsiAGd+Kl0mmq/MprG9yArRkyrQxTO6XjMzA==
-
-semver@^7.0.0, semver@^7.2.1, semver@^7.3.2, semver@^7.3.4, semver@^7.3.5, semver@^7.3.6, semver@^7.3.7, semver@^7.3.8, semver@^7.5.3, semver@^7.5.4, semver@^7.6.0, semver@^7.6.3:
-  version "7.7.2"
-  resolved "https://registry.npmjs.org/semver/-/semver-7.7.2.tgz"
-  integrity sha512-RF0Fw+rO5AMf9MAyaRXI4AV0Ulj5lMHqVxxdSgiVbixSCXoEmmX/jk0CuJw4+3SqroYO9VoUh+HcuJivvtJemA==
 
 semver@~7.0.0:
   version "7.0.0"
@@ -13495,7 +13458,7 @@ ts-api-utils@^2.1.0:
 
 ts-jest@27.1.5:
   version "27.1.5"
-  resolved "https://registry.yarnpkg.com/ts-jest/-/ts-jest-27.1.5.tgz#0ddf1b163fbaae3d5b7504a1e65c914a95cff297"
+  resolved "https://registry.npmjs.org/ts-jest/-/ts-jest-27.1.5.tgz"
   integrity sha512-Xv6jBQPoBEvBq/5i2TeSG9tt/nqkbpcurrEG1b+2yfBrcJelOZF9Ml6dmyMh7bcW9JyFbRYpR5rxROSlBLTZHA==
   dependencies:
     bs-logger "0.x"
@@ -13924,11 +13887,6 @@ vue-component-type-helpers@^2.0.0:
   version "2.2.12"
   resolved "https://registry.npmjs.org/vue-component-type-helpers/-/vue-component-type-helpers-2.2.12.tgz"
   integrity sha512-YbGqHZ5/eW4SnkPNR44mKVc6ZKQoRs/Rux1sxC6rdwXb4qpbOSYfDr9DsTHolOTGmIKgM9j141mZbBeg05R1pw==
-
-vue-demi@^0.14.10:
-  version "0.14.10"
-  resolved "https://registry.yarnpkg.com/vue-demi/-/vue-demi-0.14.10.tgz#afc78de3d6f9e11bf78c55e8510ee12814522f04"
-  integrity sha512-nMZBOwuzabUO0nLgIcc6rycZEebF6eeUfaiQx9+WSk8e29IbLvPU9feI6tqW4kTo3hvoYAJkMh8n8D0fuISphg==
 
 vue-eslint-parser@^9.1.1, vue-eslint-parser@^9.4.3:
   version "9.4.3"

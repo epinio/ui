@@ -10,6 +10,7 @@ export function toNamespace(apiNamespace: ApiNamespace): Namespace {
         },
         apps: apiNamespace.apps,
         configurations: apiNamespace.configurations,
+        services: apiNamespace.services,
     };
 }
 

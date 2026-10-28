@@ -62,6 +62,7 @@ defineExpose({ openDelete });
     :open.prop="showModal"
     title="Are you sure?"
     @modal-close="closeDelete"
+    :show-dismiss-button="true"
   >
     <div class="modal-content">
       <p>You are attempting to delete the configuration <strong>{{ configToDelete?.meta?.name }}</strong>.</p>
@@ -115,6 +116,7 @@ defineExpose({ openDelete });
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  max-width: 500px;
+  width: 500px;
+  max-width: 100%;
 }
 </style>

@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watchEffect, watch } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watchEffect, watch } from 'vue';
 import { useStore } from 'vuex';
 import { debounce } from 'lodash';
+import { useRouter } from 'vue-router';
 import { EPINIO_TYPES, EPINIO_SERVICE_PARAM } from '../types';
-import Masthead from '@shell/components/ResourceList/Masthead';
 import { makeStateTag, makeNameLinks, makeActionMenu } from '../utils/table-formatters';
 import ServiceDeleteModal from '../components/service/ServiceDeleteModal.vue';
 import ServiceInstanceModal from '../components/service/ServiceInstanceModal.vue';
@@ -21,7 +21,7 @@ defineProps<{
 
 const store = useStore() as any;
 const t = store.getters['i18n/t'];
-const router = store.$router;
+const router = useRouter();
 
 const resource: string = EPINIO_TYPES.SERVICE_INSTANCE;
 const serviceModal = ref<InstanceType<typeof ServiceInstanceModal> | null>(null);
@@ -109,12 +109,21 @@ watchEffect(() => {
   }
 });
 
+const windowWidth = ref(window.innerWidth);
+const onResize = () => { windowWidth.value = window.innerWidth; };
+
+
 onMounted(async () => {
+  window.addEventListener('resize', onResize);
   const query = store.$router.currentRoute._value.query;
 
   if (query.mode === 'openModal') {
     serviceModal.value?.openCreate(query[EPINIO_SERVICE_PARAM] as string | undefined);
   }
+});
+
+onUnmounted(() => {
+  window.removeEventListener('resize', onResize);
 });
 
 async function openCreateModal() {
@@ -176,7 +185,7 @@ const handleNavigate = (event: CustomEvent) => {
   router.push(event.detail.url);
 };
 
-const columns = [
+const allColumns = [
   {
     field: 'stateDisplay',
     label: 'State',
@@ -234,37 +243,46 @@ const columns = [
     formatter: 'age'
   }
 ];
+
+const columns = computed(() => {
+  const w = windowWidth.value;
+  const hide = new Set<string>();
+
+  if (w < 1700) hide.add('catalogServiceVersion');
+  if (w < 1600) hide.add('catalogService');
+  if (w < 1150) hide.add('meta.createdAt'); 
+
+  return allColumns.filter(col => !hide.has(col.field));
+});
 </script>
 
 <template>
   <div id="modal-container-element">
-    <Masthead
-      :schema="schema"
-      :resource="resource"
-    >
-      <template #extraActions>
+    <div class="heading">
+      <h1>Services</h1>
+      <div class="actions">
         <trailhand-button
           v-if="selectedRows.length"
           variant="destructive"
-          size="large"
           @click="handleBulkDeleteClick"
         >
           <trailhand-icon name="trash" />
           Delete ({{ selectedRows.length }})
         </trailhand-button>
-      </template>
-      <template #createButton>
         <trailhand-button
           v-if="canCreate"
           variant="primary"
-          size="large"
           @click="openCreateModal"
         >
           {{ t('generic.create') }}
         </trailhand-button>
-        <div v-else />
-      </template>
-    </Masthead>
+        <trailhand-text-input
+          :value="searchQuery"
+          placeholder="Search..."
+          @text-input-change="(e: CustomEvent) => searchQuery = e.detail.value"
+        ></trailhand-text-input>
+      </div>
+    </div>
     <Banner
       v-if="isErrorServices"
       color="error"
@@ -275,13 +293,6 @@ const columns = [
       color="error"
       :label="userError?.message || t('epinio.user.errors.fetch')"
     />
-    <div class="search-container">
-      <trailhand-text-input
-        :value="searchQuery"
-        placeholder="Search..."
-        @text-input-change="(e: CustomEvent) => searchQuery = e.detail.value"
-      ></trailhand-text-input>
-    </div>
     <trailhand-table
       :ref="setTableRef"
       :rows="displayRows"
@@ -312,11 +323,21 @@ const columns = [
 
 <style lang="scss" scoped>
 
-.search-container {
-  width: 100%;
+.heading {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: flex-end;
   margin-bottom: 1rem;
+
+  h1 {
+    margin: 0;
+  }
+}
+
+.actions {
+  display: flex;
+  align-items: flex-end;
+  gap: 1rem;
 }
 
 trailhand-table {
@@ -329,7 +350,8 @@ trailhand-table {
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  max-width: 500px;
+  width: 500px;
+  max-width: 100%;
 }
 
 </style>

@@ -126,7 +126,7 @@ const isDirty = computed(() => {
     return settingsChanged || appsChanged;
   }
 
-  return !!(formName.value || formCatalogService.value || selectedApps.value.length || Object.keys(chartValues).length);
+  return !!(formNamespace.value || formName.value || formCatalogService.value || selectedApps.value.length || Object.keys(chartValues).length);
 });
 
 const showDiscardConfirm = ref(false);
@@ -375,10 +375,14 @@ defineExpose({ openCreate, openEdit, openView });
 <template>
   <trailhand-modal
     :open.prop="showModal"
-    :dismissible.prop="false"
     :title="(isEdit || isView) ? formName : 'Instances'"
     :subtitle="(isEdit || isView) ? (serviceModel?.stateDisplay || '') : 'Create New'"
-    @modal-close="handleModalClose"
+    position="top"
+    :dismissible="false"
+    :show-dismiss-button="true"
+    @escape-key-press="handleModalClose"
+    @backdrop-click="handleModalClose"
+    @close-button-click="handleModalClose"
   >
     <div class="modal-content">
       <trailhand-form-card>
@@ -541,6 +545,7 @@ defineExpose({ openCreate, openEdit, openView });
   flex-direction: column;
   gap: 1rem;
   width: 560px;
+  max-width: 100%;
 }
 
 .discard-message {

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useStore } from 'vuex';
+import { useRouter } from 'vue-router';
 import { computed, ref, onMounted, watchEffect, watch } from 'vue';
 import { debounce } from 'lodash';
 
@@ -21,7 +22,7 @@ import { makeNameLinks } from '../utils/table-formatters';
 import { useCatalogService } from '../queries/useCatalogServicesQueries';
 
 const store = useStore();
-const router = store.$router;
+const router = useRouter();
 const t = store.getters['i18n/t'];
 
 const props = defineProps<{ value: EpinioCatalogServiceModel }>();

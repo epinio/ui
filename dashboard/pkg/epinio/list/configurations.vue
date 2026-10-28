@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { EPINIO_TYPES } from '../types';
 import { useStore } from 'vuex';
+import { useRouter } from 'vue-router';
 import { computed, onMounted, onUnmounted, ref, watchEffect, watch } from 'vue';
-import Masthead from '@shell/components/ResourceList/Masthead';
 import { makeEmptyCell, makeNameLinks, makeActionMenu } from '../utils/table-formatters';
 import ConfigurationModal from '../components/configuration/ConfigurationModal.vue';
 import ConfigurationDeleteModal from '../components/configuration/ConfigurationDeleteModal.vue';
@@ -19,7 +19,7 @@ import Banner from '@components/Banner/Banner.vue';
 import { useUser } from '../queries/useUserQueries';
 
 const store = useStore();
-const router = store.$router;
+const router = useRouter();
 
 defineProps<{ schema: object }>(); // Keep for compatibility
 
@@ -283,33 +283,31 @@ const columns = computed(() => {
 
 <template>
   <div id="modal-container-element">
-    <Masthead
-      :schema="schema"
-      :resource="resource"
-    >
-      <template #extraActions>
+    <div class="heading">
+      <h1>Configurations</h1>
+      <div class="actions">
         <trailhand-button
           v-if="selectedRows.length"
           variant="destructive"
-          size="large"
           @click="handleBulkDeleteClick"
         >
           <trailhand-icon name="trash" />
           Delete ({{ selectedRows.length }})
         </trailhand-button>
-      </template>
-      <template #createButton>
         <trailhand-button
           v-if="canCreateConfiguration"
           variant="primary"
-          size="large"
           @click="openCreateModal"
         >
           {{ t('generic.create') }}
         </trailhand-button>
-        <div v-else></div>
-      </template>
-    </Masthead>
+        <trailhand-text-input
+          :value="searchQuery"
+          placeholder="Search..."
+          @text-input-change="(e: CustomEvent) => searchQuery = e.detail.value"
+        ></trailhand-text-input>
+      </div>
+    </div>
     <Banner
       v-if="isErrorUser"
       color="error"
@@ -320,13 +318,6 @@ const columns = computed(() => {
       color="error"
       :label="configurationsError?.message || t('epinio.configurations.errors.fetch')"
     />
-    <div class="search-container">
-      <trailhand-text-input
-        :value="searchQuery"
-        placeholder="Search..."
-        @text-input-change="(e: CustomEvent) => searchQuery = e.detail.value"
-      ></trailhand-text-input>
-    </div>
     <trailhand-table
       :ref="setTableRef"
       :rows="displayRows"
@@ -357,11 +348,21 @@ const columns = computed(() => {
 </template>
 
 <style lang="scss" scoped>
-.search-container {
-  width: 100%;
+.heading {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: flex-end;
   margin-bottom: 1rem;
+
+  h1 {
+    margin: 0;
+  }
+}
+
+.actions {
+  display: flex;
+  align-items: flex-end;
+  gap: 1rem;
 }
 
 trailhand-table {
