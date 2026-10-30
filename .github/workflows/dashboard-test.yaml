@@ -6,8 +6,6 @@ on:
     paths:
       - dashboard/**
   pull_request:
-    branches:
-      - main
     paths:
       - dashboard/**
   workflow_dispatch:

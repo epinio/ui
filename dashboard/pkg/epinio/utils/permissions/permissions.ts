@@ -1,4 +1,4 @@
-import type { EpinioRole } from '../types';
+import type { EpinioRole } from '../../types';
 
 // Mapping from Epinio role IDs to the action IDs they imply.
 // These should stay in sync with the server-side role definitions.

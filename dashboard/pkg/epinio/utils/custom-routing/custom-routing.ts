@@ -1,4 +1,4 @@
-import { EPINIO_PRODUCT_NAME } from '../types';
+import { EPINIO_PRODUCT_NAME } from '../../types';
 
 type Dictionary<T> = { [key: string]: T }
 
