@@ -1,6 +1,6 @@
-import { APPLICATION_MANIFEST_SOURCE_TYPE, APPLICATION_SOURCE_TYPE, EpinioApplicationResource, EpinioAppSource, EPINIO_APP_GIT_SOURCE } from '../types';
-import { parse as parseUrl } from '@shell/utils/url';
-import { AppOrigin } from '../models/application/ui-types';
+import { APPLICATION_MANIFEST_SOURCE_TYPE, APPLICATION_SOURCE_TYPE, EpinioApplicationResource, EpinioAppSource, EPINIO_APP_GIT_SOURCE } from '../../types';
+import { parse as parseUrl } from '../url';
+import { AppOrigin } from '../../models/application/ui-types';
 
 interface Utils {
   getSourceType: (origin: AppOrigin) => APPLICATION_SOURCE_TYPE;

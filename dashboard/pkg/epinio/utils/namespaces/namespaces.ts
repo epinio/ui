@@ -1,7 +1,7 @@
 import { computed, ref } from 'vue';
 import sortBy from 'lodash/sortBy';
 
-import { EPINIO_TYPES } from '../types';
+import { EPINIO_TYPES } from '../../types';
 
 interface UseNamespacesOptions {
   // Limit the default list to the navbar's namespace filter. Never applied to

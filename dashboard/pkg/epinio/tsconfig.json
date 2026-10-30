@@ -19,8 +19,7 @@
       "../../node_modules/@rancher/shell/types"
     ],    
     "types": [
-      "node",
-      "webpack-env",
+      "@types/webpack-env",
       "@types/node",
       "@types/jest",
       "@types/lodash",
