@@ -1,6 +1,6 @@
-import { APPLICATION_MANIFEST_SOURCE_TYPE, APPLICATION_SOURCE_TYPE, EpinioApplicationResource, EpinioAppSource, EPINIO_APP_GIT_SOURCE } from '../types';
-import { parse as parseUrl } from '@shell/utils/url';
-import { App, AppOrigin } from '../models/application/ui-types';
+import { APPLICATION_MANIFEST_SOURCE_TYPE, APPLICATION_SOURCE_TYPE, EpinioApplicationResource, EpinioAppSource, EPINIO_APP_GIT_SOURCE } from '../../types';
+import { parse as parseUrl } from '../url';
+import { App, AppOrigin } from '../../models/application/ui-types';
 
 /** App has a staged build (image and/or stage id). */
 export function appHasBuild(app: App): boolean {
