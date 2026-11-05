@@ -135,7 +135,9 @@ async function stage(
   request: AppStageRequest,
   buildCache: BuildCache,
 ) {
+  console.log('Staging app:', namespace, name, request);
   const apiResponse = await api.stage(namespace, name, toApiAppStageRequest(request));
+  console.log('Staging response:', apiResponse);
   const result = toAppStageResponse(apiResponse);
 
   buildCache.stageForSync = { stage: result.stage, image: result.image };
@@ -321,12 +323,27 @@ export async function waitAsyncBuildPhase(
   name: string,
   request: AsyncDeployRequest,
   buildCache: BuildCache,
+  deploy?: boolean
 ) {
   const isContainer = request.origin?.Kind === APPLICATION_MANIFEST_SOURCE_TYPE.CONTAINER;
   if (isContainer) return;
 
+  // If deploy is false, we only want to stage the app and not start the async deployment
+  if (!deploy) {
+    console.log('waitAsyncBuildPhase: deploy is false, only staging the app');
+    const result = await stage(api, namespace, name, request, buildCache);
+    if (result.stage?.id) {
+      const fetchedApp = toApp(await api.getApp(namespace, name));
+      showStagingLog(store, {...fetchedApp, stageId: result.stage.id});
+      await waitForStaging(api, namespace, result.stage.id);
+    }
+    return;
+  }
+
+  // If deploy is true, we want to start the async deployment and wait for it to complete
   await ensureAsyncDeployStarted(api, namespace, name, request, buildCache);
 
+  // If the deploy mode is set to sync during ensureAsyncDeployStarted, we need to stage the app and wait for it to complete
   if (buildCache.deployMode === 'sync') {
     const result = await stage(api, namespace, name, request, buildCache);
     if (!request.image) {
@@ -335,7 +352,6 @@ export async function waitAsyncBuildPhase(
     buildCache.stageForSync = { stage: result.stage, image: request.image };
     if (result.stage?.id) {
       const fetchedApp = toApp(await api.getApp(namespace, name));
-      console.log('WaitAsyncBuildPhase: Fetched app for staging:', fetchedApp);
       showStagingLog(store, {...fetchedApp, stageId: result.stage.id});
       await waitForStaging(api, namespace, result.stage.id);
     }
