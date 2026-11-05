@@ -86,7 +86,6 @@ const fetchCancel = () => {
 };
 
 const closeExport = () => {
-  console.log('Closing export modal');
   fetchCancel();
   resources.value = [];
   showProgressBar.value = false;

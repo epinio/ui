@@ -113,12 +113,12 @@ export function useBuildApplication(store: any, onSuccessCallback?: () => void) 
     const isExtension = computed(() => !!store.getters['isSingleProduct'] === false);
 
     return useMutation({
-        mutationFn: async ({ namespace, app, request, buildCache }: { namespace: string; app: App; request: AsyncDeployRequest; buildCache: BuildCache}) => {
+        mutationFn: async ({ namespace, app, request, buildCache, deploy }: { namespace: string; app: App; request: AsyncDeployRequest; buildCache: BuildCache, deploy: boolean }) => {
             if (!cluster?.value) {
                 throw new Error('Cluster is not available');
             }
             const epinioClient = createEpinioClient(cluster.value, isExtension.value);
-            return await waitAsyncBuildPhase(applicationsApi(epinioClient), store, namespace, app.meta.name, request, buildCache);
+            return await waitAsyncBuildPhase(applicationsApi(epinioClient), store, namespace, app.meta.name, request, buildCache, deploy);
         },
         onSuccess: () => {
             if (onSuccessCallback) {

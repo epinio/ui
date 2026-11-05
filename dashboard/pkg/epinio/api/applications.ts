@@ -7,8 +7,8 @@ export function applicationsApi(epinioClient: ReturnType<typeof createEpinioClie
     const namespacesBasePath = '/api/v1/namespaces';
 
     return {
-        listApps: async (params?: ApiListResourceRequestParams): Promise<ApiListAppsResponse> => {
-            return await epinioClient.get(appsBasePath, { params });
+        listApps: async (params?: ApiListResourceRequestParams, undeployed?: boolean): Promise<ApiListAppsResponse> => {
+            return await epinioClient.get(`${appsBasePath}${undeployed ? '/undeployed' : ''}`, { params });
         },
         getApp: async (namespace: string, app: string): Promise<ApiApp> => {
             return await epinioClient.get(`${namespacesBasePath}/${namespace}/applications/${app}`);

@@ -25,6 +25,7 @@ const props = defineProps<{
   onGitConfigFilter: (query: string) => void;
   isLoadingGitConfigs: boolean;
   isErrorGitConfigs: boolean;
+  deployOnly?: boolean;
 }>();
 
 const store = useStore();
@@ -173,6 +174,7 @@ const columns = computed(() => [
       input.checked = row.commitId === selectedCommitId.value;
       input.style.cursor = 'pointer';
       input.addEventListener('change', () => {props.updateSource(gitType.value, { commit: row.commitId })});
+      input.disabled = props.deployOnly;
 
       return input;
     }
@@ -243,6 +245,7 @@ const tableRows = computed(() => {
           :loading="isLoadingGitConfigs"
           @dropdown-change="(e: CustomEvent) => { updateSource(gitType, { gitConfig: e.detail.value }); }"
           @dropdown-filter="(e: CustomEvent<{ filter: string }>) => { onGitConfigFilter(e.detail.filter); }"
+          :disabled="props.deployOnly"
         />
         <p v-if="isErrorGitConfigs" class="error-message">
           {{ t(`epinio.gitConfigs.errors.fetchAll`) }}
@@ -265,6 +268,7 @@ const tableRows = computed(() => {
           @text-input-change="(e: CustomEvent) => {
             updateSource(gitType, { userOrOrg: e.detail.value, repository: '', branch: '', commit: '' }); 
           }"
+          :disabled="props.deployOnly"
         />
         <p v-if="isGitUserError" class="error-message">
           {{ t(`epinio.applications.gitSource.${ type }.errors.noAccount`) }}
@@ -298,6 +302,7 @@ const tableRows = computed(() => {
             updateSource(gitType, { repository: repo.name, url, branch: '', commit: '' });
           }"
           @dropdown-filter="(e: CustomEvent<{ filter: string }>) => { repoQuery = e.detail.filter; }"
+          :disabled="props.deployOnly"
         />
         <p v-if="isGitReposError" class="error-message">
           {{ t(`epinio.applications.gitSource.${ type }.errors.noRepo`) }}
@@ -321,6 +326,7 @@ const tableRows = computed(() => {
             updateSource(gitType, { branch: e.detail.value, commit: '' });
           }"
           @dropdown-filter="(e: CustomEvent<{ filter: string }>) => { branchQuery = e.detail.filter; }"
+          :disabled="props.deployOnly"
         />
         <p v-if="isGitBranchesError" class="error-message">
           {{ t(`epinio.applications.gitSource.${ type }.errors.noBranch`) }}

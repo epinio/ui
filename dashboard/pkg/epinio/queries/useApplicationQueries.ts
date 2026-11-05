@@ -8,18 +8,18 @@ import { ListResourceRequestParams, ResourceQueryOptions } from "../models/resou
 import { toApiListResourceRequestParams } from "../models/resource/mappers";
 import { toListAppsResponse, toApp } from "../models/application/mappers";
 
-export function useApplications(store: any, params: Ref<ListResourceRequestParams>, options: Ref<ResourceQueryOptions>) {
+export function useApplications(store: any, params: Ref<ListResourceRequestParams>, options: Ref<ResourceQueryOptions>, undeployed?: boolean) {
     const { data: cluster } = useCluster(store);
     const isExtension = computed(() => !!store.getters['isSingleProduct'] === false);
 
     return useQuery({
-        queryKey: computed(() => ['applications', cluster.value?.id, params?.value]),
+        queryKey: computed(() => ['applications', cluster.value?.id, params?.value, undeployed]),
         queryFn: async () => {
             if (!cluster?.value) {
                 throw new Error('Cluster is not available');
             }
             const epinioClient = createEpinioClient(cluster.value, isExtension.value);
-            const apps = await applicationsApi(epinioClient).listApps(params ? toApiListResourceRequestParams(params.value) : undefined);
+            const apps = await applicationsApi(epinioClient).listApps(params ? toApiListResourceRequestParams(params.value) : undefined, undeployed);
             return toListAppsResponse(apps);
         },
         enabled: computed(() => !!cluster.value && options.value.enabled),

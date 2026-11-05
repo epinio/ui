@@ -17,6 +17,8 @@ const t = store.getters['i18n/t'];
 const showModal = ref(false);
 const modalMode = ref<'create' | 'edit'>('create');
 
+const deployOnly = ref(false);
+
 const initialApp = ref<App | null>(null);
 
 const { form, initialForm, populateFormFromApp, clearForm, state, update } = useAppForm(modalMode);
@@ -84,10 +86,11 @@ async function openCreate() {
   showModal.value = true;
 }
 
-async function openEdit(row: App, commit?: string) {
+async function openEdit(row: App, commit?: string | null, appDeploy?: boolean) {
   modalMode.value = 'edit';
   showModal.value = true;
   initialApp.value = row;
+  deployOnly.value = appDeploy || false;
   const form = populateFormFromApp(row, true);
 
   if (commit) {
@@ -174,6 +177,7 @@ defineExpose({ openCreate, openEdit });
             :mode="modalMode"
             :updateSource="update.source"
             :populateFormFromApp="populateFormFromApp"
+            :deployOnly="deployOnly"
           />
         </template>
 
@@ -185,6 +189,7 @@ defineExpose({ openCreate, openEdit });
             :mode="modalMode"
             :active="activeTab === tab.id"
             :updateBuildOptions="update.buildOptions"
+            :deployOnly="deployOnly"
           />
         </template>
 
@@ -198,6 +203,7 @@ defineExpose({ openCreate, openEdit });
             :updateDetails="update.details"
             :updateChartSettings="update.chartSettings"
             :updateBindings="update.bindings"
+            :deployOnly="deployOnly"
           />
         </template>
 

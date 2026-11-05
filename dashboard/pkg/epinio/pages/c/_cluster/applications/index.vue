@@ -27,6 +27,7 @@ import ServiceInstanceModal from '../../../../components/service/ServiceInstance
 import ConfigurationModal from '../../../../components/configuration/ConfigurationModal.vue';
 import { fetchConfiguration } from '../../../../queries/useConfigurationQueries';
 import { fetchService } from '../../../../queries/useServiceQueries';
+import Tabs from '../../../../components/application/Tabs.vue';
 
 const store = useStore() as any;
 const t = store.getters['i18n/t'];
@@ -66,9 +67,21 @@ watch(searchQuery, (newQuery) => {
 const onSearch = debounce(async (query: string) => {
   requestParams.value.page = 1;
   requestParams.value.search = query;
+  undeployedRequestParams.value.page = 1;
+  undeployedRequestParams.value.search = query;
 }, 500);
 
 const {data: applications, isLoading: isLoadingApplications, isError: isErrorApplications, error: applicationsError} = useApplications(store, requestParams, requestOptions);
+
+const undeployedRequestParams = ref<ListResourceRequestParams>({
+  page: 1,
+  pageSize: 10,
+  search: '',
+  namespaces: []
+});
+
+const {data: undeployedApps, isLoading: isLoadingUndeployedApps, isError: isErrorUndeployedApps, error: undeployedAppsError} = useApplications(store, undeployedRequestParams, requestOptions, true);
+
 const { mutateAsync: bulkRemove } = useBulkRemoveApplications(store);
 
 const tableEl = ref<any>(null);
@@ -110,8 +123,10 @@ watchEffect(() => {
 
   if (activeNamespaces && Object.keys(activeNamespaces).length > 0) {
     requestParams.value.namespaces = Object.keys(activeNamespaces);
+    undeployedRequestParams.value.namespaces = Object.keys(activeNamespaces);
   } else {
     requestParams.value.namespaces = undefined;
+    undeployedRequestParams.value.namespaces = undefined;
   }
 });
 
@@ -119,9 +134,29 @@ const openDeleteModal = (app: App) => {
   deleteModal.value?.openDelete(app);
 };
 
-const openEditModal = (app: App) => {
-  appModal.value?.openEdit(app);
+const openEditModal = (app: App, commit?: string | null, appDeploy?: boolean) => {
+  appModal.value?.openEdit(app, commit, appDeploy);
 };
+
+const activeAppTab = ref<string | number>('deployed');
+const appTabs = computed(() => [
+  {
+    id: 'deployed',
+    label: t('epinio.applications.list.deployed'),
+    completed: false,
+    valid: true,
+    disabled: false,
+    visible: true
+  },
+  {
+    id: 'undeployed',
+    label: t('epinio.applications.list.notDeployed'),
+    completed: false,
+    valid: true,
+    disabled: false,
+    visible: true,
+  }
+])
 
 const displayRows = computed(() => {
   if (!applications.value) {
@@ -164,6 +199,36 @@ const displayRows = computed(() => {
     }, {
       label: 'Edit',
       action: () => openEditModal(a),
+      enabled: canEdit.value,
+      visible: canEdit.value,
+    }, {
+      label: 'Delete',
+      action: () => openDeleteModal(a),
+      enabled: canDelete.value,
+      visible: canDelete.value,
+      danger: true,
+    }],
+    canDelete: canDelete.value,
+  }));
+  return rows;
+});
+
+const undeployedDisplayRows = computed(() => {
+  if (!undeployedApps.value) {
+    return [];
+  }
+
+  const rows: ResourceTableRow<App>[] = (undeployedApps.value.items ?? []).map((a) => ({
+    ...a,
+    id: a.meta.name, // stable, unique per namespace
+    availableActions: [{
+      label: 'Last Build Logs',
+      action: () => showStagingLog(store, a),
+      enabled: canLogs.value && !!a.stageId,
+      visible: canLogs.value,
+    }, {
+      label: 'Deploy',
+      action: () => openEditModal(a, null, true),
       enabled: canEdit.value,
       visible: canEdit.value,
     }, {
@@ -407,25 +472,46 @@ const columns = computed(() => {
       :label="userError?.message || t('epinio.user.errors.fetch')"
     />
     <Banner
-      v-if="isErrorApplications"
+      v-if="isErrorApplications || isErrorUndeployedApps"
       color="error"
-      :label="applicationsError?.message || t('epinio.applications.errors.fetch')"
+      :label="applicationsError?.message || undeployedAppsError?.message || t('epinio.applications.errors.fetch')"
     />  
-      <trailhand-table
-        :ref="setTableRef"
-        :rows="displayRows"
-        :columns="columns"
-        :searchable="false"
-        :selectable="canDelete"
-        :server-side="true"
-        :total-items="applications?.totalItems ?? 0"
-        :current-page="requestParams.page"
-        :loading="isLoadingApplications"
-        key-field="id"
-        @navigate="handleNavigate"
-        @page-change="(e: CustomEvent) => { requestParams.page = e.detail.page; }"
-        @selection-change="handleSelectionChange"
-      />
+    <Tabs  v-model="activeAppTab" :tabs="appTabs" variant="underline">
+      <template #deployed>
+        <trailhand-table
+          :ref="setTableRef"
+          :rows="displayRows"
+          :columns="columns"
+          :searchable="false"
+          :selectable="canDelete"
+          :server-side="true"
+          :total-items="applications?.totalItems ?? 0"
+          :current-page="requestParams.page"
+          :loading="isLoadingApplications"
+          key-field="id"
+          @navigate="handleNavigate"
+          @page-change="(e: CustomEvent) => { requestParams.page = e.detail.page; }"
+          @selection-change="handleSelectionChange"
+        />
+      </template>
+      <template #undeployed>
+        <trailhand-table
+          :ref="setTableRef"
+          :rows="undeployedDisplayRows"
+          :columns="columns"
+          :searchable="false"
+          :selectable="canDelete"
+          :server-side="true"
+          :total-items="undeployedApps?.totalItems ?? 0"
+          :current-page="undeployedRequestParams.page"
+          :loading="isLoadingUndeployedApps"
+          key-field="id"
+          @navigate="handleNavigate"
+          @page-change="(e: CustomEvent) => { undeployedRequestParams.page = e.detail.page; }"
+          @selection-change="handleSelectionChange"
+        />
+      </template>
+    </Tabs>
     <AppModal ref="appModal" />
     <AppDeleteModal ref="deleteModal" />
     <ExportAppModal ref="exportAppModal" />

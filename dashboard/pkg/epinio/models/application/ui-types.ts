@@ -238,6 +238,7 @@ export interface AppFormBuildOptions {
     dockerfilePath?: string;
     builderImage?: string;
     builderImagesForbidden?: boolean;
+    deploy: boolean;
 }
 
 export interface AppFormDetails {

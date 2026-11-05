@@ -159,6 +159,9 @@ epinio:
       explore: Explore
       cluster: Rancher Cluster
   applications:
+    list:
+      deployed: Deployed
+      notDeployed: Not Deployed
     tableHeaders:
       route: Routes
       boundConfigs: Bound Configs
@@ -581,6 +584,13 @@ epinio:
         error:
           title: Application Deployment Failed
           message: 'Your application { name } failed to deploy. Please try again. Error details: { error }'
+      build:
+        success:
+          title: Application Built
+          message: 'Your application { name } has been built successfully.'
+        error:
+          title: Application Build Failed
+          message: 'Your application { name } failed to build. Please try again. Error details: { error }'
       update:
         success:
           title: Application Updates Deployed
@@ -645,6 +655,7 @@ epinio:
         error:
           title: Something Went Wrong Exporting!
           message: Can't export the application. Please try again or contact your system admin to investigate the issue.
+
     configuration:
       create:
         success:

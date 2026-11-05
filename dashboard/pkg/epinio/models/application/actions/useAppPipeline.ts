@@ -187,32 +187,40 @@ export function useAppPipeline(store: any) {
               app: app.value,
               request,
               buildCache: buildCache.value,
+              deploy: form.buildOptions.deploy,
             });
           });
         }
 
         // 7. Deploy
-        const deployRequest = appFormToAsyncDeployRequest(form, buildCache.value);
-        await stepRunner('deploy', () => {
-          if (!app.value) {
-            throw new Error('App is not available');
-          }
-          return deployApp({
-            namespace: details.namespace,
-            app: app.value,
-            request: deployRequest,
-            buildCache: buildCache.value,
+        if (form.buildOptions.deploy) {
+          console.log('Deploying app with request:', appFormToAsyncDeployRequest(form, buildCache.value));
+          const deployRequest = appFormToAsyncDeployRequest(form, buildCache.value);
+          await stepRunner('deploy', () => {
+            if (!app.value) {
+              throw new Error('App is not available');
+            }
+            return deployApp({
+              namespace: details.namespace,
+              app: app.value,
+              request: deployRequest,
+              buildCache: buildCache.value,
+            });
           });
-        });
+        }
       }
 
       store.dispatch('growl/success', {
         title: params.mode === 'edit'
           ? t('epinio.growl.application.update.success.title')
-          : t('epinio.growl.application.deploy.success.title'),
+          : form.buildOptions.deploy 
+          ? t('epinio.growl.application.deploy.success.title')
+          : t('epinio.growl.application.build.success.title'),
         message: params.mode === 'edit'
           ? t('epinio.growl.application.update.success.message', { name: form.details.name })
-          : t('epinio.growl.application.deploy.success.message', { name: form.details.name }),
+          : form.buildOptions.deploy 
+          ? t('epinio.growl.application.deploy.success.message', { name: form.details.name })
+          : t('epinio.growl.application.build.success.message', { name: form.details.name }),
       });
       epinioQueryClient.invalidateQueries({ queryKey: ['applications', cluster.value.id] });
       isDone.value = true;
@@ -222,10 +230,14 @@ export function useAppPipeline(store: any) {
       store.dispatch('growl/error', {
         title: params.mode === 'edit'
           ? t('epinio.growl.application.update.error.title')
-          : t('epinio.growl.application.deploy.error.title'),
+          : form.buildOptions.deploy
+          ? t('epinio.growl.application.deploy.error.title')
+          : t('epinio.growl.application.build.error.title'),
         message: params.mode === 'edit'
           ? t('epinio.growl.application.update.error.message', { name: form.details.name, error: errDetails })
-          : t('epinio.growl.application.deploy.error.message', { name: form.details.name, error: errDetails }),
+          : form.buildOptions.deploy
+          ? t('epinio.growl.application.deploy.error.message', { name: form.details.name, error: errDetails })
+          : t('epinio.growl.application.build.error.message', { name: form.details.name, error: errDetails }),
       });
       throw err;
     } finally {
@@ -256,7 +268,7 @@ function makeStepRunner(steps: PipelineStep[]) {
 }
 
 function buildSteps(mode: 'create' | 'edit', form: AppForm, isSourceDirty: boolean, isBindingsDirty: boolean): PipelineStep[] {
-  const { source, bindings } = form;
+  const { source, bindings, buildOptions } = form;
   const isEdit = mode === 'edit';
 
   const isArchiveOrFolder = ['archive', 'folder'].includes(source.type);
@@ -295,7 +307,7 @@ function buildSteps(mode: 'create' | 'edit', form: AppForm, isSourceDirty: boole
     // 6. Build if needed
     if (needsBuild) steps.push(makeStep('build'));
     // 7. Deploy (always last)
-    steps.push(makeStep('deploy'));
+    if (buildOptions.deploy) steps.push(makeStep('deploy'));
   }
 
   return steps;

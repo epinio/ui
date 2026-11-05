@@ -25,6 +25,7 @@ const props = defineProps<{
   modalOpen: boolean;
   updateBuildOptions: (newBuildOptions: Partial<AppFormBuildOptions>, setInitial?: boolean) => void;
   updateDetails: (newDetails: Partial<AppFormDetails>) => void;
+  deployOnly?: boolean;
 }>();
 
 watch(() => props.modalOpen, (newVal) => {
@@ -273,6 +274,17 @@ function handleBuilderImageDropdownChange(value: string) {
           />
         </div>
       </template>
+
+      <div v-if="!props.deployOnly" class="spacer">
+        <trailhand-toggle-switch
+          name="deploy-toggle"
+          right-label="Deploy Application"
+          left-label="" 
+          :checked="buildOptions.deploy" 
+          @toggle-change="(e: CustomEvent) => { updateBuildOptions({ deploy: e.detail.checked }); }"
+        >
+        </trailhand-toggle-switch>
+      </div>
     </div>
 </template>
 

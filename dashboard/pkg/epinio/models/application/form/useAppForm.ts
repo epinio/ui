@@ -52,7 +52,9 @@ export function useAppForm(mode: Ref<'create' | 'edit'>): UseAppFormReturn {
             source: {
                 type: 'folder'
             },
-            buildOptions: {},
+            buildOptions: {
+                deploy: true
+            },
             details: {
                 namespace: '',
                 name: '',
