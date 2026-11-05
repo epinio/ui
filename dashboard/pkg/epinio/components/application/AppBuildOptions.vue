@@ -176,6 +176,10 @@ const showBuildMode = computed(() =>
 
 const showDockerfilePath = computed(() => showBuildMode.value && props.buildOptions.buildMode === APPLICATION_BUILD_MODE.DOCKERFILE);
 
+// Create wizard only — Edit already has Rebuild / Deploy Build actions; a
+// checked box here would silently skip redeploy after a source change.
+const showBuildOnly = computed(() => showBuildMode.value && props.mode === 'create');
+
 const buildModes = [
   { label: t('epinio.applications.steps.source.buildMode.buildpack'), value: APPLICATION_BUILD_MODE.BUILDPACK },
   { label: t('epinio.applications.steps.source.buildMode.dockerfile'), value: APPLICATION_BUILD_MODE.DOCKERFILE },
@@ -243,6 +247,23 @@ function handleBuilderImageDropdownChange(value: string) {
         </div>
       </template>
 
+      <template v-if="showBuildOnly">
+        <div class="spacer source build-only">
+          <label class="build-only__label">
+            <input
+              type="checkbox"
+              :checked="!!buildOptions.buildOnly"
+              data-testid="epinio_app-source_build-only"
+              @change="(e: Event) => updateBuildOptions({ buildOnly: (e.target as HTMLInputElement).checked })"
+            />
+            <span>
+              <strong>{{ t('epinio.applications.steps.source.buildOnly.label') }}</strong>
+              <span class="build-only__help">{{ t('epinio.applications.steps.source.buildOnly.help') }}</span>
+            </span>
+          </label>
+        </div>
+      </template>
+
       <template v-if="showBuilderImage">
         <div class="spacer source builder-image">
           <h4>Paketo Builder Image</h4>
@@ -282,6 +303,24 @@ function handleBuilderImageDropdownChange(value: string) {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+}
+.build-only__label {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  cursor: pointer;
+  font: inherit;
+
+  input {
+    margin-top: 0.2rem;
+  }
+}
+.build-only__help {
+  display: block;
+  margin-top: 0.15rem;
+  color: var(--input-label, var(--muted));
+  font-size: 0.85em;
+  font-weight: normal;
 }
 .error-message {
   color: var(--error);

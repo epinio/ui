@@ -159,11 +159,18 @@ epinio:
       explore: Explore
       cluster: Rancher Cluster
   applications:
+    listMode:
+      label: Application list mode
+      deployed: Deployed
+      undeployed: Undeployed
     tableHeaders:
       route: Routes
       boundConfigs: Bound Configs
       boundServices: Bound Services
       deployedBy: Last Deployed By
+      buildStatus: Build Status
+      builtImage: Built Image
+      deployedImage: Deployed Image
     detail:
       counts:
         label: Counts
@@ -336,6 +343,9 @@ epinio:
           inputLabel: Build Method
           buildpack: Buildpack (Paketo)
           dockerfile: Dockerfile
+        buildOnly:
+          label: Build only (do not deploy)
+          help: Stages an image without deploying. Deploy later from the Undeployed apps list.
         dockerfilePath:
           label: Dockerfile Path
           inputLabel: Dockerfile Path
@@ -433,6 +443,10 @@ epinio:
         label: Last Build Logs
       restage:
         label: Rebuild
+      deployBuild:
+        label: Deploy Build
+      deleteBuild:
+        label: Delete Build
       restart:
         label: Restart
       createManifest:
@@ -594,6 +608,7 @@ epinio:
         error:
           title: Application Deletion Failed
           message: 'Failed to delete application { name }. Please try again. Error details: { error }'
+      clusterUnavailable: Cluster is not available. Refresh the page and try again.
       restage:
         info:
           title: Attempting to Rebuild Application!
@@ -604,6 +619,33 @@ epinio:
         error:
           title: Something Went Wrong Rebuilding!
           message: This error occurs when there are missing resources in the cluster, contact your system admin to investigate the issue.
+          noSource: No reusable source available to rebuild. Upload source or link a git repo first.
+      buildOnly:
+        success:
+          title: Application Built Successfully!
+          message: '{ name } has been built. Deploy it from the Undeployed apps list when ready.'
+      deployBuild:
+        info:
+          title: Deploying Built Application!
+          message: Deploying the last staged image without rebuilding.
+        success:
+          title: Application Deployed!
+          message: '{ name } has been deployed from its built image.'
+        error:
+          title: Deploy Build Failed!
+          message: Could not deploy the built image. Please try again.
+          noBuild: Application has not been built yet. Rebuild it first.
+          noImage: This application has no deployable image yet. Build the app first, then use Deploy Build.
+      deleteBuild:
+        info:
+          title: Deleting Application Build!
+          message: Removing the staged image and build metadata. The application resource will remain.
+        success:
+          title: Application Build Deleted!
+          message: 'Build for { name } has been removed.'
+        error:
+          title: Delete Build Failed!
+          message: Could not delete the application build. Please try again.
       restart:
         info:
           title: Attempting to Restart Application!
@@ -614,6 +656,7 @@ epinio:
         error:
           title: Something Went Wrong Restarting!
           message: Can't restart the application, the image may be missing, reach out to your system admin to investigate the issue.
+          noInstances: No restart possible for an application with no instances.
       deployment:
         error:
           title: Something Went Wrong Opening Deployment!

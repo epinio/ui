@@ -73,6 +73,10 @@ export interface ApiApp {
     configuration: ApiAppConfiguration;
     deployment?: ApiAppDeployment;
     image_url: string;
+    /** Image produced by the last stage; distinct from image_url (deployed). */
+    built_image_url?: string;
+    /** Last completed lifecycle step: create | build | deployed. */
+    buildstatus?: string;
     origin: ApiAppOrigin;
     stage_id: string;
     staging: ApiAppStage;
@@ -114,6 +118,8 @@ export interface ApiAppStageRequest {
     buildmode?: string;
     dockerfilepath?: string;
     image?: string;
+    /** Optional; persisted so a later deploy-only step still knows the source. */
+    origin?: ApiAppOrigin;
 }
 
 export interface ApiAppStageResponse {

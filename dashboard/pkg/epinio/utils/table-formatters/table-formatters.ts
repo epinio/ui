@@ -220,6 +220,28 @@ export function makeRouterLink(text: string, location: any, router: Router): HTM
 }
 
 /**
+ * Long single-token values (registry image URLs) that must stay inside the
+ * column width — ellipsis + full value on hover.
+ */
+export function makeTruncatedTextCell(text: string, maxWidth = '220px'): HTMLElement {
+  if (!text) {
+    return makeEmptyCell();
+  }
+
+  const span = document.createElement('span');
+
+  span.textContent = text;
+  span.title = text;
+  span.style.display = 'block';
+  span.style.maxWidth = maxWidth;
+  span.style.overflow = 'hidden';
+  span.style.textOverflow = 'ellipsis';
+  span.style.whiteSpace = 'nowrap';
+
+  return span;
+}
+
+/**
  * Renders an application's routes as external links (when running) or plain text.
  */
 export function makeAppRoutesCell(row: App): HTMLElement {

@@ -8,6 +8,33 @@ import { toAppDeploymentStatus, toApiAsyncDeployRequest, toApiAppStageRequest, t
 import { AsyncDeployRequest, AppDeploymentStatus, AppStageRequest, AppMeta } from "../ui-types";
 import { epinioQueryClient } from "../../../api/queryClient";
 import { showAppLog, showStagingLog } from "./logs";
+import { extractErrorMessage } from "../../../utils/errors";
+
+function extractActionErrorMessage(err: any, fallback: string, t?: (key: string) => string): string {
+  const message = extractErrorMessage(err) || fallback;
+
+  // Friendlier copy for the common undeployed / never-built case.
+  if (t && /cannot deploy app without imageURL/i.test(message)) {
+    return t('epinio.growl.application.deployBuild.error.noImage');
+  }
+
+  return message || fallback;
+}
+
+function resolveClusterClient(store: any) {
+  const { data: cluster } = useCluster(store);
+
+  if (!cluster.value) {
+    return null;
+  }
+
+  const isExtension = !!store.getters['isSingleProduct'] === false;
+
+  return {
+    clusterId: cluster.value.id,
+    api:       applicationsApi(createEpinioClient(cluster.value, isExtension)),
+  };
+}
 
 export interface BuildCache {
   deployMode?: 'sync' | 'async';
@@ -380,51 +407,99 @@ export async function restartApp(
 ) {
   const t = store.getters['i18n/t'];
 
+  // Create/build-only apps have nothing to restart — fail before the info growl.
+  if (!app.imageUrl || app.status !== 'running') {
+    store.dispatch('growl/error', {
+      title:   t('epinio.growl.application.restart.error.title'),
+      message: !app.imageUrl
+        ? t('epinio.growl.application.deployBuild.error.noImage')
+        : t('epinio.growl.application.restart.error.noInstances'),
+    });
+    return;
+  }
+
   store.dispatch('growl/info', {
     title:   t('epinio.growl.application.restart.info.title'),
     message: t('epinio.growl.application.restart.info.message'),
   });
 
-  let cluster = null;
-  if (!clusterId) {
-    const { data: fetchedCluster } = useCluster(store);
-    if (!fetchedCluster.value) {
-      throw new Error('Cluster is not available');
-    }
-    cluster = fetchedCluster.value;
-    clusterId = cluster.id;
-  }
-
-  if (!clusterId || !cluster) {
-    throw new Error('Cluster is not available');
-  }
-
-  namespace = namespace ?? app.meta.namespace;
-  name = name ?? app.meta.name;
-
-  if (!api) {
-    const isExtension       = !!store.getters['isSingleProduct'] === false;
-    const client            = createEpinioClient(cluster, isExtension);
-    api = applicationsApi(client);
-  }
-
   try {
+    namespace = namespace ?? app.meta.namespace;
+    name = name ?? app.meta.name;
+
+    if (!api || !clusterId) {
+      const { data: fetchedCluster } = useCluster(store);
+
+      if (!fetchedCluster.value) {
+        throw new Error(t('epinio.growl.application.clusterUnavailable'));
+      }
+
+      clusterId = clusterId || fetchedCluster.value.id;
+
+      if (!api) {
+        const isExtension = !!store.getters['isSingleProduct'] === false;
+
+        api = applicationsApi(createEpinioClient(fetchedCluster.value, isExtension));
+      }
+    }
+
     await api.restart(namespace, name);
-    epinioQueryClient.invalidateQueries({ queryKey: ['applications', clusterId ?? cluster.id ] });
+    epinioQueryClient.invalidateQueries({ queryKey: ['applications', clusterId] });
     showAppLog(store, app);
     store.dispatch('growl/success', {
       title:   t('epinio.growl.application.restart.success.title'),
       message: t('epinio.growl.application.restart.success.message', { name }),
     });
-  } catch (e) {
+  } catch (e: any) {
     console.error(e);
     store.dispatch('growl/error', {
       title:   t('epinio.growl.application.restart.error.title'),
-      message: t('epinio.growl.application.restart.error.message'),
+      message: extractActionErrorMessage(e, t('epinio.growl.application.restart.error.message'), t),
     });
   }
 }
 
+/** Sync stage-only (CLI `app build`). Does not deploy. */
+export async function stageAppOnly(
+  api: ReturnType<typeof applicationsApi>,
+  store: any,
+  namespace: string,
+  name: string,
+  request: AppStageRequest,
+  buildCache: BuildCache,
+) {
+  const result = await stage(api, namespace, name, request, buildCache);
+
+  buildCache.stageForSync = { stage: result.stage, image: result.image || request.image || '' };
+
+  if (result.stage?.id) {
+    const fetchedApp = toApp(await api.getApp(namespace, name));
+
+    showStagingLog(store, { ...fetchedApp, stageId: result.stage.id });
+    await waitForStaging(api, namespace, result.stage.id);
+  }
+
+  return result;
+}
+
+function stageRequestFromApp(app: App): AppStageRequest {
+  const { builder: builderImage, buildMode, dockerfilePath } = app.staging || {};
+
+  return {
+    app:            app.meta,
+    blobUid:        app.blobUid || '',
+    builderImage:   builderImage || '',
+    buildMode:      buildMode || '',
+    dockerfilePath: dockerfilePath || '',
+    image:          app.imageUrl || '',
+    origin:         app.origin,
+  };
+}
+
+/**
+ * Rebuild / stage. Never-deployed apps stage only (CLI `app build`);
+ * deployed apps restage and restart when running. Deploy is a separate action.
+ */
 export async function restageApp(
   store: any,
   app: App,
@@ -434,7 +509,7 @@ export async function restageApp(
   if (!app.canRetryBuild) {
     store.dispatch('growl/error', {
       title:   t('epinio.growl.application.restage.error.title'),
-      message: 'No reusable source available to rebuild',
+      message: t('epinio.growl.application.restage.error.noSource'),
     });
     return;
   }
@@ -444,67 +519,29 @@ export async function restageApp(
     message: t('epinio.growl.application.restage.info.message'),
   });
 
-  const { data: cluster } = useCluster(store);
-
-  if (!cluster.value) {
-    throw new Error('Cluster is not available');
-  }
-
-  const clusterId         = cluster.value.id;
-
-  const isExtension       = !!store.getters['isSingleProduct'] === false;
-  const client            = createEpinioClient(cluster.value, isExtension);
-  const api               = applicationsApi(client);
-  const { namespace, name } = app.meta;
-  const buildCache: BuildCache = {};
-
   try {
-    // Never-deployed / failed first push: stage + deploy using stored blob or git.
-    // Already-deployed apps: restage only (optionally restart when running).
-    if (!app.deployment) {
-      clearPersistedAsyncDeploymentId(namespace, name);
-      await waitAsyncDeployPhase(
-        api, /* app, */ store, namespace, name,
-        {
-          app:          app.meta,
-          blobUid:      app.blobUid || '',
-          builderImage: app.staging.builder || '',
-          origin:       app.origin,
-          buildMode:    app.staging.buildMode || '',
-          dockerfilePath: app.staging.dockerfilePath || '',
-          image:        app.imageUrl || '',
-        },
-        buildCache,
-        clusterId,
-      );
+    const resolved = resolveClusterClient(store);
 
-      epinioQueryClient.invalidateQueries({ queryKey: ['applications', clusterId] });
-
-      if (app.stageId) showStagingLog(store, app);
-    } else {
-      // Already-deployed app, restage only, then restart if running
-      const { builder: builderImage, buildMode, dockerfilePath } = app.staging || {};
-      const { stage: stageResult } = await stage(
-        api, namespace, name,
-        {
-            builderImage: builderImage || '', 
-            buildMode: buildMode || '', 
-            dockerfilePath: dockerfilePath || '', 
-            app: app.meta, blobUid: app.blobUid || '', 
-            image: app.imageUrl || '' },
-        buildCache,
-      );
-
-      epinioQueryClient.invalidateQueries({ queryKey: ['applications', clusterId] });
-      showStagingLog(store, {...app, stageId: stageResult.id});
-      await waitForStaging(api, namespace, stageResult.id);
-
-      if (app.status === 'running') {
-        await restartApp(store, app, api, namespace, name, clusterId);
-      }
+    if (!resolved) {
+      throw new Error(t('epinio.growl.application.clusterUnavailable'));
     }
 
+    const { api, clusterId } = resolved;
+    const { namespace, name } = app.meta;
+    const buildCache: BuildCache = {};
+
+    clearPersistedAsyncDeploymentId(namespace, name);
+
+    await stageAppOnly(
+      api, store, namespace, name, stageRequestFromApp(app), buildCache,
+    );
+
     epinioQueryClient.invalidateQueries({ queryKey: ['applications', clusterId] });
+    epinioQueryClient.invalidateQueries({ queryKey: ['application', clusterId, namespace, name] });
+
+    if (app.deployment && app.status === 'running') {
+      await restartApp(store, app, api, namespace, name, clusterId);
+    }
 
     store.dispatch('growl/success', {
       title:   t('epinio.growl.application.restage.success.title'),
@@ -514,7 +551,94 @@ export async function restageApp(
     console.error(e);
     store.dispatch('growl/error', {
       title:   t('epinio.growl.application.restage.error.title'),
-      message: e?.message || t('epinio.growl.application.restage.error.message'),
+      message: extractActionErrorMessage(e, t('epinio.growl.application.restage.error.message'), t),
+    });
+  }
+}
+
+/** Deploy the app's last staged image without building (CLI `app deploy`). */
+export async function deployBuiltApp(store: any, app: App) {
+  const t = store.getters['i18n/t'];
+
+  if (!app.builtImageUrl || !app.stageId) {
+    store.dispatch('growl/error', {
+      title:   t('epinio.growl.application.deployBuild.error.title'),
+      message: t('epinio.growl.application.deployBuild.error.noBuild'),
+    });
+    return;
+  }
+
+  store.dispatch('growl/info', {
+    title:   t('epinio.growl.application.deployBuild.info.title'),
+    message: t('epinio.growl.application.deployBuild.info.message'),
+  });
+
+  try {
+    const resolved = resolveClusterClient(store);
+
+    if (!resolved) {
+      throw new Error(t('epinio.growl.application.clusterUnavailable'));
+    }
+
+    const { api, clusterId } = resolved;
+    const { namespace, name } = app.meta;
+
+    await api.deploy(namespace, name, {
+      app:    app.meta,
+      image:  app.builtImageUrl,
+      origin: app.origin,
+      stage:  { id: app.stageId },
+    });
+
+    epinioQueryClient.invalidateQueries({ queryKey: ['applications', clusterId] });
+    epinioQueryClient.invalidateQueries({ queryKey: ['application', clusterId, namespace, name] });
+
+    store.dispatch('growl/success', {
+      title:   t('epinio.growl.application.deployBuild.success.title'),
+      message: t('epinio.growl.application.deployBuild.success.message', { name }),
+    });
+  } catch (e: any) {
+    console.error(e);
+    store.dispatch('growl/error', {
+      title:   t('epinio.growl.application.deployBuild.error.title'),
+      message: extractActionErrorMessage(e, t('epinio.growl.application.deployBuild.error.message'), t),
+    });
+  }
+}
+
+/** Delete staged build artifacts without deleting the application. */
+export async function deleteAppBuild(store: any, app: App) {
+  const t = store.getters['i18n/t'];
+
+  store.dispatch('growl/info', {
+    title:   t('epinio.growl.application.deleteBuild.info.title'),
+    message: t('epinio.growl.application.deleteBuild.info.message'),
+  });
+
+  try {
+    const resolved = resolveClusterClient(store);
+
+    if (!resolved) {
+      throw new Error(t('epinio.growl.application.clusterUnavailable'));
+    }
+
+    const { api, clusterId } = resolved;
+    const { namespace, name } = app.meta;
+
+    await api.deleteBuild(namespace, name);
+
+    epinioQueryClient.invalidateQueries({ queryKey: ['applications', clusterId] });
+    epinioQueryClient.invalidateQueries({ queryKey: ['application', clusterId, namespace, name] });
+
+    store.dispatch('growl/success', {
+      title:   t('epinio.growl.application.deleteBuild.success.title'),
+      message: t('epinio.growl.application.deleteBuild.success.message', { name }),
+    });
+  } catch (e: any) {
+    console.error(e);
+    store.dispatch('growl/error', {
+      title:   t('epinio.growl.application.deleteBuild.error.title'),
+      message: extractActionErrorMessage(e, t('epinio.growl.application.deleteBuild.error.message'), t),
     });
   }
 }

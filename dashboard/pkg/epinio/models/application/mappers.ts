@@ -103,6 +103,8 @@ export function toApp(apiApp: ApiApp): App {
         configuration: toAppConfiguration(apiApp.configuration),
         deployment: toAppDeployment(apiApp.deployment),
         imageUrl: apiApp.image_url,
+        builtImageUrl: apiApp.built_image_url || '',
+        buildStatus: apiApp.buildstatus || '',
         origin: origin,
         stageId: apiApp.stage_id,
         staging: toAppStage(apiApp.staging),
@@ -158,6 +160,7 @@ export function toApiAppStageRequest(app: AppStageRequest): ApiAppStageRequest {
         buildmode: app.buildMode,
         dockerfilepath: app.dockerfilePath,
         image: app.image,
+        origin: app.origin ? toApiAppOrigin(app.origin) : undefined,
     };
 }
 
@@ -438,6 +441,7 @@ export function toAppFormBuildOptions(app: App | AppManifest): AppFormBuildOptio
         builderImage: app.staging.builder || '',
         dockerfilePath: app.staging.dockerfilePath || '',
         builderImagesForbidden: false,
+        buildOnly: false,
     };
 }
 

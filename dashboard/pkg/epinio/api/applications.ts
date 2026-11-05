@@ -10,6 +10,10 @@ export function applicationsApi(epinioClient: ReturnType<typeof createEpinioClie
         listApps: async (params?: ApiListResourceRequestParams): Promise<ApiListAppsResponse> => {
             return await epinioClient.get(appsBasePath, { params });
         },
+        // Never-deployed / rebuilt apps (buildstatus create|build). Same query params as listApps.
+        listUndeployedApps: async (params?: ApiListResourceRequestParams): Promise<ApiListAppsResponse> => {
+            return await epinioClient.get(`${appsBasePath}/undeployed`, { params });
+        },
         getApp: async (namespace: string, app: string): Promise<ApiApp> => {
             return await epinioClient.get(`${namespacesBasePath}/${namespace}/applications/${app}`);
         },
@@ -34,6 +38,10 @@ export function applicationsApi(epinioClient: ReturnType<typeof createEpinioClie
         },
         restart: async (namespace: string, app: string) => {
             return await epinioClient.post(`${namespacesBasePath}/${namespace}/applications/${app}/restart`);
+        },
+        /** Clears staged image/build fields without deleting the application. */
+        deleteBuild: async (namespace: string, app: string): Promise<void> => {
+            return await epinioClient.delete(`${namespacesBasePath}/${namespace}/applications/${app}/build`);
         },
         deleteApp: async (namespace: string, app: string, body: ApiAppDeleteRequest): Promise<void> => {
             return await epinioClient.delete(`${namespacesBasePath}/${namespace}/applications/${app}`, body);

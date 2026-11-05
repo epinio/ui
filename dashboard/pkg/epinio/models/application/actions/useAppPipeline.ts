@@ -1,5 +1,5 @@
 import { ref } from "vue";
-import { BuildCache } from "./restage";
+import { BuildCache, stageAppOnly } from "./restage";
 import { useCreateApplication, useUpdateApplication, useStoreApplicationArchive, useImportGitApplication, useBuildApplication, useDeployApplication } from "../../../queries/useApplicationMutations";
 import { useBindConfiguration, useUnbindConfiguration } from "../../../queries/useConfigurationMutations";
 import { useBindServiceInstance, useUnbindServiceInstance } from "../../../queries/useServiceMutations";
@@ -9,6 +9,9 @@ import { appFormToCreateRequest, appFormToUpdateRequest, appFormToAsyncDeployReq
 import { epinioQueryClient } from "../../../api/queryClient";
 import { useCluster } from "../../../queries/useCluster";
 import { FormState } from "../form/useAppForm";
+import { createEpinioClient } from "../../../api/client";
+import { applicationsApi } from "../../../api/applications";
+import { APPLICATION_SOURCE_TYPE } from "../../../types";
 
 export type StepState = 'pending' | 'running' | 'success' | 'fail';
 export interface PipelineStep {
@@ -64,8 +67,10 @@ export function useAppPipeline(store: any) {
     const { details, source, bindings } = form;
     const isEdit = mode === 'edit';
 
+    const buildOnly = !!form.buildOptions.buildOnly && form.source.type !== APPLICATION_SOURCE_TYPE.CONTAINER_URL;
+
     app.value = initialApp;
-    steps.value = buildSteps(mode, form, state.source.dirty.value, state.bindings.dirty.value);
+    steps.value = buildSteps(mode, form, state.source.dirty.value, state.bindings.dirty.value, buildOnly);
     running.value = true;
     failed.value = false;
     isDone.value = false;
@@ -178,10 +183,26 @@ export function useAppPipeline(store: any) {
         const needsBuild = ['archive', 'folder', 'gitUrl', 'github', 'gitlab'].includes(source.type);
         if (needsBuild) {
           const request = appFormToAsyncDeployRequest(form, buildCache.value);
-          await stepRunner('build', () => {
+          await stepRunner('build', async () => {
             if (!app.value) {
               throw new Error('App is not available');
             }
+            // Build-only must use sync AppStage; async /deployments always deploys too.
+            if (buildOnly) {
+              const isExtension = !!store.getters['isSingleProduct'] === false;
+              const api = applicationsApi(createEpinioClient(cluster.value, isExtension));
+
+              return stageAppOnly(api, store, details.namespace, details.name, {
+                app:            request.app,
+                blobUid:        request.blobUid || buildCache.value.blobUid,
+                builderImage:   request.builderImage,
+                buildMode:      request.buildMode,
+                dockerfilePath: request.dockerfilePath,
+                image:          request.image,
+                origin:         request.origin,
+              }, buildCache.value);
+            }
+
             return buildApp({
               namespace: details.namespace,
               app: app.value,
@@ -191,28 +212,34 @@ export function useAppPipeline(store: any) {
           });
         }
 
-        // 7. Deploy
-        const deployRequest = appFormToAsyncDeployRequest(form, buildCache.value);
-        await stepRunner('deploy', () => {
-          if (!app.value) {
-            throw new Error('App is not available');
-          }
-          return deployApp({
-            namespace: details.namespace,
-            app: app.value,
-            request: deployRequest,
-            buildCache: buildCache.value,
+        // 7. Deploy (skipped for build-only, matching CLI `app build`)
+        if (!buildOnly) {
+          const deployRequest = appFormToAsyncDeployRequest(form, buildCache.value);
+          await stepRunner('deploy', () => {
+            if (!app.value) {
+              throw new Error('App is not available');
+            }
+            return deployApp({
+              namespace: details.namespace,
+              app: app.value,
+              request: deployRequest,
+              buildCache: buildCache.value,
+            });
           });
-        });
+        }
       }
 
       store.dispatch('growl/success', {
         title: params.mode === 'edit'
           ? t('epinio.growl.application.update.success.title')
-          : t('epinio.growl.application.deploy.success.title'),
+          : buildOnly
+            ? t('epinio.growl.application.buildOnly.success.title')
+            : t('epinio.growl.application.deploy.success.title'),
         message: params.mode === 'edit'
           ? t('epinio.growl.application.update.success.message', { name: form.details.name })
-          : t('epinio.growl.application.deploy.success.message', { name: form.details.name }),
+          : buildOnly
+            ? t('epinio.growl.application.buildOnly.success.message', { name: form.details.name })
+            : t('epinio.growl.application.deploy.success.message', { name: form.details.name }),
       });
       epinioQueryClient.invalidateQueries({ queryKey: ['applications', cluster.value.id] });
       isDone.value = true;
@@ -255,7 +282,13 @@ function makeStepRunner(steps: PipelineStep[]) {
   };
 }
 
-function buildSteps(mode: 'create' | 'edit', form: AppForm, isSourceDirty: boolean, isBindingsDirty: boolean): PipelineStep[] {
+function buildSteps(
+  mode: 'create' | 'edit',
+  form: AppForm,
+  isSourceDirty: boolean,
+  isBindingsDirty: boolean,
+  buildOnly = false,
+): PipelineStep[] {
   const { source, bindings } = form;
   const isEdit = mode === 'edit';
 
@@ -294,8 +327,8 @@ function buildSteps(mode: 'create' | 'edit', form: AppForm, isSourceDirty: boole
     if (isGit) steps.push(makeStep('gitFetch'));
     // 6. Build if needed
     if (needsBuild) steps.push(makeStep('build'));
-    // 7. Deploy (always last)
-    steps.push(makeStep('deploy'));
+    // 7. Deploy last — omitted for build-only
+    if (!buildOnly) steps.push(makeStep('deploy'));
   }
 
   return steps;

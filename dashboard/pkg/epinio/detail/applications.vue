@@ -34,11 +34,13 @@ import { useUser } from '../queries/useUserQueries';
 import { App, AppForm, AppPodInfo } from '../models/application/ui-types';
 import { showAppShell } from '../models/application/actions/shell';
 import { showAppLog, showStagingLog } from '../models/application/actions/logs';
-import { restageApp, restartApp } from '../models/application/actions/restage';
+import { restageApp, restartApp, deployBuiltApp, deleteAppBuild } from '../models/application/actions/restage';
 import { makeNameLinks, makeEmptyCell } from '../utils/table-formatters';
 import { useUpdateApplication } from '../queries/useApplicationMutations';
 import { useGitConfig } from '../queries/useGitConfigQueries';
 import { useGitBaseUrl, useGitProxyUserType, useGitProxyRepos, useGitProxyBranches, useGitProxyCommits } from '../queries/useGitProxyQueries';
+import { appCanDeployBuild, appCanDeleteBuild } from '../utils/application';
+import { extractErrorMessage } from '../utils/errors';
 
 day.extend(relativeTime);
 
@@ -191,8 +193,21 @@ const canStageApp = computed(() => {
 const canRestartApp = computed(() => {
   return user.value?.permissions?.app_restart || user.value?.permissions?.app_write || user.value?.permissions?.app;
 });
+const canDeployApp = computed(() => {
+  return user.value?.permissions?.app_deploy || user.value?.permissions?.app_write || user.value?.permissions?.app;
+});
 const canScaleApp = computed(() => {
   return user.value?.permissions?.app_scale || user.value?.permissions?.app_write || user.value?.permissions?.app;
+});
+// Scaling only makes sense once a deployable image exists; create/build-only apps
+// have no workload, so +/- just flickers desiredReplicas then snaps back on refetch.
+const canScaleInstances = computed(() => {
+  return canScaleApp.value && !!application.value?.imageUrl;
+});
+const showBuildSection = computed(() => {
+  const app = application.value;
+
+  return !!(app?.deployment || app?.imageUrl || app?.builtImageUrl || app?.buildStatus);
 });
 
 // Application actions for display in the top right action menu
@@ -225,20 +240,31 @@ const appAvailableActions = computed(() => {
     enabled: canExportApp.value && application.value.status === 'running',
     visible: canExportApp.value,
   }, {
-    label: 'Restage',
+    label: t('epinio.applications.actions.restage.label'),
     action: () => restageApp(store, application.value),
     enabled: canStageApp.value && application.value.canRetryBuild,
     visible: canStageApp.value,
   }, {
+    label: t('epinio.applications.actions.deployBuild.label'),
+    action: () => deployBuiltApp(store, application.value),
+    enabled: canDeployApp.value && appCanDeployBuild(application.value),
+    visible: canDeployApp.value && appCanDeployBuild(application.value),
+  }, {
     label: 'Restart',
     action: () => restartApp(store, application.value),
-    enabled: canRestartApp.value && application.value.status === 'running',
-    visible: canRestartApp.value,
+    enabled: canRestartApp.value && application.value.status === 'running' && !!application.value.imageUrl,
+    visible: canRestartApp.value && application.value.status === 'running' && !!application.value.imageUrl,
   }, {
     label: 'Edit',
     action: () => openEditAppModal(application.value),
     enabled: canEditApp.value,
     visible: canEditApp.value,
+  }, {
+    label: t('epinio.applications.actions.deleteBuild.label'),
+    action: () => deleteAppBuild(store, application.value),
+    enabled: canDeleteApp.value && appCanDeleteBuild(application.value),
+    visible: canDeleteApp.value && appCanDeleteBuild(application.value),
+    danger: true,
   }, {
     label: 'Delete',
     action: () => openDeleteAppModal(application.value),
@@ -530,7 +556,18 @@ const onInstancesChange = debounce(async (newInstances: number) => {
   }
 
   // If the new instance count matches the current desired replicas, no update is needed
-  if (newInstances === application.value.deployment?.desiredReplicas) {
+  const currentDesired = application.value.deployment?.desiredReplicas ?? 0;
+
+  if (newInstances === currentDesired) {
+    return;
+  }
+
+  if (!application.value.imageUrl) {
+    desiredInstances.value = currentDesired;
+    store.dispatch('growl/error', {
+      title:   t('epinio.growl.application.update.error.title'),
+      message: t('epinio.growl.application.deployBuild.error.noImage'),
+    });
     return;
   }
 
@@ -545,10 +582,39 @@ const onInstancesChange = debounce(async (newInstances: number) => {
     instances: newInstances
   };
 
-  updateApp({namespace: application.value.meta.namespace, app: application.value.meta.name, body: updateRequest});
+  try {
+    await updateApp({
+      namespace: application.value.meta.namespace,
+      app:       application.value.meta.name,
+      body:      updateRequest,
+    });
+  } catch (e: any) {
+    desiredInstances.value = application.value.deployment?.desiredReplicas ?? 0;
+
+    const raw = extractErrorMessage(e);
+    const message = /cannot deploy app without imageURL/i.test(raw)
+      ? t('epinio.growl.application.deployBuild.error.noImage')
+      : (raw || t('epinio.growl.application.update.error.message', {
+        name:  application.value.meta.name,
+        error: String(e),
+      }));
+
+    store.dispatch('growl/error', {
+      title:   t('epinio.growl.application.update.error.title'),
+      message,
+    });
+  }
 }, 500);
 
 async function updateInstances(newInstances: number) {
+  if (!application.value?.imageUrl) {
+    store.dispatch('growl/error', {
+      title:   t('epinio.growl.application.update.error.title'),
+      message: t('epinio.growl.application.deployBuild.error.noImage'),
+    });
+    return;
+  }
+
   desiredInstances.value = newInstances;
 }
 
@@ -827,13 +893,13 @@ const appSourceDetails = computed(() => {
     </div>
 
     <h3
-      v-if="application?.deployment || application?.imageUrl"
+      v-if="showBuildSection"
       class="mt-20"
     >
       {{ t('epinio.applications.detail.deployment.label') }}
     </h3>
     <div
-      v-if="application?.deployment || application?.imageUrl"
+      v-if="showBuildSection"
       class="deployment"
     >
       <!-- Source information -->
@@ -845,7 +911,14 @@ const appSourceDetails = computed(() => {
                 <div class="instances">
                   <trailhand-progress-bar label="Instances" :value="application?.deployment?.readyReplicas" :total="desiredInstances"></trailhand-progress-bar>
                   <div class="instances-controls">
-                    <trailhand-button v-if="canScaleApp" variant="secondary" size="small" :disabled="isUpdatingApp || desiredInstances <= 0" @button-click="updateInstances(desiredInstances - 1)">
+                    <trailhand-button
+                      v-if="canScaleApp"
+                      variant="secondary"
+                      size="small"
+                      :disabled="isUpdatingApp || (canScaleInstances && desiredInstances <= 0)"
+                      :title="canScaleInstances ? undefined : t('epinio.growl.application.deployBuild.error.noImage')"
+                      @button-click="updateInstances(desiredInstances - 1)"
+                    >
                       <trailhand-icon name="minus" />
                     </trailhand-button>
                     <div
@@ -854,7 +927,14 @@ const appSourceDetails = computed(() => {
                     >
                       <i class="icon-spinner animate-spin" />
                     </div>
-                    <trailhand-button v-if="canScaleApp" variant="secondary" size="small" :disabled="isUpdatingApp" @button-click="updateInstances(desiredInstances + 1)">
+                    <trailhand-button
+                      v-if="canScaleApp"
+                      variant="secondary"
+                      size="small"
+                      :disabled="isUpdatingApp"
+                      :title="canScaleInstances ? undefined : t('epinio.growl.application.deployBuild.error.noImage')"
+                      @button-click="updateInstances(desiredInstances + 1)"
+                    >
                       <trailhand-icon name="plus" />
                     </trailhand-button>
                   </div>
@@ -899,58 +979,88 @@ const appSourceDetails = computed(() => {
                 </div>
               </div>
             </trailhand-card>
-            <trailhand-card v-if="appSourceDetails" variant="info" class="dashboard-card simple-box">
+            <trailhand-card
+              v-if="appSourceDetails || application?.buildStatus || application?.builtImageUrl || application?.imageUrl"
+              variant="info"
+              class="dashboard-card simple-box"
+            >
               <div slot="title" class="deployment__origin__list" >
                 <table>
                   <tbody>
-                    <tr>
+                    <template v-if="appSourceDetails">
+                      <tr>
+                        <td class="origin-prop">
+                          {{ t('epinio.applications.detail.deployment.details.origin') }}
+                        </td>
+                        <td class="origin-value">
+                          {{ appSourceDetails.label }}
+                        </td>
+                      </tr>
+                      <tr v-for="d of appSourceDetails.details" :key="d.label">
+                        <td class="origin-prop">{{ d.label }}</td>
+                        <td v-if="d.value && d.value.startsWith('http')" class="origin-value">
+                          <a
+                            :href="d.value"
+                            target="_blank"
+                            class="origin-link"
+                          >{{ formatURL(d.value) }}</a>
+                        </td>
+                        <td v-else-if="selectedCommit && d.value && d.value.match(/^[a-f0-9]{40}$/)" class="origin-value">
+                          <a
+                            :href="`${selectedCommit.htmlUrl}/commit/${d.value}`"
+                            target="_blank"
+                            class="origin-link"
+                          >{{ d.value }}</a>
+                        </td>
+                        <td v-else class="origin-value">{{ d.value }}</td>
+                      </tr>
+                      <tr v-if="selectedRepo && selectedRepo.createdAt">
+                        <td class="origin-prop">
+                          {{ t('epinio.applications.detail.deployment.details.git.created') }}
+                        </td>
+                        <td class="origin-value">
+                          {{ formatDate(selectedRepo.createdAt, false) }}
+                        </td>
+                      </tr>
+                      <tr v-if="selectedRepo && (selectedRepo.updatedAt || selectedRepo.lastActivityAt)">
+                        <td class="origin-prop">
+                          {{ t('epinio.applications.detail.deployment.details.git.updated') }}
+                        </td>
+                        <td class="origin-value">
+                          {{ formatDate(selectedRepo.updatedAt || selectedRepo.lastActivityAt || '', true) }}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td class="origin-prop">
+                          {{ t('epinio.applications.tableHeaders.deployedBy') }}
+                        </td>
+                        <td class="origin-value">
+                          {{ application.deployment?.username }}
+                        </td>
+                      </tr>
+                    </template>
+                    <tr v-if="application.buildStatus">
                       <td class="origin-prop">
-                        {{ t('epinio.applications.detail.deployment.details.origin') }}
+                        {{ t('epinio.applications.tableHeaders.buildStatus') }}
                       </td>
                       <td class="origin-value">
-                        {{ appSourceDetails.label }}
+                        {{ application.buildStatus }}
                       </td>
                     </tr>
-                    <tr v-for="d of appSourceDetails.details" :key="d.label">
-                      <td class="origin-prop">{{ d.label }}</td>
-                      <td v-if="d.value && d.value.startsWith('http')" class="origin-value">
-                        <a
-                          :href="d.value"
-                          target="_blank"
-                          class="origin-link"
-                        >{{ formatURL(d.value) }}</a>
-                      </td>
-                      <td v-else-if="selectedCommit && d.value && d.value.match(/^[a-f0-9]{40}$/)" class="origin-value">
-                        <a
-                          :href="`${selectedCommit.htmlUrl}/commit/${d.value}`"
-                          target="_blank"
-                          class="origin-link"
-                        >{{ d.value }}</a>
-                      </td>
-                      <td v-else class="origin-value">{{ d.value }}</td>
-                    </tr>
-                    <tr v-if="selectedRepo && selectedRepo.createdAt">
+                    <tr v-if="application.builtImageUrl">
                       <td class="origin-prop">
-                        {{ t('epinio.applications.detail.deployment.details.git.created') }}
+                        {{ t('epinio.applications.tableHeaders.builtImage') }}
                       </td>
                       <td class="origin-value">
-                        {{ formatDate(selectedRepo.createdAt, false) }}
+                        {{ application.builtImageUrl }}
                       </td>
                     </tr>
-                    <tr v-if="selectedRepo && (selectedRepo.updatedAt || selectedRepo.lastActivityAt)">
+                    <tr v-if="application.imageUrl">
                       <td class="origin-prop">
-                        {{ t('epinio.applications.detail.deployment.details.git.updated') }}
+                        {{ t('epinio.applications.tableHeaders.deployedImage') }}
                       </td>
                       <td class="origin-value">
-                        {{ formatDate(selectedRepo.updatedAt || selectedRepo.lastActivityAt || '', true) }}
-                      </td>
-                    </tr>
-                    <tr>
-                      <td class="origin-prop">
-                        {{ t('epinio.applications.tableHeaders.deployedBy') }}
-                      </td>
-                      <td class="origin-value">
-                        {{ application.deployment?.username }}
+                        {{ application.imageUrl }}
                       </td>
                     </tr>
                   </tbody>

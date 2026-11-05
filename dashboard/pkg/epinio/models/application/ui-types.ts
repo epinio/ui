@@ -71,7 +71,12 @@ export interface App {
     meta: AppMeta;
     configuration: AppConfiguration;
     deployment?: AppDeployment;
+    /** Currently deployed image (spec.imageurl). */
     imageUrl: string;
+    /** Image from the last successful stage (spec.builtimageurl). */
+    builtImageUrl?: string;
+    /** create | build | deployed */
+    buildStatus?: string;
     origin: AppOrigin;
     stageId: string;
     staging: AppStage;
@@ -84,6 +89,9 @@ export interface App {
 }
 
 export type ListAppsResponse = ListResourceResponse<App>;
+
+/** Which applications list endpoint to query. Default is deployed. */
+export type AppListMode = 'deployed' | 'undeployed';
 
 export type AppExportCancelMap = Record<string, AbortController>;
 
@@ -117,6 +125,7 @@ export interface AppStageRequest {
     buildMode?: string;
     dockerfilePath?: string;
     image?: string;
+    origin?: AppOrigin;
 }
 
 export interface AppStageResponse {
@@ -238,6 +247,8 @@ export interface AppFormBuildOptions {
     dockerfilePath?: string;
     builderImage?: string;
     builderImagesForbidden?: boolean;
+    /** When true, pipeline stages only and skips deploy (CLI `app build`). */
+    buildOnly?: boolean;
 }
 
 export interface AppFormDetails {
