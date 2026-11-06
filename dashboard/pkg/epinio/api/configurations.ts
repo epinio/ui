@@ -1,6 +1,7 @@
 import { createEpinioClient } from "./client";
-import { ApiListResourceRequestParams } from "../models/resource/api-types";
+import { ApiListResourceRequestParams, ApiResourceResponse } from "../models/resource/api-types";
 import { ApiConfigurationCreateRequest, ApiListConfigurationsResponse, ApiConfigurationBindRequest, ApiConfigurationPutRequest, ApiConfigurationResponse } from "../models/configuration/api-types";
+import { ApiOperationsResponse } from "../models/application/api-types";
 
 export function configurationsApi(epinioClient: ReturnType<typeof createEpinioClient>) {
     const configurationsBasePath = '/api/v1/configurations';
@@ -19,17 +20,17 @@ export function configurationsApi(epinioClient: ReturnType<typeof createEpinioCl
         createConfiguration: async (namespace: string, request: ApiConfigurationCreateRequest) => {
             return await epinioClient.post(`${namespacesBasePath}/${namespace}/configurations`, request);
         },
-        bindApplication: async (namespace: string, appName: string, request: ApiConfigurationBindRequest) => {
+        bindApplication: async (namespace: string, appName: string, request: ApiConfigurationBindRequest): Promise<ApiOperationsResponse> => {
             return await epinioClient.post(`${namespacesBasePath}/${namespace}/applications/${appName}/configurationbindings`, request);
         },
-        unbindConfiguration: async (namespace: string, appName: string, configName: string ) => {
+        unbindConfiguration: async (namespace: string, appName: string, configName: string ): Promise<ApiResourceResponse | ApiOperationsResponse> => {
             return await epinioClient.delete(`${namespacesBasePath}/${namespace}/applications/${appName}/configurationbindings/${configName}`);
         },
-        updateConfiguration: async (namespace: string, configurationName: string, request: ApiConfigurationPutRequest) => {
+        updateConfiguration: async (namespace: string, configurationName: string, request: ApiConfigurationPutRequest): Promise<ApiResourceResponse> => {
             return await epinioClient.put(`${namespacesBasePath}/${namespace}/configurations/${configurationName}`, request);
         },
-        deleteConfiguration: async (namespace: string, configurationName: string) => {
-            return await epinioClient.delete(`${namespacesBasePath}/${namespace}/configurations/${configurationName}`, { unmounted: true });
+        deleteConfiguration: async (namespace: string, configurationName: string): Promise<ApiOperationsResponse> => {
+            return await epinioClient.delete(`${namespacesBasePath}/${namespace}/configurations/${configurationName}`, { unbind: true });
         },
         bulkDelete: async (
             namespace: string,
