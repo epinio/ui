@@ -6,6 +6,7 @@ import { epinioQueryClient } from "../api/queryClient";
 import { computed } from "vue";
 import { ServiceCreateRequest, ServiceBindRequest, ServicePutRequest, ServiceInstance } from "../models/service/ui-types";
 import { toApiServiceBindRequest, toApiServiceCreateRequest, toApiServicePutRequest } from "../models/service/mappers";
+import { toOperationsResponse } from "../models/application/mappers";
 
 export function useCreateServiceInstance(store: any, onSuccessCallback?: () => void) {
     const { data: cluster } = useCluster(store);
@@ -39,7 +40,11 @@ export function useBindServiceInstance(store: any, onSuccessCallback?: () => voi
                 throw new Error('Cluster is not available');
             }
             const epinioClient = createEpinioClient(cluster.value, isExtension.value);
-            return await servicesApi(epinioClient).bindService(namespace, serviceName, toApiServiceBindRequest(request));
+            const response = await servicesApi(epinioClient).bindService(namespace, serviceName, toApiServiceBindRequest(request));
+            if ('operations' in response) {
+                return toOperationsResponse(response);
+            }
+            return response;
         },
         onSuccess: () => {
             epinioQueryClient.invalidateQueries({ queryKey: ['services', cluster.value?.id] });
@@ -60,7 +65,11 @@ export function useUnbindServiceInstance(store: any, onSuccessCallback?: () => v
                 throw new Error('Cluster is not available');
             }
             const epinioClient = createEpinioClient(cluster.value, isExtension.value);
-            return await servicesApi(epinioClient).unbindService(namespace, serviceName, toApiServiceBindRequest(request));
+            const response = await servicesApi(epinioClient).unbindService(namespace, serviceName, toApiServiceBindRequest(request));
+            if ('operations' in response) {
+                return toOperationsResponse(response);
+            }
+            return response;
         },
         onSuccess: () => {
             epinioQueryClient.invalidateQueries({ queryKey: ['services', cluster.value?.id] });
@@ -103,7 +112,8 @@ export function useDeleteServiceInstance(store: any, onSuccessCallback?: () => v
                 throw new Error('Cluster is not available');
             }
             const epinioClient = createEpinioClient(cluster.value, isExtension.value);
-            return await servicesApi(epinioClient).deleteService(namespace, serviceName);
+            const response = await servicesApi(epinioClient).deleteService(namespace, serviceName);
+            return toOperationsResponse(response);
         },
         onSuccess: () => {
             epinioQueryClient.invalidateQueries({ queryKey: ['services', cluster.value?.id] });

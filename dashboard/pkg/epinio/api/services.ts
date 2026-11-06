@@ -1,6 +1,7 @@
 import { createEpinioClient } from "./client";
-import { ApiListResourceRequestParams } from "../models/resource/api-types";
+import { ApiListResourceRequestParams, ApiResourceResponse } from "../models/resource/api-types";
 import { ApiListServiceInstancesResponse, ApiServiceCreateRequest, ApiServiceBindRequest, ApiServicePutRequest, ApiServiceInstance } from "../models/service/api-types";
+import { ApiOperationsResponse } from "../models/application/api-types";
 
 export function servicesApi(epinioClient: ReturnType<typeof createEpinioClient>) {
     const servicesBasePath = '/api/v1/services';
@@ -16,20 +17,20 @@ export function servicesApi(epinioClient: ReturnType<typeof createEpinioClient>)
         getService: async (namespace: string, serviceName: string): Promise<ApiServiceInstance> => {
             return await epinioClient.get(`${namespacesBasePath}/${namespace}/services/${serviceName}`);
         },
-        createService: async (namespace: string, request: ApiServiceCreateRequest) => {
+        createService: async (namespace: string, request: ApiServiceCreateRequest): Promise<ApiResourceResponse> => {
             return await epinioClient.post(`${namespacesBasePath}/${namespace}/services`, request);
         },
-        bindService: async (namespace: string, serviceName: string, request: ApiServiceBindRequest) => {
+        bindService: async (namespace: string, serviceName: string, request: ApiServiceBindRequest): Promise<ApiResourceResponse | ApiOperationsResponse> => {
             return await epinioClient.post(`${namespacesBasePath}/${namespace}/services/${serviceName}/bind`, request);
         },
-        unbindService: async (namespace: string, serviceName: string, request: ApiServiceBindRequest) => {
+        unbindService: async (namespace: string, serviceName: string, request: ApiServiceBindRequest): Promise<ApiResourceResponse |ApiOperationsResponse> => {
             return await epinioClient.post(`${namespacesBasePath}/${namespace}/services/${serviceName}/unbind`, request);
         },
-        updateService: async (namespace: string, serviceName: string, request: ApiServicePutRequest) => {
+        updateService: async (namespace: string, serviceName: string, request: ApiServicePutRequest): Promise<ApiResourceResponse> => {
             return await epinioClient.put(`${namespacesBasePath}/${namespace}/services/${serviceName}`, request);
         },
-        deleteService: async (namespace: string, serviceName: string) => {
-            return await epinioClient.delete(`${namespacesBasePath}/${namespace}/services/${serviceName}`, { unmounted: true });
+        deleteService: async (namespace: string, serviceName: string): Promise<ApiOperationsResponse> => {
+            return await epinioClient.delete(`${namespacesBasePath}/${namespace}/services/${serviceName}`, { unbind: true });
         },
         bulkDelete: async (
             namespace: string,

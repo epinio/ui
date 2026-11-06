@@ -21,3 +21,7 @@ export interface ApiListResourceRequestParams {
     namespaces?: string; // Filter namespaced resources by their namespace
     app?: string; // Filter by application name for configs and services
 }
+
+export interface ApiResourceResponse {
+    status: string;
+}

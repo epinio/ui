@@ -1,17 +1,18 @@
-import { ref } from "vue";
-import { BuildCache, stageAppOnly } from "./restage";
-import { useCreateApplication, useUpdateApplication, useStoreApplicationArchive, useImportGitApplication, useBuildApplication, useDeployApplication } from "../../../queries/useApplicationMutations";
+import { ref, computed, watch } from "vue";
+import { BuildCache } from "./restage";
+import { useCreateApplication, useUpdateApplication, useStoreApplicationArchive, useBuildApplication, useDeployApplication } from "../../../queries/useApplicationMutations";
 import { useBindConfiguration, useUnbindConfiguration } from "../../../queries/useConfigurationMutations";
 import { useBindServiceInstance, useUnbindServiceInstance } from "../../../queries/useServiceMutations";
 import { extractErrorMessage } from "../../../utils/errors";
-import { AppForm, App, AppMeta } from "../ui-types";
-import { appFormToCreateRequest, appFormToUpdateRequest, appFormToAsyncDeployRequest, resolveGitParams } from "../mappers";
+import { AppForm, App, AppMeta, AppState } from "../ui-types";
+import { appFormToCreateRequest, appFormToUpdateRequest, appFormToAppStageRequest, appFormToAppDeployRequest } from "../mappers";
 import { epinioQueryClient } from "../../../api/queryClient";
 import { useCluster } from "../../../queries/useCluster";
 import { FormState } from "../form/useAppForm";
-import { createEpinioClient } from "../../../api/client";
-import { applicationsApi } from "../../../api/applications";
 import { APPLICATION_SOURCE_TYPE } from "../../../types";
+import { useApplicationState } from "../../../queries/useApplicationQueries";
+import { showStagingLog } from "./logs";
+import { ResourceQueryOptions } from "../../../models/resource/ui-types";
 
 export type StepState = 'pending' | 'running' | 'success' | 'fail';
 export interface PipelineStep {
@@ -27,7 +28,10 @@ export function useAppPipeline(store: any) {
   const isDone = ref(false);
   const buildCache = ref<BuildCache>({});
   const app = ref<App | null>(null);
+  const appName = computed(() => app.value?.meta.name || '');
+  const appNamespace = computed(() => app.value?.meta.namespace || '');
   const hasAppBeenCreated = ref(false);
+  const showedStagingLog = ref(false);
 
   const t = store.getters['i18n/t'];
 
@@ -44,7 +48,6 @@ export function useAppPipeline(store: any) {
   const { mutateAsync: createApp } = useCreateApplication(store, updateBuildCacheAppMeta);
   const { mutateAsync: updateApp } = useUpdateApplication(store, updateBuildCacheAppMeta);
   const { mutateAsync: storeArchive } = useStoreApplicationArchive(store, updateBuildCacheBlobUid);
-  const { mutateAsync: importGit } = useImportGitApplication(store, updateBuildCacheBlobUid);
   const { mutateAsync: buildApp } = useBuildApplication(store);
   const { mutateAsync: deployApp } = useDeployApplication(store);
   const { mutateAsync: bindConfig } = useBindConfiguration(store);
@@ -52,16 +55,41 @@ export function useAppPipeline(store: any) {
   const { mutateAsync: bindService } = useBindServiceInstance(store);
   const { mutateAsync: unbindService } = useUnbindServiceInstance(store);
 
+  const stateQueryOptions = ref<ResourceQueryOptions>({ enabled: false, polling: true, isTablePagination: false });
+
+  const { data: appState } = useApplicationState(store, appNamespace, appName, stateQueryOptions);
+
+  // Watch for a stageId to appear on the appState, and if it does, show the staging log
+  watch(appState, (newState) => {
+    if (newState?.stageId && app.value && !showedStagingLog.value) {
+      showStagingLog(store, {...app.value, stageId: newState.stageId});
+      showedStagingLog.value = true;
+    }
+  });
+
+  // Wait for the app to reach a desired state, with a 5 mintimeout
+  const waitForState = async (operationId: string, timeout: number = 300000) => {
+    const startTime = Date.now();
+    stateQueryOptions.value.enabled = true;
+
+    while (Date.now() - startTime < timeout) {
+      if (appState.value?.operation?.id === operationId && appState.value?.operation?.phase === 'succeeded') {
+        stateQueryOptions.value.enabled = false;
+        return;
+      }
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+
+    stateQueryOptions.value.enabled = false;
+    throw new Error(`Timeout waiting for app to reach state after ${timeout} ms`);
+  };
+
   async function run(params: {
     mode: 'create' | 'edit';
     form: AppForm;
     state: FormState;
     initialForm: AppForm;
     initialApp: App | null; // populated for edit
-    // callbacks: {
-    //   onStagingLog: (stageId: string) => void;
-    //   onAppLog: () => void;
-    // };
   }) {
     const { mode, form, initialForm, initialApp, state } = params;
     const { details, source, bindings } = form;
@@ -76,6 +104,7 @@ export function useAppPipeline(store: any) {
     isDone.value = false;
     buildCache.value = {};
     hasAppBeenCreated.value = isEdit;
+    showedStagingLog.value = false;
 
     if (!cluster?.value) {
       throw new Error('Cluster not found');
@@ -171,62 +200,45 @@ export function useAppPipeline(store: any) {
           );
         }
 
-        // 5. Git fetch
-        if (source.type === 'gitUrl' || source.type === 'github' || source.type === 'gitlab') {
-          const { url, rev, gitConfig } = resolveGitParams(source);
-          await stepRunner('gitFetch', () =>
-            importGit({ namespace: details.namespace, app: details.name, gitUrl: url, gitRev: rev, gitConfig })
-          );
-        }
-
-        // 6. Build
-        const needsBuild = ['archive', 'folder', 'gitUrl', 'github', 'gitlab'].includes(source.type);
+        // 5. Build (build-only matches CLI `app build`: stage without deploying)
+        const needsBuild = ['archive', 'folder', 'gitUrl', 'github', 'gitlab'].includes(source.type) && buildOnly;
         if (needsBuild) {
-          const request = appFormToAsyncDeployRequest(form, buildCache.value);
+          const request = appFormToAppStageRequest(form, {blobUid: buildCache.value.blobUid, createdAt: app.value?.meta?.createdAt});
           await stepRunner('build', async () => {
             if (!app.value) {
               throw new Error('App is not available');
             }
-            // Build-only must use sync AppStage; async /deployments always deploys too.
-            if (buildOnly) {
-              const isExtension = !!store.getters['isSingleProduct'] === false;
-              const api = applicationsApi(createEpinioClient(cluster.value, isExtension));
 
-              return stageAppOnly(api, store, details.namespace, details.name, {
-                app:            request.app,
-                blobUid:        request.blobUid || buildCache.value.blobUid,
-                builderImage:   request.builderImage,
-                buildMode:      request.buildMode,
-                dockerfilePath: request.dockerfilePath,
-                image:          request.image,
-                origin:         request.origin,
-              }, buildCache.value);
-            }
-
-            return buildApp({
+            const response = await buildApp({
               namespace: details.namespace,
               app: app.value,
               request,
-              buildCache: buildCache.value,
             });
+
+            await waitForState(response.id, 300000); 
           });
+          
         }
 
-        // 7. Deploy (skipped for build-only, matching CLI `app build`)
-        if (!buildOnly) {
-          const deployRequest = appFormToAsyncDeployRequest(form, buildCache.value);
-          await stepRunner('deploy', () => {
+        // 6. Deploy (skipped for build-only)
+        else {
+          const request = appFormToAppDeployRequest(form, {blobUid: buildCache.value.blobUid, createdAt: app.value?.meta?.createdAt, stageId: app.value?.stageId});
+          await stepRunner('deploy', async () => {
             if (!app.value) {
               throw new Error('App is not available');
             }
-            return deployApp({
+            
+            const response = await deployApp({
               namespace: details.namespace,
               app: app.value,
-              request: deployRequest,
-              buildCache: buildCache.value,
+              request,
             });
+
+            await waitForState(response.id, 300000);
           });
+          
         }
+        
       }
 
       store.dispatch('growl/success', {
@@ -323,12 +335,10 @@ function buildSteps(
   if (!isEdit || isSourceDirty) {
     // 4. Upload archive/folder if needed
     if (isArchiveOrFolder) steps.push(makeStep('upload'));
-    // 5. Git fetch if needed
-    if (isGit) steps.push(makeStep('gitFetch'));
-    // 6. Build if needed
-    if (needsBuild) steps.push(makeStep('build'));
-    // 7. Deploy last — omitted for build-only
-    if (!buildOnly) steps.push(makeStep('deploy'));
+    // 5. Build only (stage without deploying) when build-only is requested
+    if (needsBuild && buildOnly) steps.push(makeStep('build'));
+    // 6. Deploy last — omitted for build-only
+    else steps.push(makeStep('deploy'));
   }
 
   return steps;
