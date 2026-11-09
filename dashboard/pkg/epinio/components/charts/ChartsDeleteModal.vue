@@ -53,8 +53,8 @@ const emit = defineEmits(['deleted']);
     <trailhand-modal
         :open.prop="showDeleteModal"
         title="Are you sure?"
-        @modal-close="closeDelete"
         :show-dismiss-button="true"
+        @modal-close="closeDelete"
     >
         <div class="modal-content">
         <p>You are attempting to delete the Chart <strong>{{ chartToDelete?.meta.name }}</strong>.</p>

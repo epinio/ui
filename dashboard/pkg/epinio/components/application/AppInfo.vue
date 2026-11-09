@@ -282,21 +282,21 @@ function onBulkFileChange(event: Event) {
               label="Key"
               required
               placeholder="e.g. foo"
-              @text-input-change="(e: CustomEvent) => updateDetails({ environment: details.environment.map((env, index) => index === i ? { ...env, key: e.detail.value } : {...env}) })"
               :disabled="props.deployOnly"
+              @text-input-change="(e: CustomEvent) => updateDetails({ environment: details.environment.map((env, index) => index === i ? { ...env, key: e.detail.value } : {...env}) })"
             />
             <trailhand-code-editor
               style="flex: 1;"
               :value="envVar.value"
               label="Value"
               required
-              @code-input-change="(e: CustomEvent) => updateDetails({ environment: details.environment.map((env, index) => index === i ? { ...env, value: e.detail.value } : {...env}) })"
               :disabled="props.deployOnly"
+              @code-input-change="(e: CustomEvent) => updateDetails({ environment: details.environment.map((env, index) => index === i ? { ...env, value: e.detail.value } : {...env}) })"
             />
             <button
               class="remove-link"
-              @click="updateDetails({ environment: details.environment.filter((_, index) => index !== i) })"
               :disabled="props.deployOnly"
+              @click="updateDetails({ environment: details.environment.filter((_, index) => index !== i) })"
             >
               Remove
             </button>
@@ -307,15 +307,15 @@ function onBulkFileChange(event: Event) {
         >
           <trailhand-button
             variant="alternate"
-            @button-click="updateDetails({ environment: [...details.environment, { key: '', value: '' }] })"
             :disabled="props.deployOnly"
+            @button-click="updateDetails({ environment: [...details.environment, { key: '', value: '' }] })"
           >
             Add
           </trailhand-button>
           <trailhand-button
             variant="alternate"
-            @button-click="triggerBulkFileUpload"
             :disabled="props.deployOnly"
+            @button-click="triggerBulkFileUpload"
           >
             Read From File
           </trailhand-button>
@@ -323,9 +323,9 @@ function onBulkFileChange(event: Event) {
             ref="bulkFileInput"
             type="file"
             class="hidden-file-input"
+            :disabled="props.deployOnly"
             @change="onBulkFileChange"
             @cancel="fileDialogActive = false"
-            :disabled="props.deployOnly"
           >
         </div>
       </div>
