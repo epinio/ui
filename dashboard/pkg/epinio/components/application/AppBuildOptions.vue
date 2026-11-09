@@ -245,7 +245,7 @@ function handleBuilderImageDropdownChange(value: string) {
       </template>
 
       <template v-if="showBuilderImage">
-        <div class="spacer source builder-image">
+        <div class="spacer source option">
           <h4>Paketo Builder Image</h4>
           <trailhand-dropdown
             v-if="!buildOptions.builderImagesForbidden"
@@ -275,10 +275,12 @@ function handleBuilderImageDropdownChange(value: string) {
         </div>
       </template>
 
-      <div v-if="!props.deployOnly" class="spacer">
+      <div v-if="!props.deployOnly" class="spacer source option">
+        <h4>{{ t('epinio.applications.steps.source.deployApplication.label') }}</h4>
+        <p>{{ t('epinio.applications.steps.source.deployApplication.tooltip') }}</p>
         <trailhand-toggle-switch
           name="deploy-toggle"
-          right-label="Deploy Application"
+          :right-label="t('epinio.applications.steps.source.deployApplication.inputLabel')"
           left-label="" 
           :checked="buildOptions.deploy" 
           @toggle-change="(e: CustomEvent) => { updateBuildOptions({ deploy: e.detail.checked }); }"
@@ -290,7 +292,7 @@ function handleBuilderImageDropdownChange(value: string) {
 
 
 <style lang="scss" scoped>
-.builder-image {
+.option {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;

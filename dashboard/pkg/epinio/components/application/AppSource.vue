@@ -106,6 +106,10 @@ function handleContainerImageDropdownChange(value: string) {
   if (value !== 'custom') {
     const selectedImage = containerImages.value?.items?.find((ci) => ci.meta.name === value);
     if (selectedImage) {
+      // remove name since app names must be unique
+      selectedImage.meta.name = "";
+      // remove routes since they will be generated automatically if no custom routes are provided
+      selectedImage.configuration.routes = [];
       props.populateFormFromApp(selectedImage);
     }
   }

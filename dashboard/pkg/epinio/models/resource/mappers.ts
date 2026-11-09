@@ -39,4 +39,9 @@ export const statusToStateDisplay: Record<string, string> = {
     created: 'Created',
     updating: 'Updating',
     staging: 'Staging',
+    built: 'Built',
+    deploying: 'Deploying',
+    failed: 'Failed',
+    fail: 'Failed',
+    unknown: 'Unknown',
 };

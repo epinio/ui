@@ -232,6 +232,7 @@ export function useAppForm(mode: Ref<'create' | 'edit'>): UseAppFormReturn {
 
     function clearForm() {
         form.value = structuredClone(initEmptyForm());
+        initialForm.value = structuredClone(initEmptyForm());
     }
 
     function resetForm() {
