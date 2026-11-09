@@ -141,7 +141,7 @@ const _actionMenuCache = new Map<string, any>();
 export function makeActionMenu(row: any, tableId?: string): HTMLElement {
   ensureActionMenuCaptureListener();
 
-  const id = `${row.id ?? row.meta?.name}${tableId ? `-${tableId}` : ''}`;
+  const id = `${row.id ?? row.meta?.name ?? ''}${tableId ? `-${tableId}` : ''}`;
   let el = id ? _actionMenuCache.get(id) : null;
 
   if (!el) {
