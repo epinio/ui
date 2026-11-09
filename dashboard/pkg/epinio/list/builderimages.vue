@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { EPINIO_TYPES } from '../types';
 import { useStore } from 'vuex';
 import { computed, ref, watch } from 'vue';
 import { useBuilderImages } from '../queries/useBuilderImagesQueries';
@@ -17,8 +16,6 @@ const store = useStore();
 
 const imageModal = ref<InstanceType<typeof ImageModal> | null>(null);
 const deleteModal = ref<InstanceType<typeof ImageDeleteModal> | null>(null);
-
-const resource: string = EPINIO_TYPES.BUILDER_IMAGE;
 
 const { data: user, isError: isErrorUser, error: userError } = useUser(store);
 

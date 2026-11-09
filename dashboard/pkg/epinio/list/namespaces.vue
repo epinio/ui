@@ -24,7 +24,6 @@ defineProps<{
 const store = useStore() as any;
 const t = store.getters['i18n/t'];
 
-const resource: string = EPINIO_TYPES.NAMESPACE;
 const router = useRouter();
 
 const namespaceModal = ref<InstanceType<typeof NamespaceModal> | null>(null);

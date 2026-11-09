@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { EPINIO_TYPES } from '../types';
 import { useStore } from 'vuex';
 import { computed, ref, watch } from 'vue';
 import { debounce } from 'lodash';
@@ -19,7 +18,6 @@ const store = useStore();
 const gitConfigModal = ref<InstanceType<typeof GitConfigModal> | null>(null);
 const gitConfigDeleteModal = ref<InstanceType<typeof GitConfigDeleteModal> | null>(null);
 
-const resource: string = EPINIO_TYPES.GIT_CONFIG;
 
 const { data: user, isError: isErrorUser, error: userError } = useUser(store);
 

@@ -1,4 +1,3 @@
-// pkg/epinio/composables/useEpinioCluster.ts
 import { useQuery } from '@tanstack/vue-query';
 import type { EpinioClusterContext } from '../api/client';
 import { EpinioAuthTypes } from '../utils/auth';
@@ -17,7 +16,7 @@ function urlFromEndpoint(endpoint: string | Record<string, any>): string {
   return `${Scheme}://${Host}${Path || ''}`;
 }
 
-// One-time bootstrap: still a Rancher-backend call, but that's it.
+// fetch the standalone cluster context from the backend
 async function fetchStandaloneCluster(): Promise<EpinioClusterContext> {
   const res = await fetch('/pp/v1/endpoints', { credentials: 'include' });
   const endpoints = await res.json();
@@ -43,6 +42,7 @@ async function fetchStandaloneCluster(): Promise<EpinioClusterContext> {
   };
 }
 
+// fetch the extension cluster context from the store
 function fetchExtensionCluster(store: any): EpinioClusterContext {
   const currentClusterId = store.getters['clusterId'];
   const currentCluster = store.getters[`${ EPINIO_MGMT_STORE }/byId`](
