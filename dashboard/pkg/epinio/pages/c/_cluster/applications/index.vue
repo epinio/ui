@@ -77,6 +77,7 @@ const {data: applications, isLoading: isLoadingApplications, isError: isErrorApp
 const { mutateAsync: bulkRemove } = useBulkRemoveApplications(store);
 
 const tableEl = ref<any>(null);
+
 const selectedRows = ref<any[]>([]);
 
 const setListMode = (next: AppListMode) => {
@@ -179,7 +180,7 @@ const displayRows = computed(() => {
     }, {
       label: t('epinio.applications.actions.restage.label'),
       action: () => restageApp(store, a),
-      enabled: canStage.value && a.canRetryBuild,
+      enabled: canStage.value && a.canRetryBuild && a.status !== 'staging',
       visible: canStage.value,
     }, {
       label: t('epinio.applications.actions.deployBuild.label'),
@@ -274,7 +275,7 @@ const handleBulkDeleted = () => {
 const setTableRef = (el: any) => {
   if (el) {
     tableEl.value = el;
-    el.renderActions = makeActionMenu;
+    el.renderActions = (row: any) => makeActionMenu(row, listMode.value);
     el.rowSelectable = isRowSelectable;
     // Patch immediately on mount — click-listener approach missed sort params.
     patchTrailhandServerSort(el, requestParams);

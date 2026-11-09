@@ -265,7 +265,7 @@ function handleBuilderImageDropdownChange(value: string) {
       </template>
 
       <template v-if="showBuilderImage">
-        <div class="spacer source builder-image">
+        <div class="spacer source option">
           <h4>Paketo Builder Image</h4>
           <trailhand-dropdown
             v-if="!buildOptions.builderImagesForbidden"
@@ -299,7 +299,7 @@ function handleBuilderImageDropdownChange(value: string) {
 
 
 <style lang="scss" scoped>
-.builder-image {
+.option {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
