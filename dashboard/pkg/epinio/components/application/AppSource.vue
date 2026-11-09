@@ -244,14 +244,14 @@ function onFolderSelected(files: FileWithRelativePath | FileWithRelativePath[]) 
         :required="true"
         placeholder="Select a source type"
         data-testid="epinio_app-source_type"
-        @dropdown-change="(e: CustomEvent) => handleTypeDropdownChange(e.detail.value)"
         :disabled="props.deployOnly"
+        @dropdown-change="(e: CustomEvent) => handleTypeDropdownChange(e.detail.value)"
       ></trailhand-dropdown>
       <trailhand-button
         variant="alternate"
         data-testid="epinio_app-source_manifest"
-        @button-click="handleFromManifestClick"
         :disabled="props.deployOnly"
+        @button-click="handleFromManifestClick"
       >
         From Manifest
       </trailhand-button>
@@ -259,9 +259,9 @@ function onFolderSelected(files: FileWithRelativePath | FileWithRelativePath[]) 
         ref="manifestFileInput"
         type="file"
         class="hidden-file-input"
+        :disabled="props.deployOnly"
         @change="handleManifestFileChange"
         @cancel="fileDialogActive = false"
-        :disabled="props.deployOnly"
       >
     </div>
 
@@ -280,8 +280,8 @@ function onFolderSelected(files: FileWithRelativePath | FileWithRelativePath[]) 
           <trailhand-button
             variant="alternate"
             data-testid="epinio_app-source_archive_file"
-            @button-click="handleArchiveFileClick"
             :disabled="props.deployOnly"
+            @button-click="handleArchiveFileClick"
           >
             Select File
           </trailhand-button>
@@ -290,9 +290,9 @@ function onFolderSelected(files: FileWithRelativePath | FileWithRelativePath[]) 
             type="file"
             class="hidden-file-input"
             accept=".zip, .tar, .gz, .bz2, .xz"
+            :disabled="props.deployOnly"
             @change="handleArchiveFileChange"
             @cancel="fileDialogActive = false"
-            :disabled="props.deployOnly"
           >
         </div>
       </div>
@@ -313,8 +313,8 @@ function onFolderSelected(files: FileWithRelativePath | FileWithRelativePath[]) 
           <trailhand-button
             variant="alternate"
             data-testid="epinio_app-source_folder_file"
-            @button-click="handleFolderFileClick"
             :disabled="props.deployOnly"
+            @button-click="handleFolderFileClick"
           >
             Select Folder
           </trailhand-button>
@@ -323,9 +323,9 @@ function onFolderSelected(files: FileWithRelativePath | FileWithRelativePath[]) 
             type="file"
             webkitdirectory
             class="hidden-file-input"
+            :disabled="props.deployOnly"
             @change="handleFolderFileChange"
             @cancel="fileDialogActive = false"
-            :disabled="props.deployOnly"
           >
         </div>
       </div>
@@ -355,8 +355,8 @@ function onFolderSelected(files: FileWithRelativePath | FileWithRelativePath[]) 
           data-testid="epinio_app-source_container"
           :label="t('epinio.applications.steps.source.containerUrl.url.inputLabel')"
           :required="true"
-          @text-input-change="(e: CustomEvent) => { updateSource(source.type, { url: e.detail.value }); }"
           :disabled="!isCustomContainerImage || props.deployOnly"
+          @text-input-change="(e: CustomEvent) => { updateSource(source.type, { url: e.detail.value }); }"
         />
       </div>
     </template>
@@ -391,8 +391,8 @@ function onFolderSelected(files: FileWithRelativePath | FileWithRelativePath[]) 
           :label="t('epinio.applications.steps.source.gitUrl.url.inputLabel')"
           :placeholder="'https://github.com/{user or org}/{repository}'"
           :required="true"
-          @text-input-change="(e: CustomEvent) => { updateSource(source.type, { url: e.detail.value, branch: '' }); }"
           :disabled="props.deployOnly"
+          @text-input-change="(e: CustomEvent) => { updateSource(source.type, { url: e.detail.value, branch: '' }); }"
         />
         <p v-if="source.gitUrl?.url && !validGitUrl" class="error-message">
           {{ t('epinio.applications.steps.source.gitUrl.error.label') }}

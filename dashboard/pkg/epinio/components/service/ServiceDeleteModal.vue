@@ -62,8 +62,8 @@ defineExpose({
     <trailhand-modal
         :open.prop="showDeleteModal"
         title="Are you sure?"
-        @modal-close="closeDelete"
         :show-dismiss-button="true"
+        @modal-close="closeDelete"
     >
         <div class="modal-content">
         <p>You are attempting to delete the Instance <strong>{{ serviceToDelete?.meta.name }}</strong>.</p>
