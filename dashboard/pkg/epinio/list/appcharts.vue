@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { EPINIO_TYPES } from '../types';
 import { useStore } from 'vuex';
 import { computed, ref, watch } from 'vue';
 import { debounce } from 'lodash';
@@ -20,8 +19,6 @@ const store = useStore();
 const chartsModal = ref<InstanceType<typeof ChartsModal> | null>(null);
 const deleteModal = ref<InstanceType<typeof ChartsDeleteModal> | null>(null);
 const tableEl = ref<any>(null);
-
-const resource: string = EPINIO_TYPES.APP_CHARTS;
 
 const { data: user, isError: isErrorUser, error: userError } = useUser(store);
 

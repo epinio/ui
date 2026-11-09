@@ -219,7 +219,6 @@ export function toInstanceStats(instances: AppPodInfo[], prop: 'millicpus' | 'me
 }
 
 export function toAppSourceDetails(application: AppForm, t: any) {
-    console.log(application);
   const appChart = {
     label: 'App Chart',
     value: application.buildOptions.appChart

@@ -70,7 +70,7 @@ const onGitConfigFilter = debounce((query: string) => {
 
 const containerImageRequestParams = ref<ListResourceRequestParams>({ page: 1, pageSize: 25, search: '' });
 const containerImageRequestOptions = ref<ResourceQueryOptions>({ enabled: false, polling: false });
-const {data: containerImages, isLoading: isLoadingContainerImages, isError: isErrorContainerImages, error: containerImagesError} = useApplications(store, containerImageRequestParams, containerImageRequestOptions, true);
+const {data: containerImages, isLoading: isLoadingContainerImages, isError: isErrorContainerImages} = useApplications(store, containerImageRequestParams, containerImageRequestOptions, true);
 const onContainerImageFilter = debounce((query: string) => {
   containerImageRequestParams.value.page = 1;
   containerImageRequestParams.value.search = query;
@@ -332,18 +332,6 @@ function onFolderSelected(files: FileWithRelativePath | FileWithRelativePath[]) 
     </template>
 
     <template v-else-if="source.type === APPLICATION_SOURCE_TYPE.CONTAINER_URL">
-      <!-- <div class="spacer source">
-        <h3>{{ t('epinio.applications.steps.source.containerUrl.url.label') }}</h3>
-        <trailhand-text-input
-          style="width: 100%;"
-          :value="source.containerUrl?.url || ''"
-          data-testid="epinio_app-source_container"
-          :label="t('epinio.applications.steps.source.containerUrl.url.inputLabel')"
-          :required="true"
-          @text-input-change="(e: CustomEvent) => { updateSource(source.type, { url: e.detail.value }); }"
-          :disabled="props.deployOnly"
-        />
-      </div> -->
       <div class="spacer source builder-image">
         <h3>{{ t('epinio.applications.steps.source.containerUrl.url.label') }}</h3>
         <trailhand-dropdown

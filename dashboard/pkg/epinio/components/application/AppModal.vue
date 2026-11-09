@@ -75,10 +75,6 @@ const prevTab = computed(() => {
   return tabs.value[idx - 1]?.id
 })
 
-const isDirty = computed(() => {
-  return state.dirty.value;
-});
-
 const showDiscardConfirm = ref(false);
 
 async function openCreate() {

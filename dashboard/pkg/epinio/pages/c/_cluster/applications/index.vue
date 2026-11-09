@@ -43,7 +43,6 @@ const serviceModal = ref<InstanceType<typeof ServiceInstanceModal> | null>(null)
 const configModal = ref<InstanceType<typeof ConfigurationModal> | null>(null);
 
 const resource: string = EPINIO_TYPES.APP;
-const schema = ref(store.getters['epinio/schemaFor'](resource));
 
 const { data: user, isError: isErrorUser, error: userError } = useUser(store);
 
