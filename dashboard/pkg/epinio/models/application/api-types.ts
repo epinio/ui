@@ -84,57 +84,26 @@ export interface ApiApp {
 
 export type ApiListAppsResponse = ApiListResourceResponse<ApiApp>;
 
-export interface ApiAppDeploymentStatus {
-    app: ApiAppMeta;
-    error: string;
-    finishedAt: string;
-    id: string;
-    image: string;
-    routes: string[];
-    stage_id: string;
-    startedAt: string;
-    status: string;
-    warnings: string[];
-}
-
-export interface ApiAsyncDeployRequest {
-    app: ApiAppMeta;
-    blobuid?: string;
-    builderimage?: string;
-    buildmode?: string;
-    dockerfilepath?: string;
-    image?: string;
-    origin: ApiAppOrigin;
-}
-
 export interface ApiAppStageRequest {
     app: ApiAppMeta;
     blobuid?: string;
     builderimage?: string;
     buildmode?: string;
     dockerfilepath?: string;
-    image?: string;
-}
-
-export interface ApiAppStageResponse {
-    stage: {
-        id: string;
-    };
-    image: string;
+    origin: ApiAppOrigin;
 }
 
 export interface ApiAppDeployRequest {
     app: ApiAppMeta;
-    image: string;
+    blobuid?: string;
+    builderimage?: string;
+    buildmode?: string;
+    dockerfilepath?: string;
+    image?: string;
     origin: ApiAppOrigin;
-    stage: {
+    stage?: {
         id: string;
     }
-}
-
-export interface ApiAppDeployResponse {
-    routes: string[];
-    warnings: string[];
 }
 
 export interface ApiAppDeleteRequest {
@@ -159,27 +128,6 @@ export interface ApiAppCreateRequest {
     name: string;
 }
 
-export interface ApiAppDeploymentsRequest {
-    app: ApiAppMeta;
-    blobuid: string;
-    builderimage: string;
-    buildmode: string;
-    dockerfilepath: string;
-    image: string;
-    origin: ApiAppOrigin;
-}
-
-export interface ApiAppGitImportParams {
-    giturl: string;
-    gitrev: string;
-}
-
-export interface ApiAppGitImportResponse {
-    blobuid: string;
-    branch: string;
-    revision: string;
-}
-
 export interface ApiAppManifest {
     name: string;
     namespace: string;
@@ -190,4 +138,41 @@ export interface ApiAppManifest {
 
 export interface ApiAppStoreArchiveResponse {
     blobuid: string;
+}
+
+export interface ApiAppOperation {
+    app: ApiAppMeta;
+    error: string;
+    finishedAt: string;
+    id: string;
+    image: string;
+    kind: string;
+    phase: string;
+    routes: string[];
+    stage_id: string;
+    startedAt: string;
+    status: string;
+    warnings: string[];
+}
+
+export interface ApiSkippedApp {
+    app: ApiAppMeta;
+    reason: string;
+}
+
+export interface ApiOperationsResponse {
+    boundapps?: string[];
+    operations?: ApiAppOperation[];
+    skipped?: ApiSkippedApp[];
+    wasbound?: string[]
+}
+
+export interface ApiAppState {
+    app: ApiAppMeta;
+    buildstatus?: string;
+    operation?: ApiAppOperation;
+    stage_id?: string;
+    stagingstatus?: string;
+    status: string;
+    statusmessage: string;
 }

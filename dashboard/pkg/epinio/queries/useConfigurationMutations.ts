@@ -6,6 +6,7 @@ import { epinioQueryClient } from "../api/queryClient";
 import { computed } from "vue";
 import { ConfigurationCreateRequest, ConfigurationBindRequest, ConfigurationPutRequest, ConfigurationResponse } from "../models/configuration/ui-types";
 import { toApiConfigurationCreateRequest, toApiConfigurationBindRequest, toApiConfigurationPutRequest } from "../models/configuration/mappers";
+import { toOperationsResponse } from "../models/application/mappers";
 
 export function useCreateConfiguration(store: any, onSuccessCallback?: () => void) {
     const { data: cluster } = useCluster(store);
@@ -39,7 +40,8 @@ export function useBindConfiguration(store: any, onSuccessCallback?: () => void)
                 throw new Error('Cluster is not available');
             }
             const epinioClient = createEpinioClient(cluster.value, isExtension.value);
-            return await configurationsApi(epinioClient).bindApplication(namespace, appName, toApiConfigurationBindRequest(request));
+            const response = await configurationsApi(epinioClient).bindApplication(namespace, appName, toApiConfigurationBindRequest(request));
+            return toOperationsResponse(response);
         },
         onSuccess: () => {
             epinioQueryClient.invalidateQueries({ queryKey: ['configurations', cluster.value?.id] });
@@ -60,7 +62,11 @@ export function useUnbindConfiguration(store: any, onSuccessCallback?: () => voi
                 throw new Error('Cluster is not available');
             }
             const epinioClient = createEpinioClient(cluster.value, isExtension.value);
-            return await configurationsApi(epinioClient).unbindConfiguration(namespace, appName, configName);
+            const response = await configurationsApi(epinioClient).unbindConfiguration(namespace, appName, configName);
+            if ('operations' in response) {
+                return toOperationsResponse(response);
+            }
+            return response;
         },
         onSuccess: () => {
             epinioQueryClient.invalidateQueries({ queryKey: ['configurations', cluster.value?.id] });
@@ -102,7 +108,8 @@ export function useDeleteConfiguration(store: any, onSuccessCallback?: () => voi
                 throw new Error('Cluster is not available');
             }
             const epinioClient = createEpinioClient(cluster.value, isExtension.value);
-            return await configurationsApi(epinioClient).deleteConfiguration(namespace, configurationName);
+            const response = await configurationsApi(epinioClient).deleteConfiguration(namespace, configurationName);
+            return toOperationsResponse(response);
         },
         onSuccess: () => {
             epinioQueryClient.invalidateQueries({ queryKey: ['configurations', cluster.value?.id] });

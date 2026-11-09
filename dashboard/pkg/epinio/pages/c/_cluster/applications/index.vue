@@ -85,6 +85,8 @@ const {data: undeployedApps, isLoading: isLoadingUndeployedApps, isError: isErro
 const { mutateAsync: bulkRemove } = useBulkRemoveApplications(store);
 
 const tableEl = ref<any>(null);
+const undeployedTableEl = ref<any>(null);
+
 const selectedRows = ref<any[]>([]);
 
 const canCreate = computed(() => {
@@ -189,7 +191,7 @@ const displayRows = computed(() => {
     }, {
       label: 'Restage',
       action: () => restageApp(store, a),
-      enabled: canStage.value && a.canRetryBuild,
+      enabled: canStage.value && a.canRetryBuild && a.status !== 'staging',
       visible: canStage.value,
     }, {
       label: 'Restart',
@@ -292,6 +294,7 @@ const handleBulkDelete = async (items: App[], deleteImage: boolean, deletePVC: b
 const handleBulkDeleted = () => {
   selectedRows.value = [];
   tableEl.value?.clearSelection();
+  undeployedTableEl.value?.clearSelection();
 };
 
 // NOTE: must be a named function declared here, not an inline arrow function
@@ -303,7 +306,14 @@ const handleBulkDeleted = () => {
 const setTableRef = (el: any) => {
   if (el) {
     tableEl.value = el;
-    el.renderActions = makeActionMenu;
+    el.renderActions = (row: any) => makeActionMenu(row, 'deployed');
+    el.rowSelectable = isRowSelectable;
+  }
+};
+const setUndeployedTableRef = (el: any) => {
+  if (el) {
+    undeployedTableEl.value = el;
+    el.renderActions = (row: any) => makeActionMenu(row, 'undeployed');
     el.rowSelectable = isRowSelectable;
   }
 };
@@ -496,7 +506,7 @@ const columns = computed(() => {
       </template>
       <template #undeployed>
         <trailhand-table
-          :ref="setTableRef"
+          :ref="setUndeployedTableRef"
           :rows="undeployedDisplayRows"
           :columns="columns"
           :searchable="false"

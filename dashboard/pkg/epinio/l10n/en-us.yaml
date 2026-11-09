@@ -11,6 +11,11 @@ generic:
   deleting: Deleting
   keepEditing: Keep Editing
   search: Search...
+  deploy: Deploy
+  finish: Finish
+  previous: Previous
+  next: Next
+  unsavedChanges: You have unsaved changes.
 typeLabel:
   withoutCount:
     namespaces: Namespaces
@@ -346,6 +351,10 @@ epinio:
             absolute: Absolute paths are not allowed
             parent: Paths must not contain '..'
             chars: "Only letters, digits, '.', '_', '-', and '/' are allowed"
+        deployApplication:
+          label: Deploy Application
+          inputLabel: Deploy Application
+          tooltip: Deploy the application after the source is built. Application builds can be deployed at a later time, or be used as a container image for other applications.
         manifest:
           button: From Manifest
           tooltip: Manifests can provide app configuration from another app
