@@ -80,6 +80,7 @@ export interface ApiApp {
     status: 'created' | 'staging' | 'deploying' | 'running' | 'error';
     statusmessage: string;
     blobuid: string;
+    built_image_url?: string;
 }
 
 export type ApiListAppsResponse = ApiListResourceResponse<ApiApp>;

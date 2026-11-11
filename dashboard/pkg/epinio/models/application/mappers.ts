@@ -111,6 +111,7 @@ export function toApp(apiApp: ApiApp): App {
         stateDisplay: statusToStateDisplay[apiApp.status],
         blobUid: apiApp.blobuid,
         canRetryBuild: sourceType === APPLICATION_SOURCE_TYPE.CONTAINER_URL ? false : hasGit || hasBlob,
+        builtImageUrl: apiApp.built_image_url
     };
 }
 
@@ -577,7 +578,7 @@ export function appFormToAppStageRequest(form: AppForm, opts?: {blobUid?: string
     };
 }
 
-export function appFormToAppDeployRequest(form: AppForm, opts?: {blobUid?: string; createdAt?: string; stageId?: string}): AppDeployRequest {
+export function appFormToAppDeployRequest(form: AppForm, opts?: {blobUid?: string; createdAt?: string; stageId?: string, imageUrl?: string}): AppDeployRequest {
     const isContainer = form.source.type === APPLICATION_SOURCE_TYPE.CONTAINER_URL;
     const isGitSource = form.source.type === APPLICATION_SOURCE_TYPE.GIT_URL || form.source.type === APPLICATION_SOURCE_TYPE.GIT_HUB || form.source.type === APPLICATION_SOURCE_TYPE.GIT_LAB;
 
@@ -588,7 +589,7 @@ export function appFormToAppDeployRequest(form: AppForm, opts?: {blobUid?: strin
         origin: appFormToAppOrigin(form),
         buildMode: isContainer ? undefined : form.buildOptions.buildMode,
         dockerfilePath: isContainer ? undefined : form.buildOptions.dockerfilePath,
-        image: isContainer ? form.source.containerUrl?.url : undefined,
+        image: isContainer ? form.source.containerUrl?.url : opts?.imageUrl,
     };
 
     if (opts?.stageId) {

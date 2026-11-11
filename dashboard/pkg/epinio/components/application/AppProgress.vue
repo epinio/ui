@@ -17,6 +17,7 @@ const props = defineProps<{
   onPipelineSuccess: () => void,
   onPipelineFailure: () => void,
   setModalToEdit: () => void,
+  deployOnly: boolean,
 }>();
 
 defineEmits(['finished', 'failed']);
@@ -93,6 +94,7 @@ watch(() => props.active, async (isActive) => {
     initialForm: props.initialForm,
     initialApp: props.initialApp,
     state: props.formState,
+    deployOnly: props.deployOnly,
   })
 });
 

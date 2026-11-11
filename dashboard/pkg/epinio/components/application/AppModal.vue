@@ -151,6 +151,14 @@ function setModalToEdit() {
   modalMode.value = 'edit';
 }
 
+function updateDeployOnly(value: boolean) {
+  deployOnly.value = value;
+}
+
+function updateInitialApp(value: App) {
+  initialApp.value = value;
+}
+
 defineExpose({ openCreate, openEdit });
 </script>
 
@@ -175,6 +183,8 @@ defineExpose({ openCreate, openEdit });
             :updateSource="update.source"
             :populateFormFromApp="populateFormFromApp"
             :deployOnly="deployOnly"
+            :updateDeployOnly="updateDeployOnly"
+            :updateInitialApp="updateInitialApp"
           />
         </template>
 
@@ -226,6 +236,7 @@ defineExpose({ openCreate, openEdit });
             :onPipelineSuccess="onPipelineSuccess"
             :onPipelineFailure="onPipelineFailure"
             :setModalToEdit="setModalToEdit"
+            :deployOnly="deployOnly"
           />
       </template>
       </Tabs>
@@ -275,7 +286,7 @@ defineExpose({ openCreate, openEdit });
           {{t('generic.next') }}
         </trailhand-button>
         <trailhand-button
-          v-if="isEdit && activeTab !== 'progress'"
+          v-if="(isEdit || deployOnly) && activeTab !== 'progress'"
           variant="primary"
           :disabled="deployOnly ? !state.valid.value : !state.dirty.value || !state.valid.value"
           @button-click="onSubmit"

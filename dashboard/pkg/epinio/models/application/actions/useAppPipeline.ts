@@ -89,13 +89,15 @@ export function useAppPipeline(store: any) {
     state: FormState;
     initialForm: AppForm;
     initialApp: App | null; // populated for edit
+    deployOnly: boolean;
   }) {
-    const { mode, form, initialForm, initialApp, state } = params;
+    const { mode, form, initialForm, initialApp, state, deployOnly } = params;
     const { details, source, bindings } = form;
     const isEdit = mode === 'edit';
+    const isNew = !isEdit && !deployOnly;
 
     app.value = initialApp;
-    steps.value = buildSteps(mode, form, state.source.dirty.value, state.bindings.dirty.value);
+    steps.value = buildSteps(mode, form, state, deployOnly);
     running.value = true;
     failed.value = false;
     isDone.value = false;
@@ -111,7 +113,7 @@ export function useAppPipeline(store: any) {
 
     try {
       // 1. Create or update app record
-      if (!isEdit) {
+      if (isNew) {
         await stepRunner('create', async () => {
           const createdApp = await createApp({
             namespace: details.namespace,
@@ -120,7 +122,7 @@ export function useAppPipeline(store: any) {
           app.value = createdApp;
           hasAppBeenCreated.value = true;
         });
-      } else {
+      } else if (state.dirty.value) {
         await stepRunner('update', async () => {
           const updatedApp = await updateApp({
             namespace: details.namespace,
@@ -132,11 +134,11 @@ export function useAppPipeline(store: any) {
       }
 
       // 2. Bind configurations (create only)
-      if (bindings.configurations.length && !isEdit) {
+      if (isNew && bindings.configurations.length) {
         await stepRunner('bindConfigurations', () =>
           bindConfig({ namespace: details.namespace, appName: details.name, request: { names: bindings.configurations } })
         );
-      } else if (isEdit && state.bindings.dirty.value) {
+      } else if (state.bindings.dirty.value) {
         await stepRunner('updateConfigurations', async () => {
           const currentConfigs = [...form.bindings.configurations, ...form.bindings.serviceConfigurations];
           const initialConfigs = [...initialForm.bindings.configurations, ...initialForm.bindings.serviceConfigurations];
@@ -157,13 +159,13 @@ export function useAppPipeline(store: any) {
       }
 
       // 3. Bind services (create only)
-      if (bindings.services.length && !isEdit) {
+      if (isNew && bindings.services.length) {
         await stepRunner('bindServices', () =>
           Promise.all(bindings.services.map(name =>
             bindService({ namespace: details.namespace, serviceName: name, request: { appName: details.name } })
           ))
         );
-      } else if (isEdit && state.bindings.dirty.value) {
+      } else if (state.bindings.dirty.value) {
         await stepRunner('updateServices', async () => {
           const currentServices = form.bindings.services;
           const initialServices = initialForm.bindings.services;
@@ -185,7 +187,7 @@ export function useAppPipeline(store: any) {
         });
       }
 
-      if (!isEdit || state.source.dirty.value) {
+      if (isNew || state.source.dirty.value) {
         // 4. Upload
         if (source.type === 'archive' || source.type === 'folder') {
           const tarball = source.type === 'archive' ? source.archive!.tarball : source.folder!.tarball;
@@ -216,26 +218,33 @@ export function useAppPipeline(store: any) {
           });
           
         }
-
-        // 6. Deploy
-        else {
-          const request = appFormToAppDeployRequest(form, {blobUid: buildCache.value.blobUid, createdAt: app.value?.meta?.createdAt, stageId: app.value?.stageId});
-          await stepRunner('deploy', async () => {
-            if (!app.value) {
-              throw new Error('App is not available');
-            }
-            
-            const response = await deployApp({
-              namespace: details.namespace,
-              app: app.value,
-              request,
-            });
-
-            await waitForState(response.id, 300000);
-          });
-          
-        }
         
+      }
+
+      // 6. Build
+      if ((isNew || state.source.dirty.value || deployOnly) && form.buildOptions.deploy) {
+        const request = appFormToAppDeployRequest(
+          form, 
+          {
+            blobUid: buildCache.value.blobUid, 
+            createdAt: app.value?.meta?.createdAt, 
+            stageId: state.source.dirty.value ? undefined : app.value?.stageId, 
+            imageUrl: state.source.dirty.value ? undefined : app.value?.imageUrl || app.value?.builtImageUrl || undefined
+          }
+        );
+        await stepRunner('deploy', async () => {
+          if (!app.value) {
+            throw new Error('App is not available');
+          }
+          
+          const response = await deployApp({
+            namespace: details.namespace,
+            app: app.value,
+            request,
+          });
+
+          await waitForState(response.id, 300000);
+        });
       }
 
       store.dispatch('growl/success', {
@@ -295,9 +304,10 @@ function makeStepRunner(steps: PipelineStep[]) {
   };
 }
 
-function buildSteps(mode: 'create' | 'edit', form: AppForm, isSourceDirty: boolean, isBindingsDirty: boolean): PipelineStep[] {
+function buildSteps(mode: 'create' | 'edit', form: AppForm, state: FormState, deployOnly: boolean): PipelineStep[] {
   const { source, bindings } = form;
   const isEdit = mode === 'edit';
+  const isNew = !isEdit && !deployOnly
 
   const isArchiveOrFolder = ['archive', 'folder'].includes(source.type);
   const isGit = ['gitUrl', 'github', 'gitlab'].includes(source.type);
@@ -306,34 +316,37 @@ function buildSteps(mode: 'create' | 'edit', form: AppForm, isSourceDirty: boole
   const steps: PipelineStep[] = [];
 
   // 1. Create or update
-  if (!isEdit) {
+  if (isNew) {
     steps.push(makeStep('create'));
-  } else {
+  } else if (state.dirty.value) {
     steps.push(makeStep('update'));
   }
 
   // 2. Bind/unbind configurations
-  if (!isEdit && bindings.configurations.length) {
+  if (isNew && bindings.configurations.length) {
     steps.push(makeStep('bindConfigurations'));
-  } else if (isEdit && isBindingsDirty) {
+  } else if (state.bindings.dirty.value) {
     steps.push(makeStep('updateConfigurations'));
   }
 
   // 3. Bind/unbind services
-  if (!isEdit && bindings.services.length) {
+  if (isNew && bindings.services.length) {
     steps.push(makeStep('bindServices'));
-  } else if (isEdit && isBindingsDirty) {
+  } else if (state.bindings.dirty.value) {
     steps.push(makeStep('updateServices'));
   }
 
   // Source steps only when source is dirty or creating app
-  if (!isEdit || isSourceDirty) {
+  if (isNew || state.source.dirty.value) {
     // 4. Upload archive/folder if needed
     if (isArchiveOrFolder) steps.push(makeStep('upload'));
     // 5. Build if needed
     if (needsBuild && !form.buildOptions.deploy) steps.push(makeStep('build'));
-    // 6. Deploy (always last)
-    else steps.push(makeStep('deploy'));
+  }
+
+  // 6. Deploy (always last)
+  if ((isNew || state.source.dirty.value || deployOnly) && form.buildOptions.deploy) {
+    steps.push(makeStep('deploy'));
   }
 
   return steps;

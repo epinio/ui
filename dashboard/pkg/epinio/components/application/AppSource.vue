@@ -30,6 +30,8 @@ const props = defineProps<{
   mode: string;
   updateSource: <K extends AppFormSource['type']>(type: K, newSource?: Partial<NonNullable<AppFormSource[K]>>) => void;
   populateFormFromApp: (app: App | AppManifest, setInitial?: boolean) => void;
+  updateDeployOnly: (value: boolean) => void;
+  updateInitialApp: (value: App) => void;
   deployOnly?: boolean;
 }>();
 
@@ -106,11 +108,9 @@ function handleContainerImageDropdownChange(value: string) {
   if (value !== 'custom') {
     const selectedImage = containerImages.value?.items?.find((ci) => ci.meta.name === value);
     if (selectedImage) {
-      // remove name since app names must be unique
-      selectedImage.meta.name = "";
-      // remove routes since they will be generated automatically if no custom routes are provided
-      selectedImage.configuration.routes = [];
-      props.populateFormFromApp(selectedImage);
+      props.populateFormFromApp(selectedImage, true);
+      props.updateInitialApp(selectedImage);
+      props.updateDeployOnly(true);
     }
   }
 }

@@ -112,6 +112,9 @@ const canStage = computed(() => {
 const canRestart = computed(() => {
   return user.value?.permissions?.app_restart || user.value?.permissions?.app_write || user.value?.permissions?.app;
 });
+const canDeploy = computed(() => {
+  return user.value?.permissions?.app_deploy || user.value?.permissions?.app_write || user.value?.permissions?.app;
+});
 
 const handleCreateClick = () => {
   appModal.value?.openCreate();
@@ -230,8 +233,8 @@ const undeployedDisplayRows = computed(() => {
     }, {
       label: 'Deploy',
       action: () => openEditModal(a, null, true),
-      enabled: canEdit.value,
-      visible: canEdit.value,
+      enabled: canDeploy.value,
+      visible: canDeploy.value,
     }, {
       label: 'Delete',
       action: () => openDeleteModal(a),
@@ -335,11 +338,11 @@ const allColumns = [
     field: 'nameDisplay',
     label: 'Name',
     width: '125px',
-    formatter: (_value: any, row: App) => makeNameLinks(
+    formatter: (_value: any, row: App) => row.deployment ? makeNameLinks(
       [row.meta.name],
       { cluster: store.getters['clusterId'], namespace: row.meta.namespace, resource: EPINIO_TYPES.APP },
       router
-    )
+    ) : row.meta.name
   },
   {
     field: 'meta.namespace',

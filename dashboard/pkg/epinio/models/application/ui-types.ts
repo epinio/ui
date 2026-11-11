@@ -81,6 +81,7 @@ export interface App {
     stateDisplay: string;
     blobUid: string;
     canRetryBuild: boolean;
+    builtImageUrl?: string;
 }
 
 export type ListAppsResponse = ListResourceResponse<App>;
