@@ -11,6 +11,7 @@ import ImageDeleteModal from '../components/images/ImageDeleteModal.vue';
 import { ResourceQueryOptions, ListResourceRequestParams, ResourceTableRow } from '../models/resource/ui-types';
 import { BuilderImage } from '../models/builderimage/ui-types';
 import { useUser } from '../queries/useUserQueries';
+import { patchTrailhandServerSort, useServerTableSort, withServerSideSort } from '../utils/server-table-sort';
 
 defineProps<{ schema: object }>(); // Keep for compatibility
 
@@ -18,6 +19,7 @@ const store = useStore();
 
 const imageModal = ref<InstanceType<typeof ImageModal> | null>(null);
 const deleteModal = ref<InstanceType<typeof ImageDeleteModal> | null>(null);
+const tableEl = ref<any>(null);
 
 const resource: string = EPINIO_TYPES.BUILDER_IMAGE;
 
@@ -90,9 +92,9 @@ const displayRows = computed(() => {
   return rows;
 });
 
-const columns = [
+const columns = withServerSideSort([
   {
-    field: 'nameDisplay',
+    field: 'meta.name',
     label: 'Name',
     formatter: (_v: any, row: BuilderImage) => {
       const el = document.createElement('a');
@@ -121,7 +123,17 @@ const columns = [
     label:     'Age',
     formatter: 'age'
   }
-];
+]);
+
+const setTableRef = (el: any) => {
+  if (el) {
+    tableEl.value = el;
+    el.renderActions = makeActionMenu;
+    patchTrailhandServerSort(el, requestParams);
+  }
+};
+
+useServerTableSort(requestParams, tableEl, columns);
 </script>
 
 <template>
@@ -160,7 +172,7 @@ const columns = [
       ></trailhand-text-input>
     </div>
     <trailhand-table
-      :ref="(el: any) => { if (el) el.renderActions = makeActionMenu; }"
+      :ref="setTableRef"
       :rows="displayRows"
       :columns="columns"
       :server-side="true"

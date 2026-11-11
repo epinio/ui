@@ -17,6 +17,7 @@ import { fetchService } from '../queries/useServiceQueries';
 import ServiceInstanceModal from '../components/service/ServiceInstanceModal.vue';
 import Banner from '@components/Banner/Banner.vue';
 import { useUser } from '../queries/useUserQueries';
+import { patchTrailhandServerSort, useServerTableSort, withServerSideSort } from '../utils/server-table-sort';
 
 const store = useStore();
 const router = store.$router;
@@ -178,6 +179,7 @@ const setTableRef = (el: any) => {
     tableEl.value = el;
     el.renderActions = makeActionMenu;
     el.rowSelectable = isRowSelectable;
+    patchTrailhandServerSort(el, requestParams);
   }
 };
 
@@ -191,7 +193,8 @@ const openServiceModal = async (namespace: string, service: string) => {
 
 const allColumns = [
   {
-    field: 'nameDisplay',
+    // meta.name so server-side sort keys resolve to a real string value.
+    field: 'meta.name',
     label: 'Name',
     width: '200px',
     formatter: (_v: any, row: ConfigurationResponse) => {
@@ -277,8 +280,10 @@ const columns = computed(() => {
     hide.add('meta.createdAt');
   }
 
-  return allColumns.filter(col => !hide.has(col.field));
+  return withServerSideSort(allColumns.filter(col => !hide.has(col.field)));
 });
+
+useServerTableSort(requestParams, tableEl, columns);
 </script>
 
 <template>

@@ -29,6 +29,7 @@ import ConfigurationModal from '../../../../components/configuration/Configurati
 import { fetchConfiguration } from '../../../../queries/useConfigurationQueries';
 import { fetchService } from '../../../../queries/useServiceQueries';
 import { appCanDeployBuild, appCanDeleteBuild } from '../../../../utils/application';
+import { patchTrailhandServerSort, useServerTableSort, withServerSideSort } from '../../../../utils/server-table-sort';
 
 const store = useStore() as any;
 const t = store.getters['i18n/t'];
@@ -84,9 +85,15 @@ const setListMode = (next: AppListMode) => {
   }
 
   listMode.value = next;
-  requestParams.value.page = 1;
+  requestParams.value = {
+    ...requestParams.value,
+    page: 1,
+    sort: undefined,
+    sortDir: undefined,
+  };
   selectedRows.value = [];
   tableEl.value?.clearSelection();
+  tableEl.value?.resetSort?.();
 };
 
 const canCreate = computed(() => {
@@ -269,6 +276,8 @@ const setTableRef = (el: any) => {
     tableEl.value = el;
     el.renderActions = makeActionMenu;
     el.rowSelectable = isRowSelectable;
+    // Patch immediately on mount — click-listener approach missed sort params.
+    patchTrailhandServerSort(el, requestParams);
   }
 };
 
@@ -353,7 +362,8 @@ const baseColumns = [
     formatter: (_value: string, row: App) => makeStateTag(row)
   },
   {
-    field: 'nameDisplay',
+    // Use meta.name (not nameDisplay) so sort keys resolve to a real string.
+    field: 'meta.name',
     label: 'Name',
     width: '125px',
     formatter: (_value: any, row: App) => makeNameLinks(
@@ -417,8 +427,10 @@ const columns = computed(() => {
 
   if (w < 1150) hide.add('meta.createdAt');
 
-  return cols.filter(col => !hide.has(col.field));
+  return withServerSideSort(cols.filter(col => !hide.has(col.field)));
 });
+
+useServerTableSort(requestParams, tableEl, columns);
 </script>
 
 <template>

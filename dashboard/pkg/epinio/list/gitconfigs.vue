@@ -12,6 +12,7 @@ import { useGitConfigs } from '../queries/useGitConfigQueries';
 import { GitConfig } from '../models/gitconfig/ui-types';
 import { useUser } from '../queries/useUserQueries';
 import Banner from '@components/Banner/Banner.vue';
+import { patchTrailhandServerSort, useServerTableSort, withServerSideSort } from '../utils/server-table-sort';
 
 defineProps<{ schema: object }>(); // Keep for compatibility
 
@@ -19,6 +20,7 @@ const store = useStore();
 
 const gitConfigModal = ref<InstanceType<typeof GitConfigModal> | null>(null);
 const gitConfigDeleteModal = ref<InstanceType<typeof GitConfigDeleteModal> | null>(null);
+const tableEl = ref<any>(null);
 
 const resource: string = EPINIO_TYPES.GIT_CONFIG;
 
@@ -80,7 +82,7 @@ const displayRows = computed(() => {
   return rows;
 });
 
-const columns = [
+const columns = withServerSideSort([
   {
     field: 'meta.name',
     label: 'Name'
@@ -99,7 +101,17 @@ const columns = [
     label:     'Age',
     formatter: 'age'
   }
-];
+]);
+
+const setTableRef = (el: any) => {
+  if (el) {
+    tableEl.value = el;
+    el.renderActions = makeActionMenu;
+    patchTrailhandServerSort(el, requestParams);
+  }
+};
+
+useServerTableSort(requestParams, tableEl, columns);
 </script>
 
 <template>
@@ -138,7 +150,7 @@ const columns = [
       ></trailhand-text-input>
     </div>
     <trailhand-table
-      :ref="(el: any) => { if (el) el.renderActions = makeActionMenu; }"
+      :ref="setTableRef"
       :rows="displayRows"
       :columns="columns"
       :server-side="true"

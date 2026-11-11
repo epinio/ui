@@ -13,6 +13,7 @@ import NamespaceDeleteModal from '../components/namespace/NamespaceDeleteModal.v
 import Banner from '@components/Banner/Banner.vue';
 import { ResourceTableRow } from '../models/resource/ui-types';
 import { useUser } from '../queries/useUserQueries';
+import { patchTrailhandServerSort, useServerTableSort, withServerSideSort } from '../utils/server-table-sort';
 
 defineProps<{
   schema: object,
@@ -42,6 +43,7 @@ const requestParams = ref<ListResourceRequestParams>({
 });
 const requestOptions = ref<ResourceQueryOptions>({ enabled: true, polling: true, isTablePagination: true });
 const {data: namespaces, isLoading: isLoadingNamespaces, isError: isErrorNamespaces, error: namespacesError} = useNamespaces(store, requestParams, requestOptions);
+const tableEl = ref<any>(null);
 
 const onSearch = debounce(async (query: string) => {
   requestParams.value.page = 1;
@@ -106,7 +108,7 @@ function openDeleteModal(namespace: Namespace) {
   namespaceDeleteModal.value?.openDelete(namespace);
 }
 
-const columns = [
+const columns = withServerSideSort([
   {
     field: 'meta.name',
     label: t('epinio.namespace.name'),
@@ -130,7 +132,17 @@ const columns = [
     label: t('epinio.namespace.tableHeaders.age'),
     formatter: 'age'
   }
-];
+]);
+
+const setTableRef = (el: any) => {
+  if (el) {
+    tableEl.value = el;
+    el.renderActions = attachActionMenu;
+    patchTrailhandServerSort(el, requestParams);
+  }
+};
+
+useServerTableSort(requestParams, tableEl, columns);
 </script>
 
 <template>
@@ -169,7 +181,7 @@ const columns = [
       ></trailhand-text-input>
     </div>
     <trailhand-table
-      :ref="(el: any) => { if (el) el.renderActions = attachActionMenu; }"
+      :ref="setTableRef"
       :rows="displayRows"
       :columns="columns"
       :server-side="true"
