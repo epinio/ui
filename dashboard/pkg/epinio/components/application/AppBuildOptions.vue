@@ -275,7 +275,7 @@ function handleBuilderImageDropdownChange(value: string) {
         </div>
       </template>
 
-      <div v-if="!props.deployOnly" class="spacer source option">
+      <div v-if="!props.deployOnly && props.mode === 'create'" class="spacer source option">
         <h4>{{ t('epinio.applications.steps.source.deployApplication.label') }}</h4>
         <p>{{ t('epinio.applications.steps.source.deployApplication.tooltip') }}</p>
         <trailhand-toggle-switch
