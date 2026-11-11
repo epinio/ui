@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watchEffect, watch } from 'vue';
 import { useStore } from 'vuex';
 import { debounce } from 'lodash';
@@ -366,11 +366,11 @@ const baseColumns = [
     field: 'meta.name',
     label: 'Name',
     width: '125px',
-    formatter: (_value: any, row: App) => makeNameLinks(
+    formatter: (_value: any, row: App) => row.deployment ? makeNameLinks(
       [row.meta.name],
       { cluster: store.getters['clusterId'], namespace: row.meta.namespace, resource: EPINIO_TYPES.APP },
       router
-    )
+    ) : row.meta.name
   },
   {
     field: 'meta.namespace',
