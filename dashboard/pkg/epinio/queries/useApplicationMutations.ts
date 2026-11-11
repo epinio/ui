@@ -6,7 +6,7 @@ import { epinioQueryClient } from "../api/queryClient";
 import { computed } from "vue";
 import { ApiResourceResponse } from "../models/resource/api-types";
 import { AppDeleteRequest, App, AppCreateRequest, AppUpdateRequest, AppDeployRequest, AppOperation, AppStageRequest } from "../models/application/ui-types";
-import { toApiAppDeleteRequest, toApiAppCreateRequest, toApiAppUpdateRequest, toAppStoreArchiveResponse, toApp, toApiAppStageRequest, toApiAppDeployRequest, toAppOperation } from "../models/application/mappers";
+import { toApiAppDeleteRequest, toApiAppCreateRequest, toApiAppUpdateRequest, toAppStoreArchiveResponse, toApiAppStageRequest, toApiAppDeployRequest, toAppOperation } from "../models/application/mappers";
 
 export function useCreateApplication(store: any, onSuccessCallback?: () => void) {
     const { data: cluster } = useCluster(store);
@@ -21,7 +21,7 @@ export function useCreateApplication(store: any, onSuccessCallback?: () => void)
             const response = await applicationsApi(epinioClient).createApp(namespace, toApiAppCreateRequest(body));
             return response;
         },
-        onSuccess: (response) => {
+        onSuccess: () => {
             epinioQueryClient.invalidateQueries({ queryKey: ['applications', cluster.value?.id]})
             if (onSuccessCallback) {
                 onSuccessCallback();
@@ -43,7 +43,7 @@ export function useUpdateApplication(store: any, onSuccessCallback?: () => void)
             const response = await applicationsApi(epinioClient).updateApp(namespace, app, toApiAppUpdateRequest(body));
             return 'app' in response ? toAppOperation(response) : response;
         },
-        onSuccess: (response) => {
+        onSuccess: () => {
             epinioQueryClient.invalidateQueries({ queryKey: ['applications', cluster.value?.id]})
             if (onSuccessCallback) {
                 onSuccessCallback();
