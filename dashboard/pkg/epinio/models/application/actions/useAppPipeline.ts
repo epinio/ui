@@ -43,11 +43,6 @@ export function useAppPipeline(store: any) {
   const { data: cluster } = useCluster(store);
   const isExtension = computed(() => !!store.getters['isSingleProduct'] === false);
 
-  if (!cluster?.value) {
-    throw new Error('Cluster is not available');
-  }
-  const epinioClient = createEpinioClient(cluster.value, isExtension.value);
-
   const { mutateAsync: createApp } = useCreateApplication(store);
   const { mutateAsync: updateApp } = useUpdateApplication(store);
   const { mutateAsync: storeArchive } = useStoreApplicationArchive(store, updateBuildCacheBlobUid);
@@ -111,6 +106,8 @@ export function useAppPipeline(store: any) {
     if (!cluster?.value) {
       throw new Error('Cluster not found');
     }
+
+    const epinioClient = createEpinioClient(cluster.value, isExtension.value);
 
     const stepRunner = makeStepRunner(steps.value);
 
