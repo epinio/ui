@@ -4,10 +4,11 @@ import { useCluster } from "./useCluster";
 import { applicationsApi } from "../api/applications";
 import { epinioQueryClient } from "../api/queryClient";
 import { computed } from "vue";
-import { AppDeleteRequest, App, AppCreateRequest, AppUpdateRequest, AppDeployRequest, AppMeta, AppStageRequest } from "../models/application/ui-types";
+import { ApiResourceResponse } from "../models/resource/api-types";
+import { AppDeleteRequest, App, AppCreateRequest, AppUpdateRequest, AppDeployRequest, AppOperation, AppStageRequest } from "../models/application/ui-types";
 import { toApiAppDeleteRequest, toApiAppCreateRequest, toApiAppUpdateRequest, toAppStoreArchiveResponse, toApp, toApiAppStageRequest, toApiAppDeployRequest, toAppOperation } from "../models/application/mappers";
 
-export function useCreateApplication(store: any, onSuccessCallback?: (appMeta: AppMeta) => void) {
+export function useCreateApplication(store: any, onSuccessCallback?: () => void) {
     const { data: cluster } = useCluster(store);
     const isExtension = computed(() => !!store.getters['isSingleProduct'] === false);
 
@@ -17,36 +18,35 @@ export function useCreateApplication(store: any, onSuccessCallback?: (appMeta: A
                 throw new Error('Cluster is not available');
             }
             const epinioClient = createEpinioClient(cluster.value, isExtension.value);
-            await applicationsApi(epinioClient).createApp(namespace, toApiAppCreateRequest(body));
-            return toApp(await applicationsApi(epinioClient).getApp(namespace, body.name));
+            const response = await applicationsApi(epinioClient).createApp(namespace, toApiAppCreateRequest(body));
+            return response;
         },
         onSuccess: (response) => {
             epinioQueryClient.invalidateQueries({ queryKey: ['applications', cluster.value?.id]})
             if (onSuccessCallback) {
-                onSuccessCallback(response.meta);
+                onSuccessCallback();
             }
         },
     }, epinioQueryClient);
 }
 
-export function useUpdateApplication(store: any, onSuccessCallback?: (appMeta: AppMeta) => void) {
+export function useUpdateApplication(store: any, onSuccessCallback?: () => void) {
     const { data: cluster } = useCluster(store);
     const isExtension = computed(() => !!store.getters['isSingleProduct'] === false);
 
     return useMutation({
-        mutationFn: async ({ namespace, app, body }: { namespace: string; app: string; body: AppUpdateRequest }) => {
+        mutationFn: async ({ namespace, app, body }: { namespace: string; app: string; body: AppUpdateRequest }): Promise<AppOperation | ApiResourceResponse> => {
             if (!cluster?.value) {
                 throw new Error('Cluster is not available');
             }
             const epinioClient = createEpinioClient(cluster.value, isExtension.value);
-            await applicationsApi(epinioClient).updateApp(namespace, app, toApiAppUpdateRequest(body));
-            return toApp(await applicationsApi(epinioClient).getApp(namespace, app));
+            const response = await applicationsApi(epinioClient).updateApp(namespace, app, toApiAppUpdateRequest(body));
+            return 'app' in response ? toAppOperation(response) : response;
         },
         onSuccess: (response) => {
             epinioQueryClient.invalidateQueries({ queryKey: ['applications', cluster.value?.id]})
-            epinioQueryClient.invalidateQueries({ queryKey: ['application', cluster.value?.id, response.meta.namespace, response.meta.name] });
             if (onSuccessCallback) {
-                onSuccessCallback(response.meta);
+                onSuccessCallback();
             }
         },
     }, epinioQueryClient);
