@@ -4,8 +4,8 @@ import { useCreateApplication, useUpdateApplication, useStoreApplicationArchive,
 import { useBindConfiguration, useUnbindConfiguration } from "../../../queries/useConfigurationMutations";
 import { useBindServiceInstance, useUnbindServiceInstance } from "../../../queries/useServiceMutations";
 import { extractErrorMessage } from "../../../utils/errors";
-import { AppForm, App, AppMeta } from "../ui-types";
-import { appFormToCreateRequest, appFormToUpdateRequest, appFormToAppStageRequest, appFormToAppDeployRequest } from "../mappers";
+import { AppForm, App } from "../ui-types";
+import { appFormToCreateRequest, appFormToUpdateRequest, appFormToAppStageRequest, appFormToAppDeployRequest, toApp } from "../mappers";
 import { epinioQueryClient } from "../../../api/queryClient";
 import { useCluster } from "../../../queries/useCluster";
 import { FormState } from "../form/useAppForm";
@@ -13,6 +13,8 @@ import { APPLICATION_SOURCE_TYPE } from "../../../types";
 import { useApplicationState } from "../../../queries/useApplicationQueries";
 import { showStagingLog } from "./logs";
 import { ResourceQueryOptions } from "../../../models/resource/ui-types";
+import { createEpinioClient } from "../../../api/client";
+import { applicationsApi } from "../../../api/applications";
 
 export type StepState = 'pending' | 'running' | 'success' | 'fail';
 export interface PipelineStep {
@@ -39,14 +41,16 @@ export function useAppPipeline(store: any) {
     buildCache.value.blobUid = blobUid;
   }
 
-  function updateBuildCacheAppMeta(appMeta: AppMeta) {
-    buildCache.value.appMeta = appMeta;
-  }
-
   const { data: cluster } = useCluster(store);
+  const isExtension = computed(() => !!store.getters['isSingleProduct'] === false);
 
-  const { mutateAsync: createApp } = useCreateApplication(store, updateBuildCacheAppMeta);
-  const { mutateAsync: updateApp } = useUpdateApplication(store, updateBuildCacheAppMeta);
+  if (!cluster?.value) {
+    throw new Error('Cluster is not available');
+  }
+  const epinioClient = createEpinioClient(cluster.value, isExtension.value);
+
+  const { mutateAsync: createApp } = useCreateApplication(store);
+  const { mutateAsync: updateApp } = useUpdateApplication(store);
   const { mutateAsync: storeArchive } = useStoreApplicationArchive(store, updateBuildCacheBlobUid);
   const { mutateAsync: buildApp } = useBuildApplication(store);
   const { mutateAsync: deployApp } = useDeployApplication(store);
@@ -56,7 +60,6 @@ export function useAppPipeline(store: any) {
   const { mutateAsync: unbindService } = useUnbindServiceInstance(store);
 
   const stateQueryOptions = ref<ResourceQueryOptions>({ enabled: false, polling: true, isTablePagination: false });
-
   const { data: appState } = useApplicationState(store, appNamespace, appName, stateQueryOptions);
 
   // Watch for a stageId to appear on the appState, and if it does, show the staging log
@@ -118,23 +121,28 @@ export function useAppPipeline(store: any) {
       // 1. Create or update app record
       if (isNew) {
         await stepRunner('create', async () => {
-          const createdApp = await createApp({
+          await createApp({
             namespace: details.namespace,
             body:      appFormToCreateRequest(form),
           });
-          app.value = createdApp;
           hasAppBeenCreated.value = true;
         });
-      } else if (state.dirty.value) {
+      } else if (state.details.dirty.value || state.bindings.dirty.value || state.buildOptions.dirty.value) {
         await stepRunner('update', async () => {
-          const updatedApp = await updateApp({
+          const updateOperation = await updateApp({
             namespace: details.namespace,
             app:       details.name,
             body:      appFormToUpdateRequest(form, false, app.value?.status === 'running' && !!app.value.imageUrl),
           });
-          app.value = updatedApp;
+
+          if ('id' in updateOperation) {
+            await waitForState(updateOperation.id, 300000)
+          }
         });
       }
+
+      // update the app value after update/create
+      app.value = toApp(await applicationsApi(epinioClient).getApp(details.namespace, details.name))
 
       // 2. Bind configurations (create only)
       if (isNew && bindings.configurations.length) {
@@ -323,7 +331,7 @@ function buildSteps(
   // 1. Create or update
   if (isNew) {
     steps.push(makeStep('create'));
-  } else if (state.dirty.value) {
+  } else if (state.details.dirty.value || state.bindings.dirty.value || state.buildOptions.dirty.value) {
     steps.push(makeStep('update'));
   }
 
