@@ -25,6 +25,7 @@ const props = defineProps<{
   modalOpen: boolean;
   updateBuildOptions: (newBuildOptions: Partial<AppFormBuildOptions>, setInitial?: boolean) => void;
   updateDetails: (newDetails: Partial<AppFormDetails>) => void;
+  deployOnly?: boolean;
 }>();
 
 watch(() => props.modalOpen, (newVal) => {
@@ -244,7 +245,7 @@ function handleBuilderImageDropdownChange(value: string) {
       </template>
 
       <template v-if="showBuilderImage">
-        <div class="spacer source builder-image">
+        <div class="spacer source option">
           <h4>Paketo Builder Image</h4>
           <trailhand-dropdown
             v-if="!buildOptions.builderImagesForbidden"
@@ -273,12 +274,25 @@ function handleBuilderImageDropdownChange(value: string) {
           />
         </div>
       </template>
+
+      <div v-if="!props.deployOnly && props.mode === 'create'" class="spacer source option">
+        <h4>{{ t('epinio.applications.steps.source.deployApplication.label') }}</h4>
+        <p>{{ t('epinio.applications.steps.source.deployApplication.tooltip') }}</p>
+        <trailhand-toggle-switch
+          name="deploy-toggle"
+          :right-label="t('epinio.applications.steps.source.deployApplication.inputLabel')"
+          left-label="" 
+          :checked="buildOptions.deploy" 
+          @toggle-change="(e: CustomEvent) => { updateBuildOptions({ deploy: e.detail.checked }); }"
+        >
+        </trailhand-toggle-switch>
+      </div>
     </div>
 </template>
 
 
 <style lang="scss" scoped>
-.builder-image {
+.option {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;

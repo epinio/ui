@@ -25,6 +25,7 @@ const props = defineProps<{
   onGitConfigFilter: (query: string) => void;
   isLoadingGitConfigs: boolean;
   isErrorGitConfigs: boolean;
+  deployOnly?: boolean;
 }>();
 
 const store = useStore();
@@ -173,6 +174,7 @@ const columns = computed(() => [
       input.checked = row.commitId === selectedCommitId.value;
       input.style.cursor = 'pointer';
       input.addEventListener('change', () => {props.updateSource(gitType.value, { commit: row.commitId })});
+      input.disabled = props.deployOnly;
 
       return input;
     }
@@ -241,6 +243,7 @@ const tableRows = computed(() => {
           label="Git Config"
           filterable
           :loading="isLoadingGitConfigs"
+          :disabled="props.deployOnly"
           @dropdown-change="(e: CustomEvent) => { updateSource(gitType, { gitConfig: e.detail.value }); }"
           @dropdown-filter="(e: CustomEvent<{ filter: string }>) => { onGitConfigFilter(e.detail.filter); }"
         />
@@ -262,6 +265,7 @@ const tableRows = computed(() => {
           data-testid="git_picker-username-or-org"
           :label="t(`epinio.applications.gitSource.${ type }.inputs.username.label`)"
           :required="true"
+          :disabled="props.deployOnly"
           @text-input-change="(e: CustomEvent) => {
             updateSource(gitType, { userOrOrg: e.detail.value, repository: '', branch: '', commit: '' }); 
           }"
@@ -288,6 +292,7 @@ const tableRows = computed(() => {
           :options="preparedRepos"
           filterable
           :loading="isGitReposLoading"
+          :disabled="props.deployOnly"
           @dropdown-change="(e: CustomEvent) => {
             const repo = gitRepos?.find(r => r.name === e.detail.value);
             if (!repo) return;
@@ -317,6 +322,7 @@ const tableRows = computed(() => {
           :options="preparedBranches"
           filterable
           :loading="isGitBranchesLoading"
+          :disabled="props.deployOnly"
           @dropdown-change="(e: CustomEvent) => {
             updateSource(gitType, { branch: e.detail.value, commit: '' });
           }"

@@ -1,14 +1,19 @@
-import { ref } from "vue";
+import { ref, computed, watch } from "vue";
 import { BuildCache } from "./restage";
-import { useCreateApplication, useUpdateApplication, useStoreApplicationArchive, useImportGitApplication, useBuildApplication, useDeployApplication } from "../../../queries/useApplicationMutations";
+import { useCreateApplication, useUpdateApplication, useStoreApplicationArchive, useBuildApplication, useDeployApplication } from "../../../queries/useApplicationMutations";
 import { useBindConfiguration, useUnbindConfiguration } from "../../../queries/useConfigurationMutations";
 import { useBindServiceInstance, useUnbindServiceInstance } from "../../../queries/useServiceMutations";
 import { extractErrorMessage } from "../../../utils/errors";
-import { AppForm, App, AppMeta } from "../ui-types";
-import { appFormToCreateRequest, appFormToUpdateRequest, appFormToAsyncDeployRequest, resolveGitParams } from "../mappers";
+import { AppForm, App } from "../ui-types";
+import { appFormToCreateRequest, appFormToUpdateRequest, appFormToAppStageRequest, appFormToAppDeployRequest, toApp } from "../mappers";
 import { epinioQueryClient } from "../../../api/queryClient";
 import { useCluster } from "../../../queries/useCluster";
 import { FormState } from "../form/useAppForm";
+import { useApplicationState } from "../../../queries/useApplicationQueries";
+import { showStagingLog } from "./logs";
+import { ResourceQueryOptions } from "../../../models/resource/ui-types";
+import { createEpinioClient } from "../../../api/client";
+import { applicationsApi } from "../../../api/applications";
 
 export type StepState = 'pending' | 'running' | 'success' | 'fail';
 export interface PipelineStep {
@@ -24,7 +29,10 @@ export function useAppPipeline(store: any) {
   const isDone = ref(false);
   const buildCache = ref<BuildCache>({});
   const app = ref<App | null>(null);
+  const appName = computed(() => app.value?.meta.name || '');
+  const appNamespace = computed(() => app.value?.meta.namespace || '');
   const hasAppBeenCreated = ref(false);
+  const showedStagingLog = ref(false);
 
   const t = store.getters['i18n/t'];
 
@@ -32,16 +40,12 @@ export function useAppPipeline(store: any) {
     buildCache.value.blobUid = blobUid;
   }
 
-  function updateBuildCacheAppMeta(appMeta: AppMeta) {
-    buildCache.value.appMeta = appMeta;
-  }
-
   const { data: cluster } = useCluster(store);
+  const isExtension = computed(() => !!store.getters['isSingleProduct'] === false);
 
-  const { mutateAsync: createApp } = useCreateApplication(store, updateBuildCacheAppMeta);
-  const { mutateAsync: updateApp } = useUpdateApplication(store, updateBuildCacheAppMeta);
+  const { mutateAsync: createApp } = useCreateApplication(store);
+  const { mutateAsync: updateApp } = useUpdateApplication(store);
   const { mutateAsync: storeArchive } = useStoreApplicationArchive(store, updateBuildCacheBlobUid);
-  const { mutateAsync: importGit } = useImportGitApplication(store, updateBuildCacheBlobUid);
   const { mutateAsync: buildApp } = useBuildApplication(store);
   const { mutateAsync: deployApp } = useDeployApplication(store);
   const { mutateAsync: bindConfig } = useBindConfiguration(store);
@@ -49,63 +53,97 @@ export function useAppPipeline(store: any) {
   const { mutateAsync: bindService } = useBindServiceInstance(store);
   const { mutateAsync: unbindService } = useUnbindServiceInstance(store);
 
+  const stateQueryOptions = ref<ResourceQueryOptions>({ enabled: false, polling: true, isTablePagination: false });
+  const { data: appState } = useApplicationState(store, appNamespace, appName, stateQueryOptions);
+
+  // Watch for a stageId to appear on the appState, and if it does, show the staging log
+  watch(appState, (newState) => {
+    if (newState?.stageId && app.value && !showedStagingLog.value) {
+      showStagingLog(store, {...app.value, stageId: newState.stageId});
+      showedStagingLog.value = true;
+    }
+  });
+
+  // Wait for the app to reach a desired state, with a 5 mintimeout
+  const waitForState = async (operationId: string, timeout: number = 300000) => {
+    const startTime = Date.now();
+    stateQueryOptions.value.enabled = true;
+
+    while (Date.now() - startTime < timeout) {
+      if (appState.value?.operation?.id === operationId && appState.value?.operation?.phase === 'succeeded') {
+        stateQueryOptions.value.enabled = false;
+        return;
+      }
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+
+    stateQueryOptions.value.enabled = false;
+    throw new Error(`Timeout waiting for app to reach state after ${timeout} ms`);
+  };
+
   async function run(params: {
     mode: 'create' | 'edit';
     form: AppForm;
     state: FormState;
     initialForm: AppForm;
     initialApp: App | null; // populated for edit
-    // callbacks: {
-    //   onStagingLog: (stageId: string) => void;
-    //   onAppLog: () => void;
-    // };
+    deployOnly: boolean;
   }) {
-    const { mode, form, initialForm, initialApp, state } = params;
+    const { mode, form, initialForm, initialApp, state, deployOnly } = params;
     const { details, source, bindings } = form;
     const isEdit = mode === 'edit';
+    const isNew = !isEdit && !deployOnly;
 
     app.value = initialApp;
-    steps.value = buildSteps(mode, form, state.source.dirty.value, state.bindings.dirty.value);
+    steps.value = buildSteps(mode, form, state, deployOnly);
     running.value = true;
     failed.value = false;
     isDone.value = false;
     buildCache.value = {};
     hasAppBeenCreated.value = isEdit;
+    showedStagingLog.value = false;
 
     if (!cluster?.value) {
       throw new Error('Cluster not found');
     }
 
+    const epinioClient = createEpinioClient(cluster.value, isExtension.value);
+
     const stepRunner = makeStepRunner(steps.value);
 
     try {
       // 1. Create or update app record
-      if (!isEdit) {
+      if (isNew) {
         await stepRunner('create', async () => {
-          const createdApp = await createApp({
+          await createApp({
             namespace: details.namespace,
             body:      appFormToCreateRequest(form),
           });
-          app.value = createdApp;
           hasAppBeenCreated.value = true;
         });
-      } else {
+      } else if (state.details.dirty.value || state.bindings.dirty.value || state.buildOptions.dirty.value) {
         await stepRunner('update', async () => {
-          const updatedApp = await updateApp({
+          const updateOperation = await updateApp({
             namespace: details.namespace,
             app:       details.name,
             body:      appFormToUpdateRequest(form, false, app.value?.status === 'running' && !!app.value.imageUrl),
           });
-          app.value = updatedApp;
+
+          if ('id' in updateOperation) {
+            await waitForState(updateOperation.id, 300000)
+          }
         });
       }
 
+      // update the app value after update/create
+      app.value = toApp(await applicationsApi(epinioClient).getApp(details.namespace, details.name))
+
       // 2. Bind configurations (create only)
-      if (bindings.configurations.length && !isEdit) {
+      if (isNew && bindings.configurations.length) {
         await stepRunner('bindConfigurations', () =>
           bindConfig({ namespace: details.namespace, appName: details.name, request: { names: bindings.configurations } })
         );
-      } else if (isEdit && state.bindings.dirty.value) {
+      } else if (state.bindings.dirty.value) {
         await stepRunner('updateConfigurations', async () => {
           const currentConfigs = [...form.bindings.configurations, ...form.bindings.serviceConfigurations];
           const initialConfigs = [...initialForm.bindings.configurations, ...initialForm.bindings.serviceConfigurations];
@@ -126,13 +164,13 @@ export function useAppPipeline(store: any) {
       }
 
       // 3. Bind services (create only)
-      if (bindings.services.length && !isEdit) {
+      if (isNew && bindings.services.length) {
         await stepRunner('bindServices', () =>
           Promise.all(bindings.services.map(name =>
             bindService({ namespace: details.namespace, serviceName: name, request: { appName: details.name } })
           ))
         );
-      } else if (isEdit && state.bindings.dirty.value) {
+      } else if (state.bindings.dirty.value) {
         await stepRunner('updateServices', async () => {
           const currentServices = form.bindings.services;
           const initialServices = initialForm.bindings.services;
@@ -154,7 +192,7 @@ export function useAppPipeline(store: any) {
         });
       }
 
-      if (!isEdit || state.source.dirty.value) {
+      if (isNew || state.source.dirty.value) {
         // 4. Upload
         if (source.type === 'archive' || source.type === 'folder') {
           const tarball = source.type === 'archive' ? source.archive!.tarball : source.folder!.tarball;
@@ -166,53 +204,65 @@ export function useAppPipeline(store: any) {
           );
         }
 
-        // 5. Git fetch
-        if (source.type === 'gitUrl' || source.type === 'github' || source.type === 'gitlab') {
-          const { url, rev, gitConfig } = resolveGitParams(source);
-          await stepRunner('gitFetch', () =>
-            importGit({ namespace: details.namespace, app: details.name, gitUrl: url, gitRev: rev, gitConfig })
-          );
-        }
-
-        // 6. Build
-        const needsBuild = ['archive', 'folder', 'gitUrl', 'github', 'gitlab'].includes(source.type);
+        // 5. Build
+        const needsBuild = ['archive', 'folder', 'gitUrl', 'github', 'gitlab'].includes(source.type) && !form.buildOptions.deploy;
         if (needsBuild) {
-          const request = appFormToAsyncDeployRequest(form, buildCache.value);
-          await stepRunner('build', () => {
+          const request = appFormToAppStageRequest(form, {blobUid: buildCache.value.blobUid, createdAt: app.value?.meta?.createdAt});
+          await stepRunner('build', async () => {
             if (!app.value) {
               throw new Error('App is not available');
             }
-            return buildApp({
+            
+            const response = await buildApp({
               namespace: details.namespace,
               app: app.value,
               request,
-              buildCache: buildCache.value,
             });
-          });
-        }
 
-        // 7. Deploy
-        const deployRequest = appFormToAsyncDeployRequest(form, buildCache.value);
-        await stepRunner('deploy', () => {
+            await waitForState(response.id, 300000); 
+          });
+          
+        }
+        
+      }
+
+      // 6. Build
+      if ((isNew || state.source.dirty.value || deployOnly) && form.buildOptions.deploy) {
+        const request = appFormToAppDeployRequest(
+          form, 
+          {
+            blobUid: buildCache.value.blobUid, 
+            createdAt: app.value?.meta?.createdAt, 
+            stageId: state.source.dirty.value ? undefined : app.value?.stageId, 
+            imageUrl: state.source.dirty.value ? undefined : app.value?.builtImageUrl || app.value?.imageUrl || undefined
+          }
+        );
+        await stepRunner('deploy', async () => {
           if (!app.value) {
             throw new Error('App is not available');
           }
-          return deployApp({
+          
+          const response = await deployApp({
             namespace: details.namespace,
             app: app.value,
-            request: deployRequest,
-            buildCache: buildCache.value,
+            request,
           });
+
+          await waitForState(response.id, 300000);
         });
       }
 
       store.dispatch('growl/success', {
         title: params.mode === 'edit'
           ? t('epinio.growl.application.update.success.title')
-          : t('epinio.growl.application.deploy.success.title'),
+          : form.buildOptions.deploy 
+          ? t('epinio.growl.application.deploy.success.title')
+          : t('epinio.growl.application.build.success.title'),
         message: params.mode === 'edit'
           ? t('epinio.growl.application.update.success.message', { name: form.details.name })
-          : t('epinio.growl.application.deploy.success.message', { name: form.details.name }),
+          : form.buildOptions.deploy 
+          ? t('epinio.growl.application.deploy.success.message', { name: form.details.name })
+          : t('epinio.growl.application.build.success.message', { name: form.details.name }),
       });
       epinioQueryClient.invalidateQueries({ queryKey: ['applications', cluster.value.id] });
       isDone.value = true;
@@ -222,10 +272,14 @@ export function useAppPipeline(store: any) {
       store.dispatch('growl/error', {
         title: params.mode === 'edit'
           ? t('epinio.growl.application.update.error.title')
-          : t('epinio.growl.application.deploy.error.title'),
+          : form.buildOptions.deploy
+          ? t('epinio.growl.application.deploy.error.title')
+          : t('epinio.growl.application.build.error.title'),
         message: params.mode === 'edit'
           ? t('epinio.growl.application.update.error.message', { name: form.details.name, error: errDetails })
-          : t('epinio.growl.application.deploy.error.message', { name: form.details.name, error: errDetails }),
+          : form.buildOptions.deploy
+          ? t('epinio.growl.application.deploy.error.message', { name: form.details.name, error: errDetails })
+          : t('epinio.growl.application.build.error.message', { name: form.details.name, error: errDetails }),
       });
       throw err;
     } finally {
@@ -255,9 +309,10 @@ function makeStepRunner(steps: PipelineStep[]) {
   };
 }
 
-function buildSteps(mode: 'create' | 'edit', form: AppForm, isSourceDirty: boolean, isBindingsDirty: boolean): PipelineStep[] {
+function buildSteps(mode: 'create' | 'edit', form: AppForm, state: FormState, deployOnly: boolean): PipelineStep[] {
   const { source, bindings } = form;
   const isEdit = mode === 'edit';
+  const isNew = !isEdit && !deployOnly
 
   const isArchiveOrFolder = ['archive', 'folder'].includes(source.type);
   const isGit = ['gitUrl', 'github', 'gitlab'].includes(source.type);
@@ -266,35 +321,36 @@ function buildSteps(mode: 'create' | 'edit', form: AppForm, isSourceDirty: boole
   const steps: PipelineStep[] = [];
 
   // 1. Create or update
-  if (!isEdit) {
+  if (isNew) {
     steps.push(makeStep('create'));
-  } else {
+  } else if (state.details.dirty.value || state.bindings.dirty.value || state.buildOptions.dirty.value) {
     steps.push(makeStep('update'));
   }
 
   // 2. Bind/unbind configurations
-  if (!isEdit && bindings.configurations.length) {
+  if (isNew && bindings.configurations.length) {
     steps.push(makeStep('bindConfigurations'));
-  } else if (isEdit && isBindingsDirty) {
+  } else if (state.bindings.dirty.value) {
     steps.push(makeStep('updateConfigurations'));
   }
 
   // 3. Bind/unbind services
-  if (!isEdit && bindings.services.length) {
+  if (isNew && bindings.services.length) {
     steps.push(makeStep('bindServices'));
-  } else if (isEdit && isBindingsDirty) {
+  } else if (state.bindings.dirty.value) {
     steps.push(makeStep('updateServices'));
   }
 
   // Source steps only when source is dirty or creating app
-  if (!isEdit || isSourceDirty) {
+  if (isNew || state.source.dirty.value) {
     // 4. Upload archive/folder if needed
     if (isArchiveOrFolder) steps.push(makeStep('upload'));
-    // 5. Git fetch if needed
-    if (isGit) steps.push(makeStep('gitFetch'));
-    // 6. Build if needed
-    if (needsBuild) steps.push(makeStep('build'));
-    // 7. Deploy (always last)
+    // 5. Build if needed
+    if (needsBuild && !form.buildOptions.deploy) steps.push(makeStep('build'));
+  }
+
+  // 6. Deploy (always last)
+  if ((isNew || state.source.dirty.value || deployOnly) && form.buildOptions.deploy) {
     steps.push(makeStep('deploy'));
   }
 

@@ -138,10 +138,10 @@ const _actionMenuCache = new Map<string, any>();
  * Transforms epinio string action names into callable functions
  * so the action-menu web component can invoke them.
  */
-export function makeActionMenu(row: any): HTMLElement {
+export function makeActionMenu(row: any, tableId?: string): HTMLElement {
   ensureActionMenuCaptureListener();
 
-  const id = row.id ?? row.meta?.name;
+  const id = `${row.id ?? row.meta?.name ?? ''}${tableId ? `-${tableId}` : ''}`;
   let el = id ? _actionMenuCache.get(id) : null;
 
   if (!el) {
@@ -280,6 +280,7 @@ export function stateToTagVariant(state: string): string {
     case 'running':
     case 'ready':
     case 'deployed':
+    case 'built':
     case 'available': return 'success';
     case 'error': return 'error';
     case 'notready':
@@ -305,7 +306,8 @@ export function stateToIcon(state: string): string {
     case 'not-ready': return 'warning';
     case 'error':
     case 'fail': return 'error';
-    case 'building': return 'tools';
+    case 'building':
+    case 'built': return 'tools';
     case 'staging':
     case 'deploying': return 'info';
     case 'created': return 'gear';

@@ -66,9 +66,9 @@ defineExpose({ openDelete });
     <trailhand-modal
       :open.prop="showModal"
       title="Are you sure?"
-      @modal-open="() => deleteNamespaceInput?.focus()"
       :dismissible="false"
       :show-dismiss-button="true"
+      @modal-open="() => deleteNamespaceInput?.focus()"
       @escape-key-press="handleModalClose"
       @backdrop-click="handleModalClose"
       @close-button-click="handleModalClose"

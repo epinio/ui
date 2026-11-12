@@ -11,6 +11,11 @@ generic:
   deleting: Deleting
   keepEditing: Keep Editing
   search: Search...
+  deploy: Deploy
+  finish: Finish
+  previous: Previous
+  next: Next
+  unsavedChanges: You have unsaved changes.
 typeLabel:
   withoutCount:
     namespaces: Namespaces
@@ -159,6 +164,9 @@ epinio:
       explore: Explore
       cluster: Rancher Cluster
   applications:
+    list:
+      deployed: Deployed
+      notDeployed: Not Deployed
     tableHeaders:
       route: Routes
       boundConfigs: Bound Configs
@@ -343,6 +351,10 @@ epinio:
             absolute: Absolute paths are not allowed
             parent: Paths must not contain '..'
             chars: "Only letters, digits, '.', '_', '-', and '/' are allowed"
+        deployApplication:
+          label: Deploy Application
+          inputLabel: Deploy Application
+          tooltip: Deploy the application after the source is built. Application builds can be deployed at a later time, or be used as a container image for other applications.
         manifest:
           button: From Manifest
           tooltip: Manifests can provide app configuration from another app
@@ -581,6 +593,13 @@ epinio:
         error:
           title: Application Deployment Failed
           message: 'Your application { name } failed to deploy. Please try again. Error details: { error }'
+      build:
+        success:
+          title: Application Built
+          message: 'Your application { name } has been built successfully.'
+        error:
+          title: Application Build Failed
+          message: 'Your application { name } failed to build. Please try again. Error details: { error }'
       update:
         success:
           title: Application Updates Deployed
@@ -645,6 +664,7 @@ epinio:
         error:
           title: Something Went Wrong Exporting!
           message: Can't export the application. Please try again or contact your system admin to investigate the issue.
+
     configuration:
       create:
         success:

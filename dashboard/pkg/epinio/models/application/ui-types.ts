@@ -81,34 +81,12 @@ export interface App {
     stateDisplay: string;
     blobUid: string;
     canRetryBuild: boolean;
+    builtImageUrl?: string;
 }
 
 export type ListAppsResponse = ListResourceResponse<App>;
 
 export type AppExportCancelMap = Record<string, AbortController>;
-
-export interface AppDeploymentStatus {
-    app: AppMeta;
-    error: string;
-    finishedAt: string;
-    id: string;
-    image: string;
-    routes: string[];
-    stageId: string;
-    startedAt: string;
-    status: string;
-    warnings: string[];
-}
-
-export interface AsyncDeployRequest {
-    app: AppMeta;
-    blobUid?: string;
-    builderImage?: string;
-    buildMode?: string;
-    dockerfilePath?: string;
-    image?: string;
-    origin: AppOrigin;
-}
 
 export interface AppStageRequest {
     app: AppMeta;
@@ -116,29 +94,22 @@ export interface AppStageRequest {
     builderImage?: string;
     buildMode?: string;
     dockerfilePath?: string;
-    image?: string;
-}
-
-export interface AppStageResponse {
-    stage: {
-        id: string;
-    };
-    image: string;
+    origin: AppOrigin;
 }
 
 export interface AppDeployRequest {
     app: AppMeta;
-    image: string;
+    blobUid?: string;
+    builderImage?: string;
+    buildMode?: string;
+    dockerfilePath?: string;
+    image?: string;
     origin: AppOrigin;
-    stage: {
+    stage?: {
         id: string;
     }
 }
 
-export interface AppDeployResponse {
-    routes: string[];
-    warnings: string[];
-}
 
 export interface AppDeleteRequest {
     deleteImage?: boolean;
@@ -162,27 +133,6 @@ export interface AppCreateRequest {
     name: string;
 }
 
-export interface AppDeploymentsRequest {
-    app: AppMeta;
-    blobUid: string;
-    builderImage: string;
-    buildMode: string;
-    dockerfilePath: string;
-    image: string;
-    origin: AppOrigin;
-}
-
-export interface AppGitImportParams {
-    gitUrl: string;
-    gitRev: string;
-}
-
-export interface AppGitImportResponse {
-    blobUid: string;
-    branch: string;
-    revision: string;
-}
-
 export interface AppManifest {
     meta: AppMeta;
     configuration: AppConfiguration;
@@ -192,6 +142,43 @@ export interface AppManifest {
 
 export interface AppStoreArchiveResponse {
     blobUid: string;
+}
+
+export interface AppOperation {
+    app: AppMeta;
+    error: string;
+    finishedAt: string;
+    id: string;
+    image: string;
+    kind: string;
+    phase: string;
+    routes: string[];
+    stageId: string;
+    startedAt: string;
+    status: string;
+    warnings: string[];
+}
+
+export interface SkippedApp {
+    app: AppMeta;
+    reason: string;
+}
+
+export interface OperationsResponse {
+    boundApps?: string[];
+    operations?: AppOperation[];
+    skipped?: SkippedApp[];
+    wasBound?: string[]
+}
+
+export interface AppState {
+    app: AppMeta;
+    buildStatus?: string;
+    operation?: AppOperation;
+    stageId?: string;
+    stagingStatus?: string;
+    status: string;
+    statusMessage: string;
 }
 
 // FORM ///////////////////////////////////////////////////////////////////////////
@@ -238,6 +225,7 @@ export interface AppFormBuildOptions {
     dockerfilePath?: string;
     builderImage?: string;
     builderImagesForbidden?: boolean;
+    deploy: boolean;
 }
 
 export interface AppFormDetails {

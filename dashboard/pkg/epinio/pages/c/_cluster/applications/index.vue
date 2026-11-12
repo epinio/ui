@@ -27,6 +27,7 @@ import ServiceInstanceModal from '../../../../components/service/ServiceInstance
 import ConfigurationModal from '../../../../components/configuration/ConfigurationModal.vue';
 import { fetchConfiguration } from '../../../../queries/useConfigurationQueries';
 import { fetchService } from '../../../../queries/useServiceQueries';
+import Tabs from '../../../../components/application/Tabs.vue';
 
 const store = useStore() as any;
 const t = store.getters['i18n/t'];
@@ -40,7 +41,6 @@ const serviceModal = ref<InstanceType<typeof ServiceInstanceModal> | null>(null)
 const configModal = ref<InstanceType<typeof ConfigurationModal> | null>(null);
 
 const resource: string = EPINIO_TYPES.APP;
-const schema = ref(store.getters['epinio/schemaFor'](resource));
 
 const { data: user, isError: isErrorUser, error: userError } = useUser(store);
 
@@ -66,12 +66,26 @@ watch(searchQuery, (newQuery) => {
 const onSearch = debounce(async (query: string) => {
   requestParams.value.page = 1;
   requestParams.value.search = query;
+  undeployedRequestParams.value.page = 1;
+  undeployedRequestParams.value.search = query;
 }, 500);
 
 const {data: applications, isLoading: isLoadingApplications, isError: isErrorApplications, error: applicationsError} = useApplications(store, requestParams, requestOptions);
+
+const undeployedRequestParams = ref<ListResourceRequestParams>({
+  page: 1,
+  pageSize: 10,
+  search: '',
+  namespaces: []
+});
+
+const {data: undeployedApps, isLoading: isLoadingUndeployedApps, isError: isErrorUndeployedApps, error: undeployedAppsError} = useApplications(store, undeployedRequestParams, requestOptions, true);
+
 const { mutateAsync: bulkRemove } = useBulkRemoveApplications(store);
 
 const tableEl = ref<any>(null);
+const undeployedTableEl = ref<any>(null);
+
 const selectedRows = ref<any[]>([]);
 
 const canCreate = computed(() => {
@@ -98,6 +112,9 @@ const canStage = computed(() => {
 const canRestart = computed(() => {
   return user.value?.permissions?.app_restart || user.value?.permissions?.app_write || user.value?.permissions?.app;
 });
+const canDeploy = computed(() => {
+  return user.value?.permissions?.app_deploy || user.value?.permissions?.app_write || user.value?.permissions?.app;
+});
 
 const handleCreateClick = () => {
   appModal.value?.openCreate();
@@ -110,8 +127,10 @@ watchEffect(() => {
 
   if (activeNamespaces && Object.keys(activeNamespaces).length > 0) {
     requestParams.value.namespaces = Object.keys(activeNamespaces);
+    undeployedRequestParams.value.namespaces = Object.keys(activeNamespaces);
   } else {
     requestParams.value.namespaces = undefined;
+    undeployedRequestParams.value.namespaces = undefined;
   }
 });
 
@@ -119,9 +138,29 @@ const openDeleteModal = (app: App) => {
   deleteModal.value?.openDelete(app);
 };
 
-const openEditModal = (app: App) => {
-  appModal.value?.openEdit(app);
+const openEditModal = (app: App, commit?: string | null, appDeploy?: boolean) => {
+  appModal.value?.openEdit(app, commit, appDeploy);
 };
+
+const activeAppTab = ref<string | number>('deployed');
+const appTabs = computed(() => [
+  {
+    id: 'deployed',
+    label: t('epinio.applications.list.deployed'),
+    completed: false,
+    valid: true,
+    disabled: false,
+    visible: true
+  },
+  {
+    id: 'undeployed',
+    label: t('epinio.applications.list.notDeployed'),
+    completed: false,
+    valid: true,
+    disabled: false,
+    visible: true,
+  }
+])
 
 const displayRows = computed(() => {
   if (!applications.value) {
@@ -154,7 +193,7 @@ const displayRows = computed(() => {
     }, {
       label: 'Restage',
       action: () => restageApp(store, a),
-      enabled: canStage.value && a.canRetryBuild,
+      enabled: canStage.value && a.canRetryBuild && a.status !== 'staging',
       visible: canStage.value,
     }, {
       label: 'Restart',
@@ -166,6 +205,36 @@ const displayRows = computed(() => {
       action: () => openEditModal(a),
       enabled: canEdit.value,
       visible: canEdit.value,
+    }, {
+      label: 'Delete',
+      action: () => openDeleteModal(a),
+      enabled: canDelete.value,
+      visible: canDelete.value,
+      danger: true,
+    }],
+    canDelete: canDelete.value,
+  }));
+  return rows;
+});
+
+const undeployedDisplayRows = computed(() => {
+  if (!undeployedApps.value) {
+    return [];
+  }
+
+  const rows: ResourceTableRow<App>[] = (undeployedApps.value.items ?? []).map((a) => ({
+    ...a,
+    id: a.meta.name, // stable, unique per namespace
+    availableActions: [{
+      label: 'Last Build Logs',
+      action: () => showStagingLog(store, a),
+      enabled: canLogs.value && !!a.stageId,
+      visible: canLogs.value,
+    }, {
+      label: 'Deploy',
+      action: () => openEditModal(a, null, true),
+      enabled: canDeploy.value,
+      visible: canDeploy.value,
     }, {
       label: 'Delete',
       action: () => openDeleteModal(a),
@@ -227,6 +296,7 @@ const handleBulkDelete = async (items: App[], deleteImage: boolean, deletePVC: b
 const handleBulkDeleted = () => {
   selectedRows.value = [];
   tableEl.value?.clearSelection();
+  undeployedTableEl.value?.clearSelection();
 };
 
 // NOTE: must be a named function declared here, not an inline arrow function
@@ -238,7 +308,14 @@ const handleBulkDeleted = () => {
 const setTableRef = (el: any) => {
   if (el) {
     tableEl.value = el;
-    el.renderActions = makeActionMenu;
+    el.renderActions = (row: any) => makeActionMenu(row, 'deployed');
+    el.rowSelectable = isRowSelectable;
+  }
+};
+const setUndeployedTableRef = (el: any) => {
+  if (el) {
+    undeployedTableEl.value = el;
+    el.renderActions = (row: any) => makeActionMenu(row, 'undeployed');
     el.rowSelectable = isRowSelectable;
   }
 };
@@ -261,11 +338,11 @@ const allColumns = [
     field: 'nameDisplay',
     label: 'Name',
     width: '125px',
-    formatter: (_value: any, row: App) => makeNameLinks(
+    formatter: (_value: any, row: App) => row.deployment ? makeNameLinks(
       [row.meta.name],
       { cluster: store.getters['clusterId'], namespace: row.meta.namespace, resource: EPINIO_TYPES.APP },
       router
-    )
+    ) : row.meta.name
   },
   {
     field: 'meta.namespace',
@@ -407,25 +484,46 @@ const columns = computed(() => {
       :label="userError?.message || t('epinio.user.errors.fetch')"
     />
     <Banner
-      v-if="isErrorApplications"
+      v-if="isErrorApplications || isErrorUndeployedApps"
       color="error"
-      :label="applicationsError?.message || t('epinio.applications.errors.fetch')"
+      :label="applicationsError?.message || undeployedAppsError?.message || t('epinio.applications.errors.fetch')"
     />  
-      <trailhand-table
-        :ref="setTableRef"
-        :rows="displayRows"
-        :columns="columns"
-        :searchable="false"
-        :selectable="canDelete"
-        :server-side="true"
-        :total-items="applications?.totalItems ?? 0"
-        :current-page="requestParams.page"
-        :loading="isLoadingApplications"
-        key-field="id"
-        @navigate="handleNavigate"
-        @page-change="(e: CustomEvent) => { requestParams.page = e.detail.page; }"
-        @selection-change="handleSelectionChange"
-      />
+    <Tabs  v-model="activeAppTab" :tabs="appTabs" variant="underline">
+      <template #deployed>
+        <trailhand-table
+          :ref="setTableRef"
+          :rows="displayRows"
+          :columns="columns"
+          :searchable="false"
+          :selectable="canDelete"
+          :server-side="true"
+          :total-items="applications?.totalItems ?? 0"
+          :current-page="requestParams.page"
+          :loading="isLoadingApplications"
+          key-field="id"
+          @navigate="handleNavigate"
+          @page-change="(e: CustomEvent) => { requestParams.page = e.detail.page; }"
+          @selection-change="handleSelectionChange"
+        />
+      </template>
+      <template #undeployed>
+        <trailhand-table
+          :ref="setUndeployedTableRef"
+          :rows="undeployedDisplayRows"
+          :columns="columns"
+          :searchable="false"
+          :selectable="canDelete"
+          :server-side="true"
+          :total-items="undeployedApps?.totalItems ?? 0"
+          :current-page="undeployedRequestParams.page"
+          :loading="isLoadingUndeployedApps"
+          key-field="id"
+          @navigate="handleNavigate"
+          @page-change="(e: CustomEvent) => { undeployedRequestParams.page = e.detail.page; }"
+          @selection-change="handleSelectionChange"
+        />
+      </template>
+    </Tabs>
     <AppModal ref="appModal" />
     <AppDeleteModal ref="deleteModal" />
     <ExportAppModal ref="exportAppModal" />

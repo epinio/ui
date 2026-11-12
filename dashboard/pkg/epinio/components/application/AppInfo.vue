@@ -24,6 +24,7 @@ const props = defineProps<{
   updateDetails: (newDetails: Partial<AppFormDetails>) => void;
   updateChartSettings: (chartSettings: ChartSetting[]) => void;
   updateBindings: (newBindings: Partial<AppFormBindings>) => void;
+  deployOnly?: boolean;
 }>();
 
 // Reactive state
@@ -209,7 +210,7 @@ function onBulkFileChange(event: Event) {
         data-testid="epinio_app-info_name"
         label="Name"
         :placeholder="t('epinio.applications.create.namePlaceholder')"
-        :disabled="isEdit"
+        :disabled="isEdit || props.deployOnly"
         required
         @text-input-change="(e: CustomEvent) => updateDetails({ name: e.detail.value })"
       />
@@ -281,6 +282,7 @@ function onBulkFileChange(event: Event) {
               label="Key"
               required
               placeholder="e.g. foo"
+              :disabled="props.deployOnly"
               @text-input-change="(e: CustomEvent) => updateDetails({ environment: details.environment.map((env, index) => index === i ? { ...env, key: e.detail.value } : {...env}) })"
             />
             <trailhand-code-editor
@@ -288,10 +290,12 @@ function onBulkFileChange(event: Event) {
               :value="envVar.value"
               label="Value"
               required
+              :disabled="props.deployOnly"
               @code-input-change="(e: CustomEvent) => updateDetails({ environment: details.environment.map((env, index) => index === i ? { ...env, value: e.detail.value } : {...env}) })"
             />
             <button
               class="remove-link"
+              :disabled="props.deployOnly"
               @click="updateDetails({ environment: details.environment.filter((_, index) => index !== i) })"
             >
               Remove
@@ -303,12 +307,14 @@ function onBulkFileChange(event: Event) {
         >
           <trailhand-button
             variant="alternate"
+            :disabled="props.deployOnly"
             @button-click="updateDetails({ environment: [...details.environment, { key: '', value: '' }] })"
           >
             Add
           </trailhand-button>
           <trailhand-button
             variant="alternate"
+            :disabled="props.deployOnly"
             @button-click="triggerBulkFileUpload"
           >
             Read From File
@@ -317,6 +323,7 @@ function onBulkFileChange(event: Event) {
             ref="bulkFileInput"
             type="file"
             class="hidden-file-input"
+            :disabled="props.deployOnly"
             @change="onBulkFileChange"
             @cancel="fileDialogActive = false"
           >
