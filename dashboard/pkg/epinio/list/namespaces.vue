@@ -2,7 +2,6 @@
 import { useStore } from 'vuex';
 import { ref, onMounted, computed, watchEffect, watch } from 'vue';
 import { EPINIO_TYPES } from '../types';
-import Masthead from '@shell/components/ResourceList/Masthead';
 import { attachActionMenu } from '../utils/table-formatters';
 import { debounce } from 'lodash';
 import { useNamespaces } from '../queries/useNamespaceQueries';
@@ -13,6 +12,10 @@ import NamespaceDeleteModal from '../components/namespace/NamespaceDeleteModal.v
 import Banner from '@components/Banner/Banner.vue';
 import { ResourceTableRow } from '../models/resource/ui-types';
 import { useUser } from '../queries/useUserQueries';
+import { patchTrailhandServerSort, useServerTableSort, withServerSideSort } from '../utils/server-table-sort';
+import { useRouter } from 'vue-router';
+import { createEpinioRoute } from '../utils/custom-routing';
+import { createNamespaceFilterKey } from '@shell/utils/namespace-filter';
 
 defineProps<{
   schema: object,
@@ -22,7 +25,7 @@ defineProps<{
 const store = useStore() as any;
 const t = store.getters['i18n/t'];
 
-const resource: string = EPINIO_TYPES.NAMESPACE;
+const router = useRouter();
 
 const namespaceModal = ref<InstanceType<typeof NamespaceModal> | null>(null);
 const namespaceDeleteModal = ref<InstanceType<typeof NamespaceDeleteModal> | null>(null);
@@ -42,6 +45,7 @@ const requestParams = ref<ListResourceRequestParams>({
 });
 const requestOptions = ref<ResourceQueryOptions>({ enabled: true, polling: true, isTablePagination: true });
 const {data: namespaces, isLoading: isLoadingNamespaces, isError: isErrorNamespaces, error: namespacesError} = useNamespaces(store, requestParams, requestOptions);
+const tableEl = ref<any>(null);
 
 const onSearch = debounce(async (query: string) => {
   requestParams.value.page = 1;
@@ -106,7 +110,9 @@ function openDeleteModal(namespace: Namespace) {
   namespaceDeleteModal.value?.openDelete(namespace);
 }
 
-const columns = [
+const namespaceFilterKey = computed(() => createNamespaceFilterKey(store.getters['clusterId'], store.getters['currentProduct']));
+
+const columns = withServerSideSort([
   {
     field: 'meta.name',
     label: t('epinio.namespace.name'),
@@ -115,14 +121,81 @@ const columns = [
     field: 'appCount',
     label: t('epinio.namespace.tableHeaders.appCount'),
     formatter: (_v: any, row: Namespace) => {
-      return row.apps?.length || 0;
+      if (!row.apps || row.apps.length === 0) {
+        return '0';
+      }
+      const link = createEpinioRoute(
+        'c-cluster-applications',
+        { resource: EPINIO_TYPES.APP },
+      )
+      const onLinkClick = (e: Event) => {
+        e.preventDefault();
+        store.dispatch('epinio/setActiveNamespaces', {type: EPINIO_TYPES.APP, namespaces: [row.meta.name]});
+        store.dispatch('switchNamespaces', {
+          ids: [`ns://${row.meta.name}`],
+          key: namespaceFilterKey.value,
+        });
+        router.push(link);
+      };
+      const a = document.createElement('a');
+      a.href = router.resolve(link).href;
+      a.addEventListener('click', onLinkClick);
+      a.textContent = row.apps.length.toString();
+      return a;
     }
   },
   {
     field: 'configCount',
     label: t('epinio.namespace.tableHeaders.configCount'),
     formatter: (_v: any, row: Namespace) => {
-      return row.configurations?.length || 0;
+      if (!row.configurations || row.configurations.length === 0) {
+        return '0';
+      }
+      const link = createEpinioRoute(
+        'c-cluster-resource',
+        { resource: EPINIO_TYPES.CONFIGURATION },
+      )
+      const onLinkClick = (e: Event) => {
+        e.preventDefault();
+        store.dispatch('epinio/setActiveNamespaces', {type: EPINIO_TYPES.CONFIGURATION, namespaces: [row.meta.name]});
+        store.dispatch('switchNamespaces', {
+          ids: [`ns://${row.meta.name}`],
+          key: namespaceFilterKey.value,
+        });
+        router.push(link);
+      };
+      const a = document.createElement('a');
+      a.href = router.resolve(link).href;
+      a.addEventListener('click', onLinkClick);
+      a.textContent = row.configurations.length.toString();
+      return a;
+    }
+  },
+  {
+    field: 'serviceInstanceCount',
+    label: t('epinio.namespace.tableHeaders.serviceInstanceCount'),
+    formatter: (_v: any, row: Namespace) => {
+      if (!row.services || row.services.length === 0) {
+        return '0';
+      }
+      const link = createEpinioRoute(
+        'c-cluster-resource',
+        { resource: EPINIO_TYPES.SERVICE_INSTANCE },
+      )
+      const onLinkClick = (e: Event) => {
+        e.preventDefault();
+        store.dispatch('epinio/setActiveNamespaces', {type: EPINIO_TYPES.SERVICE_INSTANCE, namespaces: [row.meta.name]});
+        store.dispatch('switchNamespaces', {
+          ids: [`ns://${row.meta.name}`],
+          key: namespaceFilterKey.value,
+        });
+        router.push(link);
+      };
+      const a = document.createElement('a');
+      a.href = router.resolve(link).href;
+      a.addEventListener('click', onLinkClick);
+      a.textContent = row.services.length.toString();
+      return a;
     }
   },
   {
@@ -130,27 +203,38 @@ const columns = [
     label: t('epinio.namespace.tableHeaders.age'),
     formatter: 'age'
   }
-];
+]);
+
+const setTableRef = (el: any) => {
+  if (el) {
+    tableEl.value = el;
+    el.renderActions = attachActionMenu;
+    patchTrailhandServerSort(el, requestParams);
+  }
+};
+
+useServerTableSort(requestParams, tableEl, columns);
 </script>
 
 <template>
   <div id="modal-container-element">
-    <Masthead
-      :schema="schema"
-      :resource="resource"
-    >
-      <template #createButton>
+    <div class="heading">
+      <h1>Namespaces</h1>
+      <div class="actions">
         <trailhand-button
           v-if="canCreateNamespace"
           variant="primary"
-          size="large"
           @click="openCreateModal"
         >
           {{ t('generic.create') }}
         </trailhand-button>
-        <div v-else></div>
-      </template>
-    </Masthead>
+        <trailhand-text-input
+          :value="searchQuery"
+          placeholder="Search..."
+          @text-input-change="(e: CustomEvent) => searchQuery = e.detail.value"
+        ></trailhand-text-input>
+      </div>
+    </div>
     <Banner
       v-if="isErrorNamespaces"
       color="error"
@@ -161,15 +245,8 @@ const columns = [
       color="error"
       :label="userError?.message || t('epinio.user.errors.fetch')"
     />  
-    <div class="search-container">
-      <trailhand-text-input
-        :value="searchQuery"
-        :placeholder="t('generic.search')"
-        @text-input-change="(e: CustomEvent) => searchQuery = e.detail.value"
-      ></trailhand-text-input>
-    </div>
     <trailhand-table
-      :ref="(el: any) => { if (el) el.renderActions = attachActionMenu; }"
+      :ref="setTableRef"
       :rows="displayRows"
       :columns="columns"
       :server-side="true"
@@ -186,11 +263,22 @@ const columns = [
 </template>
 
 <style lang='scss' scoped>
-.search-container {
-  width: 100%;
+
+.heading {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: flex-end;
   margin-bottom: 1rem;
+
+  h1 {
+    margin: 0;
+  }
+}
+
+.actions {
+  display: flex;
+  align-items: flex-end;
+  gap: 1rem;
 }
 
 trailhand-table {

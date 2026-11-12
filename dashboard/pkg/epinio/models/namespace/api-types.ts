@@ -7,8 +7,9 @@ interface ApiNamespaceMeta {
 
 export interface ApiNamespace {
     meta: ApiNamespaceMeta;
-    apps: string[];
-    configurations: string[];
+    apps?: string[];
+    configurations?: string[];  
+    services?: string[];
 }
 
 export type ApiListNamespacesResponse = ApiListResourceResponse<ApiNamespace>;

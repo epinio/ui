@@ -2,7 +2,6 @@
 import { EPINIO_TYPES } from '../types';
 import { useStore } from 'vuex';
 import { computed, onMounted, onUnmounted, ref, watchEffect, watch } from 'vue';
-import Masthead from '@shell/components/ResourceList/Masthead';
 import { makeEmptyCell, makeNameLinks, makeActionMenu } from '../utils/table-formatters';
 import ConfigurationModal from '../components/configuration/ConfigurationModal.vue';
 import ConfigurationDeleteModal from '../components/configuration/ConfigurationDeleteModal.vue';
@@ -17,6 +16,7 @@ import { fetchService } from '../queries/useServiceQueries';
 import ServiceInstanceModal from '../components/service/ServiceInstanceModal.vue';
 import Banner from '@components/Banner/Banner.vue';
 import { useUser } from '../queries/useUserQueries';
+import { patchTrailhandServerSort, useServerTableSort, withServerSideSort } from '../utils/server-table-sort';
 
 const store = useStore();
 const router = store.$router;
@@ -178,6 +178,7 @@ const setTableRef = (el: any) => {
     tableEl.value = el;
     el.renderActions = makeActionMenu;
     el.rowSelectable = isRowSelectable;
+    patchTrailhandServerSort(el, requestParams);
   }
 };
 
@@ -191,7 +192,8 @@ const openServiceModal = async (namespace: string, service: string) => {
 
 const allColumns = [
   {
-    field: 'nameDisplay',
+    // meta.name so server-side sort keys resolve to a real string value.
+    field: 'meta.name',
     label: 'Name',
     width: '200px',
     formatter: (_v: any, row: ConfigurationResponse) => {
@@ -277,39 +279,39 @@ const columns = computed(() => {
     hide.add('meta.createdAt');
   }
 
-  return allColumns.filter(col => !hide.has(col.field));
+  return withServerSideSort(allColumns.filter(col => !hide.has(col.field)));
 });
+
+useServerTableSort(requestParams, tableEl, columns);
 </script>
 
 <template>
   <div id="modal-container-element">
-    <Masthead
-      :schema="schema"
-      :resource="resource"
-    >
-      <template #extraActions>
+    <div class="heading">
+      <h1>Configurations</h1>
+      <div class="actions">
         <trailhand-button
           v-if="selectedRows.length"
           variant="destructive"
-          size="large"
           @click="handleBulkDeleteClick"
         >
           <trailhand-icon name="trash" />
           Delete ({{ selectedRows.length }})
         </trailhand-button>
-      </template>
-      <template #createButton>
         <trailhand-button
           v-if="canCreateConfiguration"
           variant="primary"
-          size="large"
           @click="openCreateModal"
         >
           {{ t('generic.create') }}
         </trailhand-button>
-        <div v-else></div>
-      </template>
-    </Masthead>
+        <trailhand-text-input
+          :value="searchQuery"
+          placeholder="Search..."
+          @text-input-change="(e: CustomEvent) => searchQuery = e.detail.value"
+        ></trailhand-text-input>
+      </div>
+    </div>
     <Banner
       v-if="isErrorUser"
       color="error"
@@ -320,13 +322,6 @@ const columns = computed(() => {
       color="error"
       :label="configurationsError?.message || t('epinio.configurations.errors.fetch')"
     />
-    <div class="search-container">
-      <trailhand-text-input
-        :value="searchQuery"
-        placeholder="Search..."
-        @text-input-change="(e: CustomEvent) => searchQuery = e.detail.value"
-      ></trailhand-text-input>
-    </div>
     <trailhand-table
       :ref="setTableRef"
       :rows="displayRows"
@@ -357,11 +352,21 @@ const columns = computed(() => {
 </template>
 
 <style lang="scss" scoped>
-.search-container {
-  width: 100%;
+.heading {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: flex-end;
   margin-bottom: 1rem;
+
+  h1 {
+    margin: 0;
+  }
+}
+
+.actions {
+  display: flex;
+  align-items: flex-end;
+  gap: 1rem;
 }
 
 trailhand-table {

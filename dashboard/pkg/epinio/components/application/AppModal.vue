@@ -17,6 +17,8 @@ const t = store.getters['i18n/t'];
 const showModal = ref(false);
 const modalMode = ref<'create' | 'edit'>('create');
 
+const deployOnly = ref(false);
+
 const initialApp = ref<App | null>(null);
 
 const { form, initialForm, populateFormFromApp, clearForm, state, update } = useAppForm(modalMode);
@@ -56,7 +58,7 @@ const tabs = computed(() => [
     label: 'Progress', 
     completed: false, 
     valid: true, 
-    disabled: !state.dirty.value || !state.valid.value, 
+    disabled: deployOnly.value ? !state.valid.value : !state.dirty.value || !state.valid.value, 
     visible: true 
   }
 ])
@@ -73,10 +75,6 @@ const prevTab = computed(() => {
   return tabs.value[idx - 1]?.id
 })
 
-const isDirty = computed(() => {
-  return state.dirty.value;
-});
-
 const showDiscardConfirm = ref(false);
 
 async function openCreate() {
@@ -84,10 +82,11 @@ async function openCreate() {
   showModal.value = true;
 }
 
-async function openEdit(row: App, commit?: string) {
+async function openEdit(row: App, commit?: string | null, appDeploy?: boolean) {
   modalMode.value = 'edit';
   showModal.value = true;
   initialApp.value = row;
+  deployOnly.value = appDeploy || false;
   const form = populateFormFromApp(row, true);
 
   if (commit) {
@@ -96,6 +95,7 @@ async function openEdit(row: App, commit?: string) {
 }
 
 function handleModalClose() {
+  if (!showModal.value) return;
   if (state.dirty.value) {
     showDiscardConfirm.value = true;
   } else {
@@ -119,6 +119,7 @@ function closeModal() {
   showModal.value = false;
   modalMode.value = 'create';
   initialApp.value = null;
+  deployOnly.value = false;
 }
 
 async function onSubmit() {
@@ -150,17 +151,28 @@ function setModalToEdit() {
   modalMode.value = 'edit';
 }
 
+function updateDeployOnly(value: boolean) {
+  deployOnly.value = value;
+}
+
+function updateInitialApp(value: App) {
+  initialApp.value = value;
+}
+
 defineExpose({ openCreate, openEdit });
 </script>
 
 <template>
   <trailhand-modal
     :open.prop="showModal"
-    :dismissible="false"
     :title="(isEdit) ? (initialApp?.meta.name || 'Application') : 'Application'"
     :subtitle="(isEdit) ? (initialApp?.stateDisplay || 'Update') : 'Create New'"
     position="top"
-    @modal-close="closeModal"
+    :dismissible="false"
+    :show-dismiss-button="true"
+    @escape-key-press="handleModalClose"
+    @backdrop-click="handleModalClose"
+    @close-button-click="handleModalClose"
   >
     <div id="modal-container-element" class="modal-content">
       <Tabs v-model="activeTab" :tabs="tabs">
@@ -170,6 +182,9 @@ defineExpose({ openCreate, openEdit });
             :mode="modalMode"
             :updateSource="update.source"
             :populateFormFromApp="populateFormFromApp"
+            :deployOnly="deployOnly"
+            :updateDeployOnly="updateDeployOnly"
+            :updateInitialApp="updateInitialApp"
           />
         </template>
 
@@ -181,6 +196,7 @@ defineExpose({ openCreate, openEdit });
             :mode="modalMode"
             :active="activeTab === tab.id"
             :updateBuildOptions="update.buildOptions"
+            :deployOnly="deployOnly"
           />
         </template>
 
@@ -194,6 +210,7 @@ defineExpose({ openCreate, openEdit });
             :updateDetails="update.details"
             :updateChartSettings="update.chartSettings"
             :updateBindings="update.bindings"
+            :deployOnly="deployOnly"
           />
         </template>
 
@@ -219,6 +236,7 @@ defineExpose({ openCreate, openEdit });
             :onPipelineSuccess="onPipelineSuccess"
             :onPipelineFailure="onPipelineFailure"
             :setModalToEdit="setModalToEdit"
+            :deployOnly="deployOnly"
           />
       </template>
       </Tabs>
@@ -226,19 +244,19 @@ defineExpose({ openCreate, openEdit });
 
     <div slot="footer">
       <template v-if="showDiscardConfirm">
-        <span class="discard-message">You have unsaved changes.</span>
+        <span class="discard-message">{{t('generic.unsavedChanges') }}</span>
         <trailhand-button
           variant="secondary"
           class="mr-10"
           @button-click="handleKeepEditing"
         >
-          Keep Editing
+          {{t('generic.keepEditing') }}
         </trailhand-button>
         <trailhand-button
           variant="destructive"
           @button-click="handleDiscard"
         >
-          Discard
+          {{t('generic.discard') }}
         </trailhand-button>
       </template>
       <template v-else>
@@ -248,7 +266,7 @@ defineExpose({ openCreate, openEdit });
           class="mr-10"
           @button-click="handleModalClose"
         >
-          Cancel
+          {{t('generic.cancel') }}
         </trailhand-button>
         <trailhand-button
           v-if="!!prevTab && activeTab !== 'progress'"
@@ -256,7 +274,7 @@ defineExpose({ openCreate, openEdit });
           class="mr-10"
           @button-click="activeTab = prevTab"
         >
-          Previous
+          {{t('generic.previous') }}
         </trailhand-button>
         <trailhand-button
           v-if="nextTab && activeTab !== 'progress'"
@@ -265,15 +283,15 @@ defineExpose({ openCreate, openEdit });
           :disabled="tabs.find(t => t.id === nextTab)?.disabled"
           @button-click="completeTab(activeTab, nextTab)"
         >
-          Next
+          {{t('generic.next') }}
         </trailhand-button>
         <trailhand-button
-          v-if="isEdit && activeTab !== 'progress'"
+          v-if="(isEdit || deployOnly) && activeTab !== 'progress'"
           variant="primary"
-          :disabled="!isDirty || tabs.some(t => !t.valid)"
+          :disabled="deployOnly ? !state.valid.value : !state.dirty.value || !state.valid.value"
           @button-click="onSubmit"
         >
-          {{ t('generic.save') }}
+          {{deployOnly ? t('generic.deploy') : t('generic.save') }}
         </trailhand-button>
         <trailhand-button
           v-if="activeTab === 'progress'"
@@ -281,13 +299,13 @@ defineExpose({ openCreate, openEdit });
           :disabled="false"
           @button-click="closeModal"
         >
-          Finish
+          {{t('generic.finish') }}
         </trailhand-button>
       </template>
       <!-- <trailhand-button
-        variant="secondary"
-        class="mr-10"
-        @button-click="() => { console.log('Form data:', form); console.log('Form state:', state); }"
+        variant="primary"
+        :disabled="false"
+        @button-click="() => { console.log('Log Form Clicked'), console.log('Form State:', state), console.log('Form Data:', form) }"
       >
         Log Form
       </trailhand-button> -->
@@ -301,6 +319,7 @@ defineExpose({ openCreate, openEdit });
   flex-direction: column;
   gap: 1rem;
   width: 1000px;
+  max-width: 100%;
   min-height: 500px;
 }
 

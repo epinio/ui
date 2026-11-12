@@ -1,10 +1,9 @@
-import { ApiApp, ApiAppConfiguration, ApiAppDeployment, ApiAppOrigin, ApiAppStage, ApiAppGitRef, ApiListAppsResponse, ApiAppDeploymentStatus, ApiAsyncDeployRequest, ApiAppStageRequest, ApiAppStageResponse, ApiAppDeployRequest, ApiAppDeployResponse, ApiAppDeleteRequest, ApiAppUpdateRequest, ApiAppCreateRequest, ApiAppGitImportParams, ApiAppGitImportResponse, ApiAppDeploymentsRequest, ApiAppManifest, ApiAppStoreArchiveResponse } from "./api-types";
-import { App, AppConfiguration, AppDeployment, AppOrigin, AppStage, AppGitRef, ListAppsResponse, AppDeploymentStatus, AsyncDeployRequest, AppStageRequest, AppStageResponse, AppDeployRequest, AppDeployResponse, AppDeleteRequest, AppUpdateRequest, AppCreateRequest, AppGitImportParams, AppGitImportResponse, AppDeploymentsRequest, AppFormSource, AppFormBindings, AppFormDetails, AppFormBuildOptions, AppForm, AppManifest, AppStoreArchiveResponse, AppMeta, AppPodInfo } from "./ui-types";
+import { ApiApp, ApiAppConfiguration, ApiAppDeployment, ApiAppOrigin, ApiAppStage, ApiAppGitRef, ApiListAppsResponse, ApiAppStageRequest, ApiAppDeployRequest, ApiAppDeleteRequest, ApiAppUpdateRequest, ApiAppCreateRequest, ApiAppManifest, ApiAppStoreArchiveResponse, ApiOperationsResponse, ApiAppOperation, ApiSkippedApp, ApiAppState } from "./api-types";
+import { App, AppConfiguration, AppDeployment, AppOrigin, AppStage, AppGitRef, ListAppsResponse, AppStageRequest, AppDeployRequest, AppDeleteRequest, AppUpdateRequest, AppCreateRequest, AppFormSource, AppFormBindings, AppFormDetails, AppFormBuildOptions, AppForm, AppManifest, AppStoreArchiveResponse, AppMeta, AppPodInfo, OperationsResponse, AppOperation, SkippedApp, AppState } from "./ui-types";
 import { statusToStateDisplay } from "../../models/resource/mappers";
 import { AppUtils } from "../../utils/application";
 import { APPLICATION_SOURCE_TYPE, APPLICATION_BUILD_MODE, APPLICATION_MANIFEST_SOURCE_TYPE } from "../../types";
 import { parse } from "../../utils/url";
-import { BuildCache } from "./actions/restage";
 import { identity, pickBy } from "lodash";
 
 function toAppStage(apiStage: ApiAppStage): AppStage {
@@ -103,6 +102,8 @@ export function toApp(apiApp: ApiApp): App {
         configuration: toAppConfiguration(apiApp.configuration),
         deployment: toAppDeployment(apiApp.deployment),
         imageUrl: apiApp.image_url,
+        builtImageUrl: apiApp.built_image_url || '',
+        buildStatus: apiApp.buildstatus || '',
         origin: origin,
         stageId: apiApp.stage_id,
         staging: toAppStage(apiApp.staging),
@@ -112,6 +113,7 @@ export function toApp(apiApp: ApiApp): App {
         stateDisplay: statusToStateDisplay[apiApp.status],
         blobUid: apiApp.blobuid,
         canRetryBuild: sourceType === APPLICATION_SOURCE_TYPE.CONTAINER_URL ? false : hasGit || hasBlob,
+        builtImageUrl: apiApp.built_image_url
     };
 }
 
@@ -123,33 +125,6 @@ export function toListAppsResponse(apiResponse: ApiListAppsResponse): ListAppsRe
     };
 }
 
-export function toAppDeploymentStatus(apiDeploymentStatus: ApiAppDeploymentStatus): AppDeploymentStatus {
-    return {
-        app: apiDeploymentStatus.app,
-        error: apiDeploymentStatus.error,
-        finishedAt: apiDeploymentStatus.finishedAt,
-        id: apiDeploymentStatus.id,
-        image: apiDeploymentStatus.image,
-        routes: apiDeploymentStatus.routes,
-        stageId: apiDeploymentStatus.stage_id,
-        startedAt: apiDeploymentStatus.startedAt,
-        status: apiDeploymentStatus.status,
-        warnings: apiDeploymentStatus.warnings,
-    };
-}
-
-export function toApiAsyncDeployRequest(app: AsyncDeployRequest ): ApiAsyncDeployRequest {
-    return {
-        app: app.app,
-        blobuid: app.blobUid,
-        builderimage: app.builderImage,
-        buildmode: app.buildMode,
-        dockerfilepath: app.dockerfilePath,
-        image: app.image,
-        origin: toApiAppOrigin(app.origin),
-    };
-}
-
 export function toApiAppStageRequest(app: AppStageRequest): ApiAppStageRequest {
     return {
         app: app.app,
@@ -157,32 +132,20 @@ export function toApiAppStageRequest(app: AppStageRequest): ApiAppStageRequest {
         builderimage: app.builderImage,
         buildmode: app.buildMode,
         dockerfilepath: app.dockerfilePath,
-        image: app.image,
-    };
-}
-
-export function toAppStageResponse(apiResponse: ApiAppStageResponse): AppStageResponse {
-    return {
-        stage: apiResponse.stage,
-        image: apiResponse.image,
+        origin: toApiAppOrigin(app.origin),
     };
 }
 
 export function toApiAppDeployRequest(app: AppDeployRequest): ApiAppDeployRequest {
     return {
         app: app.app,
+        blobuid: app.blobUid,
+        builderimage: app.builderImage,
+        buildmode: app.buildMode,
+        dockerfilepath: app.dockerfilePath,
         image: app.image,
         origin: toApiAppOrigin(app.origin),
-        stage: {
-            id: app.stage.id,
-        }
-    };
-}
-
-export function toAppDeployResponse(apiResponse: ApiAppDeployResponse): AppDeployResponse {
-    return {
-        routes: apiResponse.routes,
-        warnings: apiResponse.warnings,
+        stage: app.stage
     };
 }
 
@@ -211,33 +174,6 @@ export function toApiAppCreateRequest(app: AppCreateRequest): ApiAppCreateReques
     return {
         configuration: toApiAppUpdateRequest(app.configuration),
         name: app.name,
-    };
-}
-
-export function toApiAppDeploymentsRequest(app: AppDeploymentsRequest): ApiAppDeploymentsRequest {
-    return {
-        app: app.app,
-        blobuid: app.blobUid,
-        builderimage: app.builderImage,
-        buildmode: app.buildMode,
-        dockerfilepath: app.dockerfilePath,
-        image: app.image,
-        origin: toApiAppOrigin(app.origin),
-    };
-}
-
-export function toApiAppGitImportParams(params: AppGitImportParams): ApiAppGitImportParams {
-    return {
-        giturl: params.gitUrl,
-        gitrev: params.gitRev,
-    };
-}
-
-export function toAppGitImportResponse(response: ApiAppGitImportResponse): AppGitImportResponse {
-    return {
-        blobUid: response.blobuid,
-        branch: response.branch,
-        revision: response.revision,
     };
 }
 
@@ -284,7 +220,6 @@ export function toInstanceStats(instances: AppPodInfo[], prop: 'millicpus' | 'me
 }
 
 export function toAppSourceDetails(application: AppForm, t: any) {
-    console.log(application);
   const appChart = {
     label: 'App Chart',
     value: application.buildOptions.appChart
@@ -367,6 +302,74 @@ export function toAppSourceDetails(application: AppForm, t: any) {
     }
 }
 
+export function toAppOperation(apiOperation: ApiAppOperation): AppOperation {
+    return {
+        app: apiOperation.app,
+        error: apiOperation.error,
+        finishedAt: apiOperation.finishedAt,
+        id: apiOperation.id,
+        image: apiOperation.image,
+        kind: apiOperation.kind,
+        phase: apiOperation.phase,
+        routes: apiOperation.routes,
+        stageId: apiOperation.stage_id,
+        startedAt: apiOperation.startedAt,
+        status: apiOperation.status,
+        warnings: apiOperation.warnings,
+    };
+}
+
+export function toSkippedApp(apiSkippedApp: ApiSkippedApp): SkippedApp {
+    return {
+        app: apiSkippedApp.app,
+        reason: apiSkippedApp.reason,
+    };
+}
+
+export function toOperationsResponse(apiResponse: ApiOperationsResponse): OperationsResponse {
+    return {
+        boundApps: apiResponse.boundapps,
+        operations: (apiResponse.operations || []).map(toAppOperation),
+        skipped: (apiResponse.skipped || []).map(toSkippedApp),
+        wasBound: apiResponse.wasbound,
+    };
+}
+
+export function toAppState(apiState: ApiAppState): AppState {
+    return {
+        app: apiState.app,
+        buildStatus: apiState.buildstatus,
+        operation: apiState.operation ? toAppOperation(apiState.operation) : undefined,
+        stageId: apiState.stage_id,
+        stagingStatus: apiState.stagingstatus,
+        status: apiState.status,
+        statusMessage: apiState.statusmessage,
+    };
+}
+
+export function appToAppDeployRequest(app: App, restaging?: boolean): AppDeployRequest {
+    const appDeployRequest: AppDeployRequest = {
+        app: app.meta,
+        blobUid: app.blobUid,
+        builderImage: app.staging.builder,
+        buildMode: app.staging.buildMode,
+        dockerfilePath: app.staging.dockerfilePath,
+        image: app.imageUrl,
+        origin: app.origin,
+        stage: {
+            id: app.stageId
+        }
+    };
+
+    if (restaging) {
+        delete appDeployRequest.image;
+        delete appDeployRequest.stage;
+    }
+
+    return appDeployRequest;
+}
+
+
 // FORM MAPPERs
 function toAppFormGitData(gitData: AppGitRef): AppFormSource['github' | 'gitlab'] {
     const url = gitData.repository;
@@ -438,6 +441,7 @@ export function toAppFormBuildOptions(app: App | AppManifest): AppFormBuildOptio
         builderImage: app.staging.builder || '',
         dockerfilePath: app.staging.dockerfilePath || '',
         builderImagesForbidden: false,
+        buildOnly: false,
     };
 }
 
@@ -489,11 +493,11 @@ export function appFormToUpdateRequest(form: AppForm, isCreate?: boolean, canRes
     };
 }
 
-function appFormToAppMeta(form: AppForm): AppMeta {
+function appFormToAppMeta(form: AppForm, createdAt?: string): AppMeta {
     return {
         name: form.details.name,
         namespace: form.details.namespace,
-        createdAt: ''
+        createdAt: createdAt || ''
     };
 }
 
@@ -541,19 +545,6 @@ function appFormToAppOrigin(form: AppForm): AppOrigin {
     }
 }
 
-export function appFormToAsyncDeployRequest(form: AppForm, cache: BuildCache): AsyncDeployRequest {
-    const isContainer = form.source.type === 'containerUrl';
-    return {
-        app: cache.appMeta || appFormToAppMeta(form),
-        blobUid: isContainer ? undefined : cache.blobUid,
-        builderImage: isContainer ? undefined : form.buildOptions.builderImage,
-        origin: appFormToAppOrigin(form),
-        buildMode: isContainer ? undefined : form.buildOptions.buildMode,
-        dockerfilePath: isContainer ? undefined : form.buildOptions.dockerfilePath,
-        image: isContainer ? form.source.containerUrl?.url : undefined,
-    };
-}
-
 export function resolveGitParams(source: AppFormSource): { url?: string; rev?: string; gitConfig?: string } {
   switch(source.type) {
     case APPLICATION_SOURCE_TYPE.GIT_URL:
@@ -575,5 +566,39 @@ export function resolveGitParams(source: AppFormSource): { url?: string; rev?: s
       return {};
   }
 };
+
+export function appFormToAppStageRequest(form: AppForm, opts?: {blobUid?: string; createdAt?: string}): AppStageRequest {
+    const isContainer = form.source.type === APPLICATION_SOURCE_TYPE.CONTAINER_URL;
+    const isGitSource = form.source.type === APPLICATION_SOURCE_TYPE.GIT_URL || form.source.type === APPLICATION_SOURCE_TYPE.GIT_HUB || form.source.type === APPLICATION_SOURCE_TYPE.GIT_LAB;
+    return {
+        app: appFormToAppMeta(form, opts?.createdAt),
+        blobUid: isContainer || isGitSource ? undefined : opts?.blobUid,
+        builderImage: isContainer ? undefined : form.buildOptions.builderImage,
+        origin: appFormToAppOrigin(form),
+        buildMode: isContainer ? undefined : form.buildOptions.buildMode,
+        dockerfilePath: isContainer ? undefined : form.buildOptions.dockerfilePath,
+    };
+}
+
+export function appFormToAppDeployRequest(form: AppForm, opts?: {blobUid?: string; createdAt?: string; stageId?: string, imageUrl?: string}): AppDeployRequest {
+    const isContainer = form.source.type === APPLICATION_SOURCE_TYPE.CONTAINER_URL;
+    const isGitSource = form.source.type === APPLICATION_SOURCE_TYPE.GIT_URL || form.source.type === APPLICATION_SOURCE_TYPE.GIT_HUB || form.source.type === APPLICATION_SOURCE_TYPE.GIT_LAB;
+
+    const appDeployRequest: AppDeployRequest = {
+        app: appFormToAppMeta(form, opts?.createdAt),
+        blobUid: isContainer || isGitSource ? undefined : opts?.blobUid,
+        builderImage: isContainer ? undefined : form.buildOptions.builderImage,
+        origin: appFormToAppOrigin(form),
+        buildMode: isContainer ? undefined : form.buildOptions.buildMode,
+        dockerfilePath: isContainer ? undefined : form.buildOptions.dockerfilePath,
+        image: isContainer ? form.source.containerUrl?.url : opts?.imageUrl,
+    };
+
+    if (opts?.stageId) {
+        appDeployRequest.stage = { id: opts.stageId };
+    }
+
+    return appDeployRequest
+}   
     
 

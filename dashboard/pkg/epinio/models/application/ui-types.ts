@@ -71,7 +71,12 @@ export interface App {
     meta: AppMeta;
     configuration: AppConfiguration;
     deployment?: AppDeployment;
+    /** Currently deployed image (spec.imageurl). */
     imageUrl: string;
+    /** Image from the last successful stage (spec.builtimageurl). */
+    builtImageUrl?: string;
+    /** create | build | deployed */
+    buildStatus?: string;
     origin: AppOrigin;
     stageId: string;
     staging: AppStage;
@@ -81,34 +86,15 @@ export interface App {
     stateDisplay: string;
     blobUid: string;
     canRetryBuild: boolean;
+    builtImageUrl?: string;
 }
 
 export type ListAppsResponse = ListResourceResponse<App>;
 
+/** Which applications list endpoint to query. Default is deployed. */
+export type AppListMode = 'deployed' | 'undeployed';
+
 export type AppExportCancelMap = Record<string, AbortController>;
-
-export interface AppDeploymentStatus {
-    app: AppMeta;
-    error: string;
-    finishedAt: string;
-    id: string;
-    image: string;
-    routes: string[];
-    stageId: string;
-    startedAt: string;
-    status: string;
-    warnings: string[];
-}
-
-export interface AsyncDeployRequest {
-    app: AppMeta;
-    blobUid?: string;
-    builderImage?: string;
-    buildMode?: string;
-    dockerfilePath?: string;
-    image?: string;
-    origin: AppOrigin;
-}
 
 export interface AppStageRequest {
     app: AppMeta;
@@ -116,29 +102,22 @@ export interface AppStageRequest {
     builderImage?: string;
     buildMode?: string;
     dockerfilePath?: string;
-    image?: string;
-}
-
-export interface AppStageResponse {
-    stage: {
-        id: string;
-    };
-    image: string;
+    origin: AppOrigin;
 }
 
 export interface AppDeployRequest {
     app: AppMeta;
-    image: string;
+    blobUid?: string;
+    builderImage?: string;
+    buildMode?: string;
+    dockerfilePath?: string;
+    image?: string;
     origin: AppOrigin;
-    stage: {
+    stage?: {
         id: string;
     }
 }
 
-export interface AppDeployResponse {
-    routes: string[];
-    warnings: string[];
-}
 
 export interface AppDeleteRequest {
     deleteImage?: boolean;
@@ -162,27 +141,6 @@ export interface AppCreateRequest {
     name: string;
 }
 
-export interface AppDeploymentsRequest {
-    app: AppMeta;
-    blobUid: string;
-    builderImage: string;
-    buildMode: string;
-    dockerfilePath: string;
-    image: string;
-    origin: AppOrigin;
-}
-
-export interface AppGitImportParams {
-    gitUrl: string;
-    gitRev: string;
-}
-
-export interface AppGitImportResponse {
-    blobUid: string;
-    branch: string;
-    revision: string;
-}
-
 export interface AppManifest {
     meta: AppMeta;
     configuration: AppConfiguration;
@@ -192,6 +150,43 @@ export interface AppManifest {
 
 export interface AppStoreArchiveResponse {
     blobUid: string;
+}
+
+export interface AppOperation {
+    app: AppMeta;
+    error: string;
+    finishedAt: string;
+    id: string;
+    image: string;
+    kind: string;
+    phase: string;
+    routes: string[];
+    stageId: string;
+    startedAt: string;
+    status: string;
+    warnings: string[];
+}
+
+export interface SkippedApp {
+    app: AppMeta;
+    reason: string;
+}
+
+export interface OperationsResponse {
+    boundApps?: string[];
+    operations?: AppOperation[];
+    skipped?: SkippedApp[];
+    wasBound?: string[]
+}
+
+export interface AppState {
+    app: AppMeta;
+    buildStatus?: string;
+    operation?: AppOperation;
+    stageId?: string;
+    stagingStatus?: string;
+    status: string;
+    statusMessage: string;
 }
 
 // FORM ///////////////////////////////////////////////////////////////////////////
@@ -238,6 +233,8 @@ export interface AppFormBuildOptions {
     dockerfilePath?: string;
     builderImage?: string;
     builderImagesForbidden?: boolean;
+    /** When true, pipeline stages only and skips deploy (CLI `app build`). */
+    buildOnly?: boolean;
 }
 
 export interface AppFormDetails {

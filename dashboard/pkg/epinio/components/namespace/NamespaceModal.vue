@@ -91,9 +91,13 @@ defineExpose({ openCreate });
     <trailhand-modal
       :open.prop="showModal"
       :title="t('epinio.namespace.create')"
+      position="top"
       :dismissible="false"
+      :show-dismiss-button="true"
       @modal-open="() => newNamespaceInput?.focus()"
-      @modal-close="closeModal"
+      @escape-key-press="handleModalClose"
+      @backdrop-click="handleModalClose"
+      @close-button-click="handleModalClose"
     >
       <div class="modal-content">
         <trailhand-text-input
@@ -155,6 +159,7 @@ defineExpose({ openCreate });
   flex-direction: column;
   gap: 1rem;
   width: 560px;
+  max-width: 100%;
 }
 
 .discard-message {

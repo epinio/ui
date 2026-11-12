@@ -53,6 +53,7 @@ defineEmits(['deleted']);
   <trailhand-modal
     :open.prop="showModal"
     title="Are you sure?"
+    :show-dismiss-button="true"
     @modal-close="closeDelete"
   >
     <div class="modal-content">
@@ -98,6 +99,7 @@ defineEmits(['deleted']);
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  max-width: 500px;
+  width: 500px;
+  max-width: 100%;
 }
 </style>

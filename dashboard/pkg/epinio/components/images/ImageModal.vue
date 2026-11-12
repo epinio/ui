@@ -191,11 +191,14 @@ defineExpose({ openCreate, openEdit, openView });
 <template>
   <trailhand-modal
     :open.prop="showModal"
-    :dismissible.prop="false"
     :title="(isView || isEdit) ? imageName || 'Builder Image' : 'Builder Image'"
     :subtitle="(isView || isEdit) ? '' : 'Create New'"
     position="top"
-    @modal-close="handleModalClose"
+    :dismissible="false"
+    :show-dismiss-button="true"
+    @escape-key-press="handleModalClose"
+    @backdrop-click="handleModalClose"
+    @close-button-click="handleModalClose"
   >
     <div id="modal-container-element" class="modal-content">
       <trailhand-form-card>
@@ -306,6 +309,7 @@ defineExpose({ openCreate, openEdit, openView });
   flex-direction: column;
   gap: 1rem;
   width: 1000px;
+  max-width: 100%;
   min-height: 350px;
 }
 

@@ -230,6 +230,7 @@ export function useAppForm(mode: Ref<'create' | 'edit'>): UseAppFormReturn {
 
     function clearForm() {
         form.value = structuredClone(initEmptyForm());
+        initialForm.value = structuredClone(initEmptyForm());
     }
 
     function resetForm() {
@@ -250,11 +251,17 @@ export function useAppForm(mode: Ref<'create' | 'edit'>): UseAppFormReturn {
         };
     }
 
-    function updateBuildOptions(newBuildOptions: Partial<AppFormBuildOptions>) {
+    function updateBuildOptions(newBuildOptions: Partial<AppFormBuildOptions>, setInitial = false) {
         form.value.buildOptions = {
             ...form.value.buildOptions,
             ...newBuildOptions
         };
+        if (setInitial) {
+            initialForm.value.buildOptions = {
+                ...initialForm.value.buildOptions,
+                ...newBuildOptions
+            };
+        }
     }
 
     function updateDetails(newDetails: Partial<AppFormDetails>) {

@@ -1,6 +1,24 @@
-import { APPLICATION_MANIFEST_SOURCE_TYPE, APPLICATION_SOURCE_TYPE, EpinioApplicationResource, EpinioAppSource, EPINIO_APP_GIT_SOURCE } from '../types';
-import { parse as parseUrl } from '@shell/utils/url';
-import { AppOrigin } from '../models/application/ui-types';
+import { APPLICATION_MANIFEST_SOURCE_TYPE, APPLICATION_SOURCE_TYPE, EpinioApplicationResource, EpinioAppSource, EPINIO_APP_GIT_SOURCE } from '../../types';
+import { parse as parseUrl } from '../url';
+import { App, AppOrigin } from '../../models/application/ui-types';
+
+/** App has a staged build (image and/or stage id). */
+export function appHasBuild(app: App): boolean {
+  return !!(app.builtImageUrl || app.stageId);
+}
+
+/** Safe to deploy the last staged image (CLI `app deploy`). */
+export function appCanDeployBuild(app: App): boolean {
+  return !!app.builtImageUrl && !!app.stageId;
+}
+
+/**
+ * Mirrors server DeleteBuild guards: no workload, not currently deployed,
+ * and a build exists to clear.
+ */
+export function appCanDeleteBuild(app: App): boolean {
+  return appHasBuild(app) && !app.deployment && app.buildStatus !== 'deployed';
+}
 
 interface Utils {
   getSourceType: (origin: AppOrigin) => APPLICATION_SOURCE_TYPE;

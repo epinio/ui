@@ -138,10 +138,10 @@ const _actionMenuCache = new Map<string, any>();
  * Transforms epinio string action names into callable functions
  * so the action-menu web component can invoke them.
  */
-export function makeActionMenu(row: any): HTMLElement {
+export function makeActionMenu(row: any, tableId?: string): HTMLElement {
   ensureActionMenuCaptureListener();
 
-  const id = row.id ?? row.meta?.name;
+  const id = `${row.id ?? row.meta?.name ?? ''}${tableId ? `-${tableId}` : ''}`;
   let el = id ? _actionMenuCache.get(id) : null;
 
   if (!el) {
@@ -220,6 +220,28 @@ export function makeRouterLink(text: string, location: any, router: Router): HTM
 }
 
 /**
+ * Long single-token values (registry image URLs) that must stay inside the
+ * column width — ellipsis + full value on hover.
+ */
+export function makeTruncatedTextCell(text: string, maxWidth = '220px'): HTMLElement {
+  if (!text) {
+    return makeEmptyCell();
+  }
+
+  const span = document.createElement('span');
+
+  span.textContent = text;
+  span.title = text;
+  span.style.display = 'block';
+  span.style.maxWidth = maxWidth;
+  span.style.overflow = 'hidden';
+  span.style.textOverflow = 'ellipsis';
+  span.style.whiteSpace = 'nowrap';
+
+  return span;
+}
+
+/**
  * Renders an application's routes as external links (when running) or plain text.
  */
 export function makeAppRoutesCell(row: App): HTMLElement {
@@ -280,6 +302,7 @@ export function stateToTagVariant(state: string): string {
     case 'running':
     case 'ready':
     case 'deployed':
+    case 'built':
     case 'available': return 'success';
     case 'error': return 'error';
     case 'notready':
@@ -308,7 +331,8 @@ export function stateToIcon(state: string): string {
     case 'not-ready': return 'warning';
     case 'error':
     case 'fail': return 'error';
-    case 'building': return 'tools';
+    case 'building':
+    case 'built': return 'tools';
     case 'staging':
     case 'deploying': return 'info';
     case 'created': return 'gear';

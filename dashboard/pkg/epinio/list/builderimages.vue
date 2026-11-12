@@ -1,9 +1,7 @@
 <script setup lang="ts">
-import { EPINIO_TYPES } from '../types';
 import { useStore } from 'vuex';
 import { computed, ref, watch } from 'vue';
 import { useBuilderImages } from '../queries/useBuilderImagesQueries';
-import Masthead from '@shell/components/ResourceList/Masthead';
 import { debounce } from 'lodash';
 import ImageModal from '../components/images/ImageModal.vue';
 import { makeActionMenu } from '../utils/table-formatters';
@@ -11,6 +9,7 @@ import ImageDeleteModal from '../components/images/ImageDeleteModal.vue';
 import { ResourceQueryOptions, ListResourceRequestParams, ResourceTableRow } from '../models/resource/ui-types';
 import { BuilderImage } from '../models/builderimage/ui-types';
 import { useUser } from '../queries/useUserQueries';
+import { patchTrailhandServerSort, useServerTableSort, withServerSideSort } from '../utils/server-table-sort';
 
 defineProps<{ schema: object }>(); // Keep for compatibility
 
@@ -18,8 +17,7 @@ const store = useStore();
 
 const imageModal = ref<InstanceType<typeof ImageModal> | null>(null);
 const deleteModal = ref<InstanceType<typeof ImageDeleteModal> | null>(null);
-
-const resource: string = EPINIO_TYPES.BUILDER_IMAGE;
+const tableEl = ref<any>(null);
 
 const { data: user, isError: isErrorUser, error: userError } = useUser(store);
 
@@ -53,6 +51,10 @@ const canEdit = computed(() => {
 });
 const canDelete = canEdit;
 const canCreate = canEdit;
+
+const openCreateModal = () => {
+  imageModal.value?.openCreate();
+};
 
 const openDeleteModal = (builderImage: BuilderImage) => {
   deleteModal.value?.openDelete(builderImage);
@@ -90,9 +92,9 @@ const displayRows = computed(() => {
   return rows;
 });
 
-const columns = [
+const columns = withServerSideSort([
   {
-    field: 'nameDisplay',
+    field: 'meta.name',
     label: 'Name',
     formatter: (_v: any, row: BuilderImage) => {
       const el = document.createElement('a');
@@ -121,27 +123,38 @@ const columns = [
     label:     'Age',
     formatter: 'age'
   }
-];
+]);
+
+const setTableRef = (el: any) => {
+  if (el) {
+    tableEl.value = el;
+    el.renderActions = makeActionMenu;
+    patchTrailhandServerSort(el, requestParams);
+  }
+};
+
+useServerTableSort(requestParams, tableEl, columns);
 </script>
 
 <template>
   <div id="modal-container-element">
-    <Masthead
-      :schema="schema"
-      :resource="resource"
-    >
-      <template #createButton>
+    <div class="heading">
+      <h1>Builder Images</h1>
+      <div class="actions">
         <trailhand-button
           v-if="canCreate"
           variant="primary"
-          size="large"
-          @button-click="imageModal?.openCreate()"
+          @click="openCreateModal()"
         >
           {{ t('generic.create') }}
         </trailhand-button>
-        <div v-else></div>
-      </template>
-    </Masthead>
+        <trailhand-text-input
+          :value="searchQuery"
+          placeholder="Search..."
+          @text-input-change="(e: CustomEvent) => searchQuery = e.detail.value"
+        ></trailhand-text-input>
+      </div>
+    </div>
     <Banner
       v-if="isErrorUser"
       color="error"
@@ -152,15 +165,8 @@ const columns = [
       color="error"
       :label="builderImagesError?.message || t('epinio.builderImages.errors.fetch')"
     />
-    <div class="search-container">
-      <trailhand-text-input
-        :value="searchQuery"
-        placeholder="Search..."
-        @text-input-change="(e: CustomEvent) => searchQuery = e.detail.value"
-      ></trailhand-text-input>
-    </div>
     <trailhand-table
-      :ref="(el: any) => { if (el) el.renderActions = makeActionMenu; }"
+      :ref="setTableRef"
       :rows="displayRows"
       :columns="columns"
       :server-side="true"
@@ -177,11 +183,21 @@ const columns = [
 </template>
 
 <style lang="scss" scoped>
-.search-container {
-  width: 100%;
+.heading {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: flex-end;
   margin-bottom: 1rem;
+
+  h1 {
+    margin: 0;
+  }
+}
+
+.actions {
+  display: flex;
+  align-items: flex-end;
+  gap: 1rem;
 }
 
 trailhand-table {

@@ -14,6 +14,7 @@ import debounce from 'lodash/debounce';
 import { AppFormSource, App, AppManifest } from '../../models/application/ui-types';
 import { ApiAppManifest } from '../../models/application/api-types';
 import { toAppManifest } from '../../models/application/mappers';
+import { useApplications } from '../../queries/useApplicationQueries';
 
 interface FileWithRelativePath extends File {
   // For some reason TS throws this as missing at transpile time .. so recreate it
@@ -29,6 +30,9 @@ const props = defineProps<{
   mode: string;
   updateSource: <K extends AppFormSource['type']>(type: K, newSource?: Partial<NonNullable<AppFormSource[K]>>) => void;
   populateFormFromApp: (app: App | AppManifest, setInitial?: boolean) => void;
+  updateDeployOnly: (value: boolean) => void;
+  updateInitialApp: (value: App) => void;
+  deployOnly?: boolean;
 }>();
 
 const isEdit = computed(() => props.mode === 'edit');
@@ -46,6 +50,7 @@ const manifestFileInput = ref<HTMLInputElement | null>(null);
 const archiveFileInput = ref<HTMLInputElement | null>(null);
 const folderFileInput = ref<HTMLInputElement | null>(null);
 const fileDialogActive = ref(false);
+
 // Set when the config read is refused, which is a valid role, not a fault.
 const gitConfigsForbidden = ref(false);
 
@@ -63,6 +68,59 @@ const onGitConfigFilter = debounce((query: string) => {
   gitConfigRequestParams.value.page = 1;
   gitConfigRequestParams.value.search = query;
 }, 500);
+
+
+const containerImageRequestParams = ref<ListResourceRequestParams>({ page: 1, pageSize: 25, search: '' });
+const containerImageRequestOptions = ref<ResourceQueryOptions>({ enabled: false, polling: false });
+const {data: containerImages, isLoading: isLoadingContainerImages, isError: isErrorContainerImages} = useApplications(store, containerImageRequestParams, containerImageRequestOptions, true);
+const onContainerImageFilter = debounce((query: string) => {
+  containerImageRequestParams.value.page = 1;
+  containerImageRequestParams.value.search = query;
+}, 500);
+
+// Format the container images for the dropdown, adding a custom option
+const allContainerImages = computed(() => {
+  const catalogImages = (containerImages.value?.items || []).map((ci) => ({
+    value: ci.meta.name,
+    label: ci.meta.name,
+  }))
+  const customOption = {
+    value: 'custom',
+    label: 'Custom',
+  }
+  return [...catalogImages, customOption];
+});
+
+const selectedContainerImage = computed(() => {
+  return allContainerImages.value.some(
+    (ci) => ci.value === props.source.containerUrl?.url
+  )
+    ? props.source.containerUrl?.url
+    : 'custom';
+});
+
+const isCustomContainerImage = computed(
+  () => selectedContainerImage.value === 'custom'
+);
+
+function handleContainerImageDropdownChange(value: string) {
+  props.updateSource('containerUrl', { url: value });
+  if (value !== 'custom') {
+    const selectedImage = containerImages.value?.items?.find((ci) => ci.meta.name === value);
+    if (selectedImage) {
+      props.populateFormFromApp(selectedImage, true);
+      props.updateInitialApp(selectedImage);
+      props.updateDeployOnly(true);
+    }
+  }
+}
+
+const handleTypeDropdownChange = (value: string) => {
+  if (value === 'containerUrl') {
+    containerImageRequestOptions.value.enabled = true;
+  }
+  props.updateSource(value as AppFormSource['type']);
+};
 
 // Derived and Computed
 const types = Object.values(APPLICATION_SOURCE_TYPE).map(value => ({
@@ -186,11 +244,13 @@ function onFolderSelected(files: FileWithRelativePath | FileWithRelativePath[]) 
         :required="true"
         placeholder="Select a source type"
         data-testid="epinio_app-source_type"
-        @dropdown-change="(e: CustomEvent) => updateSource(e.detail.value)"
+        :disabled="props.deployOnly"
+        @dropdown-change="(e: CustomEvent) => handleTypeDropdownChange(e.detail.value)"
       ></trailhand-dropdown>
       <trailhand-button
         variant="alternate"
         data-testid="epinio_app-source_manifest"
+        :disabled="props.deployOnly"
         @button-click="handleFromManifestClick"
       >
         From Manifest
@@ -199,6 +259,7 @@ function onFolderSelected(files: FileWithRelativePath | FileWithRelativePath[]) 
         ref="manifestFileInput"
         type="file"
         class="hidden-file-input"
+        :disabled="props.deployOnly"
         @change="handleManifestFileChange"
         @cancel="fileDialogActive = false"
       >
@@ -219,6 +280,7 @@ function onFolderSelected(files: FileWithRelativePath | FileWithRelativePath[]) 
           <trailhand-button
             variant="alternate"
             data-testid="epinio_app-source_archive_file"
+            :disabled="props.deployOnly"
             @button-click="handleArchiveFileClick"
           >
             Select File
@@ -228,6 +290,7 @@ function onFolderSelected(files: FileWithRelativePath | FileWithRelativePath[]) 
             type="file"
             class="hidden-file-input"
             accept=".zip, .tar, .gz, .bz2, .xz"
+            :disabled="props.deployOnly"
             @change="handleArchiveFileChange"
             @cancel="fileDialogActive = false"
           >
@@ -250,6 +313,7 @@ function onFolderSelected(files: FileWithRelativePath | FileWithRelativePath[]) 
           <trailhand-button
             variant="alternate"
             data-testid="epinio_app-source_folder_file"
+            :disabled="props.deployOnly"
             @button-click="handleFolderFileClick"
           >
             Select Folder
@@ -259,6 +323,7 @@ function onFolderSelected(files: FileWithRelativePath | FileWithRelativePath[]) 
             type="file"
             webkitdirectory
             class="hidden-file-input"
+            :disabled="props.deployOnly"
             @change="handleFolderFileChange"
             @cancel="fileDialogActive = false"
           >
@@ -267,14 +332,30 @@ function onFolderSelected(files: FileWithRelativePath | FileWithRelativePath[]) 
     </template>
 
     <template v-else-if="source.type === APPLICATION_SOURCE_TYPE.CONTAINER_URL">
-      <div class="spacer source">
+      <div class="spacer source builder-image">
         <h3>{{ t('epinio.applications.steps.source.containerUrl.url.label') }}</h3>
+        <trailhand-dropdown
+          style="width: 100%"
+          :options="allContainerImages"
+          :value="selectedContainerImage"
+          label="Container Image"
+          placeholder="Select a container image"
+          required
+          filterable
+          :isLoading="isLoadingContainerImages"
+          @dropdown-change="(e: CustomEvent) => { handleContainerImageDropdownChange(e.detail.value) }"
+          @dropdown-filter="(e: CustomEvent<{ filter: string }>) => { onContainerImageFilter(e.detail.filter); }"
+        ></trailhand-dropdown>
+        <p v-if="isErrorContainerImages" class="error-message">
+          {{ t(`epinio.containerImages.errors.fetchAll`) }}
+        </p>
         <trailhand-text-input
           style="width: 100%;"
           :value="source.containerUrl?.url || ''"
           data-testid="epinio_app-source_container"
           :label="t('epinio.applications.steps.source.containerUrl.url.inputLabel')"
           :required="true"
+          :disabled="!isCustomContainerImage || props.deployOnly"
           @text-input-change="(e: CustomEvent) => { updateSource(source.type, { url: e.detail.value }); }"
         />
       </div>
@@ -291,7 +372,7 @@ function onFolderSelected(files: FileWithRelativePath | FileWithRelativePath[]) 
           :value="source.gitUrl?.gitConfig"
           :options="(gitConfigs?.items || []).map((c: any) => ({ value: c.meta.name, label: c.meta.name }))"
           label="Git Config"
-          :disabled="isEdit"
+          :disabled="isEdit || props.deployOnly"
           filterable
           :loading="isLoadingGitConfigs"
           @dropdown-change="(e: CustomEvent) => { updateSource(source.type, { gitConfig: e.detail.value }); }"
@@ -310,6 +391,7 @@ function onFolderSelected(files: FileWithRelativePath | FileWithRelativePath[]) 
           :label="t('epinio.applications.steps.source.gitUrl.url.inputLabel')"
           :placeholder="'https://github.com/{user or org}/{repository}'"
           :required="true"
+          :disabled="props.deployOnly"
           @text-input-change="(e: CustomEvent) => { updateSource(source.type, { url: e.detail.value, branch: '' }); }"
         />
         <p v-if="source.gitUrl?.url && !validGitUrl" class="error-message">
@@ -324,7 +406,7 @@ function onFolderSelected(files: FileWithRelativePath | FileWithRelativePath[]) 
           data-testid="epinio_app-source_git-branch"
           :label="t('epinio.applications.steps.source.gitUrl.branch.inputLabel')"
           :required="true"
-          :disabled="!validGitUrl"
+          :disabled="!validGitUrl || props.deployOnly"
           @text-input-change="(e: CustomEvent) => { updateSource(source.type, { branch: e.detail.value }); }"
         />
       </div>
@@ -340,6 +422,7 @@ function onFolderSelected(files: FileWithRelativePath | FileWithRelativePath[]) 
         :isLoadingGitConfigs="isLoadingGitConfigs"
         :isErrorGitConfigs="isErrorGitConfigs"
         :updateSource="updateSource"
+        :deployOnly="props.deployOnly"
       />
     </template>
   </div>

@@ -1,14 +1,22 @@
 import { createEpinioClient } from "./client";
 import { ApiListResourceRequestParams } from "../models/resource/api-types";
-import { ApiListAppsResponse, ApiAppDeploymentStatus, ApiAsyncDeployRequest, ApiAppStageRequest, ApiAppStageResponse, ApiApp, ApiAppDeployRequest, ApiAppDeployResponse, ApiAppDeleteRequest, ApiAppCreateRequest, ApiAppUpdateRequest, ApiAppStoreArchiveResponse, ApiAppGitImportResponse } from "../models/application/api-types";
+import { ApiListAppsResponse, ApiAppStageRequest, ApiAppOperation, ApiApp, ApiAppDeployRequest, ApiAppDeleteRequest, ApiAppCreateRequest, ApiAppUpdateRequest, ApiAppStoreArchiveResponse, ApiAppState } from "../models/application/api-types";
+import { ApiResourceResponse } from "../models/resource/api-types";
     
 export function applicationsApi(epinioClient: ReturnType<typeof createEpinioClient>) {
     const appsBasePath = '/api/v1/applications';
     const namespacesBasePath = '/api/v1/namespaces';
 
     return {
+        state: async (namespace: string, app: string): Promise<ApiAppState> => {
+            return await epinioClient.get(`${namespacesBasePath}/${namespace}/applications/${app}/state`);
+        },
         listApps: async (params?: ApiListResourceRequestParams): Promise<ApiListAppsResponse> => {
             return await epinioClient.get(appsBasePath, { params });
+        },
+        // Never-deployed / rebuilt apps (buildstatus create|build). Same query params as listApps.
+        listUndeployedApps: async (params?: ApiListResourceRequestParams): Promise<ApiListAppsResponse> => {
+            return await epinioClient.get(`${appsBasePath}/undeployed`, { params });
         },
         getApp: async (namespace: string, app: string): Promise<ApiApp> => {
             return await epinioClient.get(`${namespacesBasePath}/${namespace}/applications/${app}`);
@@ -17,23 +25,18 @@ export function applicationsApi(epinioClient: ReturnType<typeof createEpinioClie
             const isText = part === 'values' || part === 'manifest';
             return await epinioClient.get(`${namespacesBasePath}/${namespace}/applications/${app}/part/${part}`, { responseType: isText ? 'text' : 'blob', signal });
         },
-        fetchDeploymentStatus: async (namespace: string, app: string, deploymentId: string): Promise<ApiAppDeploymentStatus> => {
-            return await epinioClient.get(`${namespacesBasePath}/${namespace}/applications/${app}/deployments/${deploymentId}`);
-        },
-        startAsyncDeploy: async (namespace: string, app: string, body: ApiAsyncDeployRequest): Promise<ApiAppDeploymentStatus> => {
-            return await epinioClient.post(`${namespacesBasePath}/${namespace}/applications/${app}/deployments`, body);
-        },
-        stage: async (namespace: string, app: string, body: ApiAppStageRequest): Promise<ApiAppStageResponse> => {
+        stage: async (namespace: string, app: string, body: ApiAppStageRequest): Promise<ApiAppOperation> => {
             return await epinioClient.post(`${namespacesBasePath}/${namespace}/applications/${app}/stage`, body);
         },
-        waitForStaging: async (namespace: string, stageId: string) => {
-            return await epinioClient.get(`${namespacesBasePath}/${namespace}/staging/${stageId}/complete`);
-        },
-        deploy: async (namespace: string, app: string, body: ApiAppDeployRequest): Promise<ApiAppDeployResponse> => {
+        deploy: async (namespace: string, app: string, body: ApiAppDeployRequest): Promise<ApiAppOperation> => {
             return await epinioClient.post(`${namespacesBasePath}/${namespace}/applications/${app}/deploy`, body);
         },
-        restart: async (namespace: string, app: string) => {
+        restart: async (namespace: string, app: string): Promise<ApiAppOperation> => {
             return await epinioClient.post(`${namespacesBasePath}/${namespace}/applications/${app}/restart`);
+        },
+        /** Clears staged image/build fields without deleting the application. */
+        deleteBuild: async (namespace: string, app: string): Promise<void> => {
+            return await epinioClient.delete(`${namespacesBasePath}/${namespace}/applications/${app}/build`);
         },
         deleteApp: async (namespace: string, app: string, body: ApiAppDeleteRequest): Promise<void> => {
             return await epinioClient.delete(`${namespacesBasePath}/${namespace}/applications/${app}`, body);
@@ -52,18 +55,14 @@ export function applicationsApi(epinioClient: ReturnType<typeof createEpinioClie
                 body
             );
         },
-        createApp: async (namespace: string, body: ApiAppCreateRequest) => {
+        createApp: async (namespace: string, body: ApiAppCreateRequest): Promise<ApiResourceResponse> => {
             return await epinioClient.post(`${namespacesBasePath}/${namespace}/applications`, body);
         },
-        updateApp: async (namespace: string, app: string, body: ApiAppUpdateRequest) => {
+        updateApp: async (namespace: string, app: string, body: ApiAppUpdateRequest): Promise<ApiResourceResponse | ApiAppOperation> => {
             return await epinioClient.patch(`${namespacesBasePath}/${namespace}/applications/${app}`, body);
         },
         storeArchive: async (namespace: string, app: string, data: FormData, size: string): Promise<ApiAppStoreArchiveResponse> => {
             return await epinioClient.post(`${namespacesBasePath}/${namespace}/applications/${app}/store`, data, { headers: { 'File-Size': size } });
         },
-        importGit: async (namespace: string, app: string, data: FormData): Promise<ApiAppGitImportResponse> => {
-            return await epinioClient.post(`${namespacesBasePath}/${namespace}/applications/${app}/import-git`, data, { headers: { 'accept': 'gzip' } });
-        },
-
     };
 }

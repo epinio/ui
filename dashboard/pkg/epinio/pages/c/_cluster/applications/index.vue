@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watchEffect, watch } from 'vue';
 import { useStore } from 'vuex';
 import { debounce } from 'lodash';
@@ -10,6 +10,7 @@ import {
   makeStateTag,
   makeAppRoutesCell,
   makeNameLinks,
+  makeTruncatedTextCell,
 } from '../../../../utils/table-formatters';
 import AppModal from '../../../../components/application/AppModal.vue';
 import AppDeleteModal from '../../../../components/application/AppDeleteModal.vue';
@@ -17,16 +18,18 @@ import BulkDeleteModal from '../../../../components/BulkDeleteModal.vue';
 import ExportAppModal from '../../../../dialog/ExportAppModal.vue';
 import { useApplications } from '../../../../queries/useApplicationQueries';
 import { useBulkRemoveApplications } from '../../../../queries/useApplicationMutations';
-import { App } from '../../../../models/application/ui-types';
+import { App, AppListMode } from '../../../../models/application/ui-types';
 import { ListResourceRequestParams, ResourceQueryOptions, ResourceTableRow } from '../../../../models/resource/ui-types';
 import { useUser } from '../../../../queries/useUserQueries';
 import { showAppShell } from '../../../../models/application/actions/shell';
 import { showAppLog, showStagingLog } from '../../../../models/application/actions/logs';
-import { restageApp, restartApp } from '../../../../models/application/actions/restage';
+import { restageApp, restartApp, deployBuiltApp, deleteAppBuild } from '../../../../models/application/actions/restage';
 import ServiceInstanceModal from '../../../../components/service/ServiceInstanceModal.vue';
 import ConfigurationModal from '../../../../components/configuration/ConfigurationModal.vue';
 import { fetchConfiguration } from '../../../../queries/useConfigurationQueries';
 import { fetchService } from '../../../../queries/useServiceQueries';
+import { appCanDeployBuild, appCanDeleteBuild } from '../../../../utils/application';
+import { patchTrailhandServerSort, useServerTableSort, withServerSideSort } from '../../../../utils/server-table-sort';
 
 const store = useStore() as any;
 const t = store.getters['i18n/t'];
@@ -40,7 +43,6 @@ const serviceModal = ref<InstanceType<typeof ServiceInstanceModal> | null>(null)
 const configModal = ref<InstanceType<typeof ConfigurationModal> | null>(null);
 
 const resource: string = EPINIO_TYPES.APP;
-const schema = ref(store.getters['epinio/schemaFor'](resource));
 
 const { data: user, isError: isErrorUser, error: userError } = useUser(store);
 
@@ -57,6 +59,8 @@ const requestOptions = ref<ResourceQueryOptions>({
   isTablePagination: true,
 });
 
+const listMode = ref<AppListMode>('deployed');
+
 const searchQuery = ref<string>('');
 
 watch(searchQuery, (newQuery) => {
@@ -68,11 +72,29 @@ const onSearch = debounce(async (query: string) => {
   requestParams.value.search = query;
 }, 500);
 
-const {data: applications, isLoading: isLoadingApplications, isError: isErrorApplications, error: applicationsError} = useApplications(store, requestParams, requestOptions);
+const {data: applications, isLoading: isLoadingApplications, isError: isErrorApplications, error: applicationsError} = useApplications(store, requestParams, requestOptions, listMode);
 const { mutateAsync: bulkRemove } = useBulkRemoveApplications(store);
 
 const tableEl = ref<any>(null);
+
 const selectedRows = ref<any[]>([]);
+
+const setListMode = (next: AppListMode) => {
+  if (listMode.value === next) {
+    return;
+  }
+
+  listMode.value = next;
+  requestParams.value = {
+    ...requestParams.value,
+    page: 1,
+    sort: undefined,
+    sortDir: undefined,
+  };
+  selectedRows.value = [];
+  tableEl.value?.clearSelection();
+  tableEl.value?.resetSort?.();
+};
 
 const canCreate = computed(() => {
   return user.value?.permissions?.app_create || user.value?.permissions?.app_write || user.value?.permissions?.app;
@@ -97,6 +119,9 @@ const canStage = computed(() => {
 });
 const canRestart = computed(() => {
   return user.value?.permissions?.app_restart || user.value?.permissions?.app_write || user.value?.permissions?.app;
+});
+const canDeploy = computed(() => {
+  return user.value?.permissions?.app_deploy || user.value?.permissions?.app_write || user.value?.permissions?.app;
 });
 
 const handleCreateClick = () => {
@@ -132,17 +157,17 @@ const displayRows = computed(() => {
     ...a,
     id: a.meta.name, // stable, unique per namespace
     availableActions: [{
-      label: 'App Shell',
+      label: t('epinio.applications.actions.shell.label'),
       action: () => showAppShell(store, a),
       enabled: canExec.value && a.status === 'running',
       visible: canExec.value,
     }, {
-      label: 'App Logs',
+      label: t('epinio.applications.actions.viewAppLogs.label'),
       action: () => showAppLog(store, a),
       enabled: canLogs.value && (a.status === 'running' || a.status === 'error'),
       visible: canLogs.value,
     }, {
-      label: 'Last Build Logs',
+      label: t('epinio.applications.actions.viewStagingLogs.label'),
       action: () => showStagingLog(store, a),
       enabled: canLogs.value && !!a.stageId,
       visible: canLogs.value,
@@ -152,20 +177,31 @@ const displayRows = computed(() => {
       enabled: canExport.value && a.status === 'running',
       visible: canExport.value,
     }, {
-      label: 'Restage',
+      label: t('epinio.applications.actions.restage.label'),
       action: () => restageApp(store, a),
-      enabled: canStage.value && a.canRetryBuild,
+      enabled: canStage.value && a.canRetryBuild && a.status !== 'staging',
       visible: canStage.value,
     }, {
-      label: 'Restart',
+      label: t('epinio.applications.actions.deployBuild.label'),
+      action: () => deployBuiltApp(store, a),
+      enabled: canDeploy.value && appCanDeployBuild(a),
+      visible: canDeploy.value && appCanDeployBuild(a),
+    }, {
+      label: t('epinio.applications.actions.restart.label'),
       action: () => restartApp(store, a),
-      enabled: canRestart.value && a.status === 'running',
-      visible: canRestart.value,
+      enabled: canRestart.value && a.status === 'running' && !!a.imageUrl,
+      visible: canRestart.value && a.status === 'running' && !!a.imageUrl,
     }, {
       label: 'Edit',
       action: () => openEditModal(a),
       enabled: canEdit.value,
       visible: canEdit.value,
+    }, {
+      label: t('epinio.applications.actions.deleteBuild.label'),
+      action: () => deleteAppBuild(store, a),
+      enabled: canDelete.value && appCanDeleteBuild(a),
+      visible: canDelete.value && appCanDeleteBuild(a),
+      danger: true,
     }, {
       label: 'Delete',
       action: () => openDeleteModal(a),
@@ -238,8 +274,10 @@ const handleBulkDeleted = () => {
 const setTableRef = (el: any) => {
   if (el) {
     tableEl.value = el;
-    el.renderActions = makeActionMenu;
+    el.renderActions = (row: any) => makeActionMenu(row, listMode.value);
     el.rowSelectable = isRowSelectable;
+    // Patch immediately on mount — click-listener approach missed sort params.
+    patchTrailhandServerSort(el, requestParams);
   }
 };
 
@@ -250,7 +288,73 @@ const handleNavigate = (event: CustomEvent) => {
 const windowWidth = ref(window.innerWidth);
 const onResize = () => { windowWidth.value = window.innerWidth; };
 
-const allColumns = [
+const boundConfigsColumn = {
+  field:     'boundConfigs',
+  label:     'Bound Configs',
+  width:     '180px',
+  sortable:  false,
+  formatter: (_value: any, row: App) => {
+    const configs = row.configuration.configurations || [];
+    const span = document.createElement('span');
+
+    span.style.whiteSpace = 'normal';
+    span.style.overflowWrap = 'anywhere';
+    span.style.wordBreak = 'break-word';
+
+    configs.forEach((config, index) => {
+      const a = document.createElement('a');
+
+      a.href = '#';
+      a.addEventListener('click', (e) => {
+        e.preventDefault();
+        openConfigurationModal(row.meta.namespace, config);
+      });
+      a.textContent = config;
+      span.appendChild(a);
+
+      if (index < configs.length - 1) {
+        span.appendChild(document.createTextNode(', '));
+      }
+    });
+
+    return span;
+  }
+};
+
+const boundServicesColumn = {
+  field:     'boundServices',
+  label:     'Bound Services',
+  width:     '180px',
+  sortable:  false,
+  formatter: (_value: any, row: App) => {
+    const services = row.configuration.services || [];
+    const span = document.createElement('span');
+
+    span.style.whiteSpace = 'normal';
+    span.style.overflowWrap = 'anywhere';
+    span.style.wordBreak = 'break-word';
+
+    services.forEach((service, index) => {
+      const a = document.createElement('a');
+
+      a.href = '#';
+      a.addEventListener('click', (e) => {
+        e.preventDefault();
+        openServiceModal(row.meta.namespace, service);
+      });
+      a.textContent = service;
+      span.appendChild(a);
+
+      if (index < services.length - 1) {
+        span.appendChild(document.createTextNode(', '));
+      }
+    });
+
+    return span;
+  }
+};
+
+const baseColumns = [
   {
     field:     'stateDisplay',
     label:     'State',
@@ -258,20 +362,25 @@ const allColumns = [
     formatter: (_value: string, row: App) => makeStateTag(row)
   },
   {
-    field: 'nameDisplay',
+    // Use meta.name (not nameDisplay) so sort keys resolve to a real string.
+    field: 'meta.name',
     label: 'Name',
     width: '125px',
-    formatter: (_value: any, row: App) => makeNameLinks(
+    formatter: (_value: any, row: App) => row.deployment ? makeNameLinks(
       [row.meta.name],
       { cluster: store.getters['clusterId'], namespace: row.meta.namespace, resource: EPINIO_TYPES.APP },
       router
-    )
+    ) : row.meta.name
   },
   {
     field: 'meta.namespace',
     label: 'Namespace',
     width: '125px',
   },
+];
+
+const deployedColumns = [
+  ...baseColumns,
   { field: 'deployment.status', label: 'Status', width: '75px' },
   {
     field:     'route',
@@ -280,98 +389,48 @@ const allColumns = [
     sortable:  false,
     formatter: (_value: any, row: App) => makeAppRoutesCell(row)
   },
-  {
-    field:     'boundConfigs',
-    label:     'Bound Configs',
-    width:     '180px',
-    sortable:  false,
-    formatter: (_value: any, row: App) => {
-      const configs = row.configuration.configurations || [];
-      const span = document.createElement('span');
-
-      span.style.whiteSpace = 'normal';
-      span.style.overflowWrap = 'anywhere';
-      span.style.wordBreak = 'break-word';
-
-      configs.forEach((config, index) => {
-        const a = document.createElement('a');
-
-        try {
-          a.href = '#';
-        } catch {
-          a.href = '#';
-        }
-
-        a.addEventListener('click', (e) => {
-          e.preventDefault();
-          openConfigurationModal(row.meta.namespace, config);
-        });
-
-        a.textContent = config;
-        span.appendChild(a);
-
-        if (index < configs.length - 1) {
-          span.appendChild(document.createTextNode(', '));
-        }
-      });
-
-      return span;
-    }
-  },
-  {
-    field:     'boundServices',
-    label:     'Bound Services',
-    width:     '180px',
-    sortable:  false,
-    formatter: (_value: any, row: App) => {
-      const services = row.configuration.services || [];
-      const span = document.createElement('span');
-
-      span.style.whiteSpace = 'normal';
-      span.style.overflowWrap = 'anywhere';
-      span.style.wordBreak = 'break-word';
-
-      services.forEach((service, index) => {
-        const a = document.createElement('a');
-
-        try {
-          a.href = '#';
-        } catch {
-          a.href = '#';
-        }
-
-        a.addEventListener('click', (e) => {
-          e.preventDefault();
-          openServiceModal(row.meta.namespace, service);
-        });
-
-        a.textContent = service;
-        span.appendChild(a);
-
-        if (index < services.length - 1) {
-          span.appendChild(document.createTextNode(', '));
-        }
-      });
-
-      return span;
-    }
-  },
+  boundConfigsColumn,
+  boundServicesColumn,
   { field: 'deployment.username', label: 'Last Deployed By', width: '150px' },
   { field: 'meta.createdAt',      label: 'Age',              width: '50px', formatter: 'age' }
+];
+
+const undeployedColumns = [
+  ...baseColumns,
+  {
+    field: 'buildStatus',
+    label: t('epinio.applications.tableHeaders.buildStatus'),
+    width: '110px',
+  },
+  {
+    field: 'builtImageUrl',
+    label: t('epinio.applications.tableHeaders.builtImage'),
+    width: '220px',
+    formatter: (value: string) => makeTruncatedTextCell(value || '', '220px'),
+  },
+  { field: 'meta.createdAt', label: 'Age', width: '50px', formatter: 'age' }
 ];
 
 const columns = computed(() => {
   const w = windowWidth.value;
   const hide = new Set<string>();
+  const cols = listMode.value === 'undeployed' ? undeployedColumns : deployedColumns;
 
-  if (w < 1900) hide.add('deployment.username');
-  if (w < 1700) hide.add('deployment.status');
-  if (w < 1600) { hide.add('boundConfigs'); hide.add('boundServices'); }
+  if (listMode.value === 'deployed') {
+    if (w < 1900) hide.add('deployment.username');
+    if (w < 1700) hide.add('deployment.status');
+    if (w < 1600) { hide.add('boundConfigs'); hide.add('boundServices'); }
+    if (w < 875)  hide.add('route');
+  } else if (w < 1200) {
+    hide.add('builtImageUrl');
+  }
+
   if (w < 1150) hide.add('meta.createdAt');
-  if (w < 875)  hide.add('route');
 
-  return allColumns.filter(col => !hide.has(col.field));
+  return withServerSideSort(cols.filter(col => !hide.has(col.field)));
 });
+
+useServerTableSort(requestParams, tableEl, columns);
 </script>
 
 <template>
@@ -413,7 +472,31 @@ const columns = computed(() => {
       color="error"
       :label="applicationsError?.message || t('epinio.applications.errors.fetch')"
     />  
-    <div class="search-container">
+    <div class="list-toolbar">
+      <div
+        class="list-mode-switch"
+        role="group"
+        :aria-label="t('epinio.applications.listMode.label')"
+      >
+        <button
+          type="button"
+          class="list-mode-switch__btn"
+          :class="{ 'is-active': listMode === 'deployed' }"
+          :aria-pressed="listMode === 'deployed'"
+          @click="setListMode('deployed')"
+        >
+          {{ t('epinio.applications.listMode.deployed') }}
+        </button>
+        <button
+          type="button"
+          class="list-mode-switch__btn"
+          :class="{ 'is-active': listMode === 'undeployed' }"
+          :aria-pressed="listMode === 'undeployed'"
+          @click="setListMode('undeployed')"
+        >
+          {{ t('epinio.applications.listMode.undeployed') }}
+        </button>
+      </div>
       <trailhand-text-input
         :value="searchQuery"
         placeholder="Search..."
@@ -453,11 +536,54 @@ const columns = computed(() => {
 
 <style lang="scss" scoped>
 
-.search-container {
+.list-toolbar {
   width: 100%;
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
   margin-bottom: 1rem;
+
+  trailhand-text-input {
+    max-width: 280px;
+    margin-left: auto;
+  }
+}
+
+.list-mode-switch {
+  display: inline-flex;
+  align-items: stretch;
+  border: 1px solid var(--border);
+  border-radius: var(--border-radius);
+  overflow: hidden;
+  background: var(--input-bg, var(--body-bg));
+}
+
+.list-mode-switch__btn {
+  appearance: none;
+  border: 0;
+  margin: 0;
+  padding: 0.4rem 0.9rem;
+  background: transparent;
+  color: var(--body-text);
+  font: inherit;
+  font-size: 0.875rem;
+  line-height: 1.2;
+  cursor: pointer;
+
+  & + & {
+    border-left: 1px solid var(--border);
+  }
+
+  &.is-active {
+    background: var(--primary);
+    color: var(--primary-text, #fff);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--outline);
+    outline-offset: -2px;
+  }
 }
 
 trailhand-table {
@@ -470,7 +596,8 @@ trailhand-table {
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  max-width: 500px;
+  width: 500px;
+  max-width: 100%;
 }
 
 </style>

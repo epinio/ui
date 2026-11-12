@@ -23,7 +23,7 @@ const props = defineProps<{
   mode: string;
   active: boolean;
   modalOpen: boolean;
-  updateBuildOptions: (newBuildOptions: Partial<AppFormBuildOptions>) => void;
+  updateBuildOptions: (newBuildOptions: Partial<AppFormBuildOptions>, setInitial?: boolean) => void;
   updateDetails: (newDetails: Partial<AppFormDetails>) => void;
 }>();
 
@@ -61,7 +61,7 @@ function setDefaultAppChart() {
   const standard = items.find(ac => ac.meta.name === 'standard');
   props.updateBuildOptions({
     appChart: standard?.meta.name || items[0].meta.name
-  });
+  }, true);
 }
 // If no builder image is set from the source, default to the catalog's default or
 // its first entry. `custom` is a sentinel, not an image, so it is filtered out --
@@ -70,7 +70,7 @@ const setDefaultBuilderImage = () => {
   if (props.buildOptions.builderImage) return;
   const defaultBuilderImage = builderImagesData.value?.items?.find((bi: any) => bi.default)?.image || '';
   defaultBuilderImageForPlaceholder.value = defaultBuilderImage;
-  props.updateBuildOptions({ builderImage: defaultBuilderImage });
+  props.updateBuildOptions({ builderImage: defaultBuilderImage }, true);
 };
 // Watch for changes to the app charts and builder images and set defaults accordingly
 watch(appChartsData, setDefaultAppChart);
@@ -176,6 +176,10 @@ const showBuildMode = computed(() =>
 
 const showDockerfilePath = computed(() => showBuildMode.value && props.buildOptions.buildMode === APPLICATION_BUILD_MODE.DOCKERFILE);
 
+// Create wizard only — Edit already has Rebuild / Deploy Build actions; a
+// checked box here would silently skip redeploy after a source change.
+const showBuildOnly = computed(() => showBuildMode.value && props.mode === 'create');
+
 const buildModes = [
   { label: t('epinio.applications.steps.source.buildMode.buildpack'), value: APPLICATION_BUILD_MODE.BUILDPACK },
   { label: t('epinio.applications.steps.source.buildMode.dockerfile'), value: APPLICATION_BUILD_MODE.DOCKERFILE },
@@ -243,8 +247,25 @@ function handleBuilderImageDropdownChange(value: string) {
         </div>
       </template>
 
+      <template v-if="showBuildOnly">
+        <div class="spacer source build-only">
+          <label class="build-only__label">
+            <input
+              type="checkbox"
+              :checked="!!buildOptions.buildOnly"
+              data-testid="epinio_app-source_build-only"
+              @change="(e: Event) => updateBuildOptions({ buildOnly: (e.target as HTMLInputElement).checked })"
+            />
+            <span>
+              <strong>{{ t('epinio.applications.steps.source.buildOnly.label') }}</strong>
+              <span class="build-only__help">{{ t('epinio.applications.steps.source.buildOnly.help') }}</span>
+            </span>
+          </label>
+        </div>
+      </template>
+
       <template v-if="showBuilderImage">
-        <div class="spacer source builder-image">
+        <div class="spacer source option">
           <h4>Paketo Builder Image</h4>
           <trailhand-dropdown
             v-if="!buildOptions.builderImagesForbidden"
@@ -278,10 +299,28 @@ function handleBuilderImageDropdownChange(value: string) {
 
 
 <style lang="scss" scoped>
-.builder-image {
+.option {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+}
+.build-only__label {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  cursor: pointer;
+  font: inherit;
+
+  input {
+    margin-top: 0.2rem;
+  }
+}
+.build-only__help {
+  display: block;
+  margin-top: 0.15rem;
+  color: var(--input-label, var(--muted));
+  font-size: 0.85em;
+  font-weight: normal;
 }
 .error-message {
   color: var(--error);

@@ -1,8 +1,6 @@
 <script setup lang="ts">
-import { EPINIO_TYPES } from '../types';
 import { useStore } from 'vuex';
 import { computed, ref, watch } from 'vue';
-import Masthead from '@shell/components/ResourceList/Masthead';
 import { debounce } from 'lodash';
 import { makeActionMenu } from '../utils/table-formatters';
 import GitConfigModal from '../components/gitconfigs/GitConfigModal.vue';
@@ -12,6 +10,7 @@ import { useGitConfigs } from '../queries/useGitConfigQueries';
 import { GitConfig } from '../models/gitconfig/ui-types';
 import { useUser } from '../queries/useUserQueries';
 import Banner from '@components/Banner/Banner.vue';
+import { patchTrailhandServerSort, useServerTableSort, withServerSideSort } from '../utils/server-table-sort';
 
 defineProps<{ schema: object }>(); // Keep for compatibility
 
@@ -19,8 +18,8 @@ const store = useStore();
 
 const gitConfigModal = ref<InstanceType<typeof GitConfigModal> | null>(null);
 const gitConfigDeleteModal = ref<InstanceType<typeof GitConfigDeleteModal> | null>(null);
+const tableEl = ref<any>(null);
 
-const resource: string = EPINIO_TYPES.GIT_CONFIG;
 
 const { data: user, isError: isErrorUser, error: userError } = useUser(store);
 
@@ -55,6 +54,10 @@ const canEdit = computed(() => {
 const canDelete = canEdit;
 const canCreate = canEdit;
 
+const openCreateModal = () => {
+  gitConfigModal.value?.openCreate();
+};
+
 const openDeleteModal = (gitConfig: GitConfig) => {
   gitConfigDeleteModal.value?.openDelete(gitConfig);
 };
@@ -80,7 +83,7 @@ const displayRows = computed(() => {
   return rows;
 });
 
-const columns = [
+const columns = withServerSideSort([
   {
     field: 'meta.name',
     label: 'Name'
@@ -99,27 +102,38 @@ const columns = [
     label:     'Age',
     formatter: 'age'
   }
-];
+]);
+
+const setTableRef = (el: any) => {
+  if (el) {
+    tableEl.value = el;
+    el.renderActions = makeActionMenu;
+    patchTrailhandServerSort(el, requestParams);
+  }
+};
+
+useServerTableSort(requestParams, tableEl, columns);
 </script>
 
 <template>
   <div id="modal-container-element">
-    <Masthead
-      :schema="schema"
-      :resource="resource"
-    >
-      <template #createButton>
+    <div class="heading">
+      <h1>Git Configs</h1>
+      <div class="actions">
         <trailhand-button
           v-if="canCreate"
           variant="primary"
-          size="large"
-          @button-click="gitConfigModal?.openCreate()"
+          @click="openCreateModal()"
         >
           {{ t('generic.create') }}
         </trailhand-button>
-        <div v-else></div>
-      </template>
-    </Masthead>
+        <trailhand-text-input
+          :value="searchQuery"
+          placeholder="Search..."
+          @text-input-change="(e: CustomEvent) => searchQuery = e.detail.value"
+        ></trailhand-text-input>
+      </div>
+    </div>
     <Banner
       v-if="isErrorUser"
       color="error"
@@ -130,15 +144,8 @@ const columns = [
       color="error"
       :label="gitConfigsError?.message || t('epinio.gitconfigs.errors.fetch')"
     />  
-    <div class="search-container">
-      <trailhand-text-input
-        :value="searchQuery"
-        placeholder="Search..."
-        @text-input-change="(e: CustomEvent) => searchQuery = e.detail.value"
-      ></trailhand-text-input>
-    </div>
     <trailhand-table
-      :ref="(el: any) => { if (el) el.renderActions = makeActionMenu; }"
+      :ref="setTableRef"
       :rows="displayRows"
       :columns="columns"
       :server-side="true"
@@ -155,11 +162,21 @@ const columns = [
 </template>
 
 <style lang="scss" scoped>
-.search-container {
-  width: 100%;
+.heading {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: flex-end;
   margin-bottom: 1rem;
+
+  h1 {
+    margin: 0;
+  }
+}
+
+.actions {
+  display: flex;
+  align-items: flex-end;
+  gap: 1rem;
 }
 
 trailhand-table {

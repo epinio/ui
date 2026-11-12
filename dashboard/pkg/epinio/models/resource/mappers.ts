@@ -7,6 +7,8 @@ export function toApiListResourceRequestParams(params: ListResourceRequestParams
         page: params.page,
         pageSize: params.pageSize,
         search: params.search,
+        sort: params.sort,
+        sortDir: params.sortDir,
     };
     if (namespaces) {
         apiParams.namespaces = namespaces;
@@ -39,4 +41,9 @@ export const statusToStateDisplay: Record<string, string> = {
     created: 'Created',
     updating: 'Updating',
     staging: 'Staging',
+    built: 'Built',
+    deploying: 'Deploying',
+    failed: 'Failed',
+    fail: 'Failed',
+    unknown: 'Unknown',
 };
