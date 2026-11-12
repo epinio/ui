@@ -234,7 +234,7 @@ export function useAppPipeline(store: any) {
             blobUid: buildCache.value.blobUid, 
             createdAt: app.value?.meta?.createdAt, 
             stageId: state.source.dirty.value ? undefined : app.value?.stageId, 
-            imageUrl: state.source.dirty.value ? undefined : app.value?.imageUrl || app.value?.builtImageUrl || undefined
+            imageUrl: state.source.dirty.value ? undefined : app.value?.builtImageUrl || app.value?.imageUrl || undefined
           }
         );
         await stepRunner('deploy', async () => {

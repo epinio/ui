@@ -17,11 +17,13 @@ const t = store.getters['i18n/t'];
 const showModal = ref(false);
 const modalMode = ref<'create' | 'edit'>('create');
 
+// deployOnly is used to determine when the user is deploy an app build
+// This can be done from the build action menu or by selecting a container image in the modal
 const deployOnly = ref(false);
 
 const initialApp = ref<App | null>(null);
 
-const { form, initialForm, populateFormFromApp, clearForm, state, update } = useAppForm(modalMode);
+const { form, initialForm, populateFormFromApp, clearForm, state, update } = useAppForm(modalMode, deployOnly, initialApp);
 
 const activeTab = ref<string | number>('source')
 const isPipelineActive = ref<boolean>(false);

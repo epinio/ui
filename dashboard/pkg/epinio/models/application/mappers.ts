@@ -352,7 +352,7 @@ export function appToAppDeployRequest(app: App, restaging?: boolean): AppDeployR
         builderImage: app.staging.builder,
         buildMode: app.staging.buildMode,
         dockerfilePath: app.staging.dockerfilePath,
-        image: app.imageUrl,
+        image: app.builtImageUrl || app.imageUrl,
         origin: app.origin,
         stage: {
             id: app.stageId

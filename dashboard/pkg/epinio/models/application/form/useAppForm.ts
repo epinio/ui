@@ -41,7 +41,7 @@ interface UseAppFormReturn {
     };
 }
 
-export function useAppForm(mode: Ref<'create' | 'edit'>): UseAppFormReturn {
+export function useAppForm(mode: Ref<'create' | 'edit'>, deployOnly: Ref<boolean>, initialApp: Ref<App | null>): UseAppFormReturn {
     const form = ref<AppForm>(initEmptyForm());
     const initialForm = ref<AppForm>(initEmptyForm());
 
@@ -84,6 +84,9 @@ export function useAppForm(mode: Ref<'create' | 'edit'>): UseAppFormReturn {
     });
 
     const isSourceValid = computed(() => {
+        // if deployOnly is true, this is an app build being deployed, so the source has already been validated
+        if (deployOnly.value && (initialApp.value?.builtImageUrl || initialApp.value?.imageUrl)) return true;
+
         switch (form.value.source.type) {
             case APPLICATION_SOURCE_TYPE.ARCHIVE:
             case APPLICATION_SOURCE_TYPE.FOLDER:
