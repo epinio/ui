@@ -539,13 +539,22 @@ export async function restageApp(
     epinioQueryClient.invalidateQueries({ queryKey: ['applications', clusterId] });
     epinioQueryClient.invalidateQueries({ queryKey: ['application', clusterId, namespace, name] });
 
-    if (app.deployment && app.status === 'running') {
+    // Rebuild only stages (CLI `app build`). For a running app, restart
+    // re-rolls the currently deployed image — Deploy Build applies the new one.
+    const wasRunning = !!(app.deployment && app.status === 'running');
+
+    if (wasRunning) {
       await restartApp(store, app, api, namespace, name, clusterId);
     }
 
     store.dispatch('growl/success', {
       title:   t('epinio.growl.application.restage.success.title'),
-      message: t('epinio.growl.application.restage.success.message', { name }),
+      message: t(
+        wasRunning
+          ? 'epinio.growl.application.restage.success.messageRunning'
+          : 'epinio.growl.application.restage.success.message',
+        { name },
+      ),
     });
   } catch (e: any) {
     console.error(e);
@@ -640,5 +649,6 @@ export async function deleteAppBuild(store: any, app: App) {
       title:   t('epinio.growl.application.deleteBuild.error.title'),
       message: extractActionErrorMessage(e, t('epinio.growl.application.deleteBuild.error.message'), t),
     });
+    throw e;
   }
 }

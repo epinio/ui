@@ -447,6 +447,11 @@ epinio:
         label: Deploy Build
       deleteBuild:
         label: Delete Build
+        confirm:
+          title: Are you sure?
+          body: 'You are attempting to delete the build for application { name }.'
+          registryWarning: This permanently deletes the staged container image from the registry. This cannot be undone.
+          keepApp: The application resource itself will remain.
       restart:
         label: Restart
       createManifest:
@@ -614,8 +619,9 @@ epinio:
           title: Attempting to Rebuild Application!
           message: This may take a few moments, a window will open with live logs soon.
         success:
-          title: Application Rebuilt Successfully!
-          message: '{ name } has been rebuilt successfully.'
+          title: Application Built Successfully!
+          message: 'New build for { name } is ready. Use Deploy Build to go live.'
+          messageRunning: 'New build for { name } is ready. Running image unchanged — use Deploy Build.'
         error:
           title: Something Went Wrong Rebuilding!
           message: This error occurs when there are missing resources in the cluster, contact your system admin to investigate the issue.
@@ -639,7 +645,7 @@ epinio:
       deleteBuild:
         info:
           title: Deleting Application Build!
-          message: Removing the staged image and build metadata. The application resource will remain.
+          message: Removing the staged image and build metadata. The application resource will remain. The image is also deleted from the registry.
         success:
           title: Application Build Deleted!
           message: 'Build for { name } has been removed.'

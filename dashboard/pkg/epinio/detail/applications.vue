@@ -20,6 +20,7 @@ import ConfigurationDeleteModal from '../components/configuration/ConfigurationD
 import AppModal from '../components/application/AppModal.vue';
 import ExportAppModal from '../dialog/ExportAppModal.vue';
 import AppDeleteModal from '../components/application/AppDeleteModal.vue';
+import AppBuildDeleteModal from '../components/application/AppBuildDeleteModal.vue';
 import { useApplication } from '../queries/useApplicationQueries';
 import { toInstanceStats, toAppSourceDetails, toAppForm } from '../models/application/mappers';
 import { ListResourceRequestParams, ResourceQueryOptions, ResourceTableRow } from '../models/resource/ui-types';
@@ -34,7 +35,7 @@ import { useUser } from '../queries/useUserQueries';
 import { App, AppForm, AppPodInfo } from '../models/application/ui-types';
 import { showAppShell } from '../models/application/actions/shell';
 import { showAppLog, showStagingLog } from '../models/application/actions/logs';
-import { restageApp, restartApp, deployBuiltApp, deleteAppBuild } from '../models/application/actions/restage';
+import { restageApp, restartApp, deployBuiltApp } from '../models/application/actions/restage';
 import { makeNameLinks, makeEmptyCell } from '../utils/table-formatters';
 import { useUpdateApplication } from '../queries/useApplicationMutations';
 import { useGitConfig } from '../queries/useGitConfigQueries';
@@ -53,6 +54,7 @@ const t = store.getters['i18n/t'];
 const appModal = ref<InstanceType<typeof AppModal> | null>(null);
 const exportAppModal = ref<InstanceType<typeof ExportAppModal> | null>(null);
 const appDeleteModal = ref<InstanceType<typeof AppDeleteModal> | null>(null);
+const appBuildDeleteModal = ref<InstanceType<typeof AppBuildDeleteModal> | null>(null);
 
 // Service modals
 const serviceModal = ref<InstanceType<typeof ServiceInstanceModal> | null>(null);
@@ -217,6 +219,9 @@ const openEditAppModal = (app: App) => {
 const openDeleteAppModal = (app: App) => {
   appDeleteModal.value?.openDelete(app);
 };
+const openDeleteAppBuildModal = (app: App) => {
+  appBuildDeleteModal.value?.openDelete(app);
+};
 const appAvailableActions = computed(() => {
   if (!application.value) return [];
   return [{
@@ -261,7 +266,7 @@ const appAvailableActions = computed(() => {
     visible: canEditApp.value,
   }, {
     label: t('epinio.applications.actions.deleteBuild.label'),
-    action: () => deleteAppBuild(store, application.value),
+    action: () => openDeleteAppBuildModal(application.value),
     enabled: canDeleteApp.value && appCanDeleteBuild(application.value),
     visible: canDeleteApp.value && appCanDeleteBuild(application.value),
     danger: true,
@@ -1157,6 +1162,7 @@ const appSourceDetails = computed(() => {
   <AppModal ref="appModal" />
   <ExportAppModal ref="exportAppModal" />
   <AppDeleteModal ref="appDeleteModal" @deleted="handleDeleted" />
+  <AppBuildDeleteModal ref="appBuildDeleteModal" />
 </template>
 
 <style lang="scss" scoped>
