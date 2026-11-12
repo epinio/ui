@@ -49,7 +49,7 @@ export const serverSortNoop = () => 0;
 /**
  * Attach no-op sortFn to every column that remains sortable.
  */
-export function withServerSideSort<T extends { sortable?: boolean; sortFn?: Function }>(
+export function withServerSideSort<T extends { sortable?: boolean; sortFn?: (...args: unknown[]) => number }>(
   columns: T[],
 ): T[] {
   return columns.map((column) => {
