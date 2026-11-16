@@ -1,3 +1,4 @@
+/* eslint-disable vue/one-component-per-file -- stub + harness components for unit tests */
 import { mount } from '@vue/test-utils';
 import { defineComponent, h, nextTick, reactive, ref } from 'vue';
 import AppBuildOptions from './AppBuildOptions.vue';
@@ -28,7 +29,12 @@ const builderImageCatalog = {
 // test can assert on them, and the test emits the events they would fire.
 const TrailhandDropdown = defineComponent({
   name: 'TrailhandDropdown',
-  props: ['options', 'value', 'label', 'isLoading'],
+  props: {
+    options: { type: Array, default: () => [] },
+    value: { type: [String, Number], default: '' },
+    label: { type: String, default: '' },
+    isLoading: { type: Boolean, default: false },
+  },
   render() {
     return h('div');
   },
@@ -36,7 +42,12 @@ const TrailhandDropdown = defineComponent({
 
 const TrailhandTextInput = defineComponent({
   name: 'TrailhandTextInput',
-  props: ['value', 'label', 'placeholder', 'disabled'],
+  props: {
+    value: { type: String, default: '' },
+    label: { type: String, default: '' },
+    placeholder: { type: String, default: '' },
+    disabled: { type: Boolean, default: false },
+  },
   render() {
     return h('input');
   },
