@@ -34,6 +34,11 @@ watch(() => props.modalOpen, (newVal) => {
 
 const dockerfilePathError = ref('');
 const defaultBuilderImageForPlaceholder = ref('');
+// When the user explicitly chooses Custom, keep that mode even if the text
+// matches a catalog image (e.g. pasting the default to bump its version).
+// Without this, selectedBuilderImage snaps back to the catalog entry and the
+// text input locks again — EPINIO-811.
+const useCustomBuilderImage = ref(false);
 
 const appChartsRequestParams = ref<ListResourceRequestParams>({ page: 1, pageSize: 25, search: '' });
 const appChartsRequestOptions = ref<ResourceQueryOptions>({ enabled: false, polling: false });
@@ -79,6 +84,8 @@ watch(
   () => props.modalOpen,
   (isOpen) => {
     if (isOpen) {
+      // Fresh open should derive selection from the form value, not a prior Custom choice.
+      useCustomBuilderImage.value = false;
       setDefaultAppChart();
       setDefaultBuilderImage();
     }
@@ -111,6 +118,10 @@ const allBuilderImages = computed(() => {
 });
 
 const selectedBuilderImage = computed(() => {
+  if (useCustomBuilderImage.value) {
+    return 'custom';
+  }
+
   return allBuilderImages.value.some(
     (bi) => bi.value === props.buildOptions.builderImage
   )
@@ -183,8 +194,12 @@ const buildModes = [
 
 function handleBuilderImageDropdownChange(value: string) {
   if (value === 'custom') {
-    props.updateBuildOptions({ builderImage: '' });
+    useCustomBuilderImage.value = true;
+    // Do not clear builderImage. Users often pick Custom to bump the current
+    // / default image version; clearing forced a paste that matched the catalog
+    // and snapped the dropdown back to Standard (EPINIO-811).
   } else {
+    useCustomBuilderImage.value = false;
     props.updateBuildOptions({ builderImage: value });
   }
 }
