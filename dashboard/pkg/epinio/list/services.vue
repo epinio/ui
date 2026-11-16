@@ -14,6 +14,7 @@ import { useBulkRemoveServiceInstances, useUnbindServiceInstance } from '../quer
 import { ServiceInstance } from '../models/service/ui-types';
 import Banner from '@components/Banner/Banner.vue';
 import { useUser } from '../queries/useUserQueries';
+import { patchTrailhandServerSort, useServerTableSort, withServerSideSort } from '../utils/server-table-sort';
 
 defineProps<{
   schema: object,
@@ -178,6 +179,7 @@ const setTableRef = (el: any) => {
     tableEl.value = el;
     el.renderActions = makeActionMenu;
     el.rowSelectable = isRowSelectable;
+    patchTrailhandServerSort(el, requestParams);
   }
 };
 
@@ -193,7 +195,8 @@ const allColumns = [
     formatter: (_v: any, row: ServiceInstance) => makeStateTag(row)
   },
   {
-    field: 'nameDisplay',
+    // meta.name so server-side sort keys resolve to a real string value.
+    field: 'meta.name',
     label: 'Name',
     formatter: (_v: any, row: ServiceInstance) => {
       const el = document.createElement('a');
@@ -252,8 +255,10 @@ const columns = computed(() => {
   if (w < 1600) hide.add('catalogService');
   if (w < 1150) hide.add('meta.createdAt'); 
 
-  return allColumns.filter(col => !hide.has(col.field));
+  return withServerSideSort(allColumns.filter(col => !hide.has(col.field)));
 });
+
+useServerTableSort(requestParams, tableEl, columns);
 </script>
 
 <template>

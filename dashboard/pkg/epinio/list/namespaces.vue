@@ -15,6 +15,7 @@ import { useUser } from '../queries/useUserQueries';
 import { useRouter } from 'vue-router';
 import { createEpinioRoute } from '../utils/custom-routing';
 import { createNamespaceFilterKey } from '@shell/utils/namespace-filter';
+import { patchTrailhandServerSort, useServerTableSort, withServerSideSort } from '../utils/server-table-sort';
 
 defineProps<{
   schema: object,
@@ -44,6 +45,7 @@ const requestParams = ref<ListResourceRequestParams>({
 });
 const requestOptions = ref<ResourceQueryOptions>({ enabled: true, polling: true, isTablePagination: true });
 const {data: namespaces, isLoading: isLoadingNamespaces, isError: isErrorNamespaces, error: namespacesError} = useNamespaces(store, requestParams, requestOptions);
+const tableEl = ref<any>(null);
 
 const onSearch = debounce(async (query: string) => {
   requestParams.value.page = 1;
@@ -110,7 +112,7 @@ function openDeleteModal(namespace: Namespace) {
 
 const namespaceFilterKey = computed(() => createNamespaceFilterKey(store.getters['clusterId'], store.getters['currentProduct']));
 
-const columns = [
+const columns = withServerSideSort([
   {
     field: 'meta.name',
     label: t('epinio.namespace.name'),
@@ -201,7 +203,17 @@ const columns = [
     label: t('epinio.namespace.tableHeaders.age'),
     formatter: 'age'
   }
-];
+]);
+
+const setTableRef = (el: any) => {
+  if (el) {
+    tableEl.value = el;
+    el.renderActions = attachActionMenu;
+    patchTrailhandServerSort(el, requestParams);
+  }
+};
+
+useServerTableSort(requestParams, tableEl, columns);
 </script>
 
 <template>
@@ -234,7 +246,7 @@ const columns = [
       :label="userError?.message || t('epinio.user.errors.fetch')"
     />  
     <trailhand-table
-      :ref="(el: any) => { if (el) el.renderActions = attachActionMenu; }"
+      :ref="setTableRef"
       :rows="displayRows"
       :columns="columns"
       :server-side="true"

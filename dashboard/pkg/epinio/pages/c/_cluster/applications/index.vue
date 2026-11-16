@@ -28,6 +28,7 @@ import ConfigurationModal from '../../../../components/configuration/Configurati
 import { fetchConfiguration } from '../../../../queries/useConfigurationQueries';
 import { fetchService } from '../../../../queries/useServiceQueries';
 import Tabs from '../../../../components/application/Tabs.vue';
+import { patchTrailhandServerSort, useServerTableSort, withServerSideSort } from '../../../../utils/server-table-sort';
 
 const store = useStore() as any;
 const t = store.getters['i18n/t'];
@@ -310,6 +311,8 @@ const setTableRef = (el: any) => {
     tableEl.value = el;
     el.renderActions = (row: any) => makeActionMenu(row, 'deployed');
     el.rowSelectable = isRowSelectable;
+    // Patch immediately on mount — click-listener approach missed sort params.
+    patchTrailhandServerSort(el, requestParams);
   }
 };
 const setUndeployedTableRef = (el: any) => {
@@ -317,6 +320,7 @@ const setUndeployedTableRef = (el: any) => {
     undeployedTableEl.value = el;
     el.renderActions = (row: any) => makeActionMenu(row, 'undeployed');
     el.rowSelectable = isRowSelectable;
+    patchTrailhandServerSort(el, undeployedRequestParams);
   }
 };
 
@@ -335,7 +339,8 @@ const allColumns = [
     formatter: (_value: string, row: App) => makeStateTag(row)
   },
   {
-    field: 'nameDisplay',
+    // Use meta.name (not nameDisplay) so sort keys resolve to a real string.
+    field: 'meta.name',
     label: 'Name',
     width: '125px',
     formatter: (_value: any, row: App) => row.deployment ? makeNameLinks(
@@ -447,8 +452,11 @@ const columns = computed(() => {
   if (w < 1150) hide.add('meta.createdAt');
   if (w < 875)  hide.add('route');
 
-  return allColumns.filter(col => !hide.has(col.field));
+  return withServerSideSort(allColumns.filter(col => !hide.has(col.field)));
 });
+
+useServerTableSort(requestParams, tableEl, columns);
+useServerTableSort(undeployedRequestParams, undeployedTableEl, columns);
 </script>
 
 <template>
