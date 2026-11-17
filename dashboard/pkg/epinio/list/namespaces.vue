@@ -15,7 +15,7 @@ import { useUser } from '../queries/useUserQueries';
 import { useRouter } from 'vue-router';
 import { createEpinioRoute } from '../utils/custom-routing';
 import { createNamespaceFilterKey } from '@shell/utils/namespace-filter';
-import { patchTrailhandServerSort, useServerTableSort, withServerSideSort } from '../utils/server-table-sort';
+import { DEFAULT_SORT_FIELD_MAP } from '../utils/server-table-sort';
 
 defineProps<{
   schema: object,
@@ -112,7 +112,7 @@ function openDeleteModal(namespace: Namespace) {
 
 const namespaceFilterKey = computed(() => createNamespaceFilterKey(store.getters['clusterId'], store.getters['currentProduct']));
 
-const columns = withServerSideSort([
+const columns = [
   {
     field: 'meta.name',
     label: t('epinio.namespace.name'),
@@ -203,17 +203,15 @@ const columns = withServerSideSort([
     label: t('epinio.namespace.tableHeaders.age'),
     formatter: 'age'
   }
-]);
+];
 
 const setTableRef = (el: any) => {
   if (el) {
     tableEl.value = el;
     el.renderActions = attachActionMenu;
-    patchTrailhandServerSort(el, requestParams);
   }
 };
 
-useServerTableSort(requestParams, tableEl, columns);
 </script>
 
 <template>
@@ -256,6 +254,7 @@ useServerTableSort(requestParams, tableEl, columns);
       :searchable="false"
       key-field="id"
       @page-change="(e: CustomEvent) => { requestParams.page = e.detail.page; }"
+      @column-sort="(e: CustomEvent) => { requestParams.sort = DEFAULT_SORT_FIELD_MAP[e.detail.columnField]; requestParams.sortDir = e.detail.sortDirection; requestParams.page = 1; }"
     />
     <NamespaceModal ref="namespaceModal"/>
     <NamespaceDeleteModal ref="namespaceDeleteModal"/>

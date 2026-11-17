@@ -17,7 +17,7 @@ import { fetchService } from '../queries/useServiceQueries';
 import ServiceInstanceModal from '../components/service/ServiceInstanceModal.vue';
 import Banner from '@components/Banner/Banner.vue';
 import { useUser } from '../queries/useUserQueries';
-import { patchTrailhandServerSort, useServerTableSort, withServerSideSort } from '../utils/server-table-sort';
+import { DEFAULT_SORT_FIELD_MAP } from '../utils/server-table-sort';
 
 const store = useStore();
 const router = useRouter();
@@ -179,7 +179,6 @@ const setTableRef = (el: any) => {
     tableEl.value = el;
     el.renderActions = makeActionMenu;
     el.rowSelectable = isRowSelectable;
-    patchTrailhandServerSort(el, requestParams);
   }
 };
 
@@ -280,10 +279,9 @@ const columns = computed(() => {
     hide.add('meta.createdAt');
   }
 
-  return withServerSideSort(allColumns.filter(col => !hide.has(col.field)));
+  return allColumns.filter(col => !hide.has(col.field));
 });
 
-useServerTableSort(requestParams, tableEl, columns);
 </script>
 
 <template>
@@ -336,6 +334,7 @@ useServerTableSort(requestParams, tableEl, columns);
       key-field="id"
       @navigate="handleNavigate"
       @page-change="(e: CustomEvent) => { requestParams.page = e.detail.page; }"
+      @column-sort="(e: CustomEvent) => { requestParams.sort = DEFAULT_SORT_FIELD_MAP[e.detail.columnField]; requestParams.sortDir = e.detail.sortDirection; requestParams.page = 1; }"
       @selection-change="handleSelectionChange"
     />
     <ConfigurationModal ref="configModal" />
