@@ -28,6 +28,7 @@ describe('DEFAULT_SORT_FIELD_MAP', () => {
     ['catalogServiceVersion', 'catalogServiceVersion'],
     ['appCount', 'appCount'],
     ['configCount', 'configCount'],
+    ['serviceInstanceCount', 'serviceInstanceCount'],
     ['description', 'description'],
     ['image', 'image'],
     ['helmChart', 'helmChart'],

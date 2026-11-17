@@ -29,6 +29,7 @@ export const DEFAULT_SORT_FIELD_MAP: Record<string, string> = {
   // Namespaces
   appCount: 'appCount',
   configCount: 'configCount',
+  serviceInstanceCount: 'serviceInstanceCount',
   // Builder images / app charts / gitconfigs
   description: 'description',
   image: 'image',
