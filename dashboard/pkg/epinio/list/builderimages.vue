@@ -9,7 +9,7 @@ import ImageDeleteModal from '../components/images/ImageDeleteModal.vue';
 import { ResourceQueryOptions, ListResourceRequestParams, ResourceTableRow } from '../models/resource/ui-types';
 import { BuilderImage } from '../models/builderimage/ui-types';
 import { useUser } from '../queries/useUserQueries';
-import { patchTrailhandServerSort, useServerTableSort, withServerSideSort } from '../utils/server-table-sort';
+import { DEFAULT_SORT_FIELD_MAP } from '../utils/server-table-sort';
 
 defineProps<{ schema: object }>(); // Keep for compatibility
 
@@ -92,7 +92,7 @@ const displayRows = computed(() => {
   return rows;
 });
 
-const columns = withServerSideSort([
+const columns = [
   {
     field: 'meta.name',
     label: 'Name',
@@ -123,17 +123,15 @@ const columns = withServerSideSort([
     label:     'Age',
     formatter: 'age'
   }
-]);
+];
 
 const setTableRef = (el: any) => {
   if (el) {
     tableEl.value = el;
     el.renderActions = makeActionMenu;
-    patchTrailhandServerSort(el, requestParams);
   }
 };
 
-useServerTableSort(requestParams, tableEl, columns);
 </script>
 
 <template>
@@ -176,6 +174,7 @@ useServerTableSort(requestParams, tableEl, columns);
       :loading="isLoadingBuilderImages"
       key-field="id"
       @page-change="(e: CustomEvent) => { requestParams.page = e.detail.page; }"
+      @column-sort="(e: CustomEvent) => { requestParams.sort = DEFAULT_SORT_FIELD_MAP[e.detail.columnField]; requestParams.sortDir = e.detail.sortDirection; requestParams.page = 1; }"
     />
   </div>
   <ImageModal ref="imageModal" />

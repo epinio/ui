@@ -28,7 +28,7 @@ import ConfigurationModal from '../../../../components/configuration/Configurati
 import { fetchConfiguration } from '../../../../queries/useConfigurationQueries';
 import { fetchService } from '../../../../queries/useServiceQueries';
 import Tabs from '../../../../components/application/Tabs.vue';
-import { patchTrailhandServerSort, useServerTableSort, withServerSideSort } from '../../../../utils/server-table-sort';
+import { DEFAULT_SORT_FIELD_MAP } from '../../../../utils/server-table-sort';
 
 const store = useStore() as any;
 const t = store.getters['i18n/t'];
@@ -311,8 +311,6 @@ const setTableRef = (el: any) => {
     tableEl.value = el;
     el.renderActions = (row: any) => makeActionMenu(row, 'deployed');
     el.rowSelectable = isRowSelectable;
-    // Patch immediately on mount — click-listener approach missed sort params.
-    patchTrailhandServerSort(el, requestParams);
   }
 };
 const setUndeployedTableRef = (el: any) => {
@@ -320,7 +318,6 @@ const setUndeployedTableRef = (el: any) => {
     undeployedTableEl.value = el;
     el.renderActions = (row: any) => makeActionMenu(row, 'undeployed');
     el.rowSelectable = isRowSelectable;
-    patchTrailhandServerSort(el, undeployedRequestParams);
   }
 };
 
@@ -452,11 +449,9 @@ const columns = computed(() => {
   if (w < 1150) hide.add('meta.createdAt');
   if (w < 875)  hide.add('route');
 
-  return withServerSideSort(allColumns.filter(col => !hide.has(col.field)));
+  return allColumns.filter(col => !hide.has(col.field));
 });
 
-useServerTableSort(requestParams, tableEl, columns);
-useServerTableSort(undeployedRequestParams, undeployedTableEl, columns);
 </script>
 
 <template>
@@ -511,6 +506,7 @@ useServerTableSort(undeployedRequestParams, undeployedTableEl, columns);
           key-field="id"
           @navigate="handleNavigate"
           @page-change="(e: CustomEvent) => { requestParams.page = e.detail.page; }"
+          @column-sort="(e: CustomEvent) => { requestParams.sort = DEFAULT_SORT_FIELD_MAP[e.detail.columnField]; requestParams.sortDir = e.detail.sortDirection; requestParams.page = 1; }"
           @selection-change="handleSelectionChange"
         />
       </template>
@@ -528,6 +524,7 @@ useServerTableSort(undeployedRequestParams, undeployedTableEl, columns);
           key-field="id"
           @navigate="handleNavigate"
           @page-change="(e: CustomEvent) => { undeployedRequestParams.page = e.detail.page; }"
+          @column-sort="(e: CustomEvent) => { undeployedRequestParams.sort = DEFAULT_SORT_FIELD_MAP[e.detail.columnField]; undeployedRequestParams.sortDir = e.detail.sortDirection; undeployedRequestParams.page = 1; }"
           @selection-change="handleSelectionChange"
         />
       </template>
