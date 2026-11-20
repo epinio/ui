@@ -1,4 +1,4 @@
-import { EPINIO_TYPES } from '../../types';
+import { EPINIO_TYPES } from '../../../types';
 import {
   NAMESPACE_FILTER_ALL as ALL,
   NAMESPACE_FILTER_KINDS,
