@@ -13,7 +13,8 @@ export default tseslint.config(
     '**/.yarn/**',
     '**/babel.config.js',
     '**/vue.config.js',
-    '**/jest.config.js'
+    '**/jest.config.js',
+    'jest/**'
   ],
 },
 eslint.configs.recommended,
