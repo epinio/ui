@@ -19,6 +19,8 @@ export function mapSettingsFromApiResponse(apiResponse: any) {
     enum: apiResponse.settings[key].enum || [],
     minimum: apiResponse.settings[key].minimum || '',
     maximum: apiResponse.settings[key].maximum || '',
+    description: apiResponse.settings[key].description || '',
+    example: apiResponse.settings[key].example || '',
     value: apiResponse.values?.[key] ?? (apiResponse.settings[key].type === 'bool' ? false : ''),
   }));
   return mappedSettings;
@@ -35,6 +37,12 @@ export function mapSettingsToApiRequest(chartSettings: ChartSetting[]) {
     }
     if ((setting.type === 'number' || setting.type === 'integer') && setting.maximum !== undefined) {
       acc[setting.name].maximum = String(setting.maximum); // string not number
+    }
+    if (setting.description) {
+      acc[setting.name].description = setting.description;
+    }
+    if (setting.example) {
+      acc[setting.name].example = setting.example;
     }
     return acc;
   }, {} as Record<string, any>);

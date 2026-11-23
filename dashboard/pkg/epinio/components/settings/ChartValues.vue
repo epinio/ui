@@ -55,7 +55,11 @@ const onInputCheckbox = (key: string, value: boolean) => {
 
 <template>
   <div class="chart-values">
-    <div v-for="(setting) in props.chart" :key="setting.name" class="chart-values-item">
+    <div
+      v-for="(setting) in props.chart"
+      :key="setting.name"
+      class="chart-values-item"
+    >
       <trailhand-text-input
         v-if="setting.type === 'number' || setting.type === 'integer'"
         :id="setting.name"
@@ -65,6 +69,8 @@ const onInputCheckbox = (key: string, value: boolean) => {
         type="number"
         :min="setting.minimum"
         :max="setting.maximum"
+        :placeholder="setting.example || undefined"
+        :title="setting.description || undefined"
         :disabled="props.disabled"
         @text-input-change="(e: CustomEvent) => props.value[setting.name] = e.detail.value"
        />
@@ -72,6 +78,7 @@ const onInputCheckbox = (key: string, value: boolean) => {
         v-else-if="setting.type === 'bool'"
         :id="setting.name"
         :checked="props.value[setting.name] === 'true'"
+        :title="setting.description || undefined"
         :disabled="props.disabled"
         @checkbox-change="(e: CustomEvent) => onInputCheckbox(setting.name, e.detail.checked)"
        >{{ setting.name }}</trailhand-checkbox>
@@ -81,6 +88,8 @@ const onInputCheckbox = (key: string, value: boolean) => {
         style="flex: 1;"
         :value="props.value[setting.name]"
         :label="setting.name"
+        :placeholder="setting.example || undefined"
+        :title="setting.description || undefined"
         :options="setting.enum.map((option: string) => ({ label: option, value: option }))"
         :disabled="props.disabled"
         @dropdown-change="(e: CustomEvent) => props.value[setting.name] = e.detail.value"
@@ -91,6 +100,8 @@ const onInputCheckbox = (key: string, value: boolean) => {
         style="flex: 1;"
         :value="props.value[setting.name]"
         :label="setting.name"
+        :placeholder="setting.example || undefined"
+        :title="setting.description || undefined"
         :disabled="props.disabled"
         @text-input-change="(e: CustomEvent) => props.value[setting.name] = e.detail.value"
        />

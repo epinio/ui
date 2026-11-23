@@ -16,6 +16,8 @@ export interface ApiChartSetting {
     enum?: string[];
     maximum?: number;
     minimum?: number;
+    description?: string;
+    example?: string;
 }
 
 export interface ApiCatalogService {

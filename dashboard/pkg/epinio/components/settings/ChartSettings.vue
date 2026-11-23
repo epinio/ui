@@ -96,6 +96,7 @@ function addSetting() {
                   value === 'number' || value === 'integer'
                     ? setting.maximum
                     : undefined,
+                example: value === 'bool' ? undefined : setting.example,
                 value: undefined,
               });
             }
@@ -125,6 +126,28 @@ function addSetting() {
           Remove
         </trailhand-button>
       </div>
+    </trailhand-form-row>
+
+    <trailhand-form-row :columns="setting.type === 'bool' ? 1 : 2">
+      <trailhand-text-input
+        :value="setting.description"
+        label="Description"
+        placeholder="Help text shown as a tooltip"
+        :disabled="disabled"
+        @text-input-change="
+          (e) => updateSetting(index, { description: e.detail.value })
+        "
+      />
+      <trailhand-text-input
+        v-if="setting.type !== 'bool'"
+        :value="setting.example"
+        label="Example"
+        placeholder="Placeholder shown in the input"
+        :disabled="disabled"
+        @text-input-change="
+          (e) => updateSetting(index, { example: e.detail.value })
+        "
+      />
     </trailhand-form-row>
 
     <trailhand-form-row

@@ -17,6 +17,8 @@ export interface ChartSetting {
     enum?: string[];
     maximum?: number;
     minimum?: number;
+    description?: string;
+    example?: string;
     value?: any;
 }
 
