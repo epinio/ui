@@ -30,6 +30,7 @@ export interface ApiAppPodInfo {
     name: string;
     ready: boolean;
     restarts: number;
+    failure_reason?: string;
 }
 
 export interface ApiAppDeployment {
@@ -81,6 +82,8 @@ export interface ApiApp {
     statusmessage: string;
     blobuid: string;
     built_image_url?: string;
+    failure_reason?: string;
+    staging_failure_reason?: string;
 }
 
 export type ApiListAppsResponse = ApiListResourceResponse<ApiApp>;

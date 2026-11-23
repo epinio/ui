@@ -30,6 +30,7 @@ export interface AppPodInfo {
     name: string;
     ready: boolean;
     restarts: number;
+    failureReason?: string
 }
 
 export interface AppDeployment {
@@ -82,6 +83,8 @@ export interface App {
     blobUid: string;
     canRetryBuild: boolean;
     builtImageUrl?: string;
+    failureReason?: string;
+    stagingFailureReason?: string;
 }
 
 export type ListAppsResponse = ListResourceResponse<App>;

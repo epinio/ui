@@ -1,4 +1,4 @@
-import { ApiApp, ApiAppConfiguration, ApiAppDeployment, ApiAppOrigin, ApiAppStage, ApiAppGitRef, ApiListAppsResponse, ApiAppStageRequest, ApiAppDeployRequest, ApiAppDeleteRequest, ApiAppUpdateRequest, ApiAppCreateRequest, ApiAppManifest, ApiAppStoreArchiveResponse, ApiOperationsResponse, ApiAppOperation, ApiSkippedApp, ApiAppState } from "./api-types";
+import { ApiApp, ApiAppConfiguration, ApiAppDeployment, ApiAppOrigin, ApiAppStage, ApiAppGitRef, ApiListAppsResponse, ApiAppStageRequest, ApiAppDeployRequest, ApiAppDeleteRequest, ApiAppUpdateRequest, ApiAppCreateRequest, ApiAppManifest, ApiAppStoreArchiveResponse, ApiAppPodInfo, ApiOperationsResponse, ApiAppOperation, ApiSkippedApp, ApiAppState } from "./api-types";
 import { App, AppConfiguration, AppDeployment, AppOrigin, AppStage, AppGitRef, ListAppsResponse, AppStageRequest, AppDeployRequest, AppDeleteRequest, AppUpdateRequest, AppCreateRequest, AppFormSource, AppFormBindings, AppFormDetails, AppFormBuildOptions, AppForm, AppManifest, AppStoreArchiveResponse, AppMeta, AppPodInfo, OperationsResponse, AppOperation, SkippedApp, AppState } from "./ui-types";
 import { statusToStateDisplay } from "../../models/resource/mappers";
 import { AppUtils } from "../../utils/application";
@@ -27,15 +27,32 @@ function toAppConfiguration(apiConfiguration: ApiAppConfiguration, fromManifest?
     };
 }
 
+function toAppPodInfo (apiPodInfo: ApiAppPodInfo): AppPodInfo {
+    return {
+        createdAt: apiPodInfo.createdAt,
+        memoryBytes: apiPodInfo.memoryBytes,
+        metricsOk: apiPodInfo.metricsOk,
+        millicpus: apiPodInfo.millicpus,
+        name: apiPodInfo.name,
+        ready: apiPodInfo.ready,
+        restarts: apiPodInfo.restarts,
+        failureReason: apiPodInfo.failure_reason,
+    }
+}
+
 function toAppDeployment(apiDeployment: ApiAppDeployment | undefined): AppDeployment | undefined {
     if (!apiDeployment) return undefined;
+    const replicas = apiDeployment.replicas;
+    Object.keys(apiDeployment.replicas).forEach((key) => {
+        replicas[key] = toAppPodInfo(apiDeployment.replicas[key])
+    })
     return {
         active: apiDeployment.active,
         createdAt: apiDeployment.createdAt,
         desiredReplicas: apiDeployment.desiredreplicas,
         name: apiDeployment.name,
         readyReplicas: apiDeployment.readyreplicas,
-        replicas: apiDeployment.replicas,
+        replicas: replicas,
         routes: apiDeployment.routes,
         stageId: apiDeployment.stage_id,
         status: apiDeployment.status,
@@ -111,7 +128,9 @@ export function toApp(apiApp: ApiApp): App {
         stateDisplay: statusToStateDisplay[apiApp.status],
         blobUid: apiApp.blobuid,
         canRetryBuild: sourceType === APPLICATION_SOURCE_TYPE.CONTAINER_URL ? false : hasGit || hasBlob,
-        builtImageUrl: apiApp.built_image_url
+        builtImageUrl: apiApp.built_image_url,
+        failureReason: apiApp.failure_reason,
+        stagingFailureReason: apiApp.staging_failure_reason
     };
 }
 

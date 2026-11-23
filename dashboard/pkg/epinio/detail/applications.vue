@@ -21,6 +21,7 @@ import ConfigurationDeleteModal from '../components/configuration/ConfigurationD
 import AppModal from '../components/application/AppModal.vue';
 import ExportAppModal from '../dialog/ExportAppModal.vue';
 import AppDeleteModal from '../components/application/AppDeleteModal.vue';
+import InstanceErrorModal from '../dialog/InstanceErrorModal.vue';
 import { useApplication } from '../queries/useApplicationQueries';
 import { toInstanceStats, toAppSourceDetails, toAppForm } from '../models/application/mappers';
 import { ListResourceRequestParams, ResourceQueryOptions, ResourceTableRow } from '../models/resource/ui-types';
@@ -41,6 +42,7 @@ import { useUpdateApplication } from '../queries/useApplicationMutations';
 import { useGitConfig } from '../queries/useGitConfigQueries';
 import { useGitBaseUrl, useGitProxyUserType, useGitProxyRepos, useGitProxyBranches, useGitProxyCommits } from '../queries/useGitProxyQueries';
 import { useRoute } from 'vue-router';
+import AppDetailErrors from '../components/application/AppDetailErrors.vue';
 
 day.extend(relativeTime);
 
@@ -53,6 +55,9 @@ const t = store.getters['i18n/t'];
 const appModal = ref<InstanceType<typeof AppModal> | null>(null);
 const exportAppModal = ref<InstanceType<typeof ExportAppModal> | null>(null);
 const appDeleteModal = ref<InstanceType<typeof AppDeleteModal> | null>(null);
+
+// Instance modal
+const instanceErrorModal = ref<InstanceType<typeof InstanceErrorModal> | null>(null)
 
 // Service modals
 const serviceModal = ref<InstanceType<typeof ServiceInstanceModal> | null>(null);
@@ -296,16 +301,31 @@ const instanceColumns = [
   }
 ];
 
+const openInstanceErrorModal = (podInfo: AppPodInfo) => {
+  instanceErrorModal.value?.openModal(podInfo);
+};
+
 const instanceRows = computed(() => {
   if (!application.value?.deployment?.replicas) {
     return [];
   }
 
-  return (Object.values(application.value.deployment.replicas)).map((i) => ({
+  const instances = (Object.values(application.value.deployment.replicas)).map((i) => ({
     ...i,
-    status: i.ready ? 'ready' : 'not-ready',
-    stateDisplay: i.ready ? 'Ready' : 'Not Ready'
+    status: i.failureReason ? 'error' :  i.ready ? 'ready' : 'not-ready',
+    stateDisplay: i.failureReason ? 'Error' : i.ready ? 'Ready' : 'Not Ready',
+    availableActions: [
+      {
+        label: 'View Error',
+        action: () => {
+          openInstanceErrorModal(i);
+        },
+        enabled: !!i.failureReason,
+        visible: !!i.failureReason,
+      },
+    ],
   }));
+  return instances;
 });
 
 // Columns for the services table
@@ -810,6 +830,7 @@ const appSourceDetails = computed(() => {
         </li>
       </ul>
     </div>
+    <AppDetailErrors v-if="application" :app="application" />
     <div class="number-cards">
       <trailhand-card class="dashboard-card" variant="info">
         <div slot="title">
@@ -1049,6 +1070,7 @@ const appSourceDetails = computed(() => {
   <AppModal ref="appModal" />
   <ExportAppModal ref="exportAppModal" />
   <AppDeleteModal ref="appDeleteModal" @deleted="handleDeleted" />
+  <InstanceErrorModal ref="instanceErrorModal" />
 </template>
 
 <style lang="scss" scoped>

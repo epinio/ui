@@ -16,6 +16,7 @@ generic:
   previous: Previous
   next: Next
   unsavedChanges: You have unsaved changes.
+  error: Error
 typeLabel:
   withoutCount:
     namespaces: Namespaces
@@ -197,7 +198,12 @@ epinio:
             deployed: Deployed
         commits:
           redeploy: Select `Redeploy` to update the application from the given commit.
-
+      errors:
+        pod:
+          title: Application Instance Error
+          text: One or more of your application instances have failed. See the Instances table below for additional information.
+        staging:
+          title: Application Staging Error
       tables:
         label: Resources
         instances: Instances
