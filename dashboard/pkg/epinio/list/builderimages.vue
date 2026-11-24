@@ -9,6 +9,7 @@ import ImageDeleteModal from '../components/images/ImageDeleteModal.vue';
 import { ResourceQueryOptions, ListResourceRequestParams, ResourceTableRow } from '../models/resource/ui-types';
 import { BuilderImage } from '../models/builderimage/ui-types';
 import { useUser } from '../queries/useUserQueries';
+import { DEFAULT_SORT_FIELD_MAP } from '../utils/server-table-sort';
 
 defineProps<{ schema: object }>(); // Keep for compatibility
 
@@ -16,6 +17,7 @@ const store = useStore();
 
 const imageModal = ref<InstanceType<typeof ImageModal> | null>(null);
 const deleteModal = ref<InstanceType<typeof ImageDeleteModal> | null>(null);
+const tableEl = ref<any>(null);
 
 const { data: user, isError: isErrorUser, error: userError } = useUser(store);
 
@@ -92,7 +94,7 @@ const displayRows = computed(() => {
 
 const columns = [
   {
-    field: 'nameDisplay',
+    field: 'meta.name',
     label: 'Name',
     formatter: (_v: any, row: BuilderImage) => {
       const el = document.createElement('a');
@@ -122,6 +124,14 @@ const columns = [
     formatter: 'age'
   }
 ];
+
+const setTableRef = (el: any) => {
+  if (el) {
+    tableEl.value = el;
+    el.renderActions = makeActionMenu;
+  }
+};
+
 </script>
 
 <template>
@@ -154,7 +164,7 @@ const columns = [
       :label="builderImagesError?.message || t('epinio.builderImages.errors.fetch')"
     />
     <trailhand-table
-      :ref="(el: any) => { if (el) el.renderActions = makeActionMenu; }"
+      :ref="setTableRef"
       :rows="displayRows"
       :columns="columns"
       :server-side="true"
@@ -164,6 +174,7 @@ const columns = [
       :loading="isLoadingBuilderImages"
       key-field="id"
       @page-change="(e: CustomEvent) => { requestParams.page = e.detail.page; }"
+      @column-sort="(e: CustomEvent) => { requestParams.sort = DEFAULT_SORT_FIELD_MAP[e.detail.columnField]; requestParams.sortDir = e.detail.sortDirection; requestParams.page = 1; }"
     />
   </div>
   <ImageModal ref="imageModal" />

@@ -17,6 +17,7 @@ import { fetchService } from '../queries/useServiceQueries';
 import ServiceInstanceModal from '../components/service/ServiceInstanceModal.vue';
 import Banner from '@components/Banner/Banner.vue';
 import { useUser } from '../queries/useUserQueries';
+import { DEFAULT_SORT_FIELD_MAP } from '../utils/server-table-sort';
 
 const store = useStore();
 const router = useRouter();
@@ -191,7 +192,8 @@ const openServiceModal = async (namespace: string, service: string) => {
 
 const allColumns = [
   {
-    field: 'nameDisplay',
+    // meta.name so server-side sort keys resolve to a real string value.
+    field: 'meta.name',
     label: 'Name',
     width: '200px',
     formatter: (_v: any, row: ConfigurationResponse) => {
@@ -279,6 +281,7 @@ const columns = computed(() => {
 
   return allColumns.filter(col => !hide.has(col.field));
 });
+
 </script>
 
 <template>
@@ -331,6 +334,7 @@ const columns = computed(() => {
       key-field="id"
       @navigate="handleNavigate"
       @page-change="(e: CustomEvent) => { requestParams.page = e.detail.page; }"
+      @column-sort="(e: CustomEvent) => { requestParams.sort = DEFAULT_SORT_FIELD_MAP[e.detail.columnField]; requestParams.sortDir = e.detail.sortDirection; requestParams.page = 1; }"
       @selection-change="handleSelectionChange"
     />
     <ConfigurationModal ref="configModal" />

@@ -28,6 +28,7 @@ import ConfigurationModal from '../../../../components/configuration/Configurati
 import { fetchConfiguration } from '../../../../queries/useConfigurationQueries';
 import { fetchService } from '../../../../queries/useServiceQueries';
 import Tabs from '../../../../components/application/Tabs.vue';
+import { DEFAULT_SORT_FIELD_MAP } from '../../../../utils/server-table-sort';
 
 const store = useStore() as any;
 const t = store.getters['i18n/t'];
@@ -335,7 +336,8 @@ const allColumns = [
     formatter: (_value: string, row: App) => makeStateTag(row)
   },
   {
-    field: 'nameDisplay',
+    // Use meta.name (not nameDisplay) so sort keys resolve to a real string.
+    field: 'meta.name',
     label: 'Name',
     width: '125px',
     formatter: (_value: any, row: App) => row.deployment ? makeNameLinks(
@@ -449,6 +451,7 @@ const columns = computed(() => {
 
   return allColumns.filter(col => !hide.has(col.field));
 });
+
 </script>
 
 <template>
@@ -503,6 +506,7 @@ const columns = computed(() => {
           key-field="id"
           @navigate="handleNavigate"
           @page-change="(e: CustomEvent) => { requestParams.page = e.detail.page; }"
+          @column-sort="(e: CustomEvent) => { requestParams.sort = DEFAULT_SORT_FIELD_MAP[e.detail.columnField]; requestParams.sortDir = e.detail.sortDirection; requestParams.page = 1; }"
           @selection-change="handleSelectionChange"
         />
       </template>
@@ -520,6 +524,7 @@ const columns = computed(() => {
           key-field="id"
           @navigate="handleNavigate"
           @page-change="(e: CustomEvent) => { undeployedRequestParams.page = e.detail.page; }"
+          @column-sort="(e: CustomEvent) => { undeployedRequestParams.sort = DEFAULT_SORT_FIELD_MAP[e.detail.columnField]; undeployedRequestParams.sortDir = e.detail.sortDirection; undeployedRequestParams.page = 1; }"
           @selection-change="handleSelectionChange"
         />
       </template>
