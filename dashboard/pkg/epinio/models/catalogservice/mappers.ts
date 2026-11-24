@@ -56,6 +56,8 @@ export function toCatalogService(apiCatalogService: ApiCatalogService): CatalogS
             enum: setting.enum,
             maximum: setting.maximum,
             minimum: setting.minimum,
+            description: setting.description,
+            example: setting.example,
             value: values[name],
         })) : undefined,
     };

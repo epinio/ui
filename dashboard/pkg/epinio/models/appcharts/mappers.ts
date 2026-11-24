@@ -16,6 +16,8 @@ export function toAppChart(apiAppChart: ApiAppChart): AppChart {
             enum: setting.enum,
             maximum: setting.maximum,
             minimum: setting.minimum,
+            description: setting.description,
+            example: setting.example,
             value: apiAppChart.values?.[name]
         })) : undefined,
         boundApps: apiAppChart.bound_apps,
