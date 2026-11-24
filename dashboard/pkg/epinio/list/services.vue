@@ -14,6 +14,7 @@ import { useBulkRemoveServiceInstances, useUnbindServiceInstance } from '../quer
 import { ServiceInstance } from '../models/service/ui-types';
 import Banner from '@components/Banner/Banner.vue';
 import { useUser } from '../queries/useUserQueries';
+import { DEFAULT_SORT_FIELD_MAP } from '../utils/server-table-sort';
 
 defineProps<{
   schema: object,
@@ -193,7 +194,8 @@ const allColumns = [
     formatter: (_v: any, row: ServiceInstance) => makeStateTag(row)
   },
   {
-    field: 'nameDisplay',
+    // meta.name so server-side sort keys resolve to a real string value.
+    field: 'meta.name',
     label: 'Name',
     formatter: (_v: any, row: ServiceInstance) => {
       const el = document.createElement('a');
@@ -254,6 +256,7 @@ const columns = computed(() => {
 
   return allColumns.filter(col => !hide.has(col.field));
 });
+
 </script>
 
 <template>
@@ -306,6 +309,7 @@ const columns = computed(() => {
       key-field="id"
       @navigate="handleNavigate"
       @page-change="(e: CustomEvent) => { requestParams.page = e.detail.page; }"
+      @column-sort="(e: CustomEvent) => { requestParams.sort = DEFAULT_SORT_FIELD_MAP[e.detail.columnField]; requestParams.sortDir = e.detail.sortDirection; requestParams.page = 1; }"
       @selection-change="handleSelectionChange"
     />
     <ServiceInstanceModal ref="serviceModal" />

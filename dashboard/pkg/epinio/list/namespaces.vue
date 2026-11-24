@@ -15,6 +15,7 @@ import { useUser } from '../queries/useUserQueries';
 import { useRouter } from 'vue-router';
 import { createEpinioRoute } from '../utils/custom-routing';
 import { createNamespaceFilterKey } from '@shell/utils/namespace-filter';
+import { DEFAULT_SORT_FIELD_MAP } from '../utils/server-table-sort';
 
 defineProps<{
   schema: object,
@@ -44,6 +45,7 @@ const requestParams = ref<ListResourceRequestParams>({
 });
 const requestOptions = ref<ResourceQueryOptions>({ enabled: true, polling: true, isTablePagination: true });
 const {data: namespaces, isLoading: isLoadingNamespaces, isError: isErrorNamespaces, error: namespacesError} = useNamespaces(store, requestParams, requestOptions);
+const tableEl = ref<any>(null);
 
 const onSearch = debounce(async (query: string) => {
   requestParams.value.page = 1;
@@ -202,6 +204,14 @@ const columns = [
     formatter: 'age'
   }
 ];
+
+const setTableRef = (el: any) => {
+  if (el) {
+    tableEl.value = el;
+    el.renderActions = attachActionMenu;
+  }
+};
+
 </script>
 
 <template>
@@ -234,7 +244,7 @@ const columns = [
       :label="userError?.message || t('epinio.user.errors.fetch')"
     />  
     <trailhand-table
-      :ref="(el: any) => { if (el) el.renderActions = attachActionMenu; }"
+      :ref="setTableRef"
       :rows="displayRows"
       :columns="columns"
       :server-side="true"
@@ -244,6 +254,7 @@ const columns = [
       :searchable="false"
       key-field="id"
       @page-change="(e: CustomEvent) => { requestParams.page = e.detail.page; }"
+      @column-sort="(e: CustomEvent) => { requestParams.sort = DEFAULT_SORT_FIELD_MAP[e.detail.columnField]; requestParams.sortDir = e.detail.sortDirection; requestParams.page = 1; }"
     />
     <NamespaceModal ref="namespaceModal"/>
     <NamespaceDeleteModal ref="namespaceDeleteModal"/>

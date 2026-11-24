@@ -10,6 +10,7 @@ import { ListResourceRequestParams, ResourceQueryOptions, ResourceTableRow } fro
 import { AppChart } from '../models/appcharts/ui-types';
 import Banner from '@components/Banner/Banner.vue';
 import { useUser } from '../queries/useUserQueries';
+import { DEFAULT_SORT_FIELD_MAP } from '../utils/server-table-sort';
 
 defineProps<{ schema: object }>(); // Keep for compatibility
 
@@ -17,6 +18,7 @@ const store = useStore();
 
 const chartsModal = ref<InstanceType<typeof ChartsModal> | null>(null);
 const deleteModal = ref<InstanceType<typeof ChartsDeleteModal> | null>(null);
+const tableEl = ref<any>(null);
 
 const { data: user, isError: isErrorUser, error: userError } = useUser(store);
 
@@ -93,7 +95,7 @@ const displayRows = computed(() => {
 
 const columns = [
   {
-    field: 'nameDisplay',
+    field: 'meta.name',
     label: 'Name',
     formatter: (_v: any, row: AppChart) => {
       const el = document.createElement('a');
@@ -123,6 +125,14 @@ const columns = [
     formatter: 'age'
   }
 ];
+
+const setTableRef = (el: any) => {
+  if (el) {
+    tableEl.value = el;
+    el.renderActions = makeActionMenu;
+  }
+};
+
 </script>
 
 <template>
@@ -155,7 +165,7 @@ const columns = [
       :label="appChartsError?.message || t('epinio.appCharts.errors.fetch')"
     />
     <trailhand-table
-      :ref="(el: any) => { if (el) el.renderActions = makeActionMenu; }"
+      :ref="setTableRef"
       :rows="displayRows"
       :columns="columns"
       :server-side="true"
@@ -165,6 +175,7 @@ const columns = [
       :loading="isLoadingAppCharts"
       key-field="id"
       @page-change="(e: CustomEvent) => { requestParams.page = e.detail.page; }"
+      @column-sort="(e: CustomEvent) => { requestParams.sort = DEFAULT_SORT_FIELD_MAP[e.detail.columnField]; requestParams.sortDir = e.detail.sortDirection; requestParams.page = 1; }"
     />
   </div>
   <ChartsModal ref="chartsModal" />
