@@ -3,6 +3,7 @@ import { ref, computed } from 'vue';
 
 import { EPINIO_MGMT_STORE, EPINIO_PRODUCT_NAME, EPINIO_TYPES } from '../types';
 import { App } from '../models/application/ui-types';
+import { isSameOriginEpinioApi } from '../utils/standalone-api';
 
 export function useApplicationSocketMixin(props: { application: App, endpoint: string, initialInstance: string }) {
   const store = useStore();
@@ -28,9 +29,13 @@ export function useApplicationSocketMixin(props: { application: App, endpoint: s
     let prependPath = '';
 
     if (isSingleProduct) {
-      const cnsi = store.getters[`${ EPINIO_PRODUCT_NAME }/singleProductCNSI`]();
+      if (await isSameOriginEpinioApi()) {
+        api = `${ window.location.protocol }//${ window.location.host }`;
+      } else {
+        const cnsi = store.getters[`${ EPINIO_PRODUCT_NAME }/singleProductCNSI`]();
 
-      prependPath = `/pp/v1/direct/ws/${ cnsi?.guid }`;
+        prependPath = `/pp/v1/direct/ws/${ cnsi?.guid }`;
+      }
     } else {
       const currentClusterId = store.getters['clusterId'];
       const currentCluster = store.getters[`${ EPINIO_MGMT_STORE }/byId`](

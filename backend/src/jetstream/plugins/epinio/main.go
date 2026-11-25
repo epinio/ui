@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"strings"
 
 	epinioDex "github.com/epinio/ui/backend/src/jetstream/plugins/epinio/dex"
@@ -165,6 +166,18 @@ func (epinio *Epinio) AddSessionGroupRoutes(echoGroup *echo.Group) {
 func (epinio *Epinio) AddRootGroupRoutes(echoGroup *echo.Group) {
 
 	p := epinio.portalProxy
+
+	// EPINIO-837: public — mint Jetstream/Shell session from Epinio server cookies.
+	echoGroup.POST("/auth/epinio-cookie-login", func(c echo.Context) error {
+		authSvc := p.GetStratosAuthService()
+		cookieAuth, ok := authSvc.(interface {
+			CookieLogin(echo.Context) error
+		})
+		if !ok {
+			return echo.NewHTTPError(http.StatusInternalServerError, "epinio cookie login unavailable")
+		}
+		return cookieAuth.CookieLogin(c)
+	})
 
 	epinioGroup := echoGroup.Group("/epinio")
 

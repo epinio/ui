@@ -1,40 +1,37 @@
 <script setup lang="ts">
+/**
+ * Legacy Dex popup callback route.
+ * OIDC callback is now handled by the Epinio server at
+ * GET /api/v1/auth/oidc/callback (EPINIO-837). Keep this page as a soft redirect.
+ */
+import { onMounted } from 'vue';
 import { useStore } from 'vuex';
-import { ref, onMounted } from 'vue';
 import epinioAuth from '../../utils/auth';
-import Banner from '@components/Banner/Banner.vue';
-import { dashboardUrl } from '../../utils/embedded-helpers';
 
 const store = useStore();
-const error = ref<string>('');
 
 onMounted(async () => {
-  const { 
-    error: routeError, 
-    error_description: errorDescription,
-  } = store.$router.currentRoute._value.query;
-  
-  error.value = errorDescription || routeError;
+  try {
+    const me = await fetch('/api/v1/me', { credentials: 'include' });
 
-  if (error.value) {
-    console.error('Dex indicates failure', error);
-  } else {
-    await epinioAuth.dexRedirect(store.$router.currentRoute, {
-      dexUrl:       sessionStorage.getItem('epinio-dex-url') || document.referrer,
-      dashboardUrl: dashboardUrl()
-    });
+    if (me.ok) {
+      await epinioAuth.syncShellSession();
+      await store.dispatch('auth/getUserPrincipal');
+      store.$router.replace('/');
+
+      return;
+    }
+  } catch {
+    // fall through
   }
+
+  // No server session — start OIDC on the Epinio server.
+  window.location.assign('/api/v1/auth/oidc/start');
 });
 </script>
 
 <template>
-  {{error}}
   <main class="main-layout">
-    <Banner
-      v-if="error"
-      color="error"
-      :label="error"
-    />
     <h1 class="text-center mt-50">
       Logging In&hellip;
     </h1>

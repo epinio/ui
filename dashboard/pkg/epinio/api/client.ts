@@ -1,4 +1,5 @@
 import epinioAuth, { EpinioAuthTypes } from '../utils/auth';
+import { isSameOriginEpinioApi } from '../utils/standalone-api';
 
 export interface EpinioClusterContext {
   id: string;
@@ -7,9 +8,9 @@ export interface EpinioClusterContext {
 }
 
 type EpinioRequestOpts = RequestInit & {
-  params?:       object;
-  responseType?: 'json' | 'blob' | 'text';
-  signal?:       AbortSignal;
+    params?:       object;
+    responseType?: 'json' | 'blob' | 'text';
+    signal?:       AbortSignal;
 };
 
 export class EpinioApiError extends Error {
@@ -40,7 +41,7 @@ function readCookie(name: string): string | undefined {
   const match = document.cookie
     .split('; ')
     .find((row) => row.startsWith(`${name}=`));
-  return match ? decodeURIComponent(match.split('=')[1]) : undefined;
+  return match ? decodeURIComponent(match.split('=').slice(1).join('=')) : undefined;
 }
 
 function serializeBody(body: unknown): BodyInit | undefined {
@@ -55,6 +56,19 @@ function headersFor(body: unknown, extra?: HeadersInit): HeadersInit {
   return { 'content-type': 'application/json', ...extra };
 }
 
+function requestBase(cluster: EpinioClusterContext, isExtension: boolean, sameOriginEpinio: boolean): string {
+  if (isExtension) {
+    return cluster.api.replace(/\/$/, '');
+  }
+
+  // Production ingress: same-origin /api. Local Jetstream: proxy path.
+  if (sameOriginEpinio) {
+    return '';
+  }
+
+  return `/pp/v1/direct/r/${ cluster.id }`;
+}
+
 export function createEpinioClient(cluster: EpinioClusterContext, isExtension: boolean = false) {
   async function request(path: string,  opts: EpinioRequestOpts = {}) {
     const { params, signal, ...fetchOpts } = opts;
@@ -65,17 +79,37 @@ export function createEpinioClient(cluster: EpinioClusterContext, isExtension: b
       cluster.createAuthConfig(EpinioAuthTypes.AGNOSTIC)
     );
 
-    const csrfToken = readCookie('CSRF');
     const isMutating = opts.method && opts.method !== 'GET' && opts.method !== 'HEAD';
+    const sameOriginEpinio = !isExtension && await isSameOriginEpinioApi();
+    // Same-origin / extension → Epinio EPINIO_CSRF (historical "=" quirk).
+    // Local Jetstream `/pp/v1/direct/r/...` → Jetstream CSRF cookie as X-Xsrf-Token
+    // (exact match; do not send EPINIO_CSRF — plugin would overwrite X-Xsrf-Token).
+    const csrfHeaders: Record<string, string> = {};
 
-    const res = await fetch(`${isExtension ? cluster.api : `/pp/v1/direct/r/${cluster.id}`}${path}${query}`, {
+    if (isMutating) {
+      if (isExtension || sameOriginEpinio) {
+        const epinioCsrf = readCookie('EPINIO_CSRF');
+
+        if (epinioCsrf) {
+          csrfHeaders['X-Api-Csrf'] = `${ epinioCsrf }=`;
+        }
+      } else {
+        const jetstreamCsrf = readCookie('CSRF') || readCookie('XSRF-TOKEN');
+
+        if (jetstreamCsrf) {
+          csrfHeaders['X-Xsrf-Token'] = jetstreamCsrf;
+        }
+      }
+    }
+
+    const res = await fetch(`${requestBase(cluster, isExtension, sameOriginEpinio)}${path}${query}`, {
       ...fetchOpts,
       credentials: 'include',
       signal,
       headers: {
         ...headersFor(fetchOpts.body),
         ...(authHeader ? { Authorization: authHeader } : {}),
-        ...(isMutating && csrfToken ? { 'X-Api-Csrf': `${csrfToken}=` } : {}),
+        ...csrfHeaders,
         ...fetchOpts.headers,
       },
     });
@@ -110,6 +144,6 @@ export function createEpinioClient(cluster: EpinioClusterContext, isExtension: b
     post:   (path: string, body?: unknown, opts?: EpinioRequestOpts) => request(path, { ...opts, method: 'POST', body: serializeBody(body) }),
     put:    (path: string, body?: unknown, opts?: EpinioRequestOpts) => request(path, { ...opts, method: 'PUT', body: serializeBody(body) }),
     patch:  (path: string, body?: unknown, opts?: EpinioRequestOpts) => request(path, { ...opts, method: 'PATCH', body: serializeBody(body) }),
-    delete: (path: string, body?: unknown, opts?: EpinioRequestOpts) => request(path, { ...opts, method: 'DELETE', body: serializeBody(body) }),  
+    delete: (path: string, body?: unknown, opts?: EpinioRequestOpts) => request(path, { ...opts, method: 'DELETE', body: serializeBody(body) }),
   };
 }

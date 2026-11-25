@@ -2,10 +2,11 @@ import { useQuery } from '@tanstack/vue-query';
 import type { EpinioClusterContext } from '../api/client';
 import { EpinioAuthTypes } from '../utils/auth';
 import { dashboardUrl } from '../utils/embedded-helpers';
+import { isSameOriginEpinioApi } from '../utils/standalone-api';
 import { EPINIO_MGMT_STORE, EPINIO_TYPES } from '../types';
 import { epinioQueryClient } from '../api/queryClient';
 
-const EPINIO_STANDALONE_CLUSTER_NAME = 'default'; // match existing constant
+const EPINIO_STANDALONE_CLUSTER_NAME = 'default';
 
 function urlFromEndpoint(endpoint: string | Record<string, any>): string {
   if (typeof endpoint === 'string') {
@@ -13,11 +14,30 @@ function urlFromEndpoint(endpoint: string | Record<string, any>): string {
   }
 
   const { Scheme, Host, Path } = endpoint;
-  return `${Scheme}://${Host}${Path || ''}`;
+
+  return `${ Scheme }://${ Host }${ Path || '' }`;
 }
 
-// fetch the standalone cluster context from the backend
 async function fetchStandaloneCluster(): Promise<EpinioClusterContext> {
+  // Production ingress: UI + /api share the host.
+  if (await isSameOriginEpinioApi()) {
+    const api = window.location.origin;
+
+    return {
+      id:  EPINIO_STANDALONE_CLUSTER_NAME,
+      api,
+      createAuthConfig: (type: EpinioAuthTypes) => ({
+        type,
+        epinioUrl: api,
+        dexConfig: {
+          dashboardUrl: dashboardUrl(),
+          dexUrl:       api.replace('epinio.', 'auth.'),
+        },
+      }),
+    };
+  }
+
+  // Local Jetstream: resolve real Epinio API from registered endpoint.
   const res = await fetch('/pp/v1/endpoints', { credentials: 'include' });
   const endpoints = await res.json();
   const cnsi = endpoints.find((e: any) => e.name === EPINIO_STANDALONE_CLUSTER_NAME);
@@ -29,34 +49,35 @@ async function fetchStandaloneCluster(): Promise<EpinioClusterContext> {
   const api = urlFromEndpoint(cnsi.api_endpoint);
 
   return {
-    id: cnsi.guid,
+    id:  cnsi.guid,
     api,
     createAuthConfig: (type: EpinioAuthTypes) => ({
       type,
       epinioUrl: api,
       dexConfig: {
         dashboardUrl: dashboardUrl(),
-        dexUrl: cnsi.authorization_endpoint,
+        dexUrl:       cnsi.authorization_endpoint,
       },
     }),
   };
 }
 
-// fetch the extension cluster context from the store
 function fetchExtensionCluster(store: any): EpinioClusterContext {
   const currentClusterId = store.getters['clusterId'];
   const currentCluster = store.getters[`${ EPINIO_MGMT_STORE }/byId`](
     EPINIO_TYPES.CLUSTER,
     currentClusterId,
   );
+
   return currentCluster;
 }
 
 export function useCluster(store: any) {
   const isSingleProduct = !!store.getters['isSingleProduct'];
+
   return useQuery({
-    queryKey: ['epinio', `${ isSingleProduct ? 'standalone' : 'extension' }-cluster`],
-    queryFn:  isSingleProduct ? fetchStandaloneCluster : () => fetchExtensionCluster(store),
-    staleTime: Infinity, // this doesn't change during a session
+    queryKey:  ['epinio', `${ isSingleProduct ? 'standalone' : 'extension' }-cluster`],
+    queryFn:   isSingleProduct ? fetchStandaloneCluster : () => fetchExtensionCluster(store),
+    staleTime: Infinity,
   }, epinioQueryClient);
 }

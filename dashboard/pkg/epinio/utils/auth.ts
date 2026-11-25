@@ -1,5 +1,7 @@
-import { User, UserManager } from 'oidc-client-ts';
-import { base64Encode } from '@shell/utils/crypto';
+/**
+ * Epinio browser auth (EPINIO-837).
+ * Login/logout/OIDC go to the Epinio API server session cookies — not Jetstream Dex/Basic.
+ */
 
 export enum EpinioAuthTypes {
   LOCAL = 'local',
@@ -30,195 +32,237 @@ export interface EpinioAuthConfig {
   localConfig?: EpinioAuthLocalConfig
 }
 
-class EpinioAuth {
-  private dexUserManager?: UserManager;
-  private localUserManager?: {
-    epinioUrl: string,
-    config: EpinioAuthLocalConfig
-  };
+const SESSION_USER_KEY = 'epinio-session-user';
 
-  private isLocal() {
-    return this.localUserManager?.config.username && this.localUserManager?.config.password;
+function apiBase(epinioUrl: string): string {
+  // Same-origin standalone: empty string so /api hits the ingress → epinio-server.
+  if (!epinioUrl || epinioUrl === window.location.origin) {
+    return '';
+  }
+
+  return epinioUrl.replace(/\/$/, '');
+}
+
+function readCookie(name: string): string | undefined {
+  const match = document.cookie
+    .split('; ')
+    .find((row) => row.startsWith(`${ name }=`));
+
+  return match ? decodeURIComponent(match.split('=').slice(1).join('=')) : undefined;
+}
+
+/** CSRF for Epinio server mutating calls (EPINIO_CSRF + historical "=" quirk). */
+function epinioCsrfHeader(): HeadersInit {
+  const csrf = readCookie('EPINIO_CSRF');
+
+  if (!csrf) {
+    return {};
+  }
+
+  return { 'X-Api-Csrf': `${ csrf }=` };
+}
+
+/** CSRF for Jetstream `/pp/...` mutating calls (exact session token, no "="). */
+function jetstreamCsrfHeader(): HeadersInit {
+  const csrf = readCookie('CSRF') || readCookie('XSRF-TOKEN');
+
+  if (!csrf) {
+    return {};
+  }
+
+  return { 'X-Xsrf-Token': csrf };
+}
+
+class EpinioAuth {
+  private sessionUser?: string;
+
+  constructor() {
+    try {
+      this.sessionUser = sessionStorage.getItem(SESSION_USER_KEY) || undefined;
+    } catch {
+      // ignore
+    }
+  }
+
+  private rememberUser(username: string) {
+    this.sessionUser = username;
+    try {
+      sessionStorage.setItem(SESSION_USER_KEY, username);
+    } catch {
+      // ignore
+    }
+  }
+
+  private forgetUser() {
+    this.sessionUser = undefined;
+    try {
+      sessionStorage.removeItem(SESSION_USER_KEY);
+    } catch {
+      // ignore
+    }
+  }
+
+  private async fetchMe(epinioUrl: string): Promise<EpinioAuthUser | undefined> {
+    const res = await fetch(`${ apiBase(epinioUrl) }/api/v1/me`, {
+      method:      'GET',
+      credentials: 'include',
+    });
+
+    if (!res.ok) {
+      return undefined;
+    }
+
+    const data = await res.json().catch(() => null);
+    const username = data?.user;
+
+    if (!username) {
+      return undefined;
+    }
+
+    this.rememberUser(username);
+
+    return { email: username, name: username };
   }
 
   async isLoggedIn(config: EpinioAuthConfig) {
-    if (!config || (config.type === EpinioAuthTypes.LOCAL || config.type === EpinioAuthTypes.AGNOSTIC)) {
-      if (this.isLocal()) {
-        return true;
-      }
+    if (!config?.epinioUrl) {
+      return !!this.sessionUser;
     }
 
-    if (!config || (config.type === EpinioAuthTypes.DEX || config.type === EpinioAuthTypes.AGNOSTIC)) {
-      if (!this.dexUserManager && config?.dexConfig) {
-        await this.initialiseDex(config.dexConfig);
-      }
-      const dexUser = await this.dexUserManager?.getUser();
-
-      return dexUser && dexUser?.profile.iss === config?.dexConfig?.dexUrl;
+    if (this.sessionUser && readCookie('EPINIO_SESSION')) {
+      return true;
     }
 
-    return false;
+    const user = await this.fetchMe(config.epinioUrl);
+
+    return !!user;
   }
 
   async login(config: EpinioAuthConfig): Promise<EpinioAuthUser | undefined> {
     if (await this.isLoggedIn(config)) {
-      return;
+      return this.user();
     }
 
     switch (config.type) {
-    case EpinioAuthTypes.DEX:
-      if (!config.dexConfig) {
-        throw new Error('dexConfig required');
-      }
-      if (!this.dexUserManager || this.dexUserManager.settings.authority !== config.dexConfig.dexUrl) {
-        await this.initialiseDex(config.dexConfig);
-      }
+    case EpinioAuthTypes.DEX: {
+      const base = apiBase(config.epinioUrl);
 
-      await this.dexUserManager?.signinPopup();
+      // Full-page OIDC start on the Epinio server (PKCE + callback set cookies).
+      window.location.assign(`${ base }/api/v1/auth/oidc/start`);
 
-      delete this.localUserManager;
-
-      return this.user();
-    case EpinioAuthTypes.LOCAL:
+      return undefined;
+    }
+    case EpinioAuthTypes.LOCAL: {
       if (!config.localConfig) {
         throw new Error('localConfig required');
       }
 
-      // Validate
-      try {
-        await config.localConfig.$axios({
-          url:     `${ config.epinioUrl }/api/v1/me`,
-          headers: { Authorization: `Basic ${ base64Encode(`${ config.localConfig?.username }:${ config.localConfig?.password }`) }` }
-        });
-      } catch (err: any) {
-        if ( !err || !err.response ) {
-          return Promise.reject(err);
-        }
+      const base = apiBase(config.epinioUrl);
+      const res = await fetch(`${ base }/api/v1/auth/login`, {
+        method:      'POST',
+        credentials: 'include',
+        headers:     { 'content-type': 'application/json' },
+        body:        JSON.stringify({
+          username: config.localConfig.username,
+          password: config.localConfig.password,
+        }),
+      });
 
-        const res = err.response;
-
-        if (res.status === 401) {
-          return Promise.reject(new Error('Invalid Credentials'));
-        }
-
-        return Promise.reject(res);
+      if (res.status === 401) {
+        return Promise.reject(new Error('Invalid Credentials'));
       }
 
-      await this.logout();
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        const message = data?.errors?.[0]?.title || data?.message || res.statusText;
 
-      this.localUserManager = {
-        epinioUrl: config.epinioUrl,
-        config:    config.localConfig
-      };
+        return Promise.reject(new Error(message));
+      }
 
-      return this.user();
+      const data = await res.json().catch(() => ({}));
+      const username = data?.user || config.localConfig.username;
+
+      this.rememberUser(username);
+
+      // Standalone Shell still needs a Jetstream session for the dashboard chrome.
+      await this.syncShellSession();
+
+      return { email: username, name: username };
+    }
     default:
       throw new Error(`Epinio Auth type not provided: ${ config.type }`);
     }
   }
 
-  async user(): Promise<EpinioAuthUser | undefined> {
-    if (this.isLocal()) {
-      return {
-        email: this.localUserManager?.config.username as string,
-        name:  this.localUserManager?.config.username as string,
-      };
-    }
-
+  /**
+   * After Epinio server cookies exist, ask Jetstream to open a Shell session
+   * from /api/v1/me (used by standalone Rancher Shell login chrome).
+   */
+  async syncShellSession(): Promise<void> {
     try {
-      const dexUser = await this.dexUserManager?.getUser();
+      const res = await fetch('/pp/v1/auth/epinio-cookie-login', {
+        method:      'POST',
+        credentials: 'include',
+        headers:     {
+          'content-type': 'application/json',
+          ...jetstreamCsrfHeader(),
+        },
+        body: '{}',
+      });
 
-      if (!dexUser) {
+      // Endpoint may be absent in extension-only / older Jetstream — ignore.
+      if (res.status === 404) {
         return;
       }
-
-      return {
-        email: dexUser.profile.email || '',
-        name:  dexUser.profile.name || ''
-      };
-    } catch (e) {
-      console.log("Failed to get user: ", e);
+    } catch {
+      // ignore — extension mode does not need Jetstream
     }
   }
 
-  async authHeader(config: EpinioAuthConfig) {
-    let dexUser: User | null | undefined = null;
-    let type: string;
-
-    if ((config.type === EpinioAuthTypes.LOCAL || config.type === EpinioAuthTypes.AGNOSTIC) && this.isLocal()) {
-      return `Basic ${ base64Encode(`${ this.localUserManager?.config.username }:${ this.localUserManager?.config.password }`) }`;
+  async user(): Promise<EpinioAuthUser | undefined> {
+    if (this.sessionUser) {
+      return { email: this.sessionUser, name: this.sessionUser };
     }
 
-    if ((config.type === EpinioAuthTypes.DEX || config.type === EpinioAuthTypes.AGNOSTIC)) {
-      // Attempt dex
-      if (!this.dexUserManager && config.dexConfig) {
-        this.initialiseDex(config.dexConfig);
-      }
-      dexUser = await this.dexUserManager?.getUser();
+    return undefined;
+  }
 
-      if (dexUser) {
-        type = dexUser.token_type;
-
-        return `${ dexUser.token_type[0].toUpperCase() + type.slice(1) } ${ dexUser?.access_token }`;
-      }
-    }
+  /**
+   * Prefer cookie session: return no Authorization header so the server
+   * authenticates via EPINIO_SESSION (+ CSRF on mutating calls).
+   */
+  async authHeader(_config: EpinioAuthConfig): Promise<string | undefined> {
+    return undefined;
   }
 
   async logout(config?: EpinioAuthConfig) {
-    if (!config || (config.type === EpinioAuthTypes.AGNOSTIC || config.type === EpinioAuthTypes.LOCAL)) {
-      delete this.localUserManager;
+    const epinioUrl = config?.epinioUrl || '';
+
+    try {
+      await fetch(`${ apiBase(epinioUrl) }/api/v1/auth/logout`, {
+        method:      'POST',
+        credentials: 'include',
+        headers:     {
+          'content-type': 'application/json',
+          ...epinioCsrfHeader(),
+        },
+        body: '{}',
+      });
+    } catch {
+      // still clear local state
     }
 
-    if (!config || (config.type === EpinioAuthTypes.AGNOSTIC || config.type === EpinioAuthTypes.DEX )) {
-      if (!this.dexUserManager && config?.dexConfig) {
-        await this.initialiseDex(config.dexConfig);
-      }
-
-      await this.dexUserManager?.removeUser();
-      await this.dexUserManager?.clearStaleState();
-    }
+    this.forgetUser();
   }
 
-  async dexRedirect(route: { url: string, query: Record<string, any>}, config: EpinioAuthDexConfig) {
-    if (!this.dexUserManager) {
-      await this.initialiseDex(config);
-    }
-
-    await this.dexUserManager?.signinPopupCallback(route.url);
+  /** @deprecated OIDC callback is handled by the Epinio server. */
+  async dexRedirect() {
+    // no-op: kept so old verify.vue imports do not break mid-deploy
   }
 
-  async initialiseDex(config?: EpinioAuthDexConfig) {
-    if (!config) {
-      throw new Error('config is required');
-    }
-    if (this.dexUserManager) {
-      this.logout();
-    }
-
-    const dexUrl = config.dexUrl;
-
-    if (!dexUrl) {
-      throw new Error(`Missing dexUrl: ${ config }`);
-    }
-
-    // Note - if you be thinking extraTokenParams, extraQueryParams, scope are used here, you be wrong
-
-    sessionStorage.setItem('epinio-dex-url', dexUrl);
-
-    this.dexUserManager = new UserManager({
-      authority: dexUrl,
-      metadata:  { // Supplying the metadata skips a network request to well-known/openid-configuration
-        issuer:                 dexUrl,
-        authorization_endpoint: `${ dexUrl }/auth`,
-        userinfo_endpoint:      dexUrl,
-        end_session_endpoint:   dexUrl,
-        token_endpoint:         `${ dexUrl }/token`,
-      },
-      client_id:     'rancher-dashboard',
-      redirect_uri:  `${ config.dashboardUrl }/epinio/auth/verify/`, // Note - must contain trailing forward slash
-      scope:         'openid offline_access profile email groups audience:server:client_id:epinio-api federated:id',
-      response_type: 'code',
-    });
+  /** @deprecated Dex UserManager removed — server owns OIDC. */
+  async initialiseDex() {
+    // no-op
   }
 }
 

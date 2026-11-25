@@ -6,6 +6,7 @@ import { NAMESPACE_FILTERS } from '@shell/store/prefs';
 import { createNamespaceFilterKeyWithId } from '@shell/utils/namespace-filter';
 import { parse as parseUrl, stringify as unParseUrl } from '@shell/utils/url';
 import epinioAuth, { EpinioAuthTypes } from '../../utils/auth';
+import { isSameOriginEpinioApi } from '../../utils/standalone-api';
 
 import {
   EpinioInfo,
@@ -108,7 +109,15 @@ export default {
 
     if (isSingleProduct) {
       if (opt?.prependPath === undefined) {
-        ps = dispatch('findSingleProductCNSI').then((cnsi: any) => `/pp/v1/direct/r/${ cnsi?.guid }`);
+        ps = isSameOriginEpinioApi().then(async(sameOrigin) => {
+          if (sameOrigin) {
+            return '';
+          }
+
+          const cnsi = await dispatch('findSingleProductCNSI');
+
+          return `/pp/v1/direct/r/${ cnsi?.guid }`;
+        });
       }
     } else {
       ps = dispatch(`${ EPINIO_MGMT_STORE }/findAll`, { type: EPINIO_TYPES.CLUSTER }, { root: true }).then(() => '');
@@ -118,27 +127,68 @@ export default {
 
     return await ps
       .then(async(prependPath = opt?.prependPath) => {
-        if (isSingleProduct) {
-          if (opt.url.startsWith('/')) {
-            opt.url = prependPath + opt.url;
-          } else {
-            const url = parseUrl(opt.url);
+        const method = (opt.method || 'get').toLowerCase();
+        const isMutating = method !== 'get' && method !== 'head';
+        // Same-origin → Epinio CSRF. Local Jetstream proxy (prependPath) → Jetstream CSRF.
+        // Never send EPINIO_CSRF on the Jetstream path (plugin swaps X-Api-Csrf → X-Xsrf-Token).
+        const sameOriginEpinio = isSingleProduct && !prependPath;
+        const readDocCookie = (name: string) => {
+          if (typeof document === 'undefined') {
+            return undefined;
+          }
 
-            if (!url.path.startsWith(prependPath)) {
-              url.path = prependPath + url.path;
-              opt.url = unParseUrl(url);
+          const raw = document.cookie.split('; ').find((r) => r.startsWith(`${ name }=`))
+            ?.split('=').slice(1).join('=');
+
+          return raw ? decodeURIComponent(raw) : undefined;
+        };
+        const epinioCsrf = readDocCookie('EPINIO_CSRF');
+        const jetstreamCsrf = readDocCookie('CSRF') || readDocCookie('XSRF-TOKEN');
+
+        opt.withCredentials = true;
+        opt.headers = {
+          ...opt.headers,
+          ...(isMutating && sameOriginEpinio && epinioCsrf
+            ? { 'X-Api-Csrf': `${ epinioCsrf }=` }
+            : {}),
+          ...(isMutating && isSingleProduct && prependPath && jetstreamCsrf
+            ? { 'X-Xsrf-Token': jetstreamCsrf }
+            : {}),
+        };
+
+        if (isSingleProduct) {
+          if (prependPath) {
+            if (opt.url.startsWith('/')) {
+              opt.url = prependPath + opt.url;
+            } else {
+              const url = parseUrl(opt.url);
+
+              if (!url.path.startsWith(prependPath)) {
+                url.path = prependPath + url.path;
+                opt.url = unParseUrl(url);
+              }
             }
           }
         } else {
           const currentClusterId = clusterId || rootGetters['clusterId'];
           const currentCluster: EpinioCluster = rootGetters[`${ EPINIO_MGMT_STORE }/byId`](EPINIO_TYPES.CLUSTER, currentClusterId);
 
-          if (currentCluster.createAuthConfig) {
-            opt.headers = {
-              ...opt.headers,
-              Authorization: await epinioAuth.authHeader(currentCluster.createAuthConfig(EpinioAuthTypes.AGNOSTIC))
-            };
-          }
+          const authorization = currentCluster?.createAuthConfig
+            ? await epinioAuth.authHeader(currentCluster.createAuthConfig(EpinioAuthTypes.AGNOSTIC))
+            : undefined;
+
+          const extCsrf = typeof document !== 'undefined'
+            ? document.cookie.split('; ').find((r) => r.startsWith('EPINIO_CSRF='))
+              ?.split('=').slice(1).join('=')
+            : undefined;
+
+          opt.headers = {
+            ...opt.headers,
+            ...(authorization ? { Authorization: authorization } : {}),
+            ...(isMutating && extCsrf
+              ? { 'X-Api-Csrf': `${ decodeURIComponent(extCsrf) }=` }
+              : {}),
+          };
 
           opt.url = `${ currentCluster.api }${ opt.url }`;
         }

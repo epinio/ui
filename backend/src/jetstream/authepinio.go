@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"math"
 	"net/http"
+	"strings"
 
 	log "github.com/sirupsen/logrus"
 
@@ -47,9 +48,11 @@ func (a *epinioAuth) Login(c echo.Context) error {
 	var userGUID, username string
 	var err error
 
+	var localPassword string
+
 	switch authType {
 	case "local":
-		userGUID, username, err = a.epinioLocalLogin(c)
+		userGUID, username, localPassword, err = a.epinioLocalLogin(c)
 	case "oidc":
 		userGUID, username, err = a.epinioOIDCLogin(c)
 	}
@@ -73,6 +76,13 @@ func (a *epinioAuth) Login(c echo.Context) error {
 		}
 
 		return nil
+	}
+
+	// EPINIO-837: also establish Epinio server session cookies (EPINIO_SESSION / EPINIO_CSRF).
+	if authType == "local" && localPassword != "" {
+		if cookieErr := a.establishEpinioSessionCookies(c, username, localPassword); cookieErr != nil {
+			log.Warnf("failed to establish epinio session cookies: %v", cookieErr)
+		}
 	}
 
 	err = a.generateLoginSuccessResponse(c, userGUID, username)
@@ -118,24 +128,24 @@ func (a *epinioAuth) VerifySession(c echo.Context, sessionUser string, sessionEx
 }
 
 // epinioLocalLogin verifies local user credentials
-func (a *epinioAuth) epinioLocalLogin(c echo.Context) (string, string, error) {
+func (a *epinioAuth) epinioLocalLogin(c echo.Context) (string, string, string, error) {
 	log.Debug("epinioLocalLogin")
 
 	username, password, err := a.getRancherUsernameAndPassword(c)
 	if err != nil {
 		msg := "unable to determine Username and/or password: %+v"
 		log.Errorf(msg, err)
-		return "", "", errors.New(msg)
+		return "", "", "", errors.New(msg)
 	}
 
 	if err := a.verifyLocalLoginCreds(username, password); err != nil {
 		msg := "unable to verify Username and/or password: %+v"
 		log.Errorf(msg, err)
-		return "", "", errors.New(msg)
+		return "", "", "", errors.New(msg)
 	}
 
-	// User guid, user name, err
-	return username, username, nil
+	// User guid, user name, password (for epinio session cookie minting), err
+	return username, username, password, nil
 }
 
 func (a *epinioAuth) getRancherUsernameAndPassword(c echo.Context) (string, string, error) {
@@ -202,6 +212,91 @@ func (a *epinioAuth) verifyLocalLoginCreds(username, password string) error {
 
 	return nil
 
+}
+
+// establishEpinioSessionCookies calls the Epinio server login endpoint and
+// forwards Set-Cookie headers to the browser (EPINIO-837).
+func (a *epinioAuth) establishEpinioSessionCookies(c echo.Context, username, password string) error {
+	epinioEndpoint, err := epinio_utils.FindEpinioEndpoint(a.p)
+	if err != nil {
+		return fmt.Errorf("failed to find an epinio endpoint: %v", err)
+	}
+
+	loginURL := fmt.Sprintf("%s/api/v1/auth/login", epinioEndpoint.APIEndpoint.String())
+	body, err := json.Marshal(map[string]string{
+		"username": username,
+		"password": password,
+	})
+	if err != nil {
+		return err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, loginURL, strings.NewReader(string(body)))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	h := a.p.GetHttpClientForRequest(req, epinioEndpoint.SkipSSLValidation)
+	res, err := h.Do(req)
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		return fmt.Errorf("epinio login returned %d", res.StatusCode)
+	}
+
+	for _, cookie := range res.Cookies() {
+		// Re-emit for the public UI host (drop internal service Domain).
+		cookie.Domain = ""
+		cookie.Secure = true
+		if cookie.Path == "" {
+			cookie.Path = "/"
+		}
+		c.SetCookie(cookie)
+	}
+
+	return nil
+}
+
+// CookieLogin opens a Jetstream/Shell session from an existing Epinio server
+// session cookie (after OIDC callback or /api/v1/auth/login).
+func (a *epinioAuth) CookieLogin(c echo.Context) error {
+	log.Debug("CookieLogin")
+
+	epinioEndpoint, err := epinio_utils.FindEpinioEndpoint(a.p)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	meURL := fmt.Sprintf("%s/api/v1/me", epinioEndpoint.APIEndpoint.String())
+	req, err := http.NewRequest(http.MethodGet, meURL, nil)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+	req.Header.Set("Cookie", c.Request().Header.Get("Cookie"))
+
+	h := a.p.GetHttpClientForRequest(req, epinioEndpoint.SkipSSLValidation)
+	res, err := h.Do(req)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusUnauthorized, "epinio session invalid")
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		return echo.NewHTTPError(http.StatusUnauthorized, "epinio session invalid")
+	}
+
+	var me struct {
+		User string `json:"user"`
+	}
+	if err := json.NewDecoder(res.Body).Decode(&me); err != nil || me.User == "" {
+		return echo.NewHTTPError(http.StatusUnauthorized, "epinio session invalid")
+	}
+
+	return a.generateLoginSuccessResponse(c, me.User, me.User)
 }
 
 // ------------------
