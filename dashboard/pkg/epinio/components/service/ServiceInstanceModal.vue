@@ -14,6 +14,7 @@ import { debounce } from 'lodash';
 import { ListResourceRequestParams, ResourceQueryOptions } from '../../models/resource/ui-types';
 
 import isEqual from 'lodash/isEqual';
+import { formatDescriptionHtml } from '../../utils/format-description';
 
 const store = useStore() as any;
 const t = store.getters['i18n/t'];
@@ -99,6 +100,10 @@ const nsAppOptions = computed(() => {
 
 const selectedCatalogService = computed(() =>
   catalogServices?.value?.items.find((cs) => cs.meta.name === formCatalogService.value)
+);
+
+const selectedCatalogServiceDescriptionHtml = computed(() =>
+  formatDescriptionHtml(selectedCatalogService.value?.description)
 );
 
 const showChartValues = computed(() =>
@@ -434,6 +439,18 @@ defineExpose({ openCreate, openEdit, openView });
           ></trailhand-text-input>
         </trailhand-form-row>
 
+        <trailhand-form-row v-if="selectedCatalogServiceDescriptionHtml">
+          <div class="catalog-service-help">
+            <p class="catalog-service-help__title">
+              {{ t('epinio.services.catalogServiceHelp.title') }}
+            </p>
+            <p
+              v-clean-html="selectedCatalogServiceDescriptionHtml"
+              class="catalog-service-help__body"
+            />
+          </div>
+        </trailhand-form-row>
+
         <!-- Internal Routes (view/edit only, populated after individual fetch) -->
         <trailhand-form-row v-if="(isView || isEdit) && internalRoutes.length">
           <trailhand-code-editor
@@ -546,6 +563,27 @@ defineExpose({ openCreate, openEdit, openView });
   gap: 1rem;
   width: 560px;
   max-width: 100%;
+}
+
+.catalog-service-help {
+  width: 100%;
+
+  &__title {
+    margin: 0 0 0.35rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+  }
+
+  &__body {
+    margin: 0;
+    font-size: 0.875rem;
+    color: var(--deemphasized);
+    line-height: 1.5;
+
+    :deep(a) {
+      color: var(--link);
+    }
+  }
 }
 
 .discard-message {

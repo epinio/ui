@@ -12,6 +12,7 @@ import { ListResourceRequestParams } from '../models/resource/ui-types';
 import { ResourceTableRow } from '../models/resource/ui-types';
 import { CatalogService } from '../models/catalogservice/ui-types';
 import { createEpinioRoute } from '../utils/custom-routing';
+import { extractDescriptionLinks } from '../utils/format-description';
 import Banner from '@components/Banner/Banner.vue';
 
 const store = useStore()
@@ -62,9 +63,10 @@ const list = computed(() => {
 
   // Add custom namespace delete action to replace the built in rancher shell flow.
   // Gate by namespace write perms so view-only / app-only roles don't see Delete.
-  const rows: ResourceTableRow<CatalogService>[] = (catalogServices.value.items ?? []).map((s) => ({
+  const rows: ResourceTableRow<CatalogService & { docsLink?: string }>[] = (catalogServices.value.items ?? []).map((s) => ({
     ...s,
     id: s.meta.name, // stable, unique per namespace
+    docsLink: extractDescriptionLinks(s.description)[0],
     availableActions: [
       {
         label: 'Edit',
@@ -101,6 +103,7 @@ const showDetails = (catalogService: CatalogService) => {
   });
   store.$router.push(route);
 }
+
 </script>
 
 <template>
@@ -157,6 +160,21 @@ const showDetails = (catalogService: CatalogService) => {
             :actions="service.availableActions"
           />
         </div>
+        <div
+          v-if="service.docsLink"
+          slot="footer"
+          class="card-links"
+          @click.stop
+        >
+          <a
+            :href="service.docsLink"
+            target="_blank"
+            rel="noopener noreferrer nofollow"
+            class="card-link"
+          >
+            {{ t('epinio.catalogService.docsLink') }}
+          </a>
+        </div>
       </trailhand-card>
     </div>
   </div>
@@ -203,6 +221,17 @@ const showDetails = (catalogService: CatalogService) => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.card-links {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.card-link {
+  font-size: 0.875rem;
+  word-break: break-all;
 }
 
 .center {

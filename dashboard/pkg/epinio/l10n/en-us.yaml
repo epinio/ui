@@ -493,6 +493,8 @@ epinio:
       attemptingToRemove: You are attempting to delete the Service Instance
     chartValues:
       title: Service Variables
+    catalogServiceHelp:
+      title: About this service
     create:
       label: Create Service
     errors:
@@ -537,8 +539,10 @@ epinio:
     tableHeaders:
       shortDesc: Headline
       desc: Description
+    docsLink: Documentation
     detail:
       servicesTitle: "{catalogService} Services"
+      descriptionInfo: About this service
       chartVersion: Chart Version
       appVersion: Version
       helmChart: Helm Chart
