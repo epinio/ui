@@ -82,6 +82,7 @@ func (a *epinioAuth) Login(c echo.Context) error {
 	if authType == "local" && localPassword != "" {
 		if cookieErr := a.establishEpinioSessionCookies(c, username, localPassword); cookieErr != nil {
 			log.Warnf("failed to establish epinio session cookies: %v", cookieErr)
+			return echo.NewHTTPError(http.StatusUnauthorized, "failed to establish epinio session")
 		}
 	}
 
@@ -276,7 +277,10 @@ func (a *epinioAuth) CookieLogin(c echo.Context) error {
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
-	req.Header.Set("Cookie", c.Request().Header.Get("Cookie"))
+	// Forward only the Epinio session cookie — never the full Jetstream/Stratos cookie jar.
+	if epinioSession, err := c.Cookie("EPINIO_SESSION"); err == nil && epinioSession != "" {
+		req.AddCookie(&http.Cookie{Name: "EPINIO_SESSION", Value: epinioSession})
+	}
 
 	h := a.p.GetHttpClientForRequest(req, epinioEndpoint.SkipSSLValidation)
 	res, err := h.Do(req)

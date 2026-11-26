@@ -1,3 +1,18 @@
+jest.mock('@shell/utils/crypto', () => ({
+  base64Encode: (value: string) => Buffer.from(value, 'utf8').toString('base64'),
+}));
+
+jest.mock('oidc-client-ts', () => ({
+  UserManager: jest.fn().mockImplementation(() => ({
+    getUser:         jest.fn().mockResolvedValue(null),
+    signinPopup:     jest.fn().mockResolvedValue(undefined),
+    removeUser:      jest.fn().mockResolvedValue(undefined),
+    clearStaleState: jest.fn().mockResolvedValue(undefined),
+    settings:        { authority: '' },
+  })),
+  User: jest.fn(),
+}));
+
 import epinioAuth, { EpinioAuthTypes } from './auth';
 
 function mockFetchSequence(responses: Array<Partial<Response> & { json?: () => Promise<any> }>) {
@@ -21,7 +36,7 @@ describe('epinioAuth (EPINIO-837 server session)', () => {
   const originalLocation = window.location;
   let assignMock: jest.Mock;
 
-  beforeEach(() => {
+  beforeEach(async() => {
     sessionStorage.clear();
     document.cookie.split(';').forEach((c) => {
       const name = c.split('=')[0].trim();
@@ -34,12 +49,11 @@ describe('epinioAuth (EPINIO-837 server session)', () => {
     assignMock = jest.fn();
     // @ts-ignore — stub location.assign for OIDC start
     delete (window as any).location;
-    (window as any).location = { ...originalLocation, origin: 'https://ui.example', assign: assignMock };
+    // Same-origin with epinio API → cookie session path
+    (window as any).location = { ...originalLocation, origin: 'https://epinio.example', assign: assignMock };
 
-    // Clear in-memory session without hitting network.
     mockFetchSequence([{ ok: true, status: 200 }]);
-    // fire-and-forget clear; tests re-mock fetch afterwards
-    void epinioAuth.logout({ type: EpinioAuthTypes.AGNOSTIC, epinioUrl: 'https://epinio.example' });
+    await epinioAuth.logout({ type: EpinioAuthTypes.AGNOSTIC, epinioUrl: 'https://epinio.example' });
   });
 
   afterEach(() => {
@@ -61,7 +75,7 @@ describe('epinioAuth (EPINIO-837 server session)', () => {
 
     expect(user).toEqual({ email: 'admin', name: 'admin' });
     expect(fetchMock).toHaveBeenCalledWith(
-      'https://epinio.example/api/v1/auth/login',
+      '/api/v1/auth/login',
       expect.objectContaining({
         method:      'POST',
         credentials: 'include',
@@ -92,7 +106,7 @@ describe('epinioAuth (EPINIO-837 server session)', () => {
       dexConfig: { dashboardUrl: 'https://ui', dexUrl: 'https://auth' },
     });
 
-    expect(assignMock).toHaveBeenCalledWith('https://epinio.example/api/v1/auth/oidc/start');
+    expect(assignMock).toHaveBeenCalledWith('/api/v1/auth/oidc/start');
   });
 
   it('isLoggedIn is true when /api/v1/me succeeds', async() => {
@@ -122,13 +136,13 @@ describe('epinioAuth (EPINIO-837 server session)', () => {
     await epinioAuth.logout({ type: EpinioAuthTypes.AGNOSTIC, epinioUrl: 'https://epinio.example' });
 
     expect(fetchMock).toHaveBeenCalledWith(
-      'https://epinio.example/api/v1/auth/logout',
+      '/api/v1/auth/logout',
       expect.objectContaining({ method: 'POST', credentials: 'include' })
     );
     expect(await epinioAuth.user()).toBeUndefined();
   });
 
-  it('authHeader returns undefined so cookie session is used', async() => {
+  it('authHeader returns undefined for same-origin cookie session', async() => {
     const header = await epinioAuth.authHeader({
       type:      EpinioAuthTypes.AGNOSTIC,
       epinioUrl: 'https://epinio.example',
@@ -137,24 +151,27 @@ describe('epinioAuth (EPINIO-837 server session)', () => {
     expect(header).toBeUndefined();
   });
 
-  it('same-origin epinioUrl uses relative /api paths', async() => {
-    (window as any).location = { ...window.location, origin: 'https://epinio.example', assign: assignMock };
+  it('cross-origin LOCAL login uses Basic authHeader', async() => {
+    (window as any).location = { ...window.location, origin: 'https://rancher.example', assign: assignMock };
 
-    const fetchMock = mockFetchSequence([
-      { ok: false, status: 401 },
-      { ok: true, status: 200, json: async() => ({ user: 'admin' }) },
-      { ok: true, status: 404 },
-    ]);
+    const axiosMock = jest.fn().mockResolvedValue({ status: 200 });
 
-    await epinioAuth.login({
+    const user = await epinioAuth.login({
       type:        EpinioAuthTypes.LOCAL,
       epinioUrl:   'https://epinio.example',
-      localConfig: { username: 'admin', password: 'password' },
+      localConfig: { username: 'admin', password: 'password', $axios: axiosMock },
     });
 
-    expect(fetchMock).toHaveBeenCalledWith(
-      '/api/v1/auth/login',
-      expect.objectContaining({ method: 'POST' })
-    );
+    expect(user).toEqual({ email: 'admin', name: 'admin' });
+    expect(axiosMock).toHaveBeenCalledWith(expect.objectContaining({
+      url: 'https://epinio.example/api/v1/me',
+    }));
+
+    const header = await epinioAuth.authHeader({
+      type:      EpinioAuthTypes.AGNOSTIC,
+      epinioUrl: 'https://epinio.example',
+    });
+
+    expect(header).toMatch(/^Basic /);
   });
 });

@@ -16,21 +16,26 @@ export async function isSameOriginEpinioApi(): Promise<boolean> {
   try {
     const res = await fetch('/api/v1/info', { credentials: 'include' });
 
-    if (!res.ok) {
+    if (res.ok) {
+      const data = await res.json().catch(() => null);
+
+      // Epinio Info response includes version / oidc_enabled; Jetstream info looks different.
+      cached = !!(data && (typeof data.version === 'string' || typeof data.oidc_enabled === 'boolean'));
+
+      return cached;
+    }
+
+    // Definitive "not Epinio" (Jetstream returns 401 on /api/v1/info).
+    if (res.status === 401) {
       cached = false;
 
       return false;
     }
 
-    const data = await res.json().catch(() => null);
-
-    // Epinio Info response includes version / oidc_enabled; Jetstream info looks different.
-    cached = !!(data && (typeof data.version === 'string' || typeof data.oidc_enabled === 'boolean'));
-
-    return cached;
+    // Other status codes: do not cache — may be transient.
+    return false;
   } catch {
-    cached = false;
-
+    // Network blip: do not cache failure for the page lifetime.
     return false;
   }
 }
